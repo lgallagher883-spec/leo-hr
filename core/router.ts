@@ -1,12 +1,15 @@
 import { detectIntent, IntentType } from "./intent";
 import { assessRisk, RiskAssessment } from "./risk";
 import { classify, LeoClassification } from "./classifier";
+import { runReasoningModules } from "../reasoning/modules";
+import { ReasoningModuleOutput } from "../reasoning/modules/types";
 
 export type LeoCoreOutput = {
   intent: IntentType;
   risk: RiskAssessment;
   decision: LeoClassification;
   requiresMatter: boolean;
+  reasoningModules: ReasoningModuleOutput[];
 };
 
 export function runLeoCore(message: string): LeoCoreOutput {
@@ -19,7 +22,14 @@ export function runLeoCore(message: string): LeoCoreOutput {
   // 3. Classification decision
   const decision = classify(intent, risk, message);
 
-  // 4. Matter rule (final override safety check)
+  // 4. Professional HR reasoning
+  const reasoningModules = runReasoningModules({
+    matterContext: message,
+    intent: String(intent),
+    risk: String(risk.overall),
+  });
+
+  // 5. Matter rule
   const requiresMatter =
     decision.shouldCreateMatter ||
     decision.category === "escalation_required";
@@ -28,6 +38,7 @@ export function runLeoCore(message: string): LeoCoreOutput {
     intent,
     risk,
     decision,
-    requiresMatter
+    requiresMatter,
+    reasoningModules,
   };
 }

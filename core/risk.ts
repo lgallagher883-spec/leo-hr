@@ -1,3 +1,5 @@
+import { IntentType } from "./intent";
+
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
 export type RiskAssessment = {
@@ -15,16 +17,17 @@ function highestRisk(risks: RiskLevel[]): RiskLevel {
   return "low";
 }
 
-export function assessRisk(intent: string, message: string): RiskAssessment {
+export function assessRisk(
+  intent: IntentType,
+  message: string
+): RiskAssessment {
   const text = message.toLowerCase();
 
-  // Default baseline
   let legal: RiskLevel = "low";
   let employee: RiskLevel = "low";
   let business: RiskLevel = "low";
   let relationship: RiskLevel = "low";
 
-  // Termination / dismissal risk
   if (intent === "termination") {
     legal = "critical";
     employee = "critical";
@@ -32,28 +35,31 @@ export function assessRisk(intent: string, message: string): RiskAssessment {
     relationship = "high";
   }
 
-  // Grievance risk
   if (intent === "grievance") {
     legal = "high";
     employee = "high";
     relationship = "high";
   }
 
-  // Disciplinary risk
   if (intent === "disciplinary") {
     legal = "high";
     employee = "high";
     business = "medium";
   }
 
-  // Absence / sickness
   if (intent === "absence") {
     legal = "medium";
     employee = "medium";
     business = "medium";
   }
 
-  // Redundancy
+  if (intent === "flexible_working") {
+    legal = "medium";
+    employee = "medium";
+    business = "medium";
+    relationship = "medium";
+  }
+
   if (intent === "redundancy") {
     legal = "critical";
     employee = "critical";
@@ -61,20 +67,17 @@ export function assessRisk(intent: string, message: string): RiskAssessment {
     relationship = "high";
   }
 
-  // Pay issues
   if (intent === "pay") {
     legal = "high";
     employee = "high";
     business = "medium";
   }
 
-  // Contract issues
   if (intent === "contract") {
     legal = "medium";
     employee = "medium";
   }
 
-  // Escalation keywords (override logic)
   if (
     text.includes("tribunal") ||
     text.includes("lawyer") ||
@@ -91,6 +94,6 @@ export function assessRisk(intent: string, message: string): RiskAssessment {
     employee,
     business,
     relationship,
-    overall
+    overall,
   };
 }

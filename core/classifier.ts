@@ -21,32 +21,26 @@ export function classify(
 ): LeoClassification {
   const text = message.toLowerCase();
 
-  // 🚫 Out of scope
   if (intent === "non_workplace") {
     return {
       intent,
       risk,
       category: "out_of_scope",
       shouldCreateMatter: false,
-      confidence: "high"
+      confidence: "high",
     };
   }
 
-  // 🔴 Critical escalation cases
-  if (
-    risk.overall === "critical" ||
-    risk.legal === "critical"
-  ) {
+  if (risk.overall === "critical" || risk.legal === "critical") {
     return {
       intent,
       risk,
       category: "escalation_required",
       shouldCreateMatter: true,
-      confidence: "high"
+      confidence: "high",
     };
   }
 
-  // 📄 Document required cases
   if (
     intent === "disciplinary" ||
     intent === "grievance" ||
@@ -59,32 +53,31 @@ export function classify(
       risk,
       category: "document_needed",
       shouldCreateMatter: true,
-      confidence: "medium"
+      confidence: "medium",
     };
   }
 
-  // ⚖️ Policy guidance cases
   if (
     intent === "policy_question" ||
     intent === "contract" ||
     intent === "pay" ||
-    intent === "absence"
+    intent === "absence" ||
+    intent === "flexible_working"
   ) {
     return {
       intent,
       risk,
       category: "policy_guidance",
-      shouldCreateMatter: false,
-      confidence: "high"
+      shouldCreateMatter: true,
+      confidence: "high",
     };
   }
 
-  // 🧠 Default advice
   return {
     intent,
     risk,
     category: "advice",
     shouldCreateMatter: false,
-    confidence: "medium"
+    confidence: "medium",
   };
 }

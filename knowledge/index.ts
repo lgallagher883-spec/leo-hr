@@ -1,48 +1,177 @@
-export type KnowledgeArticle = {
-  intent: string;
+import {
+  OrganisationMemoryItem,
+  searchOrganisationMemory,
+} from "./organisationMemory";
+
+import {
+  PolicyMatch,
+  searchPolicies,
+} from "./policySearch";
+
+import {
+  StoredPolicy,
+  searchStoredPolicies,
+} from "./storage/policies";
+
+import {
+  StoredOrganisationKnowledge,
+  searchStoredOrganisationKnowledge,
+} from "./storage/organisation";
+
+import {
+  StoredPreviousMatter,
+  searchPreviousMatters,
+} from "./storage/previousMatters";
+
+export interface KnowledgeSource {
+  id: string;
+
+  type:
+    | "company_policy"
+    | "contract"
+    | "handbook"
+    | "uploaded_document"
+    | "foundation"
+    | "organisation_memory"
+    | "previous_matter";
+
   title: string;
+
   summary: string;
-  nextStep: string;
-};
 
-const knowledge: Record<string, KnowledgeArticle> = {
-  flexible_working: {
-    intent: "flexible_working",
-    title: "Flexible Working",
-    summary:
-      "A request to change working arrangements should be assessed carefully, taking account of company policy, the statutory framework and the operational needs of the business.",
-    nextStep:
-      "Clarify whether the employee is making an informal enquiry or a formal flexible working request before deciding how to respond.",
-  },
+  relevance: string;
 
-  grievance: {
-    intent: "grievance",
-    title: "Grievance",
-    summary:
-      "Employee concerns should be handled fairly, consistently and in accordance with the organisation's grievance procedure.",
-    nextStep:
-      "Acknowledge the grievance, review the relevant policy and consider whether an investigation is required.",
-  },
+  confidence: "low" | "medium" | "high";
+}
 
-  disciplinary: {
-    intent: "disciplinary",
-    title: "Disciplinary",
-    summary:
-      "Potential misconduct should be investigated before deciding whether formal disciplinary action is appropriate.",
-    nextStep:
-      "Establish the facts, gather evidence and follow the disciplinary procedure.",
-  },
+export interface KnowledgeSearchInput {
+  message: string;
 
-  absence: {
-    intent: "absence",
-    title: "Absence",
-    summary:
-      "Absence matters should be considered alongside the reason for absence, the employee's wellbeing and the organisation's attendance procedures.",
-    nextStep:
-      "Review the attendance record, consider any support required and follow the absence policy.",
-  },
-};
+  organisationMemory?: OrganisationMemoryItem[];
 
-export function getKnowledge(intent: string): KnowledgeArticle | null {
-  return knowledge[intent] ?? null;
+  policies?: StoredPolicy[];
+
+  organisationKnowledge?: StoredOrganisationKnowledge[];
+
+  previousMatters?: StoredPreviousMatter[];
+}
+
+export interface KnowledgeSearchResult {
+  sources: KnowledgeSource[];
+
+  policyMatches: PolicyMatch[];
+
+  memoryMatches: OrganisationMemoryItem[];
+
+  organisationMatches: ReturnType<
+    typeof searchStoredOrganisationKnowledge
+  >;
+
+  previousMatterMatches: ReturnType<
+    typeof searchPreviousMatters
+  >;
+
+  organisationKnowledgeFound: boolean;
+}
+
+export function searchKnowledge(
+  input: KnowledgeSearchInput
+): KnowledgeSearchResult {
+  const policyResult = searchPolicies(input.message);
+
+  const storedPolicyMatches = searchStoredPolicies(
+    input.message,
+    input.policies || []
+  );
+
+  const memoryResult = searchOrganisationMemory(
+    input.message,
+    input.organisationMemory || []
+  );
+
+  const organisationMatches =
+    searchStoredOrganisationKnowledge(
+      input.message,
+      input.organisationKnowledge || []
+    );
+
+  const previousMatterMatches =
+    searchPreviousMatters(
+      input.message,
+      input.previousMatters || []
+    );
+
+  const policySources: KnowledgeSource[] = [
+    ...policyResult.matches.map((match) => ({
+      id: match.id,
+      type: "company_policy" as const,
+      title: match.policyName,
+      summary: match.summary,
+      relevance: match.relevance,
+      confidence: match.confidence,
+    })),
+
+    ...storedPolicyMatches.map((match) => ({
+      id: `${match.policyId}:${match.sectionId}`,
+      type: "company_policy" as const,
+      title: `${match.policyTitle} — ${match.sectionHeading}`,
+      summary:
+        "A relevant section was found in an employer policy.",
+      relevance: match.relevance,
+      confidence: match.confidence,
+    })),
+  ];
+
+  const memorySources: KnowledgeSource[] =
+    memoryResult.matches.map((memory) => ({
+      id: memory.id,
+      type: "organisation_memory",
+      title: memory.title,
+      summary: memory.content,
+      relevance:
+        "This organisational memory may be relevant to the employer's question.",
+      confidence: "high",
+    }));
+
+  const organisationSources: KnowledgeSource[] =
+    organisationMatches.map((match) => ({
+      id: match.id,
+      type:
+        match.type === "organisation_memory"
+          ? "organisation_memory"
+          : "foundation",
+      title: match.title,
+      summary: match.content,
+      relevance: match.relevance,
+      confidence: match.confidence,
+    }));
+
+  const previousMatterSources: KnowledgeSource[] =
+    previousMatterMatches.map((match) => ({
+      id: match.id,
+      type: "previous_matter",
+      title: match.title,
+      summary: match.outcome
+        ? `${match.summary} Outcome: ${match.outcome}`
+        : match.summary,
+      relevance: match.relevance,
+      confidence: match.confidence,
+    }));
+
+  const sources = [
+    ...policySources,
+    ...memorySources,
+    ...organisationSources,
+    ...previousMatterSources,
+  ];
+
+  return {
+    sources,
+    policyMatches: policyResult.matches,
+    memoryMatches: memoryResult.matches,
+    organisationMatches,
+    previousMatterMatches,
+    organisationKnowledgeFound:
+      sources.length > 0,
+  };
 }

@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --leo-bg: #F7F1FC;
+  --leo-primary: #6E5084;
+  --leo-text: #111827;
+  --leo-muted: #6b7280;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--leo-bg);
+  color: var(--leo-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}

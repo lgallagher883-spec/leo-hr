@@ -1,0 +1,203 @@
+# LEO Foundations v1
+
+**Version:** 1.0
+**Status:** Approved
+**Approved:** 11 July 2026
+
+---
+
+# Purpose
+
+LEO Foundations provides the structured organisational knowledge that underpins the entire LEO platform.
+
+Its purpose is to build and maintain an accurate understanding of an organisation so that Leo can deliver guidance that reflects how the employer actually operates.
+
+Foundations is not intended to store every possible organisational rule.
+
+Instead, it provides Leo with a strong starting point that continues to improve through uploaded documents, completed Matters and ongoing conversations.
+
+---
+
+# Design Principles
+
+Foundations should always be:
+
+* Structured
+* Organisation-specific
+* Easy to maintain
+* Easy to expand
+* Independent of industry
+* Free from duplicated information
+
+Leo must never invent Foundation information.
+
+Where information is unknown, it remains unknown until confirmed by the employer or supported by uploaded organisational documents.
+
+---
+
+# Foundation Areas
+
+LEO Foundations is divided into five core areas.
+
+## Company Profile
+
+Stores high-level information describing the organisation.
+
+Examples include:
+
+* Business type
+* Sector
+* Services provided
+* Workforce size
+* Number of sites
+* Location
+* Regulator
+* Ownership
+
+---
+
+## Organisation Structure
+
+Stores information describing how the organisation operates.
+
+Examples include:
+
+* Reporting lines
+* Departments
+* Working locations
+* Hybrid working
+* Site working patterns
+* Employee travel
+* Workforce composition
+* HR responsibility
+
+---
+
+## Employment Framework
+
+Stores contractual and employment arrangements.
+
+Examples include:
+
+* Holiday year
+* Probation
+* Working week
+* Working pattern
+* Shift arrangements
+* Place of work
+* Notice periods
+* Pay arrangements
+* Benefits
+* Family leave
+* Pension
+
+---
+
+## HR Resources
+
+Records what HR documentation and systems exist.
+
+Examples include:
+
+* Employee handbook
+* Policies
+* Procedures
+* Contract templates
+* Standard letters
+* Forms
+* Risk assessments
+* Training materials
+* HR systems
+* HR records
+
+This section records the existence of organisational resources.
+
+It does not assume Leo has read or interpreted them.
+
+---
+
+## Company Knowledge
+
+Stores organisation-specific operational knowledge that helps Leo provide better advice.
+
+Examples include:
+
+* Operational rules
+* Internal practices
+* Approval routes
+* Escalation routes
+* Management preferences
+* Compliance obligations
+* Organisational memory
+* Things Leo should remember
+
+---
+
+# Sources of Foundation Knowledge
+
+Foundation knowledge may originate from:
+
+* Welcome Brief
+* Manual Foundation updates
+* Uploaded HR Resources
+* Future organisation-approved learning
+* Future validated organisational knowledge
+
+Welcome Brief provides Leo with an initial understanding only.
+
+Uploaded documents become the primary source of organisational truth where applicable.
+
+---
+
+# Validation Rules
+
+Every Foundation fact must:
+
+* belong to a single Foundation area
+* use an approved Foundation key
+* contain one organisational fact only
+* avoid duplication
+* avoid speculation
+* avoid employee-specific personal information
+
+---
+
+# Future Development Principles
+
+Future development should extend Foundations without changing its underlying structure.
+
+New Foundation keys should only be added where they represent genuinely new organisational knowledge.
+
+Existing keys should not be duplicated or replaced unless a superior canonical key is agreed.
+
+---
+
+# Relationship to Other LEO Components
+
+Foundations forms part of the wider LEO intelligence architecture.
+
+```
+Welcome Brief
+        │
+        ▼
+LEO Foundations
+        │
+        ├── Ask Leo
+        ├── Matters
+        ├── LEO Draft™
+        ├── LEO Insight™
+        ├── HR Resources
+        └── Future Organisation Memory
+```
+
+Foundations provides the organisational context that enables every other component of the platform to deliver organisation-specific guidance.
+
+---
+
+# Version Status
+
+LEO Foundations Version 1 establishes the approved organisational knowledge model for the platform.
+
+Future development should build upon this architecture rather than redesign it.
+
+This component is considered stable and ready for integration with the remaining LEO platform modules.

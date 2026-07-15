@@ -100,8 +100,8 @@ export async function POST(request: Request) {
       body.sourceRecordId;
 
     const organisationId =
-      body.organisationId?.trim() ||
-      "default-organisation";
+  body.organisationId?.trim() ||
+  "00000000-0000-0000-0000-000000000000";
 
     if (
       action !== "prepare" &&

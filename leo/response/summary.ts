@@ -1,5 +1,5 @@
 import { LeoCoreOutput } from "../core/router";
-import { getKnowledge } from "../knowledge";
+import { searchKnowledge } from "../knowledge";
 import { buildSummaryUnderstanding } from "./summaryBuilder";
 
 export type LeoSummaryOutput = {
@@ -12,7 +12,11 @@ export function generateLeoSummary(
   result: LeoCoreOutput,
   matterDescription?: string
 ): LeoSummaryOutput {
-  const knowledge = getKnowledge(result.intent);
+  const knowledge = searchKnowledge({
+    message:
+      matterDescription?.trim() ||
+      String(result.intent),
+  });
 
   return {
     understanding: buildSummaryUnderstanding(
@@ -20,13 +24,18 @@ export function generateLeoSummary(
       matterDescription,
       knowledge
     ),
-    risk: formatRisk(result.risk.overall),
+
+    risk: formatRisk(
+      result.risk.overall
+    ),
+
     nextStep:
-      knowledge?.nextStep ||
-      "Continue the conversation with Leo so the matter can be assessed and the next appropriate HR step can be identified.",
+      "Continue the conversation with Leo so the current position can be assessed and the next appropriate step identified.",
   };
 }
 
-function formatRisk(risk: string): string {
-  return risk.toUpperCase();
+function formatRisk(
+  risk: string
+): string {
+  return String(risk).toUpperCase();
 }

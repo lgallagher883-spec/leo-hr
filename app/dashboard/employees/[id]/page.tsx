@@ -16,6 +16,7 @@ import ComplianceSummary from "./components/ComplianceSummary";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import EmployeeDevelopment from "./components/EmployeeDevelopment";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,6 +36,7 @@ type ProfileSection =
   | "Overview"
   | "Compliance Summary"
   | "Employment"
+  | "Development"
   | "Notes"
   | "Matters"
   | "Leave & Absence"
@@ -52,6 +54,7 @@ const sections: ProfileSection[] = [
   "Overview",
   "Compliance Summary",
   "Employment",
+  "Development",
   "Notes",
   "Matters",
   "Leave & Absence",
@@ -196,6 +199,9 @@ export default function EmployeeProfilePage() {
               initialStartDate={employee.start_date || ""}
             />
           )}
+{activeSection === "Development" && (
+  <EmployeeDevelopment employeeId={employee.id} />
+)}
 
           {activeSection === "Notes" && (
             <EmployeeNotes employeeId={employee.id} />

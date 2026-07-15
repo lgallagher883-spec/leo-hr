@@ -3,14 +3,19 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { runAuthorityEngine } from "@/leo/authority/router";
+import { buildConversationPlan } from "@/leo/conversation/conversationEngine";
+import { buildConversationPrompt } from "@/leo/conversation/conversationPrompt";
 import { runLeoCore } from "@/leo/core/router";
 import { searchKnowledge } from "@/leo/knowledge";
 import {
   StoredPolicy,
   StoredPolicySection,
 } from "@/leo/knowledge/storage/policies";
-import { buildLeoPrompt } from "@/leo/prompt/builder";
+import { buildLeoPrompt } from "@/leo/prompt/builder™";
 import { runLeoReasoning } from "@/leo/reasoning/reasoner";
+import { buildResponseArchitecture } from "@/leo/response/responseArchitecture";
+import { buildResponsePrompt } from "@/leo/response/responsePrompt";
+import { runProfessionalThinking } from "@/leo/thinking/model";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -60,13 +65,20 @@ export async function POST(req: Request) {
     }
 
     /*
-     * 1. LEO CORE
+     * 1. PROFESSIONAL THINKING
+     */
+
+    const thinkingResult =
+      runProfessionalThinking(message);
+
+    /*
+     * 2. LEO CORE
      */
 
     const coreResult = runLeoCore(message);
 
     /*
-     * 2. PROFESSIONAL REASONING
+     * 3. PROFESSIONAL REASONING
      */
 
     const reasoningResult = runLeoReasoning(
@@ -75,19 +87,21 @@ export async function POST(req: Request) {
     );
 
     /*
-     * 3. AUTHORITY ENGINE
+     * 4. AUTHORITY ENGINE
      */
 
-    const authorityResult = await runAuthorityEngine({
-      message,
-      intent: coreResult.intent,
-      risk: coreResult.risk.overall,
-      classification: coreResult.decision,
-      professionalReasoning: reasoningResult,
-    });
+    const authorityResult =
+      await runAuthorityEngine({
+        message,
+        intent: coreResult.intent,
+        risk: coreResult.risk.overall,
+        classification: coreResult.decision,
+        professionalReasoning:
+          reasoningResult,
+      });
 
     /*
-     * 4. FOUNDATIONS
+     * 5. FOUNDATIONS
      */
 
     const {
@@ -105,26 +119,31 @@ export async function POST(req: Request) {
     }
 
     const organisationKnowledge =
-      foundationRows?.map((row, index) => ({
-        id: `${row.section}-${row.key}-${index}`,
-        type: mapFoundationType(row.section),
-        title: row.key,
-        content: row.value,
-        keywords: buildKnowledgeKeywords(
-          row.section,
-          row.key,
-          row.value
-        ),
-        source: "foundation" as const,
-        active: true,
-      })) ?? [];
+      foundationRows?.map(
+        (row, index) => ({
+          id: `${row.section}-${row.key}-${index}`,
+          type: mapFoundationType(
+            row.section
+          ),
+          title: row.key,
+          content: row.value,
+          keywords: buildKnowledgeKeywords(
+            row.section,
+            row.key,
+            row.value
+          ),
+          source: "foundation" as const,
+          active: true,
+        })
+      ) ?? [];
 
     /*
-     * 5. HR RESOURCE DOCUMENT KNOWLEDGE
+     * 6. HR RESOURCE DOCUMENT KNOWLEDGE
      */
 
     const organisationId =
-      typeof body.organisationId === "string" &&
+      typeof body.organisationId ===
+        "string" &&
       body.organisationId.trim()
         ? body.organisationId.trim()
         : "default-organisation";
@@ -136,7 +155,7 @@ export async function POST(req: Request) {
       );
 
     /*
-     * 6. EXISTING SUPPLIED KNOWLEDGE
+     * 7. EXISTING SUPPLIED KNOWLEDGE
      */
 
     const suppliedPolicies: StoredPolicy[] =
@@ -145,7 +164,7 @@ export async function POST(req: Request) {
         : [];
 
     /*
-     * 7. LEO KNOWLEDGE
+     * 8. LEO KNOWLEDGE
      */
 
     const knowledgeResult = searchKnowledge({
@@ -172,51 +191,102 @@ export async function POST(req: Request) {
     });
 
     /*
-     * 8. PROMPT BUILDER
+     * 9. CONVERSATION INTELLIGENCE
+     */
+
+    const conversationPlan =
+      buildConversationPlan({
+        message,
+        thinking: thinkingResult,
+      });
+
+    const conversationPrompt =
+      buildConversationPrompt({
+        plan: conversationPlan,
+      });
+
+    /*
+     * 10. RESPONSE ARCHITECTURE
+     */
+
+    const responseArchitecture =
+      buildResponseArchitecture({
+        message,
+        conversationPlan,
+      });
+
+    const responsePrompt =
+      buildResponsePrompt({
+        architecture:
+          responseArchitecture,
+      });
+
+    /*
+     * 11. PROMPT BUILDER
      */
 
     const leoPrompt = buildLeoPrompt(
-      message,
+      thinkingResult,
       coreResult,
       reasoningResult,
       authorityResult,
-      knowledgeResult
+      knowledgeResult,
+      conversationPlan,
+      conversationPrompt,
+      responsePrompt
     );
 
     /*
-     * 9. OPENAI
+     * 12. OPENAI
      */
 
     const completion =
-      await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: leoPrompt,
-          },
-        ],
-      });
+      await client.chat.completions.create(
+        {
+          model: "gpt-4o-mini",
+          temperature: 0.4,
+          messages: [
+            {
+              role: "system",
+              content: leoPrompt,
+            },
+            {
+              role: "user",
+              content: message,
+            },
+          ],
+        }
+      );
 
     const response =
-      completion.choices[0]?.message?.content ??
+      completion.choices[0]?.message
+        ?.content ??
       "Leo was unable to generate a response.";
+
+    console.log(
+      "LEO CONVERSATION PLAN:",
+      conversationPlan
+    );
 
     return NextResponse.json({
       response,
+      thinking: thinkingResult,
       core: coreResult,
       reasoning: reasoningResult,
-      authority: authorityResult,
-      knowledge: knowledgeResult,
+      conversation: conversationPlan,
+      responseArchitecture,
 
       documentKnowledge: {
-        policyCount: documentPolicies.length,
+        policyCount:
+          documentPolicies.length,
 
-        sectionCount: documentPolicies.reduce(
-          (total, policy) =>
-            total + policy.sections.length,
-          0
-        ),
+        sectionCount:
+          documentPolicies.reduce(
+            (total, policy) =>
+              total +
+              policy.sections.length,
+            0
+          ),
 
         sources: documentPolicies.map(
           (policy) => policy.title
@@ -224,7 +294,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error("Ask Leo API error:", error);
+    console.error(
+      "Ask Leo API error:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -246,28 +319,31 @@ async function loadRelevantDocumentPolicies(
     createServerSupabaseClient();
 
   const {
-  data: chunkData,
-  error: chunkError,
-} = await serverSupabase
-  .from("knowledge_chunks")
-  .select(
-    `
-      id,
-      document_id,
-      organisation_id,
-      source_table,
-      source_record_id,
-      chunk_index,
-      heading,
-      content,
-      metadata
-    `
-  )
-  .eq("organisation_id", organisationId)
-  .eq("is_active", true)
-  .order("chunk_index", {
-    ascending: true,
-  });
+    data: chunkData,
+    error: chunkError,
+  } = await serverSupabase
+    .from("knowledge_chunks")
+    .select(
+      `
+        id,
+        document_id,
+        organisation_id,
+        source_table,
+        source_record_id,
+        chunk_index,
+        heading,
+        content,
+        metadata
+      `
+    )
+    .eq(
+      "organisation_id",
+      organisationId
+    )
+    .eq("is_active", true)
+    .order("chunk_index", {
+      ascending: true,
+    });
 
   if (chunkError) {
     console.error(
@@ -279,7 +355,8 @@ async function loadRelevantDocumentPolicies(
   }
 
   const chunks =
-    (chunkData || []) as StoredKnowledgeChunk[];
+    (chunkData ||
+      []) as StoredKnowledgeChunk[];
 
   if (chunks.length === 0) {
     return [];
@@ -311,7 +388,9 @@ async function loadRelevantDocumentPolicies(
     error: policyError,
   } = await serverSupabase
     .from("policy_register")
-    .select("id,name,register_type")
+    .select(
+      "id,name,register_type"
+    )
     .in("id", policyRecordIds);
 
   if (policyError) {
@@ -324,24 +403,29 @@ async function loadRelevantDocumentPolicies(
   }
 
   const policyRecords =
-    (policyData || []) as PolicyRegisterRecord[];
+    (policyData ||
+      []) as PolicyRegisterRecord[];
 
-  const searchTerms = normaliseSearchTerms(message);
+  const searchTerms =
+    normaliseSearchTerms(message);
 
   const relevantChunks = chunks
     .map((chunk) => {
-      const policy = policyRecords.find(
-        (record) =>
-          chunk.source_table ===
-            "policy_register" &&
-          record.id === chunk.source_record_id
-      );
+      const policy =
+        policyRecords.find(
+          (record) =>
+            chunk.source_table ===
+              "policy_register" &&
+            record.id ===
+              chunk.source_record_id
+        );
 
       if (!policy) {
         return null;
       }
 
-      const heading = chunk.heading || "";
+      const heading =
+        chunk.heading || "";
 
       const searchableText = [
         policy.name,
@@ -364,17 +448,22 @@ async function loadRelevantDocumentPolicies(
         }
 
         if (
-          heading.toLowerCase().includes(term)
+          heading
+            .toLowerCase()
+            .includes(term)
         ) {
           score += 25;
         }
 
-        if (searchableText.includes(term)) {
+        if (
+          searchableText.includes(term)
+        ) {
           score += 10;
         }
       }
 
-      const phrase = searchTerms.join(" ");
+      const phrase =
+        searchTerms.join(" ");
 
       if (
         phrase.length > 5 &&
@@ -396,7 +485,10 @@ async function loadRelevantDocumentPolicies(
         chunk: StoredKnowledgeChunk;
         policy: PolicyRegisterRecord;
         score: number;
-      } => Boolean(result && result.score > 0)
+      } =>
+        Boolean(
+          result && result.score > 0
+        )
     )
     .sort(
       (first, second) =>
@@ -413,74 +505,92 @@ async function loadRelevantDocumentPolicies(
   >();
 
   for (const result of relevantChunks) {
-    const existing = policyGroups.get(
-      result.policy.id
-    );
+    const existing =
+      policyGroups.get(
+        result.policy.id
+      );
 
-    const section: StoredPolicySection = {
-      id: result.chunk.id,
+    const section: StoredPolicySection =
+      {
+        id: result.chunk.id,
 
-      heading:
-        result.chunk.heading ||
-        `Section ${result.chunk.chunk_index + 1}`,
+        heading:
+          result.chunk.heading ||
+          `Section ${
+            result.chunk.chunk_index +
+            1
+          }`,
 
-      content: result.chunk.content,
+        content:
+          result.chunk.content,
 
-      keywords: buildKnowledgeKeywords(
-        result.policy.name,
-        result.chunk.heading || "",
-        result.chunk.content
-      ),
-    };
+        keywords:
+          buildKnowledgeKeywords(
+            result.policy.name,
+            result.chunk.heading || "",
+            result.chunk.content
+          ),
+      };
 
     if (existing) {
       existing.sections.push(section);
       continue;
     }
 
-    policyGroups.set(result.policy.id, {
-      policy: result.policy,
-      sections: [section],
-    });
+    policyGroups.set(
+      result.policy.id,
+      {
+        policy: result.policy,
+        sections: [section],
+      }
+    );
   }
 
   return Array.from(
     policyGroups.values()
-  ).map(({ policy, sections }) => ({
-    id: `policy-register-${policy.id}`,
+  ).map(
+    ({ policy, sections }) => ({
+      id: `policy-register-${policy.id}`,
 
-    organisationId,
+      organisationId,
 
-    title: policy.name,
+      title: policy.name,
 
-    category: mapPolicyCategory(
-      policy.name,
-      policy.register_type
-    ),
+      category: mapPolicyCategory(
+        policy.name,
+        policy.register_type
+      ),
 
-    summary:
-      `Relevant sections retrieved from the organisation's ${policy.name}.`,
+      summary:
+        `Relevant sections retrieved from the organisation's ${policy.name}.`,
 
-    keywords: buildKnowledgeKeywords(
-      policy.register_type,
-      policy.name,
-      sections
-        .map((section) => section.heading)
-        .join(" ")
-    ),
+      keywords:
+        buildKnowledgeKeywords(
+          policy.register_type,
+          policy.name,
+          sections
+            .map(
+              (section) =>
+                section.heading
+            )
+            .join(" ")
+        ),
 
-    sections,
+      sections,
 
-    active: true,
-  }));
+      active: true,
+    })
+  );
 }
 
 function createServerSupabaseClient() {
   const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env
+      .NEXT_PUBLIC_SUPABASE_URL;
 
   const secretKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env
+      .SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl) {
     throw new Error(
@@ -513,11 +623,15 @@ function mapPolicyCategory(
   const value =
     `${title} ${registerType}`.toLowerCase();
 
-  if (value.includes("disciplin")) {
+  if (
+    value.includes("disciplin")
+  ) {
     return "disciplinary";
   }
 
-  if (value.includes("grievance")) {
+  if (
+    value.includes("grievance")
+  ) {
     return "grievance";
   }
 
@@ -538,13 +652,19 @@ function mapPolicyCategory(
 
   if (
     value.includes("recruit") ||
-    value.includes("right to work") ||
+    value.includes(
+      "right to work"
+    ) ||
     value.includes("dbs")
   ) {
     return "recruitment";
   }
 
-  if (value.includes("flexible working")) {
+  if (
+    value.includes(
+      "flexible working"
+    )
+  ) {
     return "flexible_working";
   }
 
@@ -559,7 +679,9 @@ function mapPolicyCategory(
 
   if (
     value.includes("equal") ||
-    value.includes("discrimination") ||
+    value.includes(
+      "discrimination"
+    ) ||
     value.includes("harassment") ||
     value.includes("bullying")
   ) {
@@ -569,7 +691,9 @@ function mapPolicyCategory(
   if (
     value.includes("health") ||
     value.includes("safety") ||
-    value.includes("risk assessment")
+    value.includes(
+      "risk assessment"
+    )
   ) {
     return "health_and_safety";
   }
@@ -614,7 +738,10 @@ function normaliseSearchTerms(
     new Set(
       message
         .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .replace(
+          /[^\p{L}\p{N}\s]/gu,
+          " "
+        )
         .split(/\s+/)
         .filter(
           (word) =>
@@ -684,9 +811,15 @@ function buildKnowledgeKeywords(
     new Set(
       `${section} ${key} ${value}`
         .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .replace(
+          /[^\p{L}\p{N}\s]/gu,
+          " "
+        )
         .split(/\s+/)
-        .filter((word) => word.length >= 4)
+        .filter(
+          (word) =>
+            word.length >= 4
+        )
     )
   );
 }

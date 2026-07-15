@@ -1,22 +1,42 @@
 import { LeoCoreOutput } from "../core/router";
-import { KnowledgeArticle } from "../knowledge";
+import { KnowledgeSearchResult } from "../knowledge";
 
 export function buildSummaryUnderstanding(
   result: LeoCoreOutput,
-  matterDescription?: string,
-  knowledge?: KnowledgeArticle | null
+  matterDescription: string | undefined,
+  knowledge: KnowledgeSearchResult
 ): string {
-  const description = matterDescription?.trim();
+  const description =
+    matterDescription?.trim();
 
-  if (knowledge) {
+  const primaryKnowledge =
+    knowledge.sources[0];
+
+  const knowledgeContext =
+    primaryKnowledge
+      ? ` Relevant organisation information was found in ${primaryKnowledge.title}.`
+      : "";
+
+  if (description) {
     return (
-      `Based on the information available, this appears to involve ${knowledge.title.toLowerCase()}. ` +
-      knowledge.summary
+      `This Matter concerns ${description}. ` +
+      `Leo has identified it as a ${formatIntent(
+        result.intent
+      )} matter.${knowledgeContext}`
     );
   }
 
   return (
-    description ||
-    "Based on the information available, Leo has identified this as an HR matter requiring further assessment."
+    `This appears to be a ${formatIntent(
+      result.intent
+    )} matter.${knowledgeContext}`
   );
+}
+
+function formatIntent(
+  intent: unknown
+): string {
+  return String(intent)
+    .replace(/[_-]+/g, " ")
+    .toLowerCase();
 }

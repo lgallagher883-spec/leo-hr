@@ -165,11 +165,14 @@ return sectionFacts
         />
 
         <FoundationCard
-          title="Connected Services"
-          description="Connect services Leo can work with."
-          detail="Outlook, Google, payroll and future HR systems."
-          buttonLabel="Connect"
-        />
+  title="Connections"
+  description="Connect trusted platforms Leo can work with."
+  detail="Manage approved connections for Microsoft, Google, Canva, Xero, ElevenLabs and other supported services."
+  buttonLabel="Manage"
+  onClick={() =>
+    router.push("/dashboard/foundations/connections")
+  }
+/>
 
         <FoundationCard
           title="Notifications"

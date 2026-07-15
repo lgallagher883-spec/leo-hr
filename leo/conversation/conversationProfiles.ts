@@ -1,0 +1,63 @@
+import { ConversationPlan } from "./types";
+
+export const CONVERSATION_PROFILES = {
+  liveMatter: {
+    opening: "professional_interpretation",
+    shape: "conversation",
+    framingRequired: true,
+    reassuranceRequired: true,
+    answerUnderlyingConcern: true,
+    summariseDocument: false,
+    explainProfessionalThinking: true,
+    identifyCompetingPriorities: true,
+    avoidNumberedLists: true,
+    questionStrategy: "after_advice",
+    proportionalResponse: true,
+    closeWithSupport: true,
+  } satisfies ConversationPlan,
+
+  documentReview: {
+    opening: "professional_interpretation",
+    shape: "document_review",
+    framingRequired: true,
+    reassuranceRequired: true,
+    answerUnderlyingConcern: true,
+    summariseDocument: true,
+    explainProfessionalThinking: true,
+    identifyCompetingPriorities: true,
+    avoidNumberedLists: true,
+    questionStrategy: "after_advice",
+    proportionalResponse: true,
+    closeWithSupport: true,
+  } satisfies ConversationPlan,
+
+  decisionSupport: {
+    opening: "professional_interpretation",
+    shape: "decision_support",
+    framingRequired: true,
+    reassuranceRequired: false,
+    answerUnderlyingConcern: true,
+    summariseDocument: false,
+    explainProfessionalThinking: true,
+    identifyCompetingPriorities: true,
+    avoidNumberedLists: true,
+    questionStrategy: "before_advice",
+    proportionalResponse: true,
+    closeWithSupport: true,
+  } satisfies ConversationPlan,
+
+    learning: {
+    opening: "direct_answer",
+    shape: "process_overview",
+    framingRequired: false,
+    reassuranceRequired: false,
+    answerUnderlyingConcern: false,
+    summariseDocument: false,
+    explainProfessionalThinking: false,
+    identifyCompetingPriorities: false,
+    avoidNumberedLists: false,
+    questionStrategy: "none",
+    proportionalResponse: true,
+    closeWithSupport: false,
+  } satisfies ConversationPlan,
+} as const;

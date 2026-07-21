@@ -7,8 +7,8 @@ import CandidateWorkspace from "./components/CandidateWorkspace";
 import InterviewsWorkspace from "./components/InterviewsWorkspace";
 import OffersWorkspace from "./components/OffersWorkspace";
 import OnboardingWorkspace from "./components/OnboardingWorkspace";
-import RecruitmentWorkspace from "./components/RecruitmentWorkspace";
-import SaferRecruitmentWorkspace from "./components/SaferRecruitmentWorkspace";
+import VacanciesWorkspace from "./components/VacanciesWorkspace";
+import DueDiligenceWorkspace from "./components/DueDiligenceWorkspace";
 
 type TalentSection =
   | "Dashboard"
@@ -89,7 +89,7 @@ export default function LeoTalentPage() {
           <TalentDashboard onNavigate={setActiveSection} />
         ) : null}
 
-        {activeSection === "Vacancies" ? <RecruitmentWorkspace /> : null}
+        {activeSection === "Vacancies" ? <VacanciesWorkspace /> : null}
 
         {activeSection === "Applications" ? <ApplicationsWorkspace /> : null}
 
@@ -98,7 +98,7 @@ export default function LeoTalentPage() {
         {activeSection === "Interviews" ? <InterviewsWorkspace /> : null}
 
         {activeSection === "Due Diligence" ? (
-          <SaferRecruitmentWorkspace />
+          <DueDiligenceWorkspace />
         ) : null}
 
         {activeSection === "Offers & Appointments" ? <OffersWorkspace /> : null}

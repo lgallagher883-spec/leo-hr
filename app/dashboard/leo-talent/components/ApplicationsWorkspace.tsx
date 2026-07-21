@@ -198,12 +198,12 @@ const fallbackStages: PipelineStage[] = [
   },
   {
     id: "checks",
-    stage_key: "checks",
-    stage_name: "Pre-employment Checks",
-    description: "Safer recruitment and pre-employment checks.",
-    stage_group: "offer",
-    display_order: 60,
-    is_active: true,
+stage_key: "checks",
+stage_name: "Pre-employment Checks",
+description: "Due diligence and pre-employment checks.",
+stage_group: "offer",
+display_order: 60,
+is_active: true,
   },
   {
     id: "offer",
@@ -1380,7 +1380,7 @@ export default function ApplicationsWorkspace() {
       return;
     }
 
-    window.location.href = `/dashboard/leo-talent/candidates/${application.candidate_id}`;
+    window.location.href = `/dashboard/leo-talent/vacancies/${application.vacancy_id}`;
   }
 
   function openVacancy(
@@ -1393,7 +1393,7 @@ export default function ApplicationsWorkspace() {
       return;
     }
 
-    window.location.href = `/dashboard/leo-talent/recruitment/${application.vacancy_id}`;
+   window.location.href = `/dashboard/leo-talent/vacancies/${application.vacancy_id}`;
   }
 
   return (
@@ -1500,12 +1500,12 @@ export default function ApplicationsWorkspace() {
       <section style={styles.panel}>
         <div style={styles.panelHeader}>
           <h2 style={styles.panelTitle}>
-            Recruitment pipeline
+            Vacancy pipeline
           </h2>
 
           <p style={styles.panelText}>
             Current application volumes at each configured
-            recruitment stage.
+            vacancy stage.
           </p>
         </div>
 
@@ -1569,7 +1569,7 @@ export default function ApplicationsWorkspace() {
 
             <p style={styles.emptyText}>
               Leo is retrieving the current application
-              register and recruitment pipeline.
+              register and vacancy pipeline.
             </p>
           </div>
         ) : filteredApplications.length === 0 ? (

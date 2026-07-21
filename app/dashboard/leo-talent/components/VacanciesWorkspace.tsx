@@ -427,7 +427,7 @@ function matchesRegisterFilter(
   }
 }
 
-export default function RecruitmentWorkspace() {
+export default function VacanciesWorkspace() {
   const [vacancies, setVacancies] = useState<TalentVacancy[]>([]);
   const [activeFilter, setActiveFilter] =
     useState<RegisterFilter>("current");
@@ -447,14 +447,14 @@ export default function RecruitmentWorkspace() {
     setErrorMessage(null);
 
     const { data, error } = await supabase
-      .from("talent_vacancies")
+      .from("leo_talent_vacancies")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
       setVacancies([]);
       setErrorMessage(
-        `Recruitment records could not be loaded. ${error.message}`
+        `Vacancy records could not be loaded. ${error.message}`
       );
     } else {
       setVacancies((data ?? []) as TalentVacancy[]);
@@ -531,11 +531,11 @@ export default function RecruitmentWorkspace() {
   }, [activeFilter, searchTerm, vacancies]);
 
   const handleCreateVacancy = useCallback(() => {
-    window.location.href = "/dashboard/leo-talent/recruitment/create";
+    window.location.href = "/dashboard/leo-talent/vacancies/create";
   }, []);
 
   const handleOpenVacancy = useCallback((vacancyId: string) => {
-    window.location.href = `/dashboard/leo-talent/recruitment/${vacancyId}`;
+    window.location.href = `/dashboard/leo-talent/vacancies/${vacancyId}`;
   }, []);
 
   const handleExport = useCallback(() => {
@@ -557,7 +557,7 @@ export default function RecruitmentWorkspace() {
       "Opening date",
       "Closing date",
       "Target start date",
-      "Safer recruitment required",
+      "Due diligence required",
       "DBS required",
       "Driving required",
       "Qualification checks required",
@@ -600,7 +600,7 @@ export default function RecruitmentWorkspace() {
     const anchor = document.createElement("a");
 
     anchor.href = downloadUrl;
-    anchor.download = `leo-talent-recruitment-${
+    anchor.download = `leo-talent-vacancies-${
       new Date().toISOString().split("T")[0]
     }.csv`;
 
@@ -611,7 +611,7 @@ export default function RecruitmentWorkspace() {
     URL.revokeObjectURL(downloadUrl);
 
     setActionMessage(
-      `${filteredVacancies.length} recruitment record${
+      `${filteredVacancies.length} vacancy record${
         filteredVacancies.length === 1 ? "" : "s"
       } exported.`
     );
@@ -623,12 +623,12 @@ export default function RecruitmentWorkspace() {
         <div style={styles.headingBlock}>
           <p style={styles.eyebrow}>Leo Talent</p>
 
-          <h1 style={styles.title}>Recruitment</h1>
+          <h1 style={styles.title}>Vacancies</h1>
 
           <p style={styles.description}>
             Create, approve and manage vacancies from initial planning through
-            to closure. Recruitment records remain connected to applications,
-            candidates, interviews, safer recruitment, offers and onboarding.
+            to closure. Vacancy records remain connected to applications,
+            candidates, interviews, due diligence, offers and onboarding.
           </p>
         </div>
 
@@ -677,7 +677,7 @@ export default function RecruitmentWorkspace() {
         </article>
 
         <article style={styles.metricCard}>
-          <p style={styles.metricLabel}>Safer recruitment roles</p>
+          <p style={styles.metricLabel}>Due diligence roles</p>
           <p style={styles.metricValue}>{metrics.saferRecruitment}</p>
         </article>
       </div>
@@ -698,7 +698,7 @@ export default function RecruitmentWorkspace() {
         <div style={styles.controls}>
           <input
             type="search"
-            aria-label="Search recruitment records"
+            aria-label="Search vacancy records"
             placeholder="Search by vacancy, reference, department or manager"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
@@ -725,7 +725,7 @@ export default function RecruitmentWorkspace() {
 
         {loading ? (
           <div style={styles.emptyState}>
-            <h2 style={styles.emptyTitle}>Loading recruitment records…</h2>
+            <h2 style={styles.emptyTitle}>Loading vacancy records…</h2>
 
             <p style={styles.emptyText}>
               Leo is retrieving the latest vacancy information.
@@ -741,7 +741,7 @@ export default function RecruitmentWorkspace() {
 
             <p style={styles.emptyText}>
               {vacancies.length === 0
-                ? "Create the first vacancy to begin the recruitment workflow."
+                ? "Create the first vacancy to begin the vacancy workflow."
                 : "Try changing the search term or selecting another register filter."}
             </p>
 

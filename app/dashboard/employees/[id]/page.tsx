@@ -979,14 +979,14 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "DBS / Safeguarding" && (
-            <SectionShell
-              eyebrow="Safer recruitment"
-              title="DBS / Safeguarding"
-              description="Maintain DBS, Update Service and safeguarding-related employment records."
-            >
-              <DBSSafeguarding employeeId={employee.id} />
-            </SectionShell>
-          )}
+  <SectionShell
+    eyebrow="Due diligence"
+    title="DBS / Safeguarding"
+    description="Maintain DBS, Update Service and safeguarding-related employment records."
+  >
+    <DBSSafeguarding employeeId={employee.id} />
+  </SectionShell>
+)}
 
           {activeSection === "Driving" && (
             <SectionShell

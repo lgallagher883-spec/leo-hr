@@ -54,6 +54,7 @@ export function runRecruitmentReasoning(
       "objective selection criteria",
       "interview scoring",
       "recruitment panel",
+      "due diligence",
     ],
 
     intentMatches: [

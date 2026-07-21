@@ -372,7 +372,7 @@ function percentageComplete(values: boolean[]) {
   return Math.round((completed / values.length) * 100);
 }
 
-export default function SaferRecruitmentWorkspace() {
+export default function DueDiligenceWorkspace() {
   const [records, setRecords] = useState<WorkspaceRecord[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     null
@@ -621,7 +621,7 @@ export default function SaferRecruitmentWorkspace() {
       setError(
         error instanceof Error
           ? error.message
-          : "The safer recruitment register could not be loaded."
+          : "The due diligence register could not be loaded."
       );
     } finally {
       setLoading(false);
@@ -759,7 +759,7 @@ export default function SaferRecruitmentWorkspace() {
       setError(
         error instanceof Error
           ? error.message
-          : "The safer recruitment profile could not be updated."
+          : "The due diligence profile could not be updated."
       );
     } finally {
       setSaving(false);
@@ -1438,7 +1438,7 @@ export default function SaferRecruitmentWorkspace() {
         reviewed_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
       },
-      "Safer recruitment review completed."
+      "Due diligence review completed."
     );
   }
 
@@ -1469,11 +1469,11 @@ export default function SaferRecruitmentWorkspace() {
     anchor.href = url;
     anchor.download = `${fullCandidateName(selectedRecord.candidate)
       .replaceAll(" ", "-")
-      .toLowerCase()}-safer-recruitment.json`;
+      .toLowerCase()}-due-diligence.json`;
     anchor.click();
     URL.revokeObjectURL(url);
 
-    setSuccess("Safer recruitment record exported.");
+    setSuccess("Due diligence record exported.");
   }
 
   function updateIdentityLocal(
@@ -1532,8 +1532,8 @@ export default function SaferRecruitmentWorkspace() {
     return (
       <WorkspaceShell>
         <EmptyState
-          title="Loading safer recruitment"
-          description="Leo is preparing the current pre-employment check register."
+          title="Loading due diligence"
+          description="Leo is preparing the current due diligence register."
         />
       </WorkspaceShell>
     );
@@ -1544,7 +1544,7 @@ export default function SaferRecruitmentWorkspace() {
       <div style={styles.header}>
         <div>
           <p style={styles.eyebrow}>Leo Talent</p>
-          <h1 style={styles.pageTitle}>Safer recruitment</h1>
+          <h1 style={styles.pageTitle}>Due diligence</h1>
           <p style={styles.pageDescription}>
             Record, verify and review identity, right to work,
             references, DBS and overseas checks before appointment.
@@ -1577,7 +1577,7 @@ export default function SaferRecruitmentWorkspace() {
         <MetricCard
           label="Candidates in register"
           value={counts.total}
-          description="Current safer recruitment profiles"
+          description="Current due diligence profiles"
         />
         <MetricCard
           label="In progress"
@@ -1638,7 +1638,7 @@ export default function SaferRecruitmentWorkspace() {
           <div style={styles.registerList}>
             {filteredRecords.length === 0 ? (
               <EmptyState
-                title="No safer recruitment profiles"
+                title="No due diligence profiles"
                 description="Profiles will appear here when an application enters pre-employment checks."
                 compact
               />
@@ -1698,7 +1698,7 @@ export default function SaferRecruitmentWorkspace() {
           ) : detailLoading ? (
             <EmptyState
               title="Loading candidate checks"
-              description="Leo is preparing the safer recruitment workspace."
+              description="Leo is preparing the due diligence workspace."
             />
           ) : (
             <>
@@ -2907,7 +2907,7 @@ function ReviewTab({
     <div style={styles.sectionStack}>
       <SectionCard
         title="Completion review"
-        description="Review each requirement before recording the final safer recruitment position."
+        description="Review each requirement before recording the final due diligence position."
       >
         <div style={styles.reviewChecklist}>
           {checks.map((check) => (
@@ -3013,7 +3013,7 @@ function ReviewTab({
           </Button>
 
           <Button disabled={saving} onClick={onComplete}>
-            {saving ? "Saving…" : "Complete safer recruitment review"}
+            {saving ? "Saving…" : "Complete due diligence review"}
           </Button>
         </div>
       </SectionCard>

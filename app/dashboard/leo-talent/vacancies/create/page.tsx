@@ -585,7 +585,7 @@ export default function CreateVacancyPage() {
     );
 
     router.push(
-      `/dashboard/leo-talent/recruitment/${vacancyId}`,
+      `/dashboard/leo-talent/vacancies/${vacancyId}`,
     );
   }
 

@@ -461,7 +461,7 @@ export const TALENT_PIPELINE_STAGES = [
   {
     key: "pre_employment_checks",
     label: "Pre-employment checks",
-    description: "Safer Recruitment and other checks are underway.",
+    description: "Due diligence and other pre-employment checks are underway.",
     order: 50,
   },
   {
@@ -495,7 +495,7 @@ export const TALENT_QUICK_ACTIONS = [
     key: "create_vacancy",
     label: "Create vacancy",
     description: "Create and prepare a new vacancy.",
-    href: "/dashboard/leo-talent/recruitment/create",
+    href: "/dashboard/leo-talent/vacancies/create",
   },
   {
     key: "view_applications",
@@ -511,7 +511,7 @@ export const TALENT_QUICK_ACTIONS = [
   },
   {
     key: "review_checks",
-    label: "Review safer recruitment",
+    label: "Review due diligence",
     description: "Review outstanding pre-employment checks.",
     href: "/dashboard/leo-talent/safer-recruitment",
   },
@@ -530,9 +530,9 @@ export const TALENT_NAVIGATION_ITEMS = [
     href: "/dashboard/leo-talent",
   },
   {
-    key: "recruitment",
-    label: "Recruitment",
-    href: "/dashboard/leo-talent/recruitment",
+    key: "vacancies",
+    label: "Vacancies",
+    href: "/dashboard/leo-talent/vacancies",
   },
   {
     key: "applications",
@@ -551,7 +551,7 @@ export const TALENT_NAVIGATION_ITEMS = [
   },
   {
     key: "safer_recruitment",
-    label: "Safer Recruitment",
+    label: "Due Diligence",
     href: "/dashboard/leo-talent/safer-recruitment",
   },
   {
@@ -694,7 +694,7 @@ export const TALENT_EMPTY_STATES = {
     description:
       "Create a vacancy to begin managing recruitment through Leo Talent.",
     actionLabel: "Create vacancy",
-    actionHref: "/dashboard/leo-talent/recruitment/create",
+    actionHref: "/dashboard/leo-talent/vacancies/create",
   },
   applications: {
     title: "No applications found",
@@ -714,7 +714,7 @@ export const TALENT_EMPTY_STATES = {
   saferRecruitment: {
     title: "No checks found",
     description:
-      "Safer Recruitment checks will appear after a candidate progresses.",
+     "Due diligence checks will appear after a candidate progresses.",
   },
   offers: {
     title: "No offers found",

@@ -31,6 +31,7 @@ type PlatformRole =
 type VacancyForm = {
   vacancyReference: string;
   title: string;
+  businessArea: string;
   department: string;
   locationName: string;
   hiringManagerName: string;
@@ -57,6 +58,7 @@ type VacancyForm = {
   requiresDbs: boolean;
   requiresDriving: boolean;
   requiresQualificationChecks: boolean;
+  referenceValidationRequired: boolean;
   requiredReferenceCount: string;
 };
 
@@ -71,6 +73,7 @@ type UserContext = {
 const initialForm: VacancyForm = {
   vacancyReference: "",
   title: "",
+  businessArea: "",
   department: "",
   locationName: "",
   hiringManagerName: "",
@@ -97,6 +100,7 @@ const initialForm: VacancyForm = {
   requiresDbs: false,
   requiresDriving: false,
   requiresQualificationChecks: false,
+  referenceValidationRequired: false,
   requiredReferenceCount: "1",
 };
 
@@ -132,6 +136,46 @@ function optionalNumber(value: string): number | null {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normaliseEmploymentType(value: string): string {
+  const normalised = value.trim().toLowerCase();
+
+  const values: Record<string, string> = {
+    "permanent": "permanent",
+    "fixed term": "fixed_term",
+    "temporary": "temporary",
+    "casual": "casual",
+    "zero hours": "zero_hours",
+    "apprenticeship": "apprenticeship",
+    "internship": "internship",
+    "contractor": "contractor",
+    "volunteer": "volunteer",
+    "other": "other",
+  };
+
+  return values[normalised] ?? "other";
+}
+
+function normaliseSalaryPeriod(value: string): string | null {
+  const normalised = value.trim().toLowerCase();
+
+  const values: Record<string, string> = {
+    "per annum": "year",
+    "per year": "year",
+    "year": "year",
+    "per month": "month",
+    "month": "month",
+    "per week": "week",
+    "week": "week",
+    "per day": "day",
+    "day": "day",
+    "per hour": "hour",
+    "hour": "hour",
+    "fixed": "fixed",
+  };
+
+  return values[normalised] ?? null;
 }
 
 function generateVacancyReference(): string {
@@ -176,14 +220,22 @@ export default function CreateVacancyPage() {
       items.push("standard identity and employment checks");
     }
 
+    const referenceCount = form.requiredReferenceCount || "0";
+
     items.push(
-      `${form.requiredReferenceCount || "0"} reference${
-        form.requiredReferenceCount === "1" ? "" : "s"
+      `${referenceCount} employment reference${
+        referenceCount === "1" ? "" : "s"
       }`,
     );
 
+    if (form.referenceValidationRequired) {
+      items.push("reference validation");
+    }
+
     if (form.requiresDbs) items.push("DBS");
-    if (form.requiresDriving) items.push("driving");
+    if (form.requiresDriving) {
+      items.push("driving and vehicle checks");
+    }
     if (form.requiresQualificationChecks) {
       items.push("qualification verification");
     }
@@ -490,6 +542,7 @@ export default function CreateVacancyPage() {
       vacancy_reference:
         form.vacancyReference.trim(),
       title: form.title.trim(),
+      business_area: optionalText(form.businessArea),
       department: optionalText(form.department),
       location_name: optionalText(
         form.locationName,
@@ -500,14 +553,14 @@ export default function CreateVacancyPage() {
       recruitment_lead_name: optionalText(
         form.recruitmentLeadName,
       ),
-      employment_type: form.employmentType,
+      employment_type: normaliseEmploymentType(form.employmentType),
       work_pattern: optionalText(form.workPattern),
       hours_per_week: optionalNumber(
         form.hoursPerWeek,
       ),
       salary_min: optionalNumber(form.salaryMin),
       salary_max: optionalNumber(form.salaryMax),
-      salary_period: optionalText(
+      salary_period: normaliseSalaryPeriod(
         form.salaryPeriod,
       ),
       salary_currency:
@@ -536,6 +589,8 @@ export default function CreateVacancyPage() {
       requires_driving: form.requiresDriving,
       requires_qualification_checks:
         form.requiresQualificationChecks,
+      reference_validation_required:
+        form.referenceValidationRequired,
       required_reference_count: Number(
         form.requiredReferenceCount,
       ),
@@ -545,7 +600,7 @@ export default function CreateVacancyPage() {
     };
 
     const { data, error } = await supabase
-      .from("talent_vacancies")
+      .from("leo_talent_vacancies")
       .insert(payload)
       .select("id")
       .single();
@@ -599,6 +654,7 @@ export default function CreateVacancyPage() {
   function handleCancel() {
     const hasEnteredInformation =
       form.title.trim() ||
+      form.businessArea.trim() ||
       form.department.trim() ||
       form.locationName.trim() ||
       form.hiringManagerName.trim() ||
@@ -675,7 +731,7 @@ export default function CreateVacancyPage() {
           </h1>
 
           <p style={styles.pageDescription}>
-            Set up the role, recruitment controls and
+            Set up the vacancy, hiring process and
             Due Diligence requirements before applications
             begin.
           </p>
@@ -702,6 +758,28 @@ export default function CreateVacancyPage() {
           {pageMessage}
         </div>
       ) : null}
+
+      <div
+        style={styles.progressPanel}
+        aria-label="Vacancy setup progress"
+      >
+        <span style={styles.progressLabel}>Progress</span>
+
+        <div style={styles.progressSteps}>
+          {[
+            "Vacancy Details",
+            "Employment & Pay",
+            "Dates & Controls",
+            "Pre-employment Checks",
+            "Ready to Publish",
+          ].map((step) => (
+            <span key={step} style={styles.progressStep}>
+              <span style={styles.progressDot}>●</span>
+              {step}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <form
         onSubmit={handleSubmit}
@@ -760,6 +838,22 @@ export default function CreateVacancyPage() {
                 }
                 style={inputStyle(Boolean(errors.title))}
                 placeholder="For example, Nursery Manager"
+                disabled={savingMode !== null}
+              />
+            </Field>
+
+            <Field label="Business area">
+              <input
+                type="text"
+                value={form.businessArea}
+                onChange={(event) =>
+                  updateField(
+                    "businessArea",
+                    event.target.value,
+                  )
+                }
+                style={styles.input}
+                placeholder="For example, Children's Services"
                 disabled={savingMode !== null}
               />
             </Field>
@@ -827,7 +921,7 @@ export default function CreateVacancyPage() {
               />
             </Field>
 
-            <Field label="Recruitment lead">
+            <Field label="Vacancy lead">
               <input
                 type="text"
                 value={form.recruitmentLeadName}
@@ -838,7 +932,7 @@ export default function CreateVacancyPage() {
                   )
                 }
                 style={styles.input}
-                placeholder="Optional recruitment coordinator"
+                placeholder="Optional person coordinating the vacancy"
                 disabled={savingMode !== null}
               />
             </Field>
@@ -1060,8 +1154,8 @@ export default function CreateVacancyPage() {
               onChange={(checked) =>
                 updateField("salaryVisible", checked)
               }
-              title="Display salary"
-              description="Show the salary information in candidate-facing recruitment content."
+              title="Publish salary"
+              description="Show salary information in candidate-facing vacancy content."
               disabled={savingMode !== null}
             />
 
@@ -1070,8 +1164,8 @@ export default function CreateVacancyPage() {
               onChange={(checked) =>
                 updateField("isInternalOnly", checked)
               }
-              title="Internal-only vacancy"
-              description="Limit this campaign to existing employees."
+              title="Internal vacancy only"
+              description="Only existing employees can apply."
               disabled={savingMode !== null}
             />
 
@@ -1083,7 +1177,7 @@ export default function CreateVacancyPage() {
                   checked,
                 )
               }
-              title="Accept internal candidates"
+              title="Accept internal applications"
               description="Allow existing employees to apply alongside external candidates."
               disabled={savingMode !== null}
             />
@@ -1212,19 +1306,19 @@ export default function CreateVacancyPage() {
           <div style={styles.sectionHeader}>
             <div>
               <h2 style={styles.sectionTitle}>
-                Due Diligence
+                Pre-employment Checks
               </h2>
 
               <p style={styles.sectionDescription}>
-                Define the checks that must be completed
-                before appointment or onboarding.
+                Define the Due Diligence requirements that
+                must be completed before appointment or onboarding.
               </p>
             </div>
           </div>
 
           <div style={styles.formGrid}>
             <Field
-              label="References required"
+              label="Minimum references required"
               required
               error={errors.requiredReferenceCount}
               hint="Regulated roles should normally require two references."
@@ -1266,19 +1360,43 @@ export default function CreateVacancyPage() {
             />
 
             <ToggleCard
+              checked={form.referenceValidationRequired}
+              onChange={(checked) =>
+                updateField(
+                  "referenceValidationRequired",
+                  checked,
+                )
+              }
+              title="Reference validation required"
+              description="Confirm that references are authentic and were provided by an appropriate source."
+              disabled={savingMode !== null}
+            />
+
+            <ToggleCard
               checked={form.regulatedRole}
               onChange={(checked) => {
                 updateField("regulatedRole", checked);
 
-                if (
-                  checked &&
-                  Number(
-                    form.requiredReferenceCount,
-                  ) < 2
-                ) {
+                if (checked) {
+                  if (
+                    Number(
+                      form.requiredReferenceCount,
+                    ) < 2
+                  ) {
+                    updateField(
+                      "requiredReferenceCount",
+                      "2",
+                    );
+                  }
+
                   updateField(
-                    "requiredReferenceCount",
-                    "2",
+                    "referenceValidationRequired",
+                    true,
+                  );
+                  updateField("requiresDbs", true);
+                  updateField(
+                    "requiresQualificationChecks",
+                    true,
                   );
                 }
               }}
@@ -1305,8 +1423,8 @@ export default function CreateVacancyPage() {
                   checked,
                 )
               }
-              title="Driving checks required"
-              description="Verify licence, eligibility and any role-specific driving requirements."
+              title="Driving and vehicle checks required"
+              description="Verify driving eligibility, licence details and any role-specific vehicle information."
               disabled={savingMode !== null}
             />
 
@@ -1344,9 +1462,10 @@ export default function CreateVacancyPage() {
 
               <p style={styles.summaryNote}>
                 Where a candidate has lived or worked
-                overseas, the appointment workflow should
-                also consider an overseas police check or
-                certificate of good conduct where relevant.
+                outside England or Wales, the appointment
+                workflow should also consider an overseas
+                police check, certificate of good conduct or
+                equivalent evidence where appropriate.
               </p>
             </div>
           </div>
@@ -1525,6 +1644,39 @@ const styles: Record<string, CSSProperties> = {
     color: "#6B7280",
     fontSize: "14px",
     lineHeight: 1.6,
+  },
+  progressPanel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "18px",
+    flexWrap: "wrap",
+    padding: "14px 18px",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: "14px",
+  },
+  progressLabel: {
+    color: "#4A3657",
+    fontSize: "13px",
+    fontWeight: 800,
+  },
+  progressSteps: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    flexWrap: "wrap",
+  },
+  progressStep: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "#6B7280",
+    fontSize: "12px",
+    fontWeight: 650,
+  },
+  progressDot: {
+    color: "#CDB2E2",
+    fontSize: "9px",
   },
   form: {
     display: "flex",

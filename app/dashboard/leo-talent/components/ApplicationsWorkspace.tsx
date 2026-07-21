@@ -138,16 +138,16 @@ const filterOptions: Array<{
   value: RegisterFilter;
   label: string;
 }> = [
+  { value: "all", label: "All" },
   { value: "current", label: "Current" },
   { value: "new", label: "New" },
   { value: "screening", label: "Screening" },
-  { value: "review", label: "Review" },
+  { value: "review", label: "Manager Review" },
   { value: "interview", label: "Interview" },
-  { value: "checks", label: "Checks" },
-  { value: "offer", label: "Offer" },
+  { value: "checks", label: "Pre-emp Checks" },
+  { value: "offer", label: "Offers" },
   { value: "closed", label: "Closed" },
   { value: "archived", label: "Archived" },
-  { value: "all", label: "All" },
 ];
 
 const fallbackStages: PipelineStage[] = [
@@ -172,7 +172,7 @@ const fallbackStages: PipelineStage[] = [
   {
     id: "review",
     stage_key: "review",
-    stage_name: "Review",
+    stage_name: "Manager Review",
     description: "Manual, blind or panel review in progress.",
     stage_group: "application",
     display_order: 30,
@@ -199,8 +199,8 @@ const fallbackStages: PipelineStage[] = [
   {
     id: "checks",
 stage_key: "checks",
-stage_name: "Pre-employment Checks",
-description: "Due diligence and pre-employment checks.",
+stage_name: "Pre-emp Checks",
+description: "Due diligence and pre-emp checks.",
 stage_group: "offer",
 display_order: 60,
 is_active: true,
@@ -208,7 +208,7 @@ is_active: true,
   {
     id: "offer",
     stage_key: "offer",
-    stage_name: "Offer",
+    stage_name: "Offers",
     description: "Offer preparation or candidate response.",
     stage_group: "offer",
     display_order: 70,
@@ -1405,10 +1405,9 @@ export default function ApplicationsWorkspace() {
           <h1 style={styles.title}>Applications</h1>
 
           <p style={styles.description}>
-            Review applications, monitor progression and keep
-            every candidate connected to the relevant vacancy,
-            interview, safer recruitment, offer and appointment
-            record.
+            Review applications, record decisions and manage
+            candidate progression through each stage of the hiring
+            process.
           </p>
         </div>
 
@@ -1474,13 +1473,13 @@ export default function ApplicationsWorkspace() {
 
         <article style={styles.metricCard}>
           <p style={styles.metricLabel}>
-            Pre-employment checks
+            Pre-emp Checks
           </p>
           <p style={styles.metricValue}>{metrics.checks}</p>
         </article>
 
         <article style={styles.metricCard}>
-          <p style={styles.metricLabel}>At offer</p>
+          <p style={styles.metricLabel}>At offers</p>
           <p style={styles.metricValue}>{metrics.offers}</p>
         </article>
       </div>
@@ -1500,13 +1499,9 @@ export default function ApplicationsWorkspace() {
       <section style={styles.panel}>
         <div style={styles.panelHeader}>
           <h2 style={styles.panelTitle}>
-            Vacancy pipeline
+            Overview
           </h2>
 
-          <p style={styles.panelText}>
-            Current application volumes at each configured
-            vacancy stage.
-          </p>
         </div>
 
         <div style={styles.pipelineGrid}>
@@ -1533,7 +1528,7 @@ export default function ApplicationsWorkspace() {
           <input
             type="search"
             aria-label="Search applications"
-            placeholder="Search candidates, vacancies, references or departments"
+            placeholder="Search by candidate, vacancy, application reference or department"
             value={searchTerm}
             onChange={(event) =>
               setSearchTerm(event.target.value)
@@ -1569,20 +1564,20 @@ export default function ApplicationsWorkspace() {
 
             <p style={styles.emptyText}>
               Leo is retrieving the current application
-              register and vacancy pipeline.
+              register and application overview.
             </p>
           </div>
         ) : filteredApplications.length === 0 ? (
           <div style={styles.emptyState}>
             <h2 style={styles.emptyTitle}>
               {applications.length === 0
-                ? "No applications have been recorded"
+                ? "No applications yet"
                 : "No applications match this view"}
             </h2>
 
             <p style={styles.emptyText}>
               {applications.length === 0
-                ? "Applications will appear here when candidates apply for a vacancy."
+                ? "Applications will appear here when candidates apply for an open vacancy."
                 : "Try changing the search term or selecting another register filter."}
             </p>
           </div>

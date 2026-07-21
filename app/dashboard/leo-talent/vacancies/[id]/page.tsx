@@ -288,9 +288,10 @@ function todayIso(): string {
 }
 
 export default function VacancyWorkspacePage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ vacancyId?: string; id?: string }>();
   const router = useRouter();
-  const vacancyId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const rawVacancyId = params?.vacancyId ?? params?.id;
+  const vacancyId = Array.isArray(rawVacancyId) ? rawVacancyId[0] : rawVacancyId;
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [vacancy, setVacancy] = useState<Vacancy | null>(null);
@@ -397,7 +398,7 @@ export default function VacancyWorkspacePage() {
       setActionMessage("");
 
       const vacancyResult = await supabase
-        .from("talent_vacancies")
+        .from("leo_talent_vacancies")
         .select("*")
         .eq("id", vacancyId)
         .single();
@@ -423,16 +424,16 @@ export default function VacancyWorkspacePage() {
         documentRows,
         activityRows,
       ] = await Promise.all([
-        safeLoad<Application>("talent_applications", "vacancy_id", "applications"),
-        safeLoad<Candidate>("talent_candidates", "vacancy_id", "candidates"),
-        safeLoad<Interview>("talent_interviews", "vacancy_id", "interviews"),
+        safeLoad<Application>("leo_talent_applications", "vacancy_id", "applications"),
+        safeLoad<Candidate>("leo_talent_candidates", "vacancy_id", "candidates"),
+        safeLoad<Interview>("leo_talent_interviews", "vacancy_id", "interviews"),
         safeLoad<DueDiligenceRecord>(
-          "talent_due_diligence",
+          "leo_talent_due_diligence",
           "vacancy_id",
           "dueDiligence",
         ),
-        safeLoad<Offer>("talent_offers", "vacancy_id", "offers"),
-        safeLoad<TalentDocument>("talent_vacancy_documents", "vacancy_id", "documents"),
+        safeLoad<Offer>("leo_talent_offers", "vacancy_id", "offers"),
+        safeLoad<TalentDocument>("leo_talent_vacancy_documents", "vacancy_id", "documents"),
         safeLoad<ActivityEvent>(
           "talent_analytics_events",
           "entity_id",
@@ -587,7 +588,7 @@ export default function VacancyWorkspacePage() {
       }
 
       const { error } = await supabase
-        .from("talent_vacancies")
+        .from("leo_talent_vacancies")
         .update(payload)
         .eq("id", vacancy.id);
 
@@ -622,7 +623,7 @@ export default function VacancyWorkspacePage() {
       setErrorMessage("");
 
       const { error } = await supabase
-        .from("talent_vacancies")
+        .from("leo_talent_vacancies")
         .update({
           approval_status: approvalStatus,
           status,
@@ -674,7 +675,7 @@ export default function VacancyWorkspacePage() {
     setWorkingAction("delete");
 
     const { error } = await supabase
-      .from("talent_vacancies")
+      .from("leo_talent_vacancies")
       .delete()
       .eq("id", vacancy.id);
 
@@ -715,7 +716,7 @@ export default function VacancyWorkspacePage() {
       return;
     }
 
-    const insertResult = await supabase.from("talent_vacancy_documents").insert({
+    const insertResult = await supabase.from("leo_talent_vacancy_documents").insert({
       organisation_id: vacancy.organisation_id,
       vacancy_id: vacancy.id,
       title: documentTitle.trim(),
@@ -1209,7 +1210,7 @@ function ApplicationsTab({
       />
 
       {!available ? (
-        <UnavailableState table="talent_applications" />
+        <UnavailableState table="leo_talent_applications" />
       ) : (
         <>
           <input
@@ -1322,7 +1323,7 @@ function CandidatesTab({
       />
 
       {!available ? (
-        <UnavailableState table="talent_candidates" />
+        <UnavailableState table="leo_talent_candidates" />
       ) : (
         <>
           <input
@@ -1412,7 +1413,7 @@ function InterviewsTab({
       />
 
       {!available ? (
-        <UnavailableState table="talent_interviews" />
+        <UnavailableState table="leo_talent_interviews" />
       ) : records.length === 0 ? (
         <EmptyState
           title="No interviews scheduled"
@@ -1503,7 +1504,7 @@ function DueDiligenceTab({
         />
 
         {!available ? (
-          <UnavailableState table="talent_due_diligence" />
+          <UnavailableState table="leo_talent_due_diligence" />
         ) : records.length === 0 ? (
           <EmptyState
             title="No checks recorded"
@@ -1598,7 +1599,7 @@ function OffersTab({
       />
 
       {!available ? (
-        <UnavailableState table="talent_offers" />
+        <UnavailableState table="leo_talent_offers" />
       ) : records.length === 0 ? (
         <EmptyState
           title="No offers created"
@@ -1685,7 +1686,7 @@ function DocumentsTab({
         />
 
         {!available ? (
-          <UnavailableState table="talent_vacancy_documents" />
+          <UnavailableState table="leo_talent_vacancy_documents" />
         ) : records.length === 0 ? (
           <EmptyState
             title="No documents uploaded"

@@ -47,10 +47,6 @@ export default function LeoTalentPage() {
 
           <h1 style={titleStyle}>Talent</h1>
 
-          <p style={descriptionStyle}>
-            Plan vacancies, manage candidates, make fair appointments and
-            support every new starter through a connected people journey.
-          </p>
         </div>
 
         <button
@@ -76,9 +72,11 @@ export default function LeoTalentPage() {
             >
               <span style={navigationTitleStyle}>{section}</span>
 
-              <span style={navigationDescriptionStyle}>
-                {getSectionDescription(section)}
-              </span>
+              {getSectionDescription(section) ? (
+                <span style={navigationDescriptionStyle}>
+                  {getSectionDescription(section)}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -126,7 +124,7 @@ function TalentDashboard({
         <div>
           <h2 style={workspaceTitleStyle}>Talent overview</h2>
           <p style={workspaceDescriptionStyle}>
-            A calm overview of vacancies, candidate activity, interviews,
+            A live overview of vacancies, candidate activity, interviews,
             offers, due diligence and onboarding.
           </p>
         </div>
@@ -135,7 +133,7 @@ function TalentDashboard({
       <div style={kpiGridStyle}>
         <KpiCard label="Live vacancies" value="0" />
         <KpiCard label="Applications received" value="0" />
-        <KpiCard label="Candidates in progress" value="0" />
+        <KpiCard label="Active candidates" value="0" />
         <KpiCard label="Interviews" value="0" />
         <KpiCard label="Offers awaiting response" value="0" />
         <KpiCard label="Due diligence outstanding" value="0" />
@@ -148,8 +146,8 @@ function TalentDashboard({
           <div style={emptyPanelStyle}>
             <div style={starStyle}>✦</div>
             <p style={emptyPanelTextStyle}>
-              Leo will present practical vacancy, candidate, appointment and
-              onboarding recommendations here once activity begins.
+              Leo will provide practical recommendations, risks and next
+              steps as vacancies, candidates and appointments progress.
             </p>
           </div>
         </section>
@@ -175,7 +173,7 @@ function TalentDashboard({
               onClick={() => onNavigate("Interviews")}
             />
             <QuickAction
-              label="Complete due diligence"
+              label="Review due diligence"
               onClick={() => onNavigate("Due Diligence")}
             />
             <QuickAction
@@ -195,18 +193,18 @@ function TalentDashboard({
           <h3 style={panelTitleStyle}>Recent talent activity</h3>
           <div style={emptyPanelStyle}>
             <p style={emptyPanelTextStyle}>
-              Vacancy changes, applications, interview decisions, offers, due
+              Vacancy updates, application decisions, interviews, offers, due
               diligence and onboarding activity will appear here.
             </p>
           </div>
         </section>
 
         <section style={panelStyle}>
-          <h3 style={panelTitleStyle}>Talent snapshot</h3>
+          <h3 style={panelTitleStyle}>Hiring overview</h3>
           <div style={emptyPanelStyle}>
             <p style={emptyPanelTextStyle}>
-              Hiring and onboarding progress will appear here once activity is
-              underway.
+              Hiring progress, appointment readiness and onboarding activity
+              will appear here once work begins.
             </p>
           </div>
         </section>
@@ -365,23 +363,23 @@ function SettingsCard({
 function getSectionDescription(section: TalentSection): string {
   switch (section) {
     case "Dashboard":
-      return "Hiring activity, recommendations and quick actions.";
+      return "";
     case "Vacancies":
-      return "Plan roles, campaigns and recruitment requirements.";
+      return "Create vacancies, manage advertising and coordinate hiring requirements.";
     case "Applications":
-      return "Review applications, decisions and candidate progress.";
+      return "Review applications, record decisions and manage candidate progression.";
     case "Candidates":
-      return "Manage candidate records, history and communications.";
+      return "Manage candidate records, communications and hiring history.";
     case "Interviews":
-      return "Schedule interviews, panels, notes and outcomes.";
+      return "Schedule interviews, coordinate panels and record structured outcomes.";
     case "Due Diligence":
-      return "Track role-specific checks and appointment readiness.";
+      return "Complete role-specific checks and confirm readiness for appointment.";
     case "Offers & Appointments":
-      return "Prepare, approve and track employment offers.";
+      return "Prepare offers, confirm appointments and manage candidate responses.";
     case "Onboarding":
-      return "Coordinate pre-start tasks and employee handover.";
+      return "Pre-employment tasks and employee handover.";
     case "AI Studio":
-      return "Create and improve Talent content with Leo.";
+      return "Create adverts, interview guides, candidate communications and hiring content with Leo.";
     case "Settings":
       return "Talent defaults, templates and hiring controls.";
   }

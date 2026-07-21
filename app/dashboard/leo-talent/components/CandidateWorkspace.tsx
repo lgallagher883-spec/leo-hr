@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ChangeEvent,
   type CSSProperties,
   type FormEvent,
 } from "react";
@@ -28,6 +29,44 @@ type CandidateFilter =
   | "all";
 
 type CandidateSkill = string | Record<string, unknown>;
+
+type PreferredEmploymentType =
+  | "not_recorded"
+  | "full_time"
+  | "part_time"
+  | "temporary"
+  | "fixed_term"
+  | "casual"
+  | "flexible";
+
+type CandidateDocumentType =
+  | "cv"
+  | "cover_letter"
+  | "other";
+
+type CandidateDocument = {
+  id: string;
+  candidate_id: string;
+  document_type: CandidateDocumentType;
+  title: string;
+  file_name: string;
+  file_path: string;
+  mime_type: string | null;
+  file_size_bytes: number | null;
+  created_at: string;
+};
+
+type CandidateUploadState = {
+  cv: File | null;
+  coverLetter: File | null;
+  supportingDocuments: File[];
+};
+
+const emptyUploads = (): CandidateUploadState => ({
+  cv: null,
+  coverLetter: null,
+  supportingDocuments: [],
+});
 
 type CandidateApplication = {
   id: string;
@@ -74,6 +113,14 @@ type TalentCandidate = {
   data_retention_review_date: string | null;
   do_not_contact: boolean;
   do_not_contact_reason: string | null;
+  current_job_title: string | null;
+  current_employer: string | null;
+  years_experience: number | null;
+  preferred_location: string | null;
+  preferred_employment_type: PreferredEmploymentType;
+  salary_expectations: string | null;
+  earliest_start_date: string | null;
+  general_notes: string | null;
   summary: string | null;
   skills: CandidateSkill[];
   metadata: Record<string, unknown>;
@@ -85,6 +132,7 @@ type TalentCandidate = {
   archived_by: string | null;
   archive_reason: string | null;
   applications: CandidateApplication[];
+  documents: CandidateDocument[];
 };
 
 type CandidateFormState = {
@@ -110,6 +158,14 @@ type CandidateFormState = {
   dataRetentionReviewDate: string;
   doNotContact: boolean;
   doNotContactReason: string;
+  currentJobTitle: string;
+  currentEmployer: string;
+  yearsExperience: string;
+  preferredLocation: string;
+  preferredEmploymentType: PreferredEmploymentType;
+  salaryExpectations: string;
+  earliestStartDate: string;
+  generalNotes: string;
   summary: string;
   skills: string;
 };
@@ -137,6 +193,14 @@ const emptyForm: CandidateFormState = {
   dataRetentionReviewDate: "",
   doNotContact: false,
   doNotContactReason: "",
+  currentJobTitle: "",
+  currentEmployer: "",
+  yearsExperience: "",
+  preferredLocation: "",
+  preferredEmploymentType: "not_recorded",
+  salaryExpectations: "",
+  earliestStartDate: "",
+  generalNotes: "",
   summary: "",
   skills: "",
 };
@@ -145,38 +209,14 @@ const filterOptions: Array<{
   value: CandidateFilter;
   label: string;
 }> = [
-  {
-    value: "current",
-    label: "Current",
-  },
-  {
-    value: "talent_pool",
-    label: "Talent Pool",
-  },
-  {
-    value: "internal",
-    label: "Internal",
-  },
-  {
-    value: "consent",
-    label: "Contact Consent",
-  },
-  {
-    value: "retention_review",
-    label: "Retention Review",
-  },
-  {
-    value: "do_not_contact",
-    label: "Do Not Contact",
-  },
-  {
-    value: "archived",
-    label: "Archived",
-  },
-  {
-    value: "all",
-    label: "All",
-  },
+  { value: "all", label: "All" },
+  { value: "current", label: "Current" },
+  { value: "talent_pool", label: "Talent Pool" },
+  { value: "internal", label: "Internal" },
+  { value: "consent", label: "Contact Consent" },
+  { value: "retention_review", label: "Retention Review" },
+  { value: "do_not_contact", label: "Do Not Contact" },
+  { value: "archived", label: "Archived" },
 ];
 
 const talentPoolOptions: Array<{
@@ -205,6 +245,19 @@ const talentPoolOptions: Array<{
   },
 ];
 
+const employmentTypeOptions: Array<{
+  value: PreferredEmploymentType;
+  label: string;
+}> = [
+  { value: "not_recorded", label: "Not recorded" },
+  { value: "full_time", label: "Full-time" },
+  { value: "part_time", label: "Part-time" },
+  { value: "temporary", label: "Temporary" },
+  { value: "fixed_term", label: "Fixed-term" },
+  { value: "casual", label: "Casual" },
+  { value: "flexible", label: "Flexible" },
+];
+
 export default function CandidatesWorkspace() {
   const [candidates, setCandidates] = useState<
     TalentCandidate[]
@@ -228,11 +281,14 @@ export default function CandidatesWorkspace() {
   const [editingCandidateId, setEditingCandidateId] =
     useState<string | null>(null);
 
-  const [expandedCandidateId, setExpandedCandidateId] =
+  const [selectedCandidateId, setSelectedCandidateId] =
     useState<string | null>(null);
 
   const [form, setForm] =
     useState<CandidateFormState>(emptyForm);
+
+  const [uploads, setUploads] =
+    useState<CandidateUploadState>(emptyUploads);
 
   const loadCandidates = useCallback(
     async (refresh = false) => {
@@ -274,6 +330,14 @@ export default function CandidatesWorkspace() {
             data_retention_review_date,
             do_not_contact,
             do_not_contact_reason,
+            current_job_title,
+            current_employer,
+            years_experience,
+            preferred_location,
+            preferred_employment_type,
+            salary_expectations,
+            earliest_start_date,
+            general_notes,
             summary,
             skills,
             metadata,
@@ -284,6 +348,17 @@ export default function CandidatesWorkspace() {
             archived_at,
             archived_by,
             archive_reason,
+            documents:leo_talent_candidate_documents (
+              id,
+              candidate_id,
+              document_type,
+              title,
+              file_name,
+              file_path,
+              mime_type,
+              file_size_bytes,
+              created_at
+            ),
             applications:leo_talent_applications (
               id,
               application_reference,
@@ -494,8 +569,12 @@ export default function CandidatesWorkspace() {
   function openCreateForm() {
     setEditingCandidateId(null);
     setForm(emptyForm);
+    setUploads(emptyUploads());
     setFormError(null);
+    setSelectedCandidateId(null);
     setShowForm(true);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function openEditForm(candidate: TalentCandidate) {
@@ -533,12 +612,25 @@ export default function CandidatesWorkspace() {
       doNotContact: candidate.do_not_contact,
       doNotContactReason:
         candidate.do_not_contact_reason ?? "",
+      currentJobTitle: candidate.current_job_title ?? "",
+      currentEmployer: candidate.current_employer ?? "",
+      yearsExperience:
+        candidate.years_experience !== null
+          ? String(candidate.years_experience)
+          : "",
+      preferredLocation: candidate.preferred_location ?? "",
+      preferredEmploymentType:
+        candidate.preferred_employment_type ?? "not_recorded",
+      salaryExpectations: candidate.salary_expectations ?? "",
+      earliestStartDate: candidate.earliest_start_date ?? "",
+      generalNotes: candidate.general_notes ?? "",
       summary: candidate.summary ?? "",
       skills: normaliseSkills(candidate.skills).join(
         ", ",
       ),
     });
 
+    setUploads(emptyUploads());
     setFormError(null);
     setShowForm(true);
 
@@ -554,8 +646,12 @@ export default function CandidatesWorkspace() {
     }
 
     setShowForm(false);
+    if (!editingCandidateId) {
+      setSelectedCandidateId(null);
+    }
     setEditingCandidateId(null);
     setForm(emptyForm);
+    setUploads(emptyUploads());
     setFormError(null);
   }
 
@@ -607,6 +703,18 @@ export default function CandidatesWorkspace() {
     ) {
       setFormError(
         "The employee reference must be a whole number.",
+      );
+      return;
+    }
+
+    if (
+      form.yearsExperience.trim() &&
+      (!Number.isFinite(Number(form.yearsExperience)) ||
+        Number(form.yearsExperience) < 0 ||
+        Number(form.yearsExperience) > 80)
+    ) {
+      setFormError(
+        "Enter years of experience between 0 and 80, or leave it blank.",
       );
       return;
     }
@@ -702,16 +810,46 @@ export default function CandidatesWorkspace() {
             form.doNotContactReason,
           )
         : null,
+      current_job_title: normaliseOptionalText(
+        form.currentJobTitle,
+      ),
+      current_employer: normaliseOptionalText(
+        form.currentEmployer,
+      ),
+      years_experience: form.yearsExperience.trim()
+        ? Number(form.yearsExperience)
+        : null,
+      preferred_location: normaliseOptionalText(
+        form.preferredLocation,
+      ),
+      preferred_employment_type:
+        form.preferredEmploymentType,
+      salary_expectations: normaliseOptionalText(
+        form.salaryExpectations,
+      ),
+      earliest_start_date: normaliseOptionalText(
+        form.earliestStartDate,
+      ),
+      general_notes: normaliseOptionalText(
+        form.generalNotes,
+      ),
       summary: normaliseOptionalText(form.summary),
       skills: parseSkills(form.skills),
       updated_at: now,
     };
 
+    let savedCandidateId = editingCandidateId;
+    let savedOrganisationId =
+      existingCandidate?.organisation_id ?? null;
+
     if (editingCandidateId) {
-      const { error: updateError } = await supabase
-        .from("leo_talent_candidates")
-        .update(payload)
-        .eq("id", editingCandidateId);
+      const { data: updatedCandidate, error: updateError } =
+        await supabase
+          .from("leo_talent_candidates")
+          .update(payload)
+          .eq("id", editingCandidateId)
+          .select("id, organisation_id")
+          .single();
 
       if (updateError) {
         console.error(
@@ -729,13 +867,19 @@ export default function CandidatesWorkspace() {
         setSaving(false);
         return;
       }
+
+      savedCandidateId = updatedCandidate.id;
+      savedOrganisationId = updatedCandidate.organisation_id;
     } else {
-      const { error: insertError } = await supabase
-        .from("leo_talent_candidates")
-        .insert({
-          ...payload,
-          created_at: now,
-        });
+      const { data: createdCandidate, error: insertError } =
+        await supabase
+          .from("leo_talent_candidates")
+          .insert({
+            ...payload,
+            created_at: now,
+          })
+          .select("id, organisation_id")
+          .single();
 
       if (insertError) {
         console.error(
@@ -753,12 +897,41 @@ export default function CandidatesWorkspace() {
         setSaving(false);
         return;
       }
+
+      savedCandidateId = createdCandidate.id;
+      savedOrganisationId = createdCandidate.organisation_id;
+    }
+
+    if (savedCandidateId && hasSelectedUploads(uploads)) {
+      const uploadError = await uploadCandidateDocuments({
+        candidateId: savedCandidateId,
+        organisationId: savedOrganisationId,
+        uploads,
+      });
+
+      if (uploadError) {
+        setFormError(
+          `The candidate record was saved, but ${uploadError}`,
+        );
+        setSaving(false);
+        await loadCandidates(true);
+        return;
+      }
     }
 
     setSaving(false);
-    closeForm();
+    setShowForm(false);
+    setEditingCandidateId(null);
+    setForm(emptyForm);
+    setUploads(emptyUploads());
+    setFormError(null);
 
     await loadCandidates(true);
+
+    if (savedCandidateId) {
+      setSelectedCandidateId(savedCandidateId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   async function archiveCandidate(
@@ -817,8 +990,8 @@ export default function CandidatesWorkspace() {
       return;
     }
 
-    if (expandedCandidateId === candidate.id) {
-      setExpandedCandidateId(null);
+    if (selectedCandidateId === candidate.id) {
+      setSelectedCandidateId(null);
     }
 
     await loadCandidates(true);
@@ -860,6 +1033,30 @@ export default function CandidatesWorkspace() {
     setActionCandidateId(null);
   }
 
+  async function openCandidateDocument(
+    document: CandidateDocument,
+  ) {
+    setError(null);
+
+    const { data, error: signedUrlError } =
+      await supabase.storage
+        .from("leo-talent-candidate-documents")
+        .createSignedUrl(document.file_path, 60);
+
+    if (signedUrlError || !data?.signedUrl) {
+      console.error(
+        "Unable to open candidate document:",
+        signedUrlError,
+      );
+      setError(
+        "Leo could not open this candidate document.",
+      );
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  }
+
   function exportCurrentView() {
     if (filteredCandidates.length === 0) {
       window.alert(
@@ -894,7 +1091,16 @@ export default function CandidatesWorkspace() {
       "Retention Review Date",
       "Do Not Contact",
       "Do Not Contact Reason",
-      "Summary",
+      "Current Job Title",
+      "Current Employer",
+      "Years of Experience",
+      "Preferred Location",
+      "Preferred Employment Type",
+      "Salary Expectations",
+      "Earliest Start Date",
+      "Professional Summary",
+      "General Notes",
+      "Documents",
       "Skills",
       "Applications",
       "Active Applications",
@@ -933,7 +1139,18 @@ export default function CandidatesWorkspace() {
         candidate.data_retention_review_date ?? "",
         candidate.do_not_contact ? "Yes" : "No",
         candidate.do_not_contact_reason ?? "",
+        candidate.current_job_title ?? "",
+        candidate.current_employer ?? "",
+        candidate.years_experience !== null
+          ? String(candidate.years_experience)
+          : "",
+        candidate.preferred_location ?? "",
+        formatValue(candidate.preferred_employment_type),
+        candidate.salary_expectations ?? "",
+        candidate.earliest_start_date ?? "",
         candidate.summary ?? "",
+        candidate.general_notes ?? "",
+        String(candidate.documents.length),
         normaliseSkills(candidate.skills).join("; "),
         String(candidate.applications.length),
         String(
@@ -993,6 +1210,61 @@ export default function CandidatesWorkspace() {
     );
   }
 
+  const selectedCandidate = selectedCandidateId
+    ? candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null
+    : null;
+
+  if (showForm) {
+    return (
+      <div>
+        <div style={standaloneViewHeaderStyle}>
+          <button
+            type="button"
+            style={backButtonStyle}
+            onClick={closeForm}
+            disabled={saving}
+          >
+            ← {editingCandidateId ? "Back to candidate" : "Back to register"}
+          </button>
+        </div>
+
+        <CandidateForm
+          form={form}
+          uploads={uploads}
+          candidateReference={
+            editingCandidateId
+              ? candidates.find(
+                  (candidate) => candidate.id === editingCandidateId,
+                )?.candidate_reference ?? null
+              : null
+          }
+          editing={editingCandidateId !== null}
+          saving={saving}
+          error={formError}
+          onUpdate={updateForm}
+          onUploadsChange={setUploads}
+          onSubmit={saveCandidate}
+          onCancel={closeForm}
+        />
+      </div>
+    );
+  }
+
+  if (selectedCandidate) {
+    return (
+      <CandidateProfileView
+        candidate={selectedCandidate}
+        actioning={actionCandidateId === selectedCandidate.id}
+        error={error}
+        onBack={() => setSelectedCandidateId(null)}
+        onEdit={() => openEditForm(selectedCandidate)}
+        onArchive={() => void archiveCandidate(selectedCandidate)}
+        onRestore={() => void restoreCandidate(selectedCandidate)}
+        onOpenDocument={(document) => void openCandidateDocument(document)}
+      />
+    );
+  }
+
   return (
     <div>
       <div style={workspaceHeaderStyle}>
@@ -1001,11 +1273,7 @@ export default function CandidatesWorkspace() {
             Candidates
           </h2>
 
-          <p style={workspaceDescriptionStyle}>
-            Maintain candidate records, contact permissions,
-            talent-pool information and recruitment history
-            in one controlled workspace.
-          </p>
+
         </div>
 
         <div style={headerActionsStyle}>
@@ -1056,18 +1324,6 @@ export default function CandidatesWorkspace() {
         </div>
       ) : null}
 
-      {showForm ? (
-        <CandidateForm
-          form={form}
-          editing={editingCandidateId !== null}
-          saving={saving}
-          error={formError}
-          onUpdate={updateForm}
-          onSubmit={saveCandidate}
-          onCancel={closeForm}
-        />
-      ) : null}
-
       <div style={kpiGridStyle}>
         <KpiCard
           label="Candidates"
@@ -1108,7 +1364,7 @@ export default function CandidatesWorkspace() {
             </h3>
 
             <p style={panelDescriptionStyle}>
-              Search and review candidate contact details,
+              Search and review candidate details,
               recruitment history, talent-pool status and
               retention controls.
             </p>
@@ -1134,7 +1390,7 @@ export default function CandidatesWorkspace() {
               onChange={(event) =>
                 setSearchTerm(event.target.value)
               }
-              placeholder="Search name, email, reference, skill or vacancy"
+              placeholder="Search by name, email, candidate reference, skill or vacancy"
               style={inputStyle}
             />
           </label>
@@ -1165,7 +1421,7 @@ export default function CandidatesWorkspace() {
 
             <strong style={emptyTitleStyle}>
               {candidates.length === 0
-                ? "No candidates have been added"
+                ? "No candidates yet"
                 : "No candidates match this view"}
             </strong>
 
@@ -1188,9 +1444,6 @@ export default function CandidatesWorkspace() {
         ) : (
           <div style={candidateListStyle}>
             {filteredCandidates.map((candidate) => {
-              const expanded =
-                expandedCandidateId === candidate.id;
-
               const actioning =
                 actionCandidateId === candidate.id;
 
@@ -1346,7 +1599,7 @@ export default function CandidatesWorkspace() {
                   {skills.length > 0 ? (
                     <div style={skillsRowStyle}>
                       {skills
-                        .slice(0, expanded ? skills.length : 6)
+                        .slice(0, 6)
                         .map((skill) => (
                           <span
                             key={skill}
@@ -1356,7 +1609,7 @@ export default function CandidatesWorkspace() {
                           </span>
                         ))}
 
-                      {!expanded && skills.length > 6 ? (
+                      {skills.length > 6 ? (
                         <span style={moreBadgeStyle}>
                           +{skills.length - 6} more
                         </span>
@@ -1370,37 +1623,16 @@ export default function CandidatesWorkspace() {
                     </p>
                   ) : null}
 
-                  {expanded ? (
-                    <div style={expandedAreaStyle}>
-                      <div style={expandedGridStyle}>
-                        <CandidateInformationPanel
-                          candidate={candidate}
-                        />
-
-                        <CandidateApplicationsPanel
-                          applications={
-                            candidate.applications
-                          }
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-
                   <div style={cardActionsStyle}>
                     <button
                       type="button"
                       style={secondaryButtonStyle}
-                      onClick={() =>
-                        setExpandedCandidateId(
-                          expanded
-                            ? null
-                            : candidate.id,
-                        )
-                      }
+                      onClick={() => {
+                        setSelectedCandidateId(candidate.id);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                     >
-                      {expanded
-                        ? "Hide details"
-                        : "View details"}
+                      Open candidate
                     </button>
 
                     {!archived ? (
@@ -1458,16 +1690,226 @@ export default function CandidatesWorkspace() {
   );
 }
 
+
+type CandidateProfileTab =
+  | "overview"
+  | "applications"
+  | "documents"
+  | "interviews"
+  | "due_diligence"
+  | "offers"
+  | "onboarding"
+  | "timeline"
+  | "notes";
+
+function CandidateProfileView({
+  candidate,
+  actioning,
+  error,
+  onBack,
+  onEdit,
+  onArchive,
+  onRestore,
+  onOpenDocument,
+}: {
+  candidate: TalentCandidate;
+  actioning: boolean;
+  error: string | null;
+  onBack: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
+  onOpenDocument: (document: CandidateDocument) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<CandidateProfileTab>("overview");
+  const archived = candidate.archived_at !== null;
+  const activeApplications = candidate.applications.filter((application) =>
+    isActiveApplication(application.status),
+  );
+  const skills = normaliseSkills(candidate.skills);
+
+  const tabs: Array<{ value: CandidateProfileTab; label: string }> = [
+    { value: "overview", label: "Overview" },
+    { value: "applications", label: "Applications" },
+    { value: "documents", label: "Documents" },
+    { value: "interviews", label: "Interviews" },
+    { value: "due_diligence", label: "Due Diligence" },
+    { value: "offers", label: "Offers & Appointments" },
+    { value: "onboarding", label: "Onboarding" },
+    { value: "timeline", label: "Timeline" },
+    { value: "notes", label: "Notes" },
+  ];
+
+  return (
+    <div>
+      <div style={profileTopRowStyle}>
+        <button type="button" style={backButtonStyle} onClick={onBack}>
+          ← Back to register
+        </button>
+
+        <div style={headerActionsStyle}>
+          {!archived ? (
+            <>
+              <button type="button" style={secondaryButtonStyle} onClick={onEdit} disabled={actioning}>
+                Edit candidate
+              </button>
+              <button type="button" style={archiveButtonStyle} onClick={onArchive} disabled={actioning}>
+                {actioning ? "Archiving…" : "Archive"}
+              </button>
+            </>
+          ) : (
+            <button type="button" style={primaryButtonStyle} onClick={onRestore} disabled={actioning}>
+              {actioning ? "Restoring…" : "Restore candidate"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error ? <div style={errorPanelStyle}><p style={errorTextStyle}>{error}</p></div> : null}
+
+      <section style={profileHeroStyle}>
+        <div style={profileIdentityRowStyle}>
+          <div style={profileAvatarStyle}>{getCandidateInitials(candidate)}</div>
+          <div>
+            <p style={eyebrowTextStyle}>Candidate profile</p>
+            <h2 style={profileNameStyle}>{getCandidateName(candidate)}</h2>
+            <p style={candidateReferenceStyle}>
+              {candidate.candidate_reference}
+              {candidate.is_internal_candidate ? " · Internal candidate" : ""}
+            </p>
+          </div>
+        </div>
+
+        <div style={badgeRowStyle}>
+          <span style={getTalentPoolBadgeStyle(candidate.talent_pool_status)}>
+            {formatValue(candidate.talent_pool_status)}
+          </span>
+          {candidate.do_not_contact ? (
+            <span style={doNotContactBadgeStyle}>Do Not Contact</span>
+          ) : candidate.consent_to_contact ? (
+            <span style={consentBadgeStyle}>Contact Consent</span>
+          ) : (
+            <span style={neutralBadgeStyle}>No Contact Consent</span>
+          )}
+          {archived ? <span style={archivedBadgeStyle}>Archived</span> : null}
+        </div>
+      </section>
+
+      <div style={profileMetricsStyle}>
+        <KpiCard label="Applications" value={String(candidate.applications.length)} />
+        <KpiCard label="Active applications" value={String(activeApplications.length)} />
+        <KpiCard label="Documents" value={String(candidate.documents.length)} />
+        <KpiCard label="Employee record" value={candidate.existing_employee_id ? "Linked" : "No"} />
+      </div>
+
+      <nav aria-label="Candidate profile sections" style={profileTabsStyle}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            style={activeTab === tab.value ? activeProfileTabStyle : profileTabStyle}
+            onClick={() => setActiveTab(tab.value)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "overview" ? (
+        <div style={profileGridStyle}>
+          <CandidateInformationPanel candidate={candidate} />
+          <section style={informationPanelStyle}>
+            <h3 style={panelTitleStyle}>Professional profile</h3>
+            <div style={informationListStyle}>
+              <CandidateDetail label="Current job title" value={candidate.current_job_title ?? "Not recorded"} />
+              <CandidateDetail label="Current employer" value={candidate.current_employer ?? "Not recorded"} />
+              <CandidateDetail label="Experience" value={candidate.years_experience !== null ? `${candidate.years_experience} years` : "Not recorded"} />
+              <CandidateDetail label="Preferred location" value={candidate.preferred_location ?? "Not recorded"} />
+              <CandidateDetail label="Employment preference" value={formatValue(candidate.preferred_employment_type)} />
+              <CandidateDetail label="Earliest start date" value={formatDate(candidate.earliest_start_date)} />
+              <CandidateDetail label="Salary expectations" value={candidate.salary_expectations ?? "Not recorded"} />
+            </div>
+            {skills.length > 0 ? <div style={skillsRowStyle}>{skills.map((skill) => <span key={skill} style={skillBadgeStyle}>{skill}</span>)}</div> : null}
+            {candidate.summary ? <p style={candidateSummaryStyle}>{candidate.summary}</p> : null}
+          </section>
+          <section style={informationPanelStyle}>
+            <h3 style={panelTitleStyle}>Privacy and retention</h3>
+            <div style={informationListStyle}>
+              <CandidateDetail label="Privacy notice" value={candidate.privacy_notice_version ?? "Not recorded"} />
+              <CandidateDetail label="Retention review" value={formatDate(candidate.data_retention_review_date)} help={getRetentionReviewHelp(candidate.data_retention_review_date)} />
+              <CandidateDetail label="Future recruitment contact" value={candidate.consent_to_contact ? "Agreed" : "Not agreed"} />
+              <CandidateDetail label="Do not contact" value={candidate.do_not_contact ? "Yes" : "No"} help={candidate.do_not_contact_reason ?? undefined} />
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === "applications" ? <CandidateApplicationsPanel applications={candidate.applications} /> : null}
+      {activeTab === "documents" ? <CandidateDocumentsPanel documents={candidate.documents} onOpen={onOpenDocument} /> : null}
+      {activeTab === "notes" ? (
+        <section style={informationPanelStyle}>
+          <h3 style={panelTitleStyle}>General notes</h3>
+          <p style={candidateSummaryStyle}>{candidate.general_notes ?? "No general candidate notes have been recorded."}</p>
+        </section>
+      ) : null}
+      {activeTab === "timeline" ? (
+        <section style={informationPanelStyle}>
+          <h3 style={panelTitleStyle}>Candidate timeline</h3>
+          <div style={timelineListStyle}>
+            <TimelineItem title="Candidate record created" date={candidate.created_at} />
+            {candidate.applications.map((application) => (
+              <TimelineItem key={application.id} title={`Application ${application.application_reference} · ${application.vacancy?.title ?? "Vacancy"}`} date={application.submitted_at ?? application.updated_at} />
+            ))}
+            <TimelineItem title="Candidate record last updated" date={candidate.updated_at} />
+          </div>
+        </section>
+      ) : null}
+      {["interviews", "due_diligence", "offers", "onboarding"].includes(activeTab) ? (
+        <ConnectedSectionPlaceholder section={tabs.find((tab) => tab.value === activeTab)?.label ?? "Recruitment activity"} />
+      ) : null}
+    </div>
+  );
+}
+
+function ConnectedSectionPlaceholder({ section }: { section: string }) {
+  return (
+    <section style={connectedPlaceholderStyle}>
+      <div style={emptyIconStyle}>✦</div>
+      <h3 style={panelTitleStyle}>{section}</h3>
+      <p style={emptyTextStyle}>
+        Connected {section.toLowerCase()} records will appear here when this candidate progresses through the relevant Leo Talent workspace.
+      </p>
+    </section>
+  );
+}
+
+function TimelineItem({ title, date }: { title: string; date: string }) {
+  return (
+    <div style={timelineItemStyle}>
+      <div style={timelineDotStyle} />
+      <div>
+        <strong style={timelineTitleStyle}>{title}</strong>
+        <div style={timelineDateStyle}>{formatDateTime(date)}</div>
+      </div>
+    </div>
+  );
+}
+
 function CandidateForm({
   form,
+  uploads,
+  candidateReference,
   editing,
   saving,
   error,
   onUpdate,
+  onUploadsChange,
   onSubmit,
   onCancel,
 }: {
   form: CandidateFormState;
+  uploads: CandidateUploadState;
+  candidateReference: string | null;
   editing: boolean;
   saving: boolean;
   error: string | null;
@@ -1475,6 +1917,7 @@ function CandidateForm({
     key: K,
     value: CandidateFormState[K],
   ) => void;
+  onUploadsChange: (uploads: CandidateUploadState) => void;
   onSubmit: (
     event: FormEvent<HTMLFormElement>,
   ) => void;
@@ -1493,11 +1936,7 @@ function CandidateForm({
               : "Add Candidate"}
           </h3>
 
-          <p style={formDescriptionStyle}>
-            Record the candidate’s identity, contact
-            information, recruitment source, permissions and
-            talent-pool details.
-          </p>
+
         </div>
 
         <button
@@ -1520,6 +1959,12 @@ function CandidateForm({
         description="Core candidate details used throughout recruitment."
       >
         <div style={threeColumnGridStyle}>
+          <ReadOnlyField
+            label="Candidate Reference"
+            value={candidateReference ?? "Generated when saved"}
+            help="Leo creates a unique candidate reference automatically."
+          />
+
           <TextField
             label="First name"
             value={form.firstName}
@@ -1679,16 +2124,14 @@ function CandidateForm({
       </FormSection>
 
       <FormSection
-        title="Recruitment Profile"
-        description="Record where the candidate came from and useful recruitment context."
+        title="Professional Profile"
+        description="Maintain reusable professional information that can be populated from an application or CV."
       >
         <div style={twoColumnGridStyle}>
           <TextField
             label="Source"
             value={form.source}
-            onChange={(value) =>
-              onUpdate("source", value)
-            }
+            onChange={(value) => onUpdate("source", value)}
             placeholder="For example: Website, referral or job board"
             disabled={saving}
           />
@@ -1696,10 +2139,66 @@ function CandidateForm({
           <TextField
             label="Source detail"
             value={form.sourceDetail}
-            onChange={(value) =>
-              onUpdate("sourceDetail", value)
-            }
+            onChange={(value) => onUpdate("sourceDetail", value)}
             placeholder="Campaign, referrer or advert details"
+            disabled={saving}
+          />
+
+          <TextField
+            label="Current job title"
+            value={form.currentJobTitle}
+            onChange={(value) => onUpdate("currentJobTitle", value)}
+            disabled={saving}
+          />
+
+          <TextField
+            label="Current employer"
+            value={form.currentEmployer}
+            onChange={(value) => onUpdate("currentEmployer", value)}
+            disabled={saving}
+          />
+
+          <TextField
+            label="Years of experience"
+            type="number"
+            value={form.yearsExperience}
+            onChange={(value) => onUpdate("yearsExperience", value)}
+            disabled={saving}
+          />
+
+          <TextField
+            label="Preferred location"
+            value={form.preferredLocation}
+            onChange={(value) => onUpdate("preferredLocation", value)}
+            disabled={saving}
+          />
+
+          <SelectField
+            label="Preferred employment type"
+            value={form.preferredEmploymentType}
+            onChange={(value) =>
+              onUpdate(
+                "preferredEmploymentType",
+                value as PreferredEmploymentType,
+              )
+            }
+            options={employmentTypeOptions}
+            disabled={saving}
+          />
+
+          <TextField
+            label="Salary expectations"
+            value={form.salaryExpectations}
+            onChange={(value) => onUpdate("salaryExpectations", value)}
+            placeholder="Optional candidate expectation or range"
+            disabled={saving}
+          />
+
+          <TextField
+            label="Earliest start date"
+            type="date"
+            value={form.earliestStartDate}
+            onChange={(value) => onUpdate("earliestStartDate", value)}
             disabled={saving}
           />
 
@@ -1719,9 +2218,7 @@ function CandidateForm({
           <TextField
             label="Skills"
             value={form.skills}
-            onChange={(value) =>
-              onUpdate("skills", value)
-            }
+            onChange={(value) => onUpdate("skills", value)}
             placeholder="Separate skills with commas"
             help="For example: Safeguarding, Excel, team leadership"
             disabled={saving}
@@ -1729,12 +2226,70 @@ function CandidateForm({
         </div>
 
         <TextAreaField
-          label="Candidate summary"
+          label="Professional summary"
           value={form.summary}
-          onChange={(value) =>
-            onUpdate("summary", value)
+          onChange={(value) => onUpdate("summary", value)}
+          placeholder="Brief factual summary of the candidate’s experience, strengths or relevant background"
+          rows={4}
+          disabled={saving}
+        />
+      </FormSection>
+
+      <FormSection
+        title="Documents"
+        description="Upload candidate documents for secure storage and future Leo-assisted profile extraction."
+      >
+        <div style={twoColumnGridStyle}>
+          <FileField
+            label="CV"
+            accept=".pdf,.doc,.docx,.rtf,.txt"
+            file={uploads.cv}
+            onChange={(file) =>
+              onUploadsChange({ ...uploads, cv: file })
+            }
+            disabled={saving}
+          />
+
+          <FileField
+            label="Cover letter"
+            accept=".pdf,.doc,.docx,.rtf,.txt"
+            file={uploads.coverLetter}
+            onChange={(file) =>
+              onUploadsChange({ ...uploads, coverLetter: file })
+            }
+            disabled={saving}
+          />
+        </div>
+
+        <MultiFileField
+          label="Supporting documents"
+          accept=".pdf,.doc,.docx,.rtf,.txt,.jpg,.jpeg,.png"
+          files={uploads.supportingDocuments}
+          onChange={(files) =>
+            onUploadsChange({
+              ...uploads,
+              supportingDocuments: files,
+            })
           }
-          placeholder="Brief factual summary of experience, strengths or relevant background"
+          disabled={saving}
+        />
+
+        <div style={informationNoticeStyle}>
+          Uploading a CV allows Leo to extract candidate information,
+          identify skills and populate relevant profile fields for review
+          when CV analysis is enabled.
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="General Notes"
+        description="Record reusable candidate information that is not specific to an individual application."
+      >
+        <TextAreaField
+          label="General notes"
+          value={form.generalNotes}
+          onChange={(value) => onUpdate("generalNotes", value)}
+          placeholder="For example: Met at a careers fair, interested in part-time roles or relocating later in the year"
           rows={4}
           disabled={saving}
         />
@@ -1774,7 +2329,7 @@ function CandidateForm({
 
         <div style={privacyOptionsGridStyle}>
           <CheckboxField
-            label="Consent to future contact"
+            label="Future recruitment contact"
             description="The candidate has agreed to be contacted about suitable future opportunities."
             checked={form.consentToContact}
             onChange={(checked) => {
@@ -1852,8 +2407,8 @@ function CandidateForm({
           {saving
             ? "Saving…"
             : editing
-              ? "Save candidate"
-              : "Add candidate"}
+              ? "Save Candidate"
+              : "Add Candidate"}
         </button>
       </div>
     </form>
@@ -2015,6 +2570,91 @@ function SelectField({
   );
 }
 
+function ReadOnlyField({
+  label,
+  value,
+  help,
+}: {
+  label: string;
+  value: string;
+  help?: string;
+}) {
+  return (
+    <div style={fieldStyle}>
+      <span style={fieldLabelStyle}>{label}</span>
+      <div style={readOnlyValueStyle}>{value}</div>
+      {help ? <span style={fieldHelpStyle}>{help}</span> : null}
+    </div>
+  );
+}
+
+function FileField({
+  label,
+  accept,
+  file,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  accept: string;
+  file: File | null;
+  onChange: (file: File | null) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label style={fieldStyle}>
+      <span style={fieldLabelStyle}>{label}</span>
+      <input
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+          onChange(event.target.files?.[0] ?? null)
+        }
+        style={fileInputStyle}
+      />
+      <span style={fieldHelpStyle}>
+        {file ? file.name : "No file selected"}
+      </span>
+    </label>
+  );
+}
+
+function MultiFileField({
+  label,
+  accept,
+  files,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  accept: string;
+  files: File[];
+  onChange: (files: File[]) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label style={fieldStyle}>
+      <span style={fieldLabelStyle}>{label}</span>
+      <input
+        type="file"
+        accept={accept}
+        multiple
+        disabled={disabled}
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+          onChange(Array.from(event.target.files ?? []))
+        }
+        style={fileInputStyle}
+      />
+      <span style={fieldHelpStyle}>
+        {files.length === 0
+          ? "No files selected"
+          : `${files.length} file${files.length === 1 ? "" : "s"} selected`}
+      </span>
+    </label>
+  );
+}
+
 function CheckboxField({
   label,
   description,
@@ -2061,11 +2701,7 @@ function WorkspaceHeading() {
           Candidates
         </h2>
 
-        <p style={workspaceDescriptionStyle}>
-          Maintain candidate records, contact permissions,
-          talent-pool information and recruitment history in
-          one controlled workspace.
-        </p>
+
       </div>
     </div>
   );
@@ -2162,6 +2798,26 @@ function CandidateInformationPanel({
         />
 
         <InformationRow
+          label="Current role"
+          value={candidate.current_job_title ?? "Not recorded"}
+        />
+
+        <InformationRow
+          label="Current employer"
+          value={candidate.current_employer ?? "Not recorded"}
+        />
+
+        <InformationRow
+          label="Preferred employment"
+          value={formatValue(candidate.preferred_employment_type)}
+        />
+
+        <InformationRow
+          label="Earliest start date"
+          value={formatDate(candidate.earliest_start_date)}
+        />
+
+        <InformationRow
           label="Privacy notice"
           value={
             candidate.privacy_notice_version ??
@@ -2189,6 +2845,13 @@ function CandidateInformationPanel({
             candidate.updated_at,
           )}
         />
+
+        {candidate.general_notes ? (
+          <InformationRow
+            label="General notes"
+            value={candidate.general_notes}
+          />
+        ) : null}
 
         {candidate.do_not_contact_reason ? (
           <InformationRow
@@ -2289,6 +2952,52 @@ function CandidateApplicationsPanel({
   );
 }
 
+function CandidateDocumentsPanel({
+  documents,
+  onOpen,
+}: {
+  documents: CandidateDocument[];
+  onOpen: (document: CandidateDocument) => void;
+}) {
+  const sortedDocuments = [...documents].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime(),
+  );
+
+  return (
+    <div style={informationPanelStyle}>
+      <h5 style={expandedPanelTitleStyle}>Documents</h5>
+      {sortedDocuments.length === 0 ? (
+        <p style={noApplicationsStyle}>
+          No candidate documents have been uploaded.
+        </p>
+      ) : (
+        <div style={documentListStyle}>
+          {sortedDocuments.map((document) => (
+            <button
+              key={document.id}
+              type="button"
+              style={documentButtonStyle}
+              onClick={() => onOpen(document)}
+            >
+              <span>
+                <strong style={documentTitleStyle}>
+                  {document.title}
+                </strong>
+                <span style={documentMetaStyle}>
+                  {formatValue(document.document_type)} · {document.file_name}
+                </span>
+              </span>
+              <span style={documentOpenStyle}>Open</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InformationRow({
   label,
   value,
@@ -2307,6 +3016,100 @@ function InformationRow({
       </span>
     </div>
   );
+}
+
+function hasSelectedUploads(uploads: CandidateUploadState) {
+  return Boolean(
+    uploads.cv ||
+      uploads.coverLetter ||
+      uploads.supportingDocuments.length > 0,
+  );
+}
+
+async function uploadCandidateDocuments({
+  candidateId,
+  organisationId,
+  uploads,
+}: {
+  candidateId: string;
+  organisationId: string | null;
+  uploads: CandidateUploadState;
+}): Promise<string | null> {
+  const files: Array<{
+    file: File;
+    type: CandidateDocumentType;
+    title: string;
+  }> = [];
+
+  if (uploads.cv) {
+    files.push({ file: uploads.cv, type: "cv", title: "CV" });
+  }
+
+  if (uploads.coverLetter) {
+    files.push({
+      file: uploads.coverLetter,
+      type: "cover_letter",
+      title: "Cover Letter",
+    });
+  }
+
+  uploads.supportingDocuments.forEach((file) => {
+    files.push({
+      file,
+      type: "other",
+      title: file.name.replace(/\.[^.]+$/, ""),
+    });
+  });
+
+  for (const item of files) {
+    if (item.file.size > 15 * 1024 * 1024) {
+      return `${item.file.name} exceeds the 15 MB upload limit.`;
+    }
+
+    const safeName = item.file.name
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/-+/g, "-");
+    const filePath = `${organisationId ?? "unassigned"}/${candidateId}/${crypto.randomUUID()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("leo-talent-candidate-documents")
+      .upload(filePath, item.file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: item.file.type || undefined,
+      });
+
+    if (uploadError) {
+      console.error("Unable to upload candidate document:", uploadError);
+      return `${item.file.name} could not be uploaded.`;
+    }
+
+    const { error: documentError } = await supabase
+      .from("leo_talent_candidate_documents")
+      .insert({
+        candidate_id: candidateId,
+        organisation_id: organisationId,
+        document_type: item.type,
+        title: item.title,
+        file_name: item.file.name,
+        file_path: filePath,
+        mime_type: item.file.type || null,
+        file_size_bytes: item.file.size,
+      });
+
+    if (documentError) {
+      console.error(
+        "Unable to create candidate document record:",
+        documentError,
+      );
+      await supabase.storage
+        .from("leo-talent-candidate-documents")
+        .remove([filePath]);
+      return `${item.file.name} could not be linked to the candidate record.`;
+    }
+  }
+
+  return null;
 }
 
 function normaliseCandidates(
@@ -2335,6 +3138,10 @@ function normaliseCandidates(
         } as CandidateApplication;
       });
 
+    const documents = Array.isArray(item.documents)
+      ? (item.documents as CandidateDocument[])
+      : [];
+
     return {
       ...item,
       skills: Array.isArray(item.skills)
@@ -2350,6 +3157,7 @@ function normaliseCandidates(
             >)
           : {},
       applications,
+      documents,
     } as TalentCandidate;
   });
 }
@@ -3353,4 +4161,231 @@ const loadingTextStyle: CSSProperties = {
   margin: "7px 0 0",
   color: "#6B7280",
   fontSize: "13px",
+};
+
+const readOnlyValueStyle: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  border: "1px solid #E5E7EB",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  background: "#F9FAFB",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 700,
+};
+
+const fileInputStyle: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  border: "1px solid #D1D5DB",
+  borderRadius: "10px",
+  padding: "9px 10px",
+  background: "#FFFFFF",
+  color: "#374151",
+  fontSize: "12px",
+};
+
+const informationNoticeStyle: CSSProperties = {
+  padding: "12px 14px",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  borderRadius: "10px",
+  color: "#5E4B68",
+  fontSize: "12px",
+  lineHeight: 1.55,
+};
+
+const documentListStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+};
+
+const documentButtonStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  width: "100%",
+  padding: "10px",
+  background: "#FFFFFF",
+  border: "1px solid #E5E7EB",
+  borderRadius: "9px",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const documentTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#374151",
+  fontSize: "12px",
+};
+
+const documentMetaStyle: CSSProperties = {
+  display: "block",
+  marginTop: "4px",
+  color: "#6B7280",
+  fontSize: "10px",
+};
+
+const documentOpenStyle: CSSProperties = {
+  color: "#6E5084",
+  fontSize: "11px",
+  fontWeight: 800,
+};
+
+
+const standaloneViewHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-start",
+  marginBottom: 16,
+};
+
+const backButtonStyle: CSSProperties = {
+  border: "1px solid #DED2E7",
+  borderRadius: 10,
+  background: "#FFFFFF",
+  color: "#6E5084",
+  padding: "9px 12px",
+  fontSize: 13,
+  fontWeight: 750,
+  cursor: "pointer",
+};
+
+const profileTopRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 16,
+};
+
+const profileHeroStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 18,
+  flexWrap: "wrap",
+  border: "1px solid #E7DDED",
+  borderRadius: 18,
+  background: "#FFFFFF",
+  padding: 22,
+  boxShadow: "0 8px 24px rgba(65, 45, 75, 0.05)",
+  marginBottom: 16,
+};
+
+const profileIdentityRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+};
+
+const profileAvatarStyle: CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  width: 58,
+  height: 58,
+  borderRadius: 16,
+  background: "#F1EAF6",
+  color: "#6E5084",
+  fontSize: 20,
+  fontWeight: 800,
+};
+
+const eyebrowTextStyle: CSSProperties = {
+  margin: "0 0 4px",
+  color: "#6E5084",
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
+const profileNameStyle: CSSProperties = {
+  margin: 0,
+  color: "#2F2435",
+  fontSize: 28,
+  lineHeight: 1.2,
+};
+
+const profileMetricsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+  marginBottom: 16,
+};
+
+const profileTabsStyle: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  borderBottom: "1px solid #E7DDED",
+  paddingBottom: 12,
+  marginBottom: 18,
+};
+
+const profileTabStyle: CSSProperties = {
+  border: "1px solid #DED2E7",
+  borderRadius: 999,
+  background: "#FFFFFF",
+  color: "#695A70",
+  padding: "8px 12px",
+  fontSize: 12,
+  fontWeight: 750,
+  cursor: "pointer",
+};
+
+const activeProfileTabStyle: CSSProperties = {
+  ...profileTabStyle,
+  borderColor: "#6E5084",
+  background: "#F1EAF6",
+  color: "#6E5084",
+};
+
+const profileGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gap: 14,
+};
+
+const connectedPlaceholderStyle: CSSProperties = {
+  border: "1px dashed #D8C9E2",
+  borderRadius: 16,
+  background: "#FBF8FD",
+  padding: 36,
+  textAlign: "center",
+};
+
+const timelineListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+  marginTop: 14,
+};
+
+const timelineItemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 12,
+};
+
+const timelineDotStyle: CSSProperties = {
+  width: 10,
+  height: 10,
+  marginTop: 5,
+  borderRadius: 999,
+  background: "#6E5084",
+  flex: "0 0 auto",
+};
+
+const timelineTitleStyle: CSSProperties = {
+  color: "#3B3040",
+  fontSize: 14,
+};
+
+const timelineDateStyle: CSSProperties = {
+  marginTop: 3,
+  color: "#817486",
+  fontSize: 12,
 };

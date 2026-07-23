@@ -578,7 +578,7 @@ export default function OffersWorkspace() {
 
     const result = await supabase
       .from("leo_talent_offers")
-      .update(payload)
+      .update(payload as any)
       .eq("id", draft.id)
       .select("*")
       .single();
@@ -714,9 +714,12 @@ export default function OffersWorkspace() {
       return;
     }
 
-    const rpcResult = await supabase.rpc("convert_talent_candidate_to_employee", {
-      p_offer_id: draft.id,
-    });
+    const rpcResult = await (supabase as any).rpc(
+  "convert_talent_candidate_to_employee",
+  {
+    p_offer_id: draft.id,
+  },
+);
 
     if (rpcResult.error) {
       setErrorMessage(

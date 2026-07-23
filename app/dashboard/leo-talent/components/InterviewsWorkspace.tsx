@@ -1244,7 +1244,7 @@ export default function InterviewsWorkspace() {
     if (editingInterviewId) {
       const { error: updateError } = await supabase
         .from("leo_talent_interviews")
-        .update(payload)
+        .update(payload as any)
         .eq("id", editingInterviewId);
 
       if (updateError) {
@@ -1461,7 +1461,7 @@ export default function InterviewsWorkspace() {
 
     const { error: updateError } = await supabase
       .from("leo_talent_interviews")
-      .update(payload)
+      .update(payload as any)
       .eq("id", interview.id);
 
     if (updateError) {

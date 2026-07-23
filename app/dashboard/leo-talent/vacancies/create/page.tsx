@@ -500,26 +500,24 @@ export default function CreateVacancyPage() {
     return nextErrors;
   }
 
-  async function writeAuditEvent(
+   async function writeAuditEvent(
     vacancyId: string,
     action: string,
   ) {
     try {
-      await supabase
+      await (supabase as any)
         .from("talent_analytics_events")
         .insert({
-          organisation_id:
-            userContext.organisationId,
+          organisation_id: userContext.organisationId,
           event_type: action,
           entity_type: "vacancy",
           entity_id: vacancyId,
           actor_user_id: userContext.userId,
           metadata: {
-            vacancy_reference:
-              form.vacancyReference.trim(),
+            vacancy_reference: form.vacancyReference.trim(),
             vacancy_title: form.title.trim(),
           },
-        });
+        } as any);
     } catch (error) {
       console.warn(
         "Vacancy audit event could not be recorded:",
@@ -651,11 +649,11 @@ export default function CreateVacancyPage() {
       updated_at: now,
     };
 
-    const { data, error } = await supabase
-      .from("leo_talent_vacancies")
-      .insert(payload)
-      .select("id")
-      .single();
+    const { data, error } = await (supabase as any)
+  .from("leo_talent_vacancies")
+  .insert(payload as any)
+  .select("id")
+  .single();
 
     if (error) {
       console.error(

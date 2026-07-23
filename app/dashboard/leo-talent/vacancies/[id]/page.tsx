@@ -400,7 +400,7 @@ export default function VacancyWorkspacePage() {
       let profile: Record<string, unknown> | null = null;
 
       for (const column of ["user_id", "auth_user_id", "id"]) {
-        const result = await supabase
+        const result = await (supabase as any)
           .from("user_profiles")
           .select("*")
           .eq(column, user.id)
@@ -432,10 +432,10 @@ export default function VacancyWorkspacePage() {
       key: keyof TableAvailability,
       orderColumn = "created_at",
     ): Promise<T[]> => {
-      const result = await supabase
-        .from(tableName)
-        .select("*")
-        .eq(filterColumn, vacancyId)
+      const result = await (supabase as any)
+  .from(tableName)
+  .select("*")
+  .eq(filterColumn, vacancyId)
         .order(orderColumn, { ascending: false });
 
       if (result.error) {
@@ -621,7 +621,9 @@ export default function VacancyWorkspacePage() {
   const recordActivity = useCallback(
     async (eventType: string, description: string, metadata?: Record<string, unknown>) => {
       try {
-        const { error } = await supabase.from("talent_analytics_events").insert({
+        const { error } = await (supabase as any)
+  .from("talent_analytics_events")
+  .insert({
           organisation_id: vacancy?.organisation_id ?? userContext.organisationId,
           event_type: eventType,
           entity_type: "vacancy",
@@ -664,7 +666,11 @@ export default function VacancyWorkspacePage() {
       const nextMetadata = { ...(vacancy.metadata ?? {}), ...updates };
       const { error } = await supabase
         .from("leo_talent_vacancies")
-        .update({ metadata: nextMetadata, updated_at: todayIso(), updated_by: userContext.userId })
+        .update({
+  metadata: nextMetadata,
+  updated_at: todayIso(),
+  updated_by: userContext.userId,
+} as any)
         .eq("id", vacancy.id);
 
       if (error) {
@@ -740,9 +746,16 @@ export default function VacancyWorkspacePage() {
       return;
     }
 
-    const resolvedPublicPath = `/careers/${encodeURIComponent(
-      publicRouteResult.data.organisation_slug,
-    )}/${encodeURIComponent(publicRouteResult.data.vacancy_slug)}`;
+    const organisationSlug =
+  publicRouteResult.data.organisation_slug ?? "";
+
+const vacancySlug =
+  publicRouteResult.data.vacancy_slug ?? "";
+
+const resolvedPublicPath = `/careers/${encodeURIComponent(
+  organisationSlug,
+)}/${encodeURIComponent(vacancySlug)}`;
+
     const resolvedPublicUrl =
       typeof window === "undefined"
         ? resolvedPublicPath
@@ -767,11 +780,11 @@ export default function VacancyWorkspacePage() {
     const channelResult = existingLeoChannel
       ? await supabase
           .from("leo_talent_vacancy_publication_channels")
-          .update(channelPayload)
+          .update(channelPayload as any)
           .eq("id", existingLeoChannel.id)
       : await supabase
           .from("leo_talent_vacancy_publication_channels")
-          .insert({ ...channelPayload, created_at: now });
+          .insert(channelPayload as any)
 
     if (channelResult.error) {
       setErrorMessage(
@@ -847,21 +860,25 @@ export default function VacancyWorkspacePage() {
       return;
     }
 
-    setWorkingAction("add-publication-channel");
+        setWorkingAction("add-publication-channel");
     setErrorMessage("");
+
     const now = todayIso();
-    const { error } = await supabase.from("leo_talent_vacancy_publication_channels").insert({
-      organisation_id: vacancy.organisation_id,
-      vacancy_id: vacancy.id,
-      channel_name: newChannelName.trim(),
-      channel_type: newChannelType,
-      published_url: newChannelUrl.trim() || null,
-      status: newChannelUrl.trim() ? "published" : "planned",
-      published_at: newChannelUrl.trim() ? now : null,
-      connection_payload: {},
-      created_at: now,
-      updated_at: now,
-    });
+
+    const { error } = await (supabase as any)
+      .from("leo_talent_vacancy_publication_channels")
+      .insert({
+        organisation_id: vacancy.organisation_id,
+        vacancy_id: vacancy.id,
+        channel_name: newChannelName.trim(),
+        channel_type: newChannelType,
+        published_url: newChannelUrl.trim() || null,
+        status: newChannelUrl.trim() ? "published" : "planned",
+        published_at: newChannelUrl.trim() ? now : null,
+        connection_payload: {},
+        created_at: now,
+        updated_at: now,
+      } as any);
 
     if (error) {
       setErrorMessage(`The publication channel could not be added. ${error.message}`);
@@ -909,25 +926,29 @@ export default function VacancyWorkspacePage() {
       return;
     }
 
-    setWorkingAction("add-vacancy-question");
+        setWorkingAction("add-vacancy-question");
     setErrorMessage("");
+
     const now = todayIso();
-    const { error } = await supabase.from("leo_talent_vacancy_questions").insert({
-      organisation_id: vacancy.organisation_id,
-      vacancy_id: vacancy.id,
-      question_text: questionText.trim(),
-      help_text: questionHelpText.trim() || null,
-      question_type: questionType,
-      options: [],
-      is_required: questionRequired,
-      is_knockout: questionKnockout,
-      knockout_rule: {},
-      blind_review_excluded: false,
-      display_order: vacancyQuestions.length,
-      is_active: true,
-      created_at: now,
-      updated_at: now,
-    });
+
+    const { error } = await (supabase as any)
+      .from("leo_talent_vacancy_questions")
+      .insert({
+        organisation_id: vacancy.organisation_id,
+        vacancy_id: vacancy.id,
+        question_text: questionText.trim(),
+        help_text: questionHelpText.trim() || null,
+        question_type: questionType,
+        options: [],
+        is_required: questionRequired,
+        is_knockout: questionKnockout,
+        knockout_rule: {},
+        blind_review_excluded: false,
+        display_order: vacancyQuestions.length,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      } as any);
 
     if (error) {
       setErrorMessage(`The application question could not be added. ${error.message}`);
@@ -950,9 +971,12 @@ export default function VacancyWorkspacePage() {
     if (!canManage) return;
     setWorkingAction(`question-${question.id}`);
     setErrorMessage("");
-    const { error } = await supabase
+        const { error } = await (supabase as any)
       .from("leo_talent_vacancy_questions")
-      .update({ ...updates, updated_at: todayIso() })
+      .update({
+        ...updates,
+        updated_at: todayIso(),
+      } as any)
       .eq("id", question.id);
 
     if (error) {
@@ -1009,10 +1033,10 @@ export default function VacancyWorkspacePage() {
         payload.archived_at = null;
       }
 
-      const { error } = await supabase
-        .from("leo_talent_vacancies")
-        .update(payload)
-        .eq("id", vacancy.id);
+          const { error } = await (supabase as any)
+      .from("leo_talent_vacancies")
+      .update(payload as any)
+      .eq("id", vacancy.id);
 
       if (error) {
         setErrorMessage(`The vacancy could not be updated. ${error.message}`);
@@ -1138,19 +1162,21 @@ export default function VacancyWorkspacePage() {
       return;
     }
 
-    const insertResult = await supabase.from("leo_talent_vacancy_documents").insert({
-      organisation_id: vacancy.organisation_id,
-      vacancy_id: vacancy.id,
-      title: documentTitle.trim(),
-      document_type: documentType,
-      file_name: documentFile.name,
-      file_path: path,
-      file_type: documentFile.type || null,
-      notes: documentNotes.trim() || null,
-      uploaded_by: userContext.userId,
-      created_at: todayIso(),
-      updated_at: todayIso(),
-    });
+        const insertResult = await (supabase as any)
+      .from("leo_talent_vacancy_documents")
+      .insert({
+        organisation_id: vacancy.organisation_id,
+        vacancy_id: vacancy.id,
+        title: documentTitle.trim(),
+        document_type: documentType,
+        file_name: documentFile.name,
+        file_path: path,
+        file_type: documentFile.type || null,
+        notes: documentNotes.trim() || null,
+        uploaded_by: userContext.userId,
+        created_at: todayIso(),
+        updated_at: todayIso(),
+      } as any);
 
     if (insertResult.error) {
       await supabase.storage.from("talent-documents").remove([path]);

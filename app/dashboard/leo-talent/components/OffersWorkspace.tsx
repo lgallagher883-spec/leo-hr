@@ -3,8 +3,6 @@
 import {
   ArrowRight,
   Check,
-  CheckCircle2,
-  Circle,
   Download,
   FileText,
   Loader2,
@@ -22,122 +20,136 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Row = Record<string, unknown>;
+
 type OfferStatus =
   | "draft"
-  | "pending_approval"
+  | "approval_required"
   | "approved"
-  | "issued"
+  | "sent"
+  | "viewed"
   | "accepted"
   | "declined"
-  | "negotiation"
   | "withdrawn"
-  | "appointed"
-  | "converted";
+  | "expired"
+  | "superseded";
 
-type ChecklistKey =
-  | "contract_produced"
-  | "payroll_notified"
-  | "employee_record_created"
-  | "equipment_prepared"
-  | "induction_booked"
-  | "first_day_planned"
-  | "it_account_requested"
-  | "uniform_prepared"
-  | "welcome_email_sent"
-  | "policies_assigned"
-  | "probation_created"
-  | "learning_recommended";
+type ApprovalStatus =
+  | "not_required"
+  | "pending"
+  | "approved"
+  | "returned"
+  | "declined";
 
-type Checklist = Record<ChecklistKey, boolean>;
+type AppointmentStatus =
+  | "pre_employment"
+  | "checks_in_progress"
+  | "ready_to_start"
+  | "employee_creation_pending"
+  | "employee_created"
+  | "started"
+  | "withdrawn"
+  | "cancelled";
 
 type OfferRecord = {
   id: string;
-  organisation_id: string | number | null;
-  vacancy_id: string | null;
-  application_id: string | null;
-  candidate_id: string | null;
+  organisation_id: string | null;
+  offer_reference: string;
+  application_id: string;
+  vacancy_id: string;
+  candidate_id: string;
   candidate_name: string;
   candidate_email: string;
-  vacancy_title: string;
-  vacancy_reference: string;
-  status: OfferStatus;
   offer_type: string;
-  offered_salary: string;
-  salary_currency: string;
-  salary_period: string;
-  hours_per_week: string;
-  proposed_start_date: string;
-  offer_date: string;
-  probation_months: string;
-  holiday_entitlement: string;
+  status: OfferStatus;
+  job_title: string;
+  department: string;
+  location_name: string;
   manager_name: string;
-  contract_type: string;
-  conditions: string;
-  notes: string;
-  candidate_response: string;
-  responded_at: string;
+  employment_type: string;
+  proposed_start_date: string;
+  hours_per_week: string;
+  work_pattern: string;
+  salary_amount: string;
+  salary_period: string;
+  salary_currency: string;
+  probation_months: string;
+  holiday_allowance_days: string;
+  notice_period: string;
+  conditions_text: string;
+  approval_status: ApprovalStatus;
+  approval_notes: string;
+  sent_at: string;
+  response_deadline: string;
   accepted_at: string;
   declined_at: string;
+  decline_reason: string;
   withdrawn_at: string;
-  appointment_notes: string;
-  checklist: Checklist;
-  employee_id: string | null;
+  withdrawal_reason: string;
+  candidate_response_notes: string;
   created_at: string;
   updated_at: string;
 };
 
+type AppointmentRecord = {
+  id: string;
+  organisation_id: string | null;
+  appointment_reference: string;
+  offer_id: string;
+  application_id: string;
+  vacancy_id: string;
+  candidate_id: string;
+  status: AppointmentStatus;
+  agreed_start_date: string;
+  actual_start_date: string;
+  manager_name: string;
+  department: string;
+  location_name: string;
+  employee_id: string | null;
+  recruitment_summary_transferred: boolean;
+  documents_transferred: boolean;
+  onboarding_transferred: boolean;
+  learning_pathway_triggered: boolean;
+  handover_completed_at: string;
+  handover_notes: string;
+};
+
 type CandidateOption = {
   id: string;
-  applicationId: string | null;
-  vacancyId: string | null;
+  applicationId: string;
+  vacancyId: string;
   name: string;
   email: string;
   vacancyTitle: string;
   vacancyReference: string;
-  organisationId: string | number | null;
+  organisationId: string | null;
+  department: string;
+  locationName: string;
+  employmentType: string;
+  managerName: string;
 };
-
-const EMPTY_CHECKLIST: Checklist = {
-  contract_produced: false,
-  payroll_notified: false,
-  employee_record_created: false,
-  equipment_prepared: false,
-  induction_booked: false,
-  first_day_planned: false,
-  it_account_requested: false,
-  uniform_prepared: false,
-  welcome_email_sent: false,
-  policies_assigned: false,
-  probation_created: false,
-  learning_recommended: false,
-};
-
-const CHECKLIST_LABELS: Array<[ChecklistKey, string]> = [
-  ["contract_produced", "Contract produced"],
-  ["payroll_notified", "Payroll notified"],
-  ["employee_record_created", "Employee record prepared"],
-  ["equipment_prepared", "Equipment prepared"],
-  ["induction_booked", "Induction booked"],
-  ["first_day_planned", "First day planned"],
-  ["it_account_requested", "IT account requested"],
-  ["uniform_prepared", "Uniform prepared"],
-  ["welcome_email_sent", "Welcome email sent"],
-  ["policies_assigned", "Policies assigned"],
-  ["probation_created", "Probation record prepared"],
-  ["learning_recommended", "Leo Learn pathway reviewed"],
-];
 
 const OFFER_STATUSES: Array<{ value: OfferStatus; label: string }> = [
   { value: "draft", label: "Draft" },
-  { value: "pending_approval", label: "Awaiting approval" },
+  { value: "approval_required", label: "Approval required" },
   { value: "approved", label: "Approved" },
-  { value: "issued", label: "Issued" },
+  { value: "sent", label: "Sent" },
+  { value: "viewed", label: "Viewed" },
   { value: "accepted", label: "Accepted" },
-  { value: "negotiation", label: "Negotiation" },
   { value: "declined", label: "Declined" },
   { value: "withdrawn", label: "Withdrawn" },
-  { value: "appointed", label: "Appointment in progress" },
-  { value: "converted", label: "Converted to employee" },
+  { value: "expired", label: "Expired" },
+  { value: "superseded", label: "Superseded" },
+];
+
+const APPOINTMENT_STATUSES: Array<{ value: AppointmentStatus; label: string }> = [
+  { value: "pre_employment", label: "Pre-employment" },
+  { value: "checks_in_progress", label: "Checks in progress" },
+  { value: "ready_to_start", label: "Ready to start" },
+  { value: "employee_creation_pending", label: "Employee creation pending" },
+  { value: "employee_created", label: "Employee created" },
+  { value: "started", label: "Started" },
+  { value: "withdrawn", label: "Withdrawn" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 function text(value: unknown): string {
@@ -151,10 +163,6 @@ function idValue(value: unknown): string | null {
 function dateValue(value: unknown): string {
   const valueText = text(value);
   return valueText ? valueText.slice(0, 10) : "";
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
 }
 
 function humanise(value: string): string {
@@ -171,68 +179,119 @@ function candidateName(row: Row): string {
   );
 }
 
-function parseChecklist(value: unknown): Checklist {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { ...EMPTY_CHECKLIST };
+function conditionsToText(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join("\n");
   }
 
-  const source = value as Row;
-  return CHECKLIST_LABELS.reduce(
-    (result, [key]) => ({ ...result, [key]: source[key] === true }),
-    { ...EMPTY_CHECKLIST },
-  );
+  if (value && typeof value === "object") {
+    return JSON.stringify(value, null, 2);
+  }
+
+  return text(value);
 }
 
-function mapOffer(row: Row): OfferRecord {
+function conditionsFromText(value: string): unknown[] {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function mapOffer(
+  row: Row,
+  candidate: Row | undefined,
+): OfferRecord {
   return {
     id: String(row.id),
-    organisation_id:
-      (row.organisation_id as string | number | null | undefined) ?? null,
-    vacancy_id: idValue(row.vacancy_id),
-    application_id: idValue(row.application_id),
-    candidate_id: idValue(row.candidate_id),
-    candidate_name: text(row.candidate_name) || "Candidate",
-    candidate_email: text(row.candidate_email),
-    vacancy_title: text(row.vacancy_title) || text(row.job_title) || "Vacancy",
-    vacancy_reference: text(row.vacancy_reference),
-    status: (text(row.status || row.offer_status).toLowerCase() || "draft") as OfferStatus,
-    offer_type: text(row.offer_type) || "Conditional offer",
-    offered_salary: row.offered_salary === null || row.offered_salary === undefined ? "" : String(row.offered_salary),
+    organisation_id: idValue(row.organisation_id),
+    offer_reference: text(row.offer_reference),
+    application_id: String(row.application_id),
+    vacancy_id: String(row.vacancy_id),
+    candidate_id: String(row.candidate_id),
+    candidate_name: candidate ? candidateName(candidate) : "Candidate",
+    candidate_email: candidate ? text(candidate.email) : "",
+    offer_type: text(row.offer_type) || "conditional",
+    status: (text(row.status) || "draft") as OfferStatus,
+    job_title: text(row.job_title) || "Vacancy",
+    department: text(row.department),
+    location_name: text(row.location_name),
+    manager_name: text(row.manager_name),
+    employment_type: text(row.employment_type) || "permanent",
+    proposed_start_date: dateValue(row.proposed_start_date),
+    hours_per_week:
+      row.hours_per_week === null || row.hours_per_week === undefined
+        ? ""
+        : String(row.hours_per_week),
+    work_pattern: text(row.work_pattern),
+    salary_amount:
+      row.salary_amount === null || row.salary_amount === undefined
+        ? ""
+        : String(row.salary_amount),
+    salary_period: text(row.salary_period) || "year",
     salary_currency: text(row.salary_currency) || "GBP",
-    salary_period: text(row.salary_period) || "per annum",
-    hours_per_week: row.hours_per_week === null || row.hours_per_week === undefined ? "" : String(row.hours_per_week),
-    proposed_start_date: dateValue(row.proposed_start_date || row.start_date),
-    offer_date: dateValue(row.offer_date || row.issued_at),
-    probation_months: row.probation_months === null || row.probation_months === undefined ? "3" : String(row.probation_months),
-    holiday_entitlement: text(row.holiday_entitlement),
-    manager_name: text(row.manager_name || row.hiring_manager_name),
-    contract_type: text(row.contract_type || row.employment_type),
-    conditions: text(row.conditions || row.offer_conditions),
-    notes: text(row.notes),
-    candidate_response: text(row.candidate_response) || "Awaiting response",
-    responded_at: dateValue(row.responded_at),
+    probation_months:
+      row.probation_months === null || row.probation_months === undefined
+        ? "3"
+        : String(row.probation_months),
+    holiday_allowance_days:
+      row.holiday_allowance_days === null || row.holiday_allowance_days === undefined
+        ? ""
+        : String(row.holiday_allowance_days),
+    notice_period: text(row.notice_period),
+    conditions_text: conditionsToText(row.conditions),
+    approval_status: (text(row.approval_status) || "not_required") as ApprovalStatus,
+    approval_notes: text(row.approval_notes),
+    sent_at: dateValue(row.sent_at),
+    response_deadline: dateValue(row.response_deadline),
     accepted_at: dateValue(row.accepted_at),
     declined_at: dateValue(row.declined_at),
+    decline_reason: text(row.decline_reason),
     withdrawn_at: dateValue(row.withdrawn_at),
-    appointment_notes: text(row.appointment_notes),
-    checklist: parseChecklist(row.appointment_checklist || row.onboarding_checklist),
-    employee_id: idValue(row.employee_id),
+    withdrawal_reason: text(row.withdrawal_reason),
+    candidate_response_notes: text(row.candidate_response_notes),
     created_at: text(row.created_at),
     updated_at: text(row.updated_at),
   };
 }
 
+function mapAppointment(row: Row): AppointmentRecord {
+  return {
+    id: String(row.id),
+    organisation_id: idValue(row.organisation_id),
+    appointment_reference: text(row.appointment_reference),
+    offer_id: String(row.offer_id),
+    application_id: String(row.application_id),
+    vacancy_id: String(row.vacancy_id),
+    candidate_id: String(row.candidate_id),
+    status: (text(row.status) || "pre_employment") as AppointmentStatus,
+    agreed_start_date: dateValue(row.agreed_start_date),
+    actual_start_date: dateValue(row.actual_start_date),
+    manager_name: text(row.manager_name),
+    department: text(row.department),
+    location_name: text(row.location_name),
+    employee_id: idValue(row.employee_id),
+    recruitment_summary_transferred: row.recruitment_summary_transferred === true,
+    documents_transferred: row.documents_transferred === true,
+    onboarding_transferred: row.onboarding_transferred === true,
+    learning_pathway_triggered: row.learning_pathway_triggered === true,
+    handover_completed_at: dateValue(row.handover_completed_at),
+    handover_notes: text(row.handover_notes),
+  };
+}
+
 function csvCell(value: unknown): string {
-  const stringValue = String(value ?? "");
-  return `"${stringValue.replaceAll('"', '""')}"`;
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 export default function OffersWorkspace() {
   const router = useRouter();
   const [offers, setOffers] = useState<OfferRecord[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [candidates, setCandidates] = useState<CandidateOption[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<OfferRecord | null>(null);
+  const [appointmentDraft, setAppointmentDraft] = useState<AppointmentRecord | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [loading, setLoading] = useState(true);
@@ -244,62 +303,123 @@ export default function OffersWorkspace() {
   const loadData = useCallback(async (manual = false) => {
     manual ? setRefreshing(true) : setLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
-    const [offersResult, candidatesResult, applicationsResult, vacanciesResult] =
-      await Promise.all([
-        supabase.from("talent_offers").select("*").order("created_at", { ascending: false }),
-        supabase.from("talent_candidates").select("*").order("created_at", { ascending: false }),
-        supabase.from("talent_applications").select("*").order("created_at", { ascending: false }),
-        supabase.from("talent_vacancies").select("*").order("created_at", { ascending: false }),
-      ]);
+    const [
+      offersResult,
+      appointmentsResult,
+      candidatesResult,
+      applicationsResult,
+      vacanciesResult,
+    ] = await Promise.all([
+      supabase
+        .from("leo_talent_offers")
+        .select("*")
+        .is("archived_at", null)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("leo_talent_appointments")
+        .select("*")
+        .is("archived_at", null)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("leo_talent_candidates")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("leo_talent_applications")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("leo_talent_vacancies")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    ]);
 
-    if (offersResult.error) {
-      setErrorMessage(`Offers could not be loaded. ${offersResult.error.message}`);
+    const firstError =
+      offersResult.error ||
+      appointmentsResult.error ||
+      candidatesResult.error ||
+      applicationsResult.error ||
+      vacanciesResult.error;
+
+    if (firstError) {
+      setErrorMessage(`Offers and appointments could not be loaded. ${firstError.message}`);
       setOffers([]);
-    } else {
-      const mapped = (offersResult.data ?? []).map((row) => mapOffer(row as Row));
-      setOffers(mapped);
-      setSelectedId((current) => current || mapped[0]?.id || "");
+      setAppointments([]);
+      setCandidates([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
 
+    const candidateRows = (candidatesResult.data ?? []) as Row[];
     const applicationRows = (applicationsResult.data ?? []) as Row[];
     const vacancyRows = (vacanciesResult.data ?? []) as Row[];
-    const candidateRows = (candidatesResult.data ?? []) as Row[];
 
-    const applicationByCandidate = new Map<string, Row>();
-    applicationRows.forEach((application) => {
-      const candidateId = idValue(application.candidate_id);
-      if (candidateId && !applicationByCandidate.has(candidateId)) {
-        applicationByCandidate.set(candidateId, application);
-      }
-    });
+    const candidateById = new Map(candidateRows.map((row) => [String(row.id), row]));
+    const vacancyById = new Map(vacancyRows.map((row) => [String(row.id), row]));
 
-    const vacancyById = new Map<string, Row>();
-    vacancyRows.forEach((vacancy) => vacancyById.set(String(vacancy.id), vacancy));
+    const mappedOffers = ((offersResult.data ?? []) as Row[]).map((row) =>
+      mapOffer(row, candidateById.get(String(row.candidate_id))),
+    );
 
-    setCandidates(
-      candidateRows.map((candidate) => {
-        const candidateId = String(candidate.id);
-        const application = applicationByCandidate.get(candidateId);
-        const vacancyId = idValue(application?.vacancy_id || candidate.vacancy_id);
-        const vacancy = vacancyId ? vacancyById.get(vacancyId) : undefined;
+    setOffers(mappedOffers);
+    setAppointments(((appointmentsResult.data ?? []) as Row[]).map(mapAppointment));
+    setSelectedId((current) =>
+      mappedOffers.some((offer) => offer.id === current)
+        ? current
+        : mappedOffers[0]?.id || "",
+    );
+
+    const existingApplicationIds = new Set(mappedOffers.map((offer) => offer.application_id));
+
+    const candidateOptions = applicationRows
+      .filter((application) => !existingApplicationIds.has(String(application.id)))
+      .map((application) => {
+        const candidateId = String(application.candidate_id ?? "");
+        const vacancyId = String(application.vacancy_id ?? "");
+        const candidate = candidateById.get(candidateId);
+        const vacancy = vacancyById.get(vacancyId);
 
         return {
           id: candidateId,
-          applicationId: idValue(application?.id),
+          applicationId: String(application.id),
           vacancyId,
-          name: candidateName(candidate),
-          email: text(candidate.email),
-          vacancyTitle: text(vacancy?.title || vacancy?.vacancy_title) || "Vacancy not linked",
-          vacancyReference: text(vacancy?.vacancy_reference || vacancy?.reference),
+          name: candidate ? candidateName(candidate) : "Candidate",
+          email: candidate ? text(candidate.email) : "",
+          vacancyTitle:
+            text(vacancy?.job_title) ||
+            text(vacancy?.title) ||
+            text(vacancy?.vacancy_title) ||
+            "Vacancy",
+          vacancyReference:
+            text(vacancy?.vacancy_reference) || text(vacancy?.reference),
           organisationId:
-            (candidate.organisation_id as string | number | null | undefined) ??
-            (vacancy?.organisation_id as string | number | null | undefined) ??
-            null,
+            idValue(application.organisation_id) ||
+            idValue(candidate?.organisation_id) ||
+            idValue(vacancy?.organisation_id),
+          department: text(vacancy?.department),
+          locationName:
+            text(vacancy?.location_name) || text(vacancy?.location),
+          employmentType:
+            text(vacancy?.employment_type) ||
+            text(vacancy?.contract_type) ||
+            "permanent",
+          managerName:
+            text(vacancy?.manager_name) ||
+            text(vacancy?.hiring_manager_name),
         };
-      }),
-    );
+      })
+      .filter(
+        (option) =>
+          option.id &&
+          option.applicationId &&
+          option.vacancyId &&
+          option.organisationId,
+      );
 
+    setCandidates(candidateOptions);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -310,8 +430,11 @@ export default function OffersWorkspace() {
 
   useEffect(() => {
     const selected = offers.find((offer) => offer.id === selectedId) ?? null;
-    setDraft(selected ? { ...selected, checklist: { ...selected.checklist } } : null);
-  }, [offers, selectedId]);
+    setDraft(selected ? { ...selected } : null);
+
+    const appointment = appointments.find((item) => item.offer_id === selectedId) ?? null;
+    setAppointmentDraft(appointment ? { ...appointment } : null);
+  }, [appointments, offers, selectedId]);
 
   const filteredOffers = useMemo(() => {
     const normalisedQuery = query.trim().toLowerCase();
@@ -322,8 +445,8 @@ export default function OffersWorkspace() {
         [
           offer.candidate_name,
           offer.candidate_email,
-          offer.vacancy_title,
-          offer.vacancy_reference,
+          offer.job_title,
+          offer.offer_reference,
           offer.status,
         ]
           .join(" ")
@@ -333,7 +456,7 @@ export default function OffersWorkspace() {
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" &&
-          !["declined", "withdrawn", "converted"].includes(offer.status)) ||
+          !["declined", "withdrawn", "expired", "superseded"].includes(offer.status)) ||
         offer.status === statusFilter;
 
       return matchesQuery && matchesStatus;
@@ -342,50 +465,60 @@ export default function OffersWorkspace() {
 
   const metrics = useMemo(
     () => ({
-      active: offers.filter((offer) => !["declined", "withdrawn", "converted"].includes(offer.status)).length,
-      approval: offers.filter((offer) => offer.status === "pending_approval").length,
-      response: offers.filter((offer) => ["approved", "issued"].includes(offer.status)).length,
+      active: offers.filter(
+        (offer) => !["declined", "withdrawn", "expired", "superseded"].includes(offer.status),
+      ).length,
+      approval: offers.filter((offer) => offer.status === "approval_required").length,
+      response: offers.filter((offer) => ["sent", "viewed"].includes(offer.status)).length,
       accepted: offers.filter((offer) => offer.status === "accepted").length,
-      ready: offers.filter((offer) => {
-        const complete = Object.values(offer.checklist).filter(Boolean).length;
-        return ["accepted", "appointed"].includes(offer.status) && complete === CHECKLIST_LABELS.length;
-      }).length,
+      ready: appointments.filter((appointment) => appointment.status === "ready_to_start").length,
     }),
-    [offers],
+    [appointments, offers],
   );
 
   const updateDraft = <K extends keyof OfferRecord>(key: K, value: OfferRecord[K]) => {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
   };
 
-  const createOffer = async (candidateId: string) => {
-    const candidate = candidates.find((item) => item.id === candidateId);
+  const updateAppointmentDraft = <K extends keyof AppointmentRecord>(
+    key: K,
+    value: AppointmentRecord[K],
+  ) => {
+    setAppointmentDraft((current) => (current ? { ...current, [key]: value } : current));
+  };
+
+  const createOffer = async (applicationId: string) => {
+    const candidate = candidates.find((item) => item.applicationId === applicationId);
     if (!candidate) return;
 
     setWorking("create");
     setErrorMessage("");
+    setSuccessMessage("");
 
     const payload = {
       organisation_id: candidate.organisationId,
-      vacancy_id: candidate.vacancyId,
       application_id: candidate.applicationId,
+      vacancy_id: candidate.vacancyId,
       candidate_id: candidate.id,
-      candidate_name: candidate.name,
-      candidate_email: candidate.email || null,
-      vacancy_title: candidate.vacancyTitle,
-      vacancy_reference: candidate.vacancyReference || null,
+      offer_type: "conditional",
       status: "draft",
-      offer_type: "Conditional offer",
+      job_title: candidate.vacancyTitle,
+      department: candidate.department || null,
+      location_name: candidate.locationName || null,
+      manager_name: candidate.managerName || null,
+      employment_type: candidate.employmentType,
       salary_currency: "GBP",
-      salary_period: "per annum",
+      salary_period: "year",
       probation_months: 3,
-      candidate_response: "Awaiting response",
-      appointment_checklist: EMPTY_CHECKLIST,
-      created_at: nowIso(),
-      updated_at: nowIso(),
+      conditions: [],
+      approval_status: "not_required",
     };
 
-    const result = await supabase.from("talent_offers").insert(payload).select("*").single();
+    const result = await supabase
+      .from("leo_talent_offers")
+      .insert(payload)
+      .select("*")
+      .single();
 
     if (result.error) {
       setErrorMessage(`The offer could not be created. ${result.error.message}`);
@@ -393,17 +526,17 @@ export default function OffersWorkspace() {
       return;
     }
 
-    const created = mapOffer(result.data as Row);
-    setOffers((current) => [created, ...current]);
-    setSelectedId(created.id);
-    setSuccessMessage("Offer created. Complete the terms before issuing it.");
+    setSuccessMessage("Offer created. Complete the terms before sending it.");
     setWorking("");
+    await loadData(true);
+    setSelectedId(String(result.data.id));
   };
 
   const saveOffer = async () => {
     if (!draft) return;
-    if (!draft.candidate_name.trim() || !draft.vacancy_title.trim()) {
-      setErrorMessage("The candidate and vacancy must be identified.");
+
+    if (!draft.job_title.trim() || !draft.employment_type.trim()) {
+      setErrorMessage("Job title and employment type are required.");
       return;
     }
 
@@ -412,31 +545,43 @@ export default function OffersWorkspace() {
     setSuccessMessage("");
 
     const payload = {
+      offer_type: draft.offer_type,
       status: draft.status,
-      offer_type: draft.offer_type || null,
-      offered_salary: draft.offered_salary ? Number(draft.offered_salary) : null,
-      salary_currency: draft.salary_currency || "GBP",
-      salary_period: draft.salary_period || null,
-      hours_per_week: draft.hours_per_week ? Number(draft.hours_per_week) : null,
-      proposed_start_date: draft.proposed_start_date || null,
-      offer_date: draft.offer_date || null,
-      probation_months: draft.probation_months ? Number(draft.probation_months) : null,
-      holiday_entitlement: draft.holiday_entitlement || null,
+      job_title: draft.job_title,
+      department: draft.department || null,
+      location_name: draft.location_name || null,
       manager_name: draft.manager_name || null,
-      contract_type: draft.contract_type || null,
-      conditions: draft.conditions || null,
-      notes: draft.notes || null,
-      candidate_response: draft.candidate_response || null,
-      responded_at: draft.responded_at || null,
+      employment_type: draft.employment_type,
+      proposed_start_date: draft.proposed_start_date || null,
+      hours_per_week: draft.hours_per_week ? Number(draft.hours_per_week) : null,
+      work_pattern: draft.work_pattern || null,
+      salary_amount: draft.salary_amount ? Number(draft.salary_amount) : null,
+      salary_period: draft.salary_period || null,
+      salary_currency: draft.salary_currency || "GBP",
+      probation_months: draft.probation_months ? Number(draft.probation_months) : null,
+      holiday_allowance_days: draft.holiday_allowance_days
+        ? Number(draft.holiday_allowance_days)
+        : null,
+      notice_period: draft.notice_period || null,
+      conditions: conditionsFromText(draft.conditions_text),
+      approval_status: draft.approval_status,
+      approval_notes: draft.approval_notes || null,
+      sent_at: draft.sent_at || null,
+      response_deadline: draft.response_deadline || null,
       accepted_at: draft.accepted_at || null,
       declined_at: draft.declined_at || null,
+      decline_reason: draft.decline_reason || null,
       withdrawn_at: draft.withdrawn_at || null,
-      appointment_notes: draft.appointment_notes || null,
-      appointment_checklist: draft.checklist,
-      updated_at: nowIso(),
+      withdrawal_reason: draft.withdrawal_reason || null,
+      candidate_response_notes: draft.candidate_response_notes || null,
     };
 
-    const result = await supabase.from("talent_offers").update(payload).eq("id", draft.id).select("*").single();
+    const result = await supabase
+      .from("leo_talent_offers")
+      .update(payload)
+      .eq("id", draft.id)
+      .select("*")
+      .single();
 
     if (result.error) {
       setErrorMessage(`The offer could not be saved. ${result.error.message}`);
@@ -444,41 +589,111 @@ export default function OffersWorkspace() {
       return;
     }
 
-    const saved = mapOffer(result.data as Row);
-    setOffers((current) => current.map((offer) => (offer.id === saved.id ? saved : offer)));
-    setSuccessMessage("Offer and appointment record saved.");
+    if (draft.status === "accepted") {
+      const existingAppointment = appointments.find((item) => item.offer_id === draft.id);
+
+      if (!existingAppointment) {
+        const appointmentResult = await supabase
+          .from("leo_talent_appointments")
+          .insert({
+            organisation_id: draft.organisation_id,
+            offer_id: draft.id,
+            application_id: draft.application_id,
+            vacancy_id: draft.vacancy_id,
+            candidate_id: draft.candidate_id,
+            status: "pre_employment",
+            agreed_start_date: draft.proposed_start_date || null,
+            manager_name: draft.manager_name || null,
+            department: draft.department || null,
+            location_name: draft.location_name || null,
+          })
+          .select("*")
+          .single();
+
+        if (appointmentResult.error) {
+          setErrorMessage(
+            `The offer was saved, but its appointment record could not be created. ${appointmentResult.error.message}`,
+          );
+          setWorking("");
+          await loadData(true);
+          return;
+        }
+      }
+    }
+
+    setSuccessMessage("Offer saved.");
     setWorking("");
+    await loadData(true);
+    setSelectedId(String(result.data.id));
   };
 
-  const setStatus = async (status: OfferStatus) => {
+  const setOfferStatus = (status: OfferStatus) => {
     if (!draft) return;
+
     const today = new Date().toISOString().slice(0, 10);
-    const next: OfferRecord = {
+
+    setDraft({
       ...draft,
       status,
-      offer_date: status === "issued" && !draft.offer_date ? today : draft.offer_date,
-      candidate_response:
-        status === "accepted"
-          ? "Accepted"
-          : status === "declined"
-            ? "Declined"
-            : status === "negotiation"
-              ? "Negotiation"
-              : status === "withdrawn"
-                ? "Withdrawn"
-                : draft.candidate_response,
-      responded_at: ["accepted", "declined", "negotiation"].includes(status) ? today : draft.responded_at,
+      approval_status:
+        status === "approval_required"
+          ? "pending"
+          : status === "approved"
+            ? "approved"
+            : draft.approval_status,
+      sent_at: status === "sent" && !draft.sent_at ? today : draft.sent_at,
       accepted_at: status === "accepted" ? today : draft.accepted_at,
       declined_at: status === "declined" ? today : draft.declined_at,
       withdrawn_at: status === "withdrawn" ? today : draft.withdrawn_at,
-    };
-    setDraft(next);
+    });
+  };
+
+  const saveAppointment = async () => {
+    if (!draft || !appointmentDraft) return;
+
+    setWorking("appointment");
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const result = await supabase
+      .from("leo_talent_appointments")
+      .update({
+        status: appointmentDraft.status,
+        agreed_start_date: appointmentDraft.agreed_start_date || null,
+        actual_start_date: appointmentDraft.actual_start_date || null,
+        manager_name: appointmentDraft.manager_name || null,
+        department: appointmentDraft.department || null,
+        location_name: appointmentDraft.location_name || null,
+        recruitment_summary_transferred:
+          appointmentDraft.recruitment_summary_transferred,
+        documents_transferred: appointmentDraft.documents_transferred,
+        onboarding_transferred: appointmentDraft.onboarding_transferred,
+        learning_pathway_triggered: appointmentDraft.learning_pathway_triggered,
+        handover_completed_at: appointmentDraft.handover_completed_at || null,
+        handover_notes: appointmentDraft.handover_notes || null,
+      })
+      .eq("id", appointmentDraft.id)
+      .select("*")
+      .single();
+
+    if (result.error) {
+      setErrorMessage(`The appointment could not be saved. ${result.error.message}`);
+      setWorking("");
+      return;
+    }
+
+    setSuccessMessage("Appointment record saved.");
+    setWorking("");
+    await loadData(true);
   };
 
   const convertToEmployee = async () => {
-    if (!draft) return;
-    if (!["accepted", "appointed"].includes(draft.status)) {
-      setErrorMessage("The offer must be accepted before the candidate can become an employee.");
+    if (!draft || !appointmentDraft) return;
+
+    if (!["ready_to_start", "employee_creation_pending"].includes(appointmentDraft.status)) {
+      setErrorMessage(
+        "Set the appointment to Ready to start before creating the employee record.",
+      );
       return;
     }
 
@@ -486,15 +701,29 @@ export default function OffersWorkspace() {
     setErrorMessage("");
     setSuccessMessage("");
 
+    const pendingResult = await supabase
+      .from("leo_talent_appointments")
+      .update({ status: "employee_creation_pending" })
+      .eq("id", appointmentDraft.id);
+
+    if (pendingResult.error) {
+      setErrorMessage(
+        `The appointment could not be prepared for employee creation. ${pendingResult.error.message}`,
+      );
+      setWorking("");
+      return;
+    }
+
     const rpcResult = await supabase.rpc("convert_talent_candidate_to_employee", {
       p_offer_id: draft.id,
     });
 
     if (rpcResult.error) {
       setErrorMessage(
-        `Employee conversion is ready in the interface, but the database conversion function is not available or failed: ${rpcResult.error.message}`,
+        `Employee conversion failed. ${rpcResult.error.message}`,
       );
       setWorking("");
+      await loadData(true);
       return;
     }
 
@@ -503,16 +732,26 @@ export default function OffersWorkspace() {
         ? String(rpcResult.data)
         : idValue((rpcResult.data as Row | null)?.employee_id);
 
-    await supabase
-      .from("talent_offers")
+    const completionResult = await supabase
+      .from("leo_talent_appointments")
       .update({
-        status: "converted",
-        employee_id: employeeId,
-        updated_at: nowIso(),
+        status: "employee_created",
+        employee_id: employeeId ? Number(employeeId) : null,
+        employee_created_at: new Date().toISOString(),
+        recruitment_summary_transferred: true,
       })
-      .eq("id", draft.id);
+      .eq("id", appointmentDraft.id);
 
-    setSuccessMessage("Candidate converted to an employee. Recruitment history remains linked.");
+    if (completionResult.error) {
+      setErrorMessage(
+        `The employee was created, but the appointment handover could not be completed. ${completionResult.error.message}`,
+      );
+      setWorking("");
+      await loadData(true);
+      return;
+    }
+
+    setSuccessMessage("Candidate converted to an employee.");
     setWorking("");
     await loadData(true);
 
@@ -523,27 +762,34 @@ export default function OffersWorkspace() {
 
   const exportCsv = () => {
     const headings = [
+      "Offer reference",
       "Candidate",
       "Vacancy",
-      "Reference",
       "Status",
+      "Approval",
       "Salary",
       "Hours",
-      "Start date",
-      "Response",
+      "Proposed start date",
     ];
+
     const rows = filteredOffers.map((offer) => [
+      offer.offer_reference,
       offer.candidate_name,
-      offer.vacancy_title,
-      offer.vacancy_reference,
+      offer.job_title,
       humanise(offer.status),
-      offer.offered_salary,
+      humanise(offer.approval_status),
+      offer.salary_amount,
       offer.hours_per_week,
       offer.proposed_start_date,
-      offer.candidate_response,
     ]);
-    const csv = [headings, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+
+    const csv = [headings, ...rows]
+      .map((row) => row.map(csvCell).join(","))
+      .join("\n");
+
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    );
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `leo-talent-offers-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -560,11 +806,6 @@ export default function OffersWorkspace() {
     );
   }
 
-  const checklistCompleted = draft
-    ? Object.values(draft.checklist).filter(Boolean).length
-    : 0;
-  const checklistPercent = Math.round((checklistCompleted / CHECKLIST_LABELS.length) * 100);
-
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -572,13 +813,18 @@ export default function OffersWorkspace() {
           <p style={styles.eyebrow}>LEO TALENT</p>
           <h1 style={styles.title}>Offers & Appointments</h1>
           <p style={styles.description}>
-            Complete the journey from successful candidate to accepted offer,
-            appointment, onboarding and employee creation in one connected workspace.
+            Prepare offers, record candidate decisions and complete the handover
+            from successful applicant to employee.
           </p>
         </div>
 
         <div style={styles.headerActions}>
-          <button type="button" style={styles.secondaryButton} onClick={() => void loadData(true)} disabled={refreshing}>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={() => void loadData(true)}
+            disabled={refreshing}
+          >
             <RefreshCw size={16} />
             {refreshing ? "Refreshing…" : "Refresh"}
           </button>
@@ -597,17 +843,15 @@ export default function OffersWorkspace() {
         <Metric label="Awaiting approval" value={metrics.approval} />
         <Metric label="Awaiting response" value={metrics.response} />
         <Metric label="Accepted" value={metrics.accepted} />
-        <Metric label="Ready for employee" value={metrics.ready} />
+        <Metric label="Ready to start" value={metrics.ready} />
       </section>
 
       <div style={styles.workspaceGrid}>
         <aside style={styles.sidebar}>
-          <div style={styles.panelHeader}>
-            <div>
-              <h2 style={styles.panelTitle}>Recruitment journeys</h2>
-              <p style={styles.panelDescription}>Select an offer or begin one for a successful candidate.</p>
-            </div>
-          </div>
+          <SectionHeading
+            title="Offer journeys"
+            description="Select an offer or create one for an applicant."
+          />
 
           <div style={styles.createBox}>
             <label style={styles.label}>Create offer for</label>
@@ -617,9 +861,9 @@ export default function OffersWorkspace() {
               onChange={(event) => void createOffer(event.target.value)}
               disabled={working === "create"}
             >
-              <option value="">Select candidate</option>
+              <option value="">Select applicant</option>
               {candidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
+                <option key={candidate.applicationId} value={candidate.applicationId}>
                   {candidate.name} · {candidate.vacancyTitle}
                 </option>
               ))}
@@ -636,11 +880,17 @@ export default function OffersWorkspace() {
             />
           </label>
 
-          <select style={styles.input} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="active">Active journeys</option>
+          <select
+            style={styles.input}
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="active">Active offers</option>
             <option value="all">All statuses</option>
             {OFFER_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>{status.label}</option>
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
             ))}
           </select>
 
@@ -649,7 +899,7 @@ export default function OffersWorkspace() {
               <div style={styles.empty}>
                 <UserCheck size={24} />
                 <strong>No offers match this view</strong>
-                <span>Select a successful candidate above to begin the appointment journey.</span>
+                <span>Select an applicant above to create an offer.</span>
               </div>
             ) : (
               filteredOffers.map((offer) => (
@@ -657,14 +907,18 @@ export default function OffersWorkspace() {
                   key={offer.id}
                   type="button"
                   onClick={() => setSelectedId(offer.id)}
-                  style={offer.id === selectedId ? styles.offerCardActive : styles.offerCard}
+                  style={
+                    offer.id === selectedId
+                      ? styles.offerCardActive
+                      : styles.offerCard
+                  }
                 >
                   <div style={styles.offerCardTop}>
                     <strong>{offer.candidate_name}</strong>
                     <span style={styles.badge}>{humanise(offer.status)}</span>
                   </div>
-                  <span>{offer.vacancy_title}</span>
-                  <small>{offer.vacancy_reference || "No vacancy reference"}</small>
+                  <span>{offer.job_title}</span>
+                  <small>{offer.offer_reference}</small>
                 </button>
               ))
             )}
@@ -676,9 +930,7 @@ export default function OffersWorkspace() {
             <div style={styles.largeEmpty}>
               <Sparkles size={28} />
               <h2>Select or create an offer</h2>
-              <p>
-                The complete offer, appointment and onboarding journey will appear here.
-              </p>
+              <p>The offer and appointment record will appear here.</p>
             </div>
           ) : (
             <>
@@ -687,204 +939,499 @@ export default function OffersWorkspace() {
                   <p style={styles.eyebrow}>CANDIDATE JOURNEY</p>
                   <h2 style={styles.heroTitle}>{draft.candidate_name}</h2>
                   <p style={styles.description}>
-                    {draft.vacancy_title}
-                    {draft.vacancy_reference ? ` · ${draft.vacancy_reference}` : ""}
+                    {draft.job_title} · {draft.offer_reference}
                   </p>
                 </div>
                 <span style={styles.heroStatus}>{humanise(draft.status)}</span>
               </section>
 
-              <Journey status={draft.status} />
+              <Journey
+                offerStatus={draft.status}
+                appointmentStatus={appointmentDraft?.status ?? null}
+              />
 
               <section style={styles.panel}>
                 <SectionHeading
                   title="Offer"
-                  description="Record the proposed employment terms and keep every version connected to this candidate."
+                  description="Record the proposed employment terms and candidate decision."
                 />
 
                 <div style={styles.formGrid}>
                   <Field label="Offer status">
-                    <select style={styles.input} value={draft.status} onChange={(event) => void setStatus(event.target.value as OfferStatus)}>
+                    <select
+                      style={styles.input}
+                      value={draft.status}
+                      onChange={(event) =>
+                        setOfferStatus(event.target.value as OfferStatus)
+                      }
+                    >
                       {OFFER_STATUSES.map((status) => (
-                        <option key={status.value} value={status.value}>{status.label}</option>
+                        <option key={status.value} value={status.value}>
+                          {status.label}
+                        </option>
                       ))}
                     </select>
                   </Field>
+
                   <Field label="Offer type">
-                    <select style={styles.input} value={draft.offer_type} onChange={(event) => updateDraft("offer_type", event.target.value)}>
-                      <option>Verbal offer</option>
-                      <option>Conditional offer</option>
-                      <option>Unconditional offer</option>
-                      <option>Revised offer</option>
-                      <option>Appointment confirmation</option>
+                    <select
+                      style={styles.input}
+                      value={draft.offer_type}
+                      onChange={(event) =>
+                        updateDraft("offer_type", event.target.value)
+                      }
+                    >
+                      <option value="conditional">Conditional</option>
+                      <option value="unconditional">Unconditional</option>
+                      <option value="verbal">Verbal</option>
+                      <option value="revised">Revised</option>
                     </select>
                   </Field>
-                  <Field label="Offer date">
-                    <input style={styles.input} type="date" value={draft.offer_date} onChange={(event) => updateDraft("offer_date", event.target.value)} />
+
+                  <Field label="Approval status">
+                    <select
+                      style={styles.input}
+                      value={draft.approval_status}
+                      onChange={(event) =>
+                        updateDraft(
+                          "approval_status",
+                          event.target.value as ApprovalStatus,
+                        )
+                      }
+                    >
+                      <option value="not_required">Not required</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="returned">Returned</option>
+                      <option value="declined">Declined</option>
+                    </select>
                   </Field>
+
+                  <Field label="Job title">
+                    <input
+                      style={styles.input}
+                      value={draft.job_title}
+                      onChange={(event) =>
+                        updateDraft("job_title", event.target.value)
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Employment type">
+                    <input
+                      style={styles.input}
+                      value={draft.employment_type}
+                      onChange={(event) =>
+                        updateDraft("employment_type", event.target.value)
+                      }
+                    />
+                  </Field>
+
                   <Field label="Proposed start date">
-                    <input style={styles.input} type="date" value={draft.proposed_start_date} onChange={(event) => updateDraft("proposed_start_date", event.target.value)} />
+                    <input
+                      style={styles.input}
+                      type="date"
+                      value={draft.proposed_start_date}
+                      onChange={(event) =>
+                        updateDraft("proposed_start_date", event.target.value)
+                      }
+                    />
                   </Field>
+
                   <Field label="Salary">
-                    <input style={styles.input} type="number" min="0" step="0.01" value={draft.offered_salary} onChange={(event) => updateDraft("offered_salary", event.target.value)} />
+                    <input
+                      style={styles.input}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={draft.salary_amount}
+                      onChange={(event) =>
+                        updateDraft("salary_amount", event.target.value)
+                      }
+                    />
                   </Field>
+
                   <Field label="Salary period">
-                    <select style={styles.input} value={draft.salary_period} onChange={(event) => updateDraft("salary_period", event.target.value)}>
-                      <option value="per annum">Per annum</option>
-                      <option value="per hour">Per hour</option>
-                      <option value="per month">Per month</option>
-                      <option value="per week">Per week</option>
+                    <select
+                      style={styles.input}
+                      value={draft.salary_period}
+                      onChange={(event) =>
+                        updateDraft("salary_period", event.target.value)
+                      }
+                    >
+                      <option value="hour">Per hour</option>
+                      <option value="day">Per day</option>
+                      <option value="week">Per week</option>
+                      <option value="month">Per month</option>
+                      <option value="year">Per year</option>
+                      <option value="fixed">Fixed amount</option>
                     </select>
                   </Field>
+
                   <Field label="Hours per week">
-                    <input style={styles.input} type="number" min="0" step="0.25" value={draft.hours_per_week} onChange={(event) => updateDraft("hours_per_week", event.target.value)} />
+                    <input
+                      style={styles.input}
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      value={draft.hours_per_week}
+                      onChange={(event) =>
+                        updateDraft("hours_per_week", event.target.value)
+                      }
+                    />
                   </Field>
-                  <Field label="Contract">
-                    <input style={styles.input} value={draft.contract_type} onChange={(event) => updateDraft("contract_type", event.target.value)} placeholder="Permanent, fixed-term, casual…" />
-                  </Field>
-                  <Field label="Probation">
-                    <select style={styles.input} value={draft.probation_months} onChange={(event) => updateDraft("probation_months", event.target.value)}>
-                      <option value="0">No probation</option>
-                      <option value="3">3 months</option>
-                      <option value="4">4 months</option>
-                      <option value="5">5 months</option>
+
+                  <Field label="Probation months">
+                    <select
+                      style={styles.input}
+                      value={draft.probation_months}
+                      onChange={(event) =>
+                        updateDraft("probation_months", event.target.value)
+                      }
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6].map((months) => (
+                        <option key={months} value={String(months)}>
+                          {months === 0 ? "No probation" : `${months} months`}
+                        </option>
+                      ))}
                     </select>
                   </Field>
-                  <Field label="Holiday entitlement">
-                    <input style={styles.input} value={draft.holiday_entitlement} onChange={(event) => updateDraft("holiday_entitlement", event.target.value)} placeholder="For example, 28 days including bank holidays" />
+
+                  <Field label="Holiday allowance (days)">
+                    <input
+                      style={styles.input}
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={draft.holiday_allowance_days}
+                      onChange={(event) =>
+                        updateDraft("holiday_allowance_days", event.target.value)
+                      }
+                    />
                   </Field>
+
+                  <Field label="Notice period">
+                    <input
+                      style={styles.input}
+                      value={draft.notice_period}
+                      onChange={(event) =>
+                        updateDraft("notice_period", event.target.value)
+                      }
+                    />
+                  </Field>
+
                   <Field label="Manager">
-                    <input style={styles.input} value={draft.manager_name} onChange={(event) => updateDraft("manager_name", event.target.value)} />
+                    <input
+                      style={styles.input}
+                      value={draft.manager_name}
+                      onChange={(event) =>
+                        updateDraft("manager_name", event.target.value)
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Department">
+                    <input
+                      style={styles.input}
+                      value={draft.department}
+                      onChange={(event) =>
+                        updateDraft("department", event.target.value)
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Location">
+                    <input
+                      style={styles.input}
+                      value={draft.location_name}
+                      onChange={(event) =>
+                        updateDraft("location_name", event.target.value)
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Response deadline">
+                    <input
+                      style={styles.input}
+                      type="date"
+                      value={draft.response_deadline}
+                      onChange={(event) =>
+                        updateDraft("response_deadline", event.target.value)
+                      }
+                    />
                   </Field>
                 </div>
 
                 <Field label="Conditions">
-                  <textarea style={styles.textarea} rows={4} value={draft.conditions} onChange={(event) => updateDraft("conditions", event.target.value)} placeholder="References, Right to Work, DBS, qualification checks or other conditions." />
-                </Field>
-                <Field label="Offer notes">
-                  <textarea style={styles.textarea} rows={4} value={draft.notes} onChange={(event) => updateDraft("notes", event.target.value)} />
+                  <textarea
+                    style={styles.textarea}
+                    rows={4}
+                    value={draft.conditions_text}
+                    onChange={(event) =>
+                      updateDraft("conditions_text", event.target.value)
+                    }
+                    placeholder="Enter one condition per line."
+                  />
                 </Field>
 
+                <Field label="Approval notes">
+                  <textarea
+                    style={styles.textarea}
+                    rows={3}
+                    value={draft.approval_notes}
+                    onChange={(event) =>
+                      updateDraft("approval_notes", event.target.value)
+                    }
+                  />
+                </Field>
+
+                <Field label="Candidate response notes">
+                  <textarea
+                    style={styles.textarea}
+                    rows={3}
+                    value={draft.candidate_response_notes}
+                    onChange={(event) =>
+                      updateDraft("candidate_response_notes", event.target.value)
+                    }
+                  />
+                </Field>
+
+                {draft.status === "declined" ? (
+                  <Field label="Decline reason">
+                    <textarea
+                      style={styles.textarea}
+                      rows={3}
+                      value={draft.decline_reason}
+                      onChange={(event) =>
+                        updateDraft("decline_reason", event.target.value)
+                      }
+                    />
+                  </Field>
+                ) : null}
+
+                {draft.status === "withdrawn" ? (
+                  <Field label="Withdrawal reason">
+                    <textarea
+                      style={styles.textarea}
+                      rows={3}
+                      value={draft.withdrawal_reason}
+                      onChange={(event) =>
+                        updateDraft("withdrawal_reason", event.target.value)
+                      }
+                    />
+                  </Field>
+                ) : null}
+
                 <div style={styles.actionRow}>
-                  <button type="button" style={styles.secondaryButton} onClick={() => window.print()}>
-                    <Printer size={16} /> Print
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    onClick={() => window.print()}
+                  >
+                    <Printer size={16} />
+                    Print
                   </button>
-                  <button type="button" style={styles.secondaryButton} onClick={() => setSuccessMessage("Offer letter generation is ready for connection to Leo Draft.")}>
-                    <FileText size={16} /> Generate offer letter
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    onClick={() =>
+                      setSuccessMessage(
+                        "Offer letter generation is ready for connection to Leo Draft.",
+                      )
+                    }
+                  >
+                    <FileText size={16} />
+                    Generate offer letter
                   </button>
-                  <button type="button" style={styles.secondaryButton} onClick={() => draft.candidate_email ? (window.location.href = `mailto:${draft.candidate_email}`) : setErrorMessage("No candidate email is recorded.")}>
-                    <Mail size={16} /> Email candidate
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    onClick={() =>
+                      draft.candidate_email
+                        ? (window.location.href = `mailto:${draft.candidate_email}`)
+                        : setErrorMessage("No candidate email is recorded.")
+                    }
+                  >
+                    <Mail size={16} />
+                    Email candidate
                   </button>
-                  <button type="button" style={styles.primaryButton} onClick={() => void saveOffer()} disabled={working === "save"}>
-                    {working === "save" ? <Loader2 size={16} /> : <Save size={16} />}
+                  <button
+                    type="button"
+                    style={styles.primaryButton}
+                    onClick={() => void saveOffer()}
+                    disabled={working === "save"}
+                  >
+                    {working === "save" ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Save size={16} />
+                    )}
                     Save offer
                   </button>
                 </div>
               </section>
 
-              <section style={styles.twoColumn}>
-                <div style={styles.panel}>
+              {appointmentDraft ? (
+                <section style={styles.panel}>
                   <SectionHeading
-                    title="Candidate response"
-                    description="Record the candidate’s response without losing the original offer history."
+                    title="Appointment"
+                    description="Manage the accepted candidate's pre-employment and employee handover."
                   />
+
                   <div style={styles.formGrid}>
-                    <Field label="Response">
-                      <select style={styles.input} value={draft.candidate_response} onChange={(event) => updateDraft("candidate_response", event.target.value)}>
-                        <option>Awaiting response</option>
-                        <option>Accepted</option>
-                        <option>Declined</option>
-                        <option>Negotiation</option>
-                        <option>Withdrawn</option>
+                    <Field label="Appointment reference">
+                      <input
+                        style={styles.input}
+                        value={appointmentDraft.appointment_reference}
+                        disabled
+                      />
+                    </Field>
+
+                    <Field label="Appointment status">
+                      <select
+                        style={styles.input}
+                        value={appointmentDraft.status}
+                        onChange={(event) =>
+                          updateAppointmentDraft(
+                            "status",
+                            event.target.value as AppointmentStatus,
+                          )
+                        }
+                      >
+                        {APPOINTMENT_STATUSES.map((status) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
                       </select>
                     </Field>
-                    <Field label="Response date">
-                      <input style={styles.input} type="date" value={draft.responded_at} onChange={(event) => updateDraft("responded_at", event.target.value)} />
+
+                    <Field label="Agreed start date">
+                      <input
+                        style={styles.input}
+                        type="date"
+                        value={appointmentDraft.agreed_start_date}
+                        onChange={(event) =>
+                          updateAppointmentDraft(
+                            "agreed_start_date",
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </Field>
+
+                    <Field label="Actual start date">
+                      <input
+                        style={styles.input}
+                        type="date"
+                        value={appointmentDraft.actual_start_date}
+                        onChange={(event) =>
+                          updateAppointmentDraft(
+                            "actual_start_date",
+                            event.target.value,
+                          )
+                        }
+                      />
                     </Field>
                   </div>
-                  <div style={styles.responseActions}>
-                    <button type="button" style={styles.responseButton} onClick={() => void setStatus("accepted")}><Check size={15} /> Accept</button>
-                    <button type="button" style={styles.responseButton} onClick={() => void setStatus("negotiation")}>Negotiation</button>
-                    <button type="button" style={styles.responseButton} onClick={() => void setStatus("declined")}>Decline</button>
-                    <button type="button" style={styles.responseButton} onClick={() => void setStatus("withdrawn")}>Withdraw</button>
-                  </div>
-                </div>
 
-                <div style={styles.panel}>
-                  <SectionHeading
-                    title="Appointment readiness"
-                    description="Leo keeps the appointment moving once the offer is accepted."
-                  />
-                  <div style={styles.progressHeader}>
-                    <strong>{checklistCompleted} of {CHECKLIST_LABELS.length} complete</strong>
-                    <span>{checklistPercent}%</span>
+                  <div style={styles.transferGrid}>
+                    <TransferToggle
+                      label="Recruitment summary transferred"
+                      checked={appointmentDraft.recruitment_summary_transferred}
+                      onChange={(checked) =>
+                        updateAppointmentDraft(
+                          "recruitment_summary_transferred",
+                          checked,
+                        )
+                      }
+                    />
+                    <TransferToggle
+                      label="Documents transferred"
+                      checked={appointmentDraft.documents_transferred}
+                      onChange={(checked) =>
+                        updateAppointmentDraft("documents_transferred", checked)
+                      }
+                    />
+                    <TransferToggle
+                      label="Onboarding transferred"
+                      checked={appointmentDraft.onboarding_transferred}
+                      onChange={(checked) =>
+                        updateAppointmentDraft("onboarding_transferred", checked)
+                      }
+                    />
+                    <TransferToggle
+                      label="Leo Learn pathway triggered"
+                      checked={appointmentDraft.learning_pathway_triggered}
+                      onChange={(checked) =>
+                        updateAppointmentDraft(
+                          "learning_pathway_triggered",
+                          checked,
+                        )
+                      }
+                    />
                   </div>
-                  <div style={styles.progressTrack}>
-                    <div style={{ ...styles.progressFill, width: `${checklistPercent}%` }} />
-                  </div>
-                  <p style={styles.panelDescription}>
-                    {draft.status === "accepted" || draft.status === "appointed"
-                      ? checklistPercent === 100
-                        ? "The appointment is ready to convert into an employee record."
-                        : "Complete the remaining appointment and onboarding actions."
-                      : "The checklist becomes active once the offer is accepted."}
-                  </p>
-                </div>
-              </section>
 
-              <section style={styles.panel}>
-                <SectionHeading
-                  title="Appointment & onboarding"
-                  description="Complete pre-start preparation here. There is no separate onboarding register to maintain."
-                />
+                  <Field label="Handover notes">
+                    <textarea
+                      style={styles.textarea}
+                      rows={4}
+                      value={appointmentDraft.handover_notes}
+                      onChange={(event) =>
+                        updateAppointmentDraft("handover_notes", event.target.value)
+                      }
+                    />
+                  </Field>
 
-                <div style={styles.checklistGrid}>
-                  {CHECKLIST_LABELS.map(([key, label]) => {
-                    const checked = draft.checklist[key];
-                    return (
+                  <div style={styles.convertBox}>
+                    <div>
+                      <h3 style={styles.convertTitle}>
+                        Convert Candidate to Employee
+                      </h3>
+                      <p style={styles.panelDescription}>
+                        Creates the employee record and preserves the recruitment
+                        and appointment history.
+                      </p>
+                    </div>
+
+                    <div style={styles.actionRow}>
                       <button
                         type="button"
-                        key={key}
-                        style={checked ? styles.checkItemDone : styles.checkItem}
-                        onClick={() =>
-                          updateDraft("checklist", {
-                            ...draft.checklist,
-                            [key]: !checked,
-                          })
-                        }
-                        disabled={!["accepted", "appointed", "converted"].includes(draft.status)}
+                        style={styles.secondaryButton}
+                        onClick={() => void saveAppointment()}
+                        disabled={working === "appointment"}
                       >
-                        {checked ? <CheckCircle2 size={19} /> : <Circle size={19} />}
-                        <span>{label}</span>
+                        <Save size={16} />
+                        Save appointment
                       </button>
-                    );
-                  })}
-                </div>
 
-                <Field label="Appointment notes">
-                  <textarea style={styles.textarea} rows={4} value={draft.appointment_notes} onChange={(event) => updateDraft("appointment_notes", event.target.value)} placeholder="Record first-day arrangements, manager handover, equipment details or agreed exceptions." />
-                </Field>
-
-                <div style={styles.convertBox}>
-                  <div>
-                    <h3 style={styles.convertTitle}>Convert Candidate to Employee</h3>
-                    <p style={styles.panelDescription}>
-                      Creates the employee, preserves the recruitment history and prepares the probation,
-                      compliance and Leo Learn handover through the database conversion function.
-                    </p>
+                      <button
+                        type="button"
+                        style={styles.convertButton}
+                        onClick={() => void convertToEmployee()}
+                        disabled={
+                          working === "convert" ||
+                          !["ready_to_start", "employee_creation_pending"].includes(
+                            appointmentDraft.status,
+                          )
+                        }
+                      >
+                        {working === "convert" ? (
+                          <Loader2 size={17} className="animate-spin" />
+                        ) : (
+                          <UserPlus size={17} />
+                        )}
+                        Convert Candidate to Employee
+                        <ArrowRight size={17} />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    style={styles.convertButton}
-                    onClick={() => void convertToEmployee()}
-                    disabled={working === "convert" || !["accepted", "appointed"].includes(draft.status)}
-                  >
-                    {working === "convert" ? <Loader2 size={17} /> : <UserPlus size={17} />}
-                    Convert Candidate to Employee
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-              </section>
+                </section>
+              ) : draft.status === "accepted" ? (
+                <section style={styles.notice}>
+                  Save the accepted offer to create its appointment record.
+                </section>
+              ) : null}
             </>
           )}
         </main>
@@ -902,7 +1449,13 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label style={styles.field}>
       <span style={styles.label}>{label}</span>
@@ -911,7 +1464,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function SectionHeading({ title, description }: { title: string; description: string }) {
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div style={styles.panelHeader}>
       <div>
@@ -922,23 +1481,65 @@ function SectionHeading({ title, description }: { title: string; description: st
   );
 }
 
-function Journey({ status }: { status: OfferStatus }) {
+function TransferToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label style={checked ? styles.transferDone : styles.transferItem}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function Journey({
+  offerStatus,
+  appointmentStatus,
+}: {
+  offerStatus: OfferStatus;
+  appointmentStatus: AppointmentStatus | null;
+}) {
   const stages = ["Application", "Interview", "Due Diligence", "Offer", "Appointment", "Employee"];
-  const index =
-    status === "converted" ? 5 :
-    status === "appointed" ? 4 :
-    status === "accepted" ? 4 :
-    ["issued", "approved", "pending_approval", "draft", "negotiation"].includes(status) ? 3 : 3;
+
+  let index = 3;
+
+  if (offerStatus === "accepted") index = 4;
+  if (
+    appointmentStatus &&
+    ["employee_created", "started"].includes(appointmentStatus)
+  ) {
+    index = 5;
+  }
 
   return (
     <section style={styles.journey}>
       {stages.map((stage, stageIndex) => (
         <div style={styles.journeyStage} key={stage}>
-          <span style={stageIndex < index ? styles.stageDone : stageIndex === index ? styles.stageCurrent : styles.stageFuture}>
+          <span
+            style={
+              stageIndex < index
+                ? styles.stageDone
+                : stageIndex === index
+                  ? styles.stageCurrent
+                  : styles.stageFuture
+            }
+          >
             {stageIndex < index ? <Check size={14} /> : stageIndex + 1}
           </span>
           <strong>{stage}</strong>
-          {stageIndex < stages.length - 1 ? <ArrowRight size={15} style={styles.journeyArrow} /> : null}
+          {stageIndex < stages.length - 1 ? (
+            <ArrowRight size={15} style={styles.journeyArrow} />
+          ) : null}
         </div>
       ))}
     </section>
@@ -947,59 +1548,388 @@ function Journey({ status }: { status: OfferStatus }) {
 
 const styles: Record<string, CSSProperties> = {
   page: { width: "100%", color: "#1F2937" },
-  header: { display: "flex", justifyContent: "space-between", gap: 20, alignItems: "flex-start", padding: 24, background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 18, marginBottom: 16 },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 20,
+    alignItems: "flex-start",
+    padding: 24,
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+    marginBottom: 16,
+  },
   headerActions: { display: "flex", flexWrap: "wrap", gap: 10 },
-  eyebrow: { margin: "0 0 7px", color: "#6E5084", fontSize: 12, fontWeight: 800, letterSpacing: "0.08em" },
+  eyebrow: {
+    margin: "0 0 7px",
+    color: "#6E5084",
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+  },
   title: { margin: 0, fontSize: 30, lineHeight: 1.15, color: "#111827" },
-  description: { margin: "8px 0 0", color: "#6B7280", lineHeight: 1.6, maxWidth: 780 },
-  metrics: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 },
-  metric: { background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 15, padding: 17, display: "flex", flexDirection: "column", gap: 8 },
-  workspaceGrid: { display: "grid", gridTemplateColumns: "minmax(270px, 340px) minmax(0, 1fr)", gap: 16, alignItems: "start" },
-  sidebar: { background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 18, padding: 16, position: "sticky", top: 16, maxHeight: "calc(100vh - 32px)", overflow: "auto" },
+  description: {
+    margin: "8px 0 0",
+    color: "#6B7280",
+    lineHeight: 1.6,
+    maxWidth: 780,
+  },
+  metrics: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 12,
+    marginBottom: 16,
+  },
+  metric: {
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 15,
+    padding: 17,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  workspaceGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(270px, 340px) minmax(0, 1fr)",
+    gap: 16,
+    alignItems: "start",
+  },
+  sidebar: {
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+    padding: 16,
+    position: "sticky",
+    top: 16,
+    maxHeight: "calc(100vh - 32px)",
+    overflow: "auto",
+  },
   main: { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 },
-  panel: { background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 18, padding: 22 },
-  panelHeader: { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 16 },
+  panel: {
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+    padding: 22,
+  },
+  panelHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 16,
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
   panelTitle: { margin: 0, fontSize: 18, color: "#111827" },
-  panelDescription: { margin: "5px 0 0", color: "#6B7280", fontSize: 14, lineHeight: 1.55 },
-  createBox: { padding: 13, borderRadius: 13, background: "#F7F1FC", border: "1px solid #E8DAF2", marginBottom: 12 },
-  label: { display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#374151" },
-  input: { width: "100%", boxSizing: "border-box", border: "1px solid #D1D5DB", borderRadius: 10, padding: "10px 11px", background: "#FFFFFF", color: "#111827", font: "inherit" },
-  textarea: { width: "100%", boxSizing: "border-box", border: "1px solid #D1D5DB", borderRadius: 10, padding: "10px 11px", background: "#FFFFFF", color: "#111827", font: "inherit", resize: "vertical" },
-  search: { display: "flex", alignItems: "center", gap: 8, border: "1px solid #D1D5DB", borderRadius: 10, padding: "0 10px", marginBottom: 10 },
-  offerList: { display: "flex", flexDirection: "column", gap: 9, marginTop: 12 },
-  offerCard: { border: "1px solid #E5E7EB", borderRadius: 12, background: "#FFFFFF", padding: 13, textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, color: "#4B5563" },
-  offerCardActive: { border: "1px solid #CDB2E2", borderRadius: 12, background: "#F7F1FC", padding: 13, textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, color: "#4B5563" },
-  offerCardTop: { display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", color: "#111827" },
-  badge: { display: "inline-flex", borderRadius: 999, background: "#F3F4F6", padding: "4px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" },
-  hero: { background: "linear-gradient(135deg, #F7F1FC 0%, #FFFFFF 100%)", border: "1px solid #E5D9EF", borderRadius: 18, padding: 22, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" },
+  panelDescription: {
+    margin: "5px 0 0",
+    color: "#6B7280",
+    fontSize: 14,
+    lineHeight: 1.55,
+  },
+  createBox: {
+    padding: 13,
+    borderRadius: 13,
+    background: "#F7F1FC",
+    border: "1px solid #E8DAF2",
+    marginBottom: 12,
+  },
+  label: {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 700,
+    marginBottom: 6,
+    color: "#374151",
+  },
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #D1D5DB",
+    borderRadius: 10,
+    padding: "10px 11px",
+    background: "#FFFFFF",
+    color: "#111827",
+    font: "inherit",
+  },
+  textarea: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #D1D5DB",
+    borderRadius: 10,
+    padding: "10px 11px",
+    background: "#FFFFFF",
+    color: "#111827",
+    font: "inherit",
+    resize: "vertical",
+  },
+  search: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    border: "1px solid #D1D5DB",
+    borderRadius: 10,
+    padding: "0 10px",
+    marginBottom: 10,
+  },
+  offerList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 9,
+    marginTop: 12,
+  },
+  offerCard: {
+    border: "1px solid #E5E7EB",
+    borderRadius: 12,
+    background: "#FFFFFF",
+    padding: 13,
+    textAlign: "left",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+    color: "#4B5563",
+  },
+  offerCardActive: {
+    border: "1px solid #CDB2E2",
+    borderRadius: 12,
+    background: "#F7F1FC",
+    padding: 13,
+    textAlign: "left",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+    color: "#4B5563",
+  },
+  offerCardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 8,
+    alignItems: "center",
+    color: "#111827",
+  },
+  badge: {
+    display: "inline-flex",
+    borderRadius: 999,
+    background: "#F3F4F6",
+    padding: "4px 8px",
+    fontSize: 11,
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  },
+  hero: {
+    background: "linear-gradient(135deg, #F7F1FC 0%, #FFFFFF 100%)",
+    border: "1px solid #E5D9EF",
+    borderRadius: 18,
+    padding: 22,
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 16,
+    alignItems: "flex-start",
+  },
   heroTitle: { margin: 0, fontSize: 25, color: "#111827" },
-  heroStatus: { borderRadius: 999, background: "#FFFFFF", border: "1px solid #CDB2E2", padding: "7px 11px", color: "#6E5084", fontSize: 13, fontWeight: 800 },
-  journey: { display: "grid", gridTemplateColumns: "repeat(6, minmax(90px, 1fr))", gap: 8, background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 18, padding: 18, overflowX: "auto" },
-  journeyStage: { display: "flex", alignItems: "center", gap: 7, position: "relative", minWidth: 110, fontSize: 13 },
-  stageDone: { width: 27, height: 27, borderRadius: 999, display: "grid", placeItems: "center", background: "#F5FFF9", border: "1px solid #B7DEC7", color: "#276749", fontWeight: 800 },
-  stageCurrent: { width: 27, height: 27, borderRadius: 999, display: "grid", placeItems: "center", background: "#6E5084", color: "#FFFFFF", fontWeight: 800 },
-  stageFuture: { width: 27, height: 27, borderRadius: 999, display: "grid", placeItems: "center", background: "#F3F4F6", color: "#6B7280", fontWeight: 800 },
+  heroStatus: {
+    borderRadius: 999,
+    background: "#FFFFFF",
+    border: "1px solid #CDB2E2",
+    padding: "7px 11px",
+    color: "#6E5084",
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  journey: {
+    display: "grid",
+    gridTemplateColumns: "repeat(6, minmax(90px, 1fr))",
+    gap: 8,
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+    padding: 18,
+    overflowX: "auto",
+  },
+  journeyStage: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    position: "relative",
+    minWidth: 110,
+    fontSize: 13,
+  },
+  stageDone: {
+    width: 27,
+    height: 27,
+    borderRadius: 999,
+    display: "grid",
+    placeItems: "center",
+    background: "#F5FFF9",
+    border: "1px solid #B7DEC7",
+    color: "#276749",
+    fontWeight: 800,
+  },
+  stageCurrent: {
+    width: 27,
+    height: 27,
+    borderRadius: 999,
+    display: "grid",
+    placeItems: "center",
+    background: "#6E5084",
+    color: "#FFFFFF",
+    fontWeight: 800,
+  },
+  stageFuture: {
+    width: 27,
+    height: 27,
+    borderRadius: 999,
+    display: "grid",
+    placeItems: "center",
+    background: "#F3F4F6",
+    color: "#6B7280",
+    fontWeight: 800,
+  },
   journeyArrow: { marginLeft: "auto", color: "#9CA3AF" },
-  formGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginBottom: 14 },
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 14,
+    marginBottom: 14,
+  },
   field: { display: "block", marginBottom: 14 },
-  actionRow: { display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 9, marginTop: 4 },
-  primaryButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: 0, borderRadius: 10, padding: "10px 14px", background: "#6E5084", color: "#FFFFFF", fontWeight: 800, cursor: "pointer" },
-  secondaryButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid #D1D5DB", borderRadius: 10, padding: "10px 13px", background: "#FFFFFF", color: "#374151", fontWeight: 700, cursor: "pointer" },
-  responseActions: { display: "flex", flexWrap: "wrap", gap: 8 },
-  responseButton: { display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #D1D5DB", borderRadius: 999, padding: "8px 11px", background: "#FFFFFF", cursor: "pointer", fontWeight: 700 },
-  twoColumn: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 },
-  progressHeader: { display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 9 },
-  progressTrack: { height: 9, borderRadius: 999, overflow: "hidden", background: "#EEE7F3" },
-  progressFill: { height: "100%", borderRadius: 999, background: "#6E5084" },
-  checklistGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 16 },
-  checkItem: { display: "flex", alignItems: "center", gap: 9, border: "1px solid #E5E7EB", borderRadius: 12, padding: 12, background: "#FFFFFF", color: "#4B5563", textAlign: "left", cursor: "pointer" },
-  checkItemDone: { display: "flex", alignItems: "center", gap: 9, border: "1px solid #CDE5D6", borderRadius: 12, padding: 12, background: "#F5FFF9", color: "#276749", textAlign: "left", cursor: "pointer" },
-  convertBox: { marginTop: 16, borderRadius: 15, padding: 17, background: "#F7F1FC", border: "1px solid #DCC9E9", display: "flex", justifyContent: "space-between", gap: 18, alignItems: "center" },
+  actionRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 9,
+    marginTop: 4,
+  },
+  primaryButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    border: 0,
+    borderRadius: 10,
+    padding: "10px 14px",
+    background: "#6E5084",
+    color: "#FFFFFF",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  secondaryButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    border: "1px solid #D1D5DB",
+    borderRadius: 10,
+    padding: "10px 13px",
+    background: "#FFFFFF",
+    color: "#374151",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  transferGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 10,
+    marginBottom: 16,
+  },
+  transferItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    border: "1px solid #E5E7EB",
+    borderRadius: 12,
+    padding: 12,
+    background: "#FFFFFF",
+    color: "#4B5563",
+  },
+  transferDone: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    border: "1px solid #CDE5D6",
+    borderRadius: 12,
+    padding: 12,
+    background: "#F5FFF9",
+    color: "#276749",
+  },
+  convertBox: {
+    marginTop: 16,
+    borderRadius: 15,
+    padding: 17,
+    background: "#F7F1FC",
+    border: "1px solid #DCC9E9",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 18,
+    alignItems: "center",
+  },
   convertTitle: { margin: 0, color: "#3F2F4E" },
-  convertButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: 0, borderRadius: 11, padding: "12px 15px", background: "#6E5084", color: "#FFFFFF", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" },
-  empty: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 7, padding: "24px 12px", color: "#6B7280" },
-  largeEmpty: { minHeight: 420, display: "grid", placeItems: "center", alignContent: "center", textAlign: "center", background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 18, padding: 30, color: "#6B7280" },
-  statePanel: { minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: 18 },
-  error: { marginBottom: 14, padding: 12, borderRadius: 11, background: "#FFF7F7", border: "1px solid #F2CACA", color: "#8A2E2E" },
-  success: { marginBottom: 14, padding: 12, borderRadius: 11, background: "#F5FFF9", border: "1px solid #CDE5D6", color: "#276749" },
+  convertButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    border: 0,
+    borderRadius: 11,
+    padding: "12px 15px",
+    background: "#6E5084",
+    color: "#FFFFFF",
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  empty: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    gap: 7,
+    padding: "24px 12px",
+    color: "#6B7280",
+  },
+  largeEmpty: {
+    minHeight: 420,
+    display: "grid",
+    placeItems: "center",
+    alignContent: "center",
+    textAlign: "center",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+    padding: 30,
+    color: "#6B7280",
+  },
+  statePanel: {
+    minHeight: 300,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+  },
+  notice: {
+    padding: 16,
+    borderRadius: 12,
+    background: "#F7F1FC",
+    border: "1px solid #DCC9E9",
+    color: "#5A416C",
+  },
+  error: {
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 11,
+    background: "#FFF7F7",
+    border: "1px solid #F2CACA",
+    color: "#8A2E2E",
+  },
+  success: {
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 11,
+    background: "#F5FFF9",
+    border: "1px solid #CDE5D6",
+    color: "#276749",
+  },
 };

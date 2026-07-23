@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/lib/supabase/client";
 
 type Matter = {
   id: number;
@@ -32,61 +28,137 @@ export default function MattersPage() {
   const [matters, setMatters] = useState<Matter[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   async function loadData() {
-    const mattersResult = await supabase
-      .from("matters")
-      .select(
-        "id, title, status, description, created_at, employee_id, matter_type, subject, matter_lead"
-      )
-      .order("created_at", { ascending: false });
+    setLoading(true);
+    setLoadError(null);
 
-    const employeesResult = await supabase.from("employees").select("id, name");
+    const supabase = createClient();
 
-    if (mattersResult.error) {
-      console.error("Error loading matters:", mattersResult.error);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.error("LEO could not validate the current user session:", {
+        message: userError?.message ?? "No authenticated user was returned.",
+        code: userError?.code ?? null,
+      });
+
+      setLoadError(
+        "Your session could not be validated. Please sign in again.",
+      );
       setLoading(false);
       return;
     }
 
-    setMatters(mattersResult.data || []);
-    setEmployees(employeesResult.data || []);
+    const [mattersResult, employeesResult] = await Promise.all([
+      supabase
+        .from("matters")
+        .select(
+          "id, title, status, description, created_at, employee_id, matter_type, subject, matter_lead",
+        )
+        .order("created_at", { ascending: false }),
+
+      supabase
+        .from("employees")
+        .select("id, name")
+        .order("name", { ascending: true }),
+    ]);
+
+    if (mattersResult.error) {
+      console.error("Error loading matters:", {
+        message: mattersResult.error.message,
+        details: mattersResult.error.details,
+        hint: mattersResult.error.hint,
+        code: mattersResult.error.code,
+      });
+
+      setLoadError(
+        mattersResult.error.message ||
+          "LEO could not load the organisation's matters.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (employeesResult.error) {
+      console.error("Error loading employees for matters:", {
+        message: employeesResult.error.message,
+        details: employeesResult.error.details,
+        hint: employeesResult.error.hint,
+        code: employeesResult.error.code,
+      });
+
+      setLoadError(
+        employeesResult.error.message ||
+          "LEO could not load the employee list used by Matters.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    setMatters((mattersResult.data ?? []) as Matter[]);
+    setEmployees((employeesResult.data ?? []) as Employee[]);
     setLoading(false);
   }
 
   async function deleteMatter(matterId: number) {
     const confirmed = window.confirm(
-      "Delete this matter? This will remove the matter and its chronology entries."
+      "Delete this matter? This will remove the matter and its chronology entries.",
     );
 
-    if (!confirmed) return;
-
-    const { error } = await supabase.from("matters").delete().eq("id", matterId);
-
-    if (error) {
-      console.error("Error deleting matter:", error);
-      alert("Matter could not be deleted.");
+    if (!confirmed) {
       return;
     }
 
-    setMatters((prev) => prev.filter((matter) => matter.id !== matterId));
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("matters")
+      .delete()
+      .eq("id", matterId);
+
+    if (error) {
+      console.error("Error deleting matter:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+
+      window.alert(
+        error.message || "The matter could not be deleted.",
+      );
+      return;
+    }
+
+    setMatters((current) =>
+      current.filter((matter) => matter.id !== matterId),
+    );
   }
 
   function getEmployeeName(employeeId: number | null) {
-    if (!employeeId) return "Unlinked";
+    if (!employeeId) {
+      return "Unlinked";
+    }
 
     return (
-      employees.find((employee) => employee.id === employeeId)?.name ||
+      employees.find((employee) => employee.id === employeeId)?.name ??
       "Unlinked"
     );
   }
 
   function formatDate(dateString: string | null) {
-    if (!dateString) return "Not recorded";
+    if (!dateString) {
+      return "Not recorded";
+    }
 
     return new Date(dateString).toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -120,6 +192,7 @@ export default function MattersPage() {
         </div>
 
         <button
+          type="button"
           onClick={() => router.push("/dashboard/matters/new")}
           style={newButtonStyle}
         >
@@ -130,6 +203,18 @@ export default function MattersPage() {
       <div style={tableCardStyle}>
         {loading ? (
           <div style={emptyStyle}>Loading matters...</div>
+        ) : loadError ? (
+          <div role="alert" style={errorStateStyle}>
+            <strong style={errorHeadingStyle}>Matters could not be loaded</strong>
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              style={retryButtonStyle}
+            >
+              Try again
+            </button>
+          </div>
         ) : matters.length === 0 ? (
           <div style={emptyStyle}>No matters yet. Create your first one.</div>
         ) : (
@@ -196,9 +281,10 @@ export default function MattersPage() {
 
                     <Td>
                       <button
+                        type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          deleteMatter(matter.id);
+                          void deleteMatter(matter.id);
                         }}
                         style={deleteButtonStyle}
                       >
@@ -270,8 +356,8 @@ const newButtonStyle: React.CSSProperties = {
 };
 
 const tableCardStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #e5e7eb",
+  background: "#FFFFFF",
+  border: "1px solid #E5E7EB",
   borderRadius: "14px",
   overflow: "hidden",
 };
@@ -304,6 +390,31 @@ const rowStyle: React.CSSProperties = {
 const emptyStyle: React.CSSProperties = {
   padding: "20px",
   color: "#6B7280",
+};
+
+const errorStateStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "10px",
+  padding: "20px",
+  color: "#7F1D1D",
+  background: "#FFF7F7",
+};
+
+const errorHeadingStyle: React.CSSProperties = {
+  fontSize: "14px",
+};
+
+const retryButtonStyle: React.CSSProperties = {
+  background: "#FFFFFF",
+  color: "#6E5084",
+  border: "1px solid #CDB2E2",
+  borderRadius: "8px",
+  padding: "7px 11px",
+  cursor: "pointer",
+  fontSize: "13px",
+  fontWeight: 700,
 };
 
 const badgeStyle: React.CSSProperties = {

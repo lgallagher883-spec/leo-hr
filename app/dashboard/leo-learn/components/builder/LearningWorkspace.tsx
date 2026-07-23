@@ -9,7 +9,7 @@ import LearningAssignments from "./LearningAssignments";
 import LearningVersionHistory from "./LearningVersionHistory";
 import LearningMedia from "./LearningMedia";
 
-type LearningModule = {
+export type LearningModule = {
   id: number;
   title: string;
   description: string | null;
@@ -76,9 +76,15 @@ export default function LearningWorkspace({
       </button>
 
       <div style={headerStyle}>
-        <div>
-          <div style={statusStyle}>
-            {learningModule.status}
+        <div style={headerContentStyle}>
+          <div style={headerMetaStyle}>
+            <span style={statusStyle}>
+              {learningModule.status}
+            </span>
+
+            <span style={typeStyle}>
+              {learningModule.learning_type}
+            </span>
           </div>
 
           <h2 style={titleStyle}>
@@ -89,28 +95,65 @@ export default function LearningWorkspace({
             {learningModule.description ||
               "No description has been added."}
           </p>
+
+          <div style={summaryMetaStyle}>
+            <span>
+              {learningModule.delivery_method}
+            </span>
+
+            <span>·</span>
+
+            <span>
+              {learningModule.estimated_duration_minutes !==
+              null
+                ? `${learningModule.estimated_duration_minutes} minutes`
+                : "Duration not set"}
+            </span>
+
+            <span>·</span>
+
+            <span>
+              {learningModule.source_type}
+            </span>
+          </div>
         </div>
 
         <div style={versionStyle}>
-          Version {learningModule.current_version_number}
+          Version{" "}
+          {learningModule.current_version_number}
         </div>
       </div>
 
       <div style={navigationStyle}>
-        {sections.map((section) => (
-          <button
-            key={section}
-            type="button"
-            onClick={() => setActiveSection(section)}
-            style={
-              activeSection === section
-                ? activeNavigationButtonStyle
-                : navigationButtonStyle
-            }
-          >
-            {section}
-          </button>
-        ))}
+        {sections.map((section) => {
+          const detail = getSectionDetail(
+            section,
+            learningModule
+          );
+
+          return (
+            <button
+              key={section}
+              type="button"
+              onClick={() =>
+                setActiveSection(section)
+              }
+              style={
+                activeSection === section
+                  ? activeNavigationButtonStyle
+                  : navigationButtonStyle
+              }
+            >
+              <span>{section}</span>
+
+              {detail && (
+                <span style={navigationDetailStyle}>
+                  {detail}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div style={workspaceStyle}>
@@ -157,6 +200,10 @@ export default function LearningWorkspace({
         {activeSection === "Version History" && (
           <LearningVersionHistory
             learningModuleId={learningModule.id}
+            currentVersionNumber={
+              learningModule.current_version_number
+            }
+            onUpdated={onUpdated}
           />
         )}
 
@@ -170,12 +217,38 @@ export default function LearningWorkspace({
   );
 }
 
+function getSectionDetail(
+  section: WorkspaceSection,
+  learningModule: LearningModule
+): string | null {
+  switch (section) {
+    case "Assessment":
+      return learningModule.assessment_required
+        ? "Required"
+        : null;
+
+    case "Certificates":
+      return learningModule.certificate_available
+        ? "Enabled"
+        : null;
+
+    case "Assignments":
+      return learningModule.assignment_eligible
+        ? "Available"
+        : null;
+
+    default:
+      return null;
+  }
+}
+
 const backButtonStyle: React.CSSProperties = {
   background: "transparent",
   border: "none",
-  color: "#6B7280",
+  color: "#6E5084",
   padding: 0,
   marginBottom: "16px",
+  fontSize: "14px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -184,35 +257,71 @@ const headerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: "18px",
-  padding: "20px",
+  gap: "20px",
+  padding: "22px",
   marginBottom: "16px",
   background: "#F7F1FC",
   border: "1px solid #E8DDF0",
   borderRadius: "14px",
 };
 
+const headerContentStyle: React.CSSProperties = {
+  minWidth: 0,
+};
+
+const headerMetaStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+  marginBottom: "9px",
+};
+
 const statusStyle: React.CSSProperties = {
   display: "inline-block",
-  marginBottom: "8px",
   padding: "5px 9px",
   background: "#FFFFFF",
   color: "#6E5084",
+  border: "1px solid #E8DDF0",
   borderRadius: "999px",
   fontSize: "11px",
   fontWeight: 800,
 };
 
+const typeStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: "5px 9px",
+  background: "#FFFFFF",
+  color: "#6B7280",
+  border: "1px solid #E5E7EB",
+  borderRadius: "999px",
+  fontSize: "11px",
+  fontWeight: 700,
+};
+
 const titleStyle: React.CSSProperties = {
   margin: 0,
   color: "#111827",
+  fontSize: "24px",
 };
 
 const descriptionStyle: React.CSSProperties = {
+  maxWidth: "760px",
   margin: "8px 0 0",
   color: "#6B7280",
   fontSize: "14px",
   lineHeight: 1.6,
+};
+
+const summaryMetaStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
+  flexWrap: "wrap",
+  marginTop: "12px",
+  color: "#6B7280",
+  fontSize: "12px",
+  fontWeight: 600,
 };
 
 const versionStyle: React.CSSProperties = {
@@ -230,6 +339,9 @@ const navigationStyle: React.CSSProperties = {
 };
 
 const navigationButtonStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
   background: "#FFFFFF",
   color: "#6B7280",
   border: "1px solid #D1D5DB",
@@ -246,6 +358,14 @@ const activeNavigationButtonStyle: React.CSSProperties = {
   border: "1px solid #CDB2E2",
 };
 
+const navigationDetailStyle: React.CSSProperties = {
+  padding: "3px 6px",
+  background: "#FFFFFF",
+  borderRadius: "999px",
+  fontSize: "10px",
+  fontWeight: 800,
+};
+
 const workspaceStyle: React.CSSProperties = {
-  minHeight: "280px",
+  minHeight: "320px",
 };

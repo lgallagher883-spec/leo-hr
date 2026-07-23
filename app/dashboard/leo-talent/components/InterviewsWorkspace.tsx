@@ -1343,7 +1343,7 @@ export default function InterviewsWorkspace() {
       const { error: applicationUpdateError } =
         await supabase
           .from("leo_talent_applications")
-          .update(applicationUpdate)
+          .update(applicationUpdate as any)
           .eq("id", application.id);
 
       if (applicationUpdateError) {

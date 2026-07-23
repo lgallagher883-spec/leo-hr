@@ -1,0 +1,76 @@
+.workspace{
+  --purple:#6e5084;--purple-dark:#50395f;--purple-soft:#f3eaf8;
+  --jade:#eefaf4;--border:#d7c9de;--text:#2f2635;--muted:#706675;
+  display:grid;gap:24px;color:var(--text)
+}
+.workspace :global(.workspace-heading){
+  display:flex;justify-content:space-between;gap:24px;align-items:flex-start;
+  padding:26px 28px;border:1px solid var(--border);border-radius:22px;
+  background:radial-gradient(circle at top right,rgba(205,178,226,.34),transparent 36%),linear-gradient(135deg,#fff 0%,#fbf7fd 64%,#f3eaf8 100%);
+  box-shadow:0 14px 34px rgba(75,55,84,.10)
+}
+.workspace :global(.workspace-heading) h2{margin:0 0 9px;font-size:1.85rem;letter-spacing:-.025em}
+.workspace :global(.workspace-heading) p:not(.eyebrow){margin:0;max-width:800px;color:var(--muted);line-height:1.68}
+.workspace :global(.eyebrow){margin:0 0 7px;color:var(--purple);font-size:.75rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.workspace :global(.secondary),
+.workspace :global(.state) button{
+  min-height:43px;padding:0 17px;border:1px solid #c5b2cf;border-radius:12px;background:#fff;color:var(--purple);
+  font-weight:850;cursor:pointer;box-shadow:0 5px 14px rgba(75,55,84,.06);transition:.15s ease
+}
+.workspace :global(.secondary):hover,
+.workspace :global(.state) button:hover{transform:translateY(-1px);box-shadow:0 9px 20px rgba(75,55,84,.12)}
+.workspace :global(.summary-grid){
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding:18px;
+  border:1px solid var(--border);border-radius:22px;background:linear-gradient(180deg,#f8f2fb,#f1e7f6);
+  box-shadow:0 12px 28px rgba(75,55,84,.08)
+}
+.workspace :global(.summary-grid) article,
+.workspace :global(.card){
+  padding:20px;border:1px solid #cdbed5;border-radius:18px;background:#fff;
+  box-shadow:0 10px 24px rgba(75,55,84,.09)
+}
+.workspace :global(.summary-grid) article{background:linear-gradient(180deg,#fff,#fdfbfd)}
+.workspace :global(.summary-grid) span,
+.workspace :global(.summary-grid) small{display:block;color:#716777}
+.workspace :global(.summary-grid) strong{display:block;margin:8px 0 6px;font-size:1.9rem;color:var(--purple-dark)}
+.workspace :global(.content-grid){display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.workspace :global(.content-grid) :global(.card):first-child{background:linear-gradient(180deg,#fff,#fbf7fd)}
+.workspace :global(.content-grid) :global(.card):last-child{background:linear-gradient(180deg,#fff,#f3fbf7)}
+.workspace :global(.card) h3{margin:0 0 15px;font-size:1.2rem}
+.workspace :global(.card-heading){display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid #eadfed}
+.workspace :global(.status),
+.workspace :global(.severity){display:inline-flex;padding:6px 10px;border:1px solid transparent;border-radius:999px;font-size:.73rem;font-weight:850;text-transform:capitalize}
+.workspace :global(.status).good,
+.workspace :global(.severity).information{background:#e7f7ee;color:#246b46;border-color:#c9e6d5}
+.workspace :global(.status).attention,
+.workspace :global(.severity).warning{background:#fff3dc;color:#8b5a13;border-color:#eed9a7}
+.workspace :global(.status).neutral,
+.workspace :global(.severity).notice{background:#f0e8f5;color:#6e5084;border-color:#dccbe5}
+.workspace :global(.severity).critical{background:#fff0f2;color:#9d3645;border-color:#ecc7ce}
+.workspace dl{margin:0;padding:0 14px;border:1px solid #e1d5e6;border-radius:14px;background:#fff}
+.workspace dl>div{display:flex;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid #eee7f0}
+.workspace dl>div:last-child{border-bottom:0}
+.workspace dt{color:#766b7a}.workspace dd{margin:0;font-weight:850}
+.workspace :global(.explanation){margin:17px 0 0;padding:15px;border:1px solid #dfd0e6;border-radius:14px;background:#f7f0fa;color:#665b6b;line-height:1.62}
+.workspace :global(.control-list){display:grid;gap:11px}
+.workspace :global(.control-list)>div{display:flex;gap:13px;padding:13px;border:1px solid #d8cbe0;border-radius:14px;background:#fff;box-shadow:0 5px 13px rgba(75,55,84,.04)}
+.workspace :global(.control-list)>div>span{display:grid;place-items:center;flex:0 0 30px;height:30px;border:1px solid #dfd2e6;border-radius:9px;background:#f1e8f6;color:var(--purple);font-weight:900}
+.workspace :global(.control-list) strong,
+.workspace :global(.control-list) small{display:block}.workspace :global(.control-list) small{margin-top:4px;color:#786d7c;line-height:1.48}
+.workspace :global(.events){display:grid}
+.workspace :global(.events) article{display:flex;align-items:center;gap:14px;padding:14px;border-bottom:1px solid #eee7f0}
+.workspace :global(.events) article:nth-child(odd){background:#fcf9fd}
+.workspace :global(.events) article:last-child{border-bottom:0}
+.workspace :global(.events) strong,
+.workspace :global(.events) small{display:block}.workspace :global(.events) small{margin-top:4px;color:#7a6f7e}
+.workspace :global(.empty){text-align:center;padding:30px;border:1px dashed #cbbad3;border-radius:15px;background:#faf5fc;color:#746a78}
+.workspace :global(.empty) span{display:grid;place-items:center;width:40px;height:40px;margin:0 auto 10px;border:1px solid #ded0e5;border-radius:50%;background:#fff;color:var(--purple)}
+.workspace :global(.state){padding:42px 24px;text-align:center;border:1px dashed #d1c1d8;border-radius:19px;background:#fff;box-shadow:0 10px 24px rgba(75,55,84,.07)}
+.workspace :global(.state)>span{display:grid;place-items:center;width:43px;height:43px;margin:0 auto 12px;border-radius:50%;background:#fff0f2;color:#9d3645;font-weight:900}
+.workspace :global(.state) h2{margin:0 0 8px}.workspace :global(.state) p{margin:0 auto 18px;max-width:650px;color:#746a78}
+.workspace :global(.skeleton){border:1px solid #e1d5e6;border-radius:17px;background:linear-gradient(90deg,#f0e8f3 25%,#faf8fb 50%,#f0e8f3 75%);background-size:200% 100%;animation:pulse 1.4s infinite}
+.workspace :global(.skeleton).heading{height:96px;width:100%}.workspace :global(.skeleton).card{height:118px}.workspace :global(.skeleton).body{height:350px}
+@keyframes pulse{to{background-position:-200% 0}}
+@media(max-width:900px){.workspace :global(.summary-grid){grid-template-columns:repeat(2,minmax(0,1fr))}.workspace :global(.content-grid){grid-template-columns:1fr}.workspace :global(.workspace-heading){display:grid}}
+@media(max-width:560px){.workspace :global(.summary-grid){grid-template-columns:1fr;padding:14px}.workspace :global(.workspace-heading){padding:21px}.workspace :global(.summary-grid) article,
+.workspace :global(.card){padding:18px}}

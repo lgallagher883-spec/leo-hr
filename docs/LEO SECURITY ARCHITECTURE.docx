@@ -1,0 +1,5893 @@
+LEO SECURITY ARCHITECTURE
+1. Purpose
+Purpose of the document
+Scope
+Intended audience
+Relationship to the Platform Specification
+Relationship to the Database Schema
+Relationship to the Development Rules
+2. Security Philosophy
+
+Define the principles behind every security decision.
+
+Examples:
+
+Security by Design
+Least Privilege
+Defence in Depth
+Zero Trust principles
+Multi-tenant isolation
+Auditability
+Privacy by Design
+Secure defaults
+Explicit permissions
+Professional accountability
+3. LEO Trust Model
+
+The core decision model for every request.
+
+Request
+
+↓
+
+Authenticated?
+
+↓
+
+Known User?
+
+↓
+
+Organisation Member?
+
+↓
+
+Role Verified?
+
+↓
+
+Permission Granted?
+
+↓
+
+Scope Valid?
+
+↓
+
+Audit Required?
+
+↓
+
+Allow
+
+Every workspace will follow this flow.
+
+4. Authentication
+
+Everything relating to identity.
+
+Including:
+
+Supabase Auth
+Passwords
+Password reset
+Email verification
+Sessions
+MFA (future)
+OAuth (future)
+Invitations
+Activation
+Account lifecycle
+5. Identity Model
+
+Describe:
+
+auth.users
+
+↓
+
+user_profiles
+
+↓
+
+organisation_memberships
+
+↓
+
+employees
+
+Explain exactly what each table is responsible for.
+
+6. Multi-Tenant Architecture
+
+Probably one of the most important chapters.
+
+Explain:
+
+Organisation isolation
+Cross-tenant protection
+Shared infrastructure
+Organisation ownership
+Future multi-company support
+7. Roles
+
+Describe each role.
+
+For example:
+
+Owner
+
+Senior HR
+
+HR
+
+Manager
+
+Employee
+
+External Auditor (future)
+
+Consultant (future)
+
+8. Permission Framework
+
+This chapter defines every permission.
+
+Example:
+
+employees.view
+
+employees.edit
+
+employees.delete
+
+matters.manage
+
+talent.manage
+
+learn.assign
+
+compliance.audit
+
+settings.manage
+
+billing.manage
+
+Permissions become the language of authorisation.
+
+9. Authorisation Engine
+
+Explain how LEO decides whether an action is allowed.
+
+This becomes the specification for the helper functions we'll build.
+
+10. Row Level Security (RLS)
+
+Document:
+
+Policy standards
+Naming conventions
+Helper functions
+Organisation filtering
+Ownership rules
+Write validation
+Update restrictions
+11. Database Security
+
+Cover:
+
+RLS
+Constraints
+Foreign keys
+Secure functions
+SECURITY INVOKER / SECURITY DEFINER where appropriate
+search_path protection
+Data validation
+12. Storage Security
+
+Rules for:
+
+CV uploads
+Employee documents
+Certificates
+Policies
+Images
+Evidence
+Exports
+
+Including bucket structure and access rules.
+
+13. API Security
+
+Document:
+
+API validation
+Rate limiting (future)
+Input validation
+Output filtering
+Error handling
+Secret management
+14. AI Security
+
+One of LEO's differentiators.
+
+Define:
+
+How Ask LEO accesses data
+Permission-aware context retrieval
+Organisation isolation
+Prompt construction
+Sensitive data handling
+Audit logging for AI interactions
+15. Audit Framework
+
+Specify:
+
+What is logged
+When it is logged
+Who performed the action
+Before/after values where appropriate
+Retention
+Reporting
+16. Data Classification
+
+Create categories such as:
+
+Public
+Internal
+Confidential
+Restricted
+
+Then define how each category should be handled.
+
+17. Secure Development Standards
+
+Coding rules including:
+
+Parameterised queries
+Input validation
+No embedded secrets
+Principle of least privilege
+Consistent helper functions
+Error handling
+Logging standards
+18. Monitoring & Incident Response
+
+Cover:
+
+Detection
+Alerting
+Response
+Recovery
+Lessons learned
+19. Backup & Recovery
+
+Document:
+
+Database backups
+Storage backups
+Recovery objectives
+Disaster recovery principles
+20. Security Roadmap
+
+Capture future enhancements, for example:
+
+Multi-factor authentication
+Single Sign-On (SSO)
+SCIM user provisioning
+IP allowlists
+Device management
+Advanced threat detection
+Security dashboards
+Penetration testing programme
+Compliance certifications (if pursued)
+
+LEO SECURITY ARCHITECTURE
+Version 1.0
+Chapter 1 – Purpose
+1. Purpose
+1.1 Introduction
+
+This document defines the complete security architecture for the LEO Platform.
+
+It establishes the standards, principles, technical architecture and governance that protect the confidentiality, integrity and availability of the platform, its data and the organisations that rely upon it.
+
+Security is considered a core architectural component of LEO rather than an additional feature. Every module, workspace, service, database object and AI capability must comply with the standards defined within this document.
+
+The objective is to ensure that security is implemented consistently across the platform from the earliest stages of development and continues to evolve alongside the platform as new functionality is introduced.
+
+1.2 Purpose of this Document
+
+This document provides the authoritative security specification for the LEO Platform.
+
+It defines how users are authenticated, how access is authorised, how data is protected, how artificial intelligence accesses organisational information, how activity is audited and how security controls are consistently applied throughout the platform.
+
+This document also establishes the security principles that all future development must follow, ensuring that every feature is designed within a common security framework rather than implementing isolated or inconsistent security mechanisms.
+
+1.3 Scope
+
+This document applies to every component of the LEO Platform including, but not limited to:
+
+User Authentication
+Identity Management
+Organisation Management
+Multi-Tenant Data Separation
+Role Based Access Control
+Permission Management
+Database Security
+Row Level Security
+Storage Security
+API Security
+Artificial Intelligence
+Audit Logging
+File Management
+Integrations and Connections
+Learning Management
+Recruitment and Talent
+Employee Records
+Matters
+Compliance
+HR Resources
+Billing
+Future Platform Modules
+
+Every new feature introduced into the platform shall comply with this architecture before being considered production ready.
+
+1.4 Objectives
+
+The objectives of the LEO Security Architecture are to:
+
+Protect organisational information from unauthorised access.
+Ensure complete separation between customer organisations.
+Apply security consistently across every platform module.
+Provide a scalable permission model capable of supporting organisations of all sizes.
+Protect confidential employment information throughout its lifecycle.
+Ensure artificial intelligence only accesses authorised information.
+Provide comprehensive auditability of significant user actions.
+Support compliance with UK GDPR and applicable employment legislation.
+Maintain high availability and resilience.
+Reduce security risks through secure-by-design development practices.
+Provide a reusable security framework that supports future platform expansion.
+1.5 Security by Design
+
+Security within LEO is designed as a foundational platform capability.
+
+Security controls are incorporated into the platform architecture before functionality is implemented rather than being introduced retrospectively.
+
+Every database table, API endpoint, AI interaction, storage bucket, user interface and business process must operate within the security framework defined by this document.
+
+Security decisions should always prioritise:
+
+Prevention before detection.
+Explicit permission over assumed access.
+Least privilege over convenience.
+Secure defaults over optional protection.
+Consistency over isolated implementation.
+1.6 Intended Audience
+
+This document is intended for:
+
+Platform Architects
+Software Developers
+Database Engineers
+Security Reviewers
+AI Development Teams
+Future Contributors
+Internal Administrators
+External Security Auditors
+Investors undertaking technical due diligence
+Enterprise customers requesting architectural assurance
+1.7 Relationship to Other LEO Documents
+
+This document should be read alongside the following core architectural documentation:
+
+LEO Platform Master Specification
+LEO Architecture Blueprint
+LEO Database Schema
+LEO Professional Thinking Model
+LEO Development Rules
+LEO Professional Decision Framework
+LEO Professional Communication Standards
+
+Where security requirements conflict with implementation guidance contained elsewhere, the requirements defined within this Security Architecture shall take precedence.
+
+1.8 Governance
+
+The LEO Security Architecture is a controlled architectural document.
+
+Changes to this document should only be made where they improve the overall security, scalability or maintainability of the platform.
+
+New platform functionality must be assessed against this document during design to ensure compliance before implementation.
+
+Security requirements defined within this document are considered mandatory platform standards rather than optional development guidance.
+
+1.9 Version Control
+
+This document forms part of the core LEO architectural documentation and shall be maintained under version control alongside the platform source code.
+
+Each significant architectural revision should be recorded with:
+
+Version Number
+Revision Date
+Summary of Changes
+Author
+Approval Status
+
+The Security Architecture should evolve alongside the platform while maintaining backwards compatibility wherever practical.
+
+End of Chapter 1
+
+Chapter 2 – Security Philosophy
+2. Security Philosophy
+2.1 Introduction
+
+The LEO Platform has been designed around the principle that security is a fundamental architectural capability rather than a separate feature.
+
+Every component of the platform, including databases, application services, artificial intelligence, integrations, user interfaces and future modules, operates within a single, consistent security model.
+
+Security decisions are made during architectural design rather than being introduced after functionality has been developed. This approach ensures that every feature inherits the same security standards, reducing complexity, improving maintainability and strengthening protection across the platform.
+
+The philosophy defined within this chapter provides the foundation upon which all future security decisions shall be based.
+
+2.2 Security by Design
+
+Security shall be incorporated into every stage of the software development lifecycle.
+
+No functionality should be considered complete until appropriate security controls have been designed, implemented and validated.
+
+Security considerations include:
+
+Authentication
+Authorisation
+Data protection
+Multi-tenant isolation
+Auditability
+Artificial Intelligence governance
+Secure storage
+Secure communications
+Secure development practices
+
+Security is therefore considered an architectural requirement rather than an implementation task.
+
+2.3 Zero Trust
+
+LEO follows a Zero Trust security model.
+
+No request is automatically trusted because it originates from an authenticated user, internal service or recognised device.
+
+Every request must be independently evaluated using the LEO Trust Model before access is granted.
+
+Authentication alone never provides authority to access data.
+
+Every action must also satisfy:
+
+Organisation membership
+Role validation
+Permission validation
+Resource ownership (where applicable)
+Scope validation
+Business rule validation
+
+Trust is therefore continuously verified rather than assumed.
+
+2.4 Least Privilege
+
+Users shall only receive the minimum level of access necessary to perform their responsibilities.
+
+Permissions should always be explicitly granted rather than implicitly inherited.
+
+Additional permissions should only be provided where a clear operational requirement exists.
+
+This principle reduces the potential impact of accidental misuse, compromised accounts and privilege escalation.
+
+2.5 Secure by Default
+
+Where uncertainty exists, LEO shall default to the most secure behaviour.
+
+Examples include:
+
+Access denied unless explicitly authorised.
+Database records inaccessible unless permitted by policy.
+AI unable to access organisational information without authorisation.
+Storage objects inaccessible unless access has been validated.
+Administrative functionality unavailable to non-authorised users.
+
+The absence of permission shall always result in denial of access.
+
+2.6 Defence in Depth
+
+LEO implements multiple independent layers of security.
+
+No single control should be relied upon as the sole protection mechanism.
+
+Security layers include:
+
+Authentication
+Identity verification
+Organisation validation
+Role verification
+Permission checks
+Row Level Security
+Application validation
+Business rule validation
+Audit logging
+Secure infrastructure
+
+If one control fails, additional layers continue to provide protection.
+
+2.7 Multi-Tenant Isolation
+
+Each customer organisation operates within a logically isolated environment.
+
+Users shall only access information belonging to organisations for which they possess valid membership and appropriate permissions.
+
+No request shall ever expose information belonging to another organisation unless explicitly supported by future platform functionality and authorised through controlled mechanisms.
+
+Organisation separation is considered a core architectural principle.
+
+2.8 Explicit Authorisation
+
+Access shall never be inferred.
+
+Every operation must be explicitly authorised.
+
+This includes:
+
+Viewing information
+Creating records
+Updating records
+Deleting records
+Exporting information
+Uploading files
+Using Artificial Intelligence
+Administrative actions
+
+Permissions are evaluated before every protected operation.
+
+2.9 Consistency
+
+Security should behave consistently across the entire platform.
+
+Every module shall utilise the same:
+
+Authentication process
+Identity model
+Permission framework
+Helper functions
+Row Level Security standards
+Audit framework
+
+This consistency improves maintainability, simplifies future development and reduces implementation errors.
+
+2.10 Auditability
+
+Security decisions should be observable.
+
+Significant platform activity shall be capable of being reconstructed through audit records.
+
+Audit logging supports:
+
+Accountability
+Investigation
+Compliance
+Incident response
+Quality assurance
+Professional governance
+
+Audit records shall be protected from unauthorised modification.
+
+2.11 Privacy by Design
+
+Protection of personal information forms part of the platform architecture.
+
+Personal data should only be collected where required for legitimate business purposes.
+
+Processing should be proportionate, transparent and compliant with applicable UK data protection legislation.
+
+Security controls should minimise unnecessary exposure of confidential information throughout the platform.
+
+2.12 Artificial Intelligence Governance
+
+Artificial intelligence within LEO operates under the same security principles as every other platform capability.
+
+AI does not possess unrestricted access to organisational information.
+
+Before information is supplied to any AI service, the platform must verify:
+
+User identity
+Organisation membership
+Applicable permissions
+Information classification
+Business context
+
+AI responses must never bypass existing security controls.
+
+Artificial intelligence extends professional decision-making; it does not replace the platform's security model.
+
+2.13 Secure Development
+
+Every feature developed for LEO shall comply with established secure development standards.
+
+Developers should prioritise:
+
+Simplicity
+Predictability
+Reusable security components
+Validated inputs
+Safe defaults
+Clear permission boundaries
+Comprehensive testing
+Minimal attack surface
+
+Security should remain understandable, maintainable and verifiable throughout the platform's lifecycle.
+
+2.14 Continuous Improvement
+
+Security is an ongoing process rather than a fixed state.
+
+The LEO Security Architecture shall evolve alongside:
+
+Platform functionality
+Emerging threats
+Technology changes
+Regulatory developments
+Customer requirements
+Industry best practice
+
+Architectural improvements should strengthen the platform while maintaining consistency and protecting existing customer data.
+
+2.15 LEO Security Principles
+
+Every security decision made within the LEO Platform shall uphold the following principles:
+
+Security by Design.
+Zero Trust.
+Least Privilege.
+Secure by Default.
+Defence in Depth.
+Multi-Tenant Isolation.
+Explicit Authorisation.
+Privacy by Design.
+Comprehensive Auditability.
+Consistency Across the Platform.
+AI Governed by the Same Security Standards.
+Continuous Security Improvement.
+
+These principles represent the constitutional foundations of the LEO Security Architecture and shall guide all future architectural, technical and operational security decisions.
+
+End of Chapter 2
+
+Chapter 3 – LEO Trust Model
+3. LEO Trust Model
+3.1 Introduction
+
+The LEO Trust Model defines the decision-making process used to determine whether any request made within the platform should be permitted.
+
+It is the central authorisation framework that underpins every secure operation performed within LEO.
+
+Unlike traditional applications that rely primarily on authentication, LEO evaluates multiple trust factors before access is granted to any protected resource.
+
+Every user action, API request, AI interaction, database query, file operation and administrative task shall be evaluated using this model.
+
+The Trust Model establishes a consistent, repeatable and auditable approach to security across the entire platform.
+
+3.2 Purpose
+
+The purpose of the Trust Model is to ensure that no request is granted solely because a user has successfully authenticated.
+
+Authentication establishes identity.
+
+The Trust Model establishes authority.
+
+Every protected operation must pass each stage of the model before permission is granted.
+
+3.3 Core Principles
+
+The Trust Model is built upon the following principles:
+
+Every request is independently verified.
+Trust is never assumed.
+Access is explicitly authorised.
+Security decisions are consistent across the platform.
+Every decision is capable of being audited.
+AI is subject to the same trust evaluation as every other platform service.
+3.4 Trust Evaluation Process
+
+Every protected request shall pass through the following stages.
+
+User Request
+      │
+      ▼
+Authentication
+      │
+      ▼
+Identity Resolution
+      │
+      ▼
+Organisation Membership
+      │
+      ▼
+Role Verification
+      │
+      ▼
+Permission Evaluation
+      │
+      ▼
+Resource Scope Validation
+      │
+      ▼
+Business Rule Validation
+      │
+      ▼
+Sensitive Data Classification
+      │
+      ▼
+Audit Decision
+      │
+      ▼
+Access Granted
+
+Failure at any stage shall result in immediate denial of the request.
+
+3.5 Stage 1 – Authentication
+
+The platform first confirms that the request originates from an authenticated user.
+
+Authentication is provided by Supabase Authentication.
+
+Unauthenticated requests shall not proceed beyond this stage.
+
+Successful authentication establishes:
+
+User identity
+Active session
+Authentication method
+Session validity
+
+Authentication alone does not provide permission to access organisational data.
+
+3.6 Stage 2 – Identity Resolution
+
+Once authenticated, the platform identifies the internal LEO identity associated with the user.
+
+This process determines:
+
+User profile
+Organisation memberships
+Employee linkage (where applicable)
+Account status
+Account lifecycle state
+
+Users without a valid identity shall not be permitted to access protected resources.
+
+3.7 Stage 3 – Organisation Membership
+
+The platform confirms that the user belongs to the organisation whose data is being requested.
+
+Every protected record within LEO belongs to an organisation.
+
+Users shall only access resources belonging to organisations in which they hold active membership.
+
+Organisation isolation forms one of the primary security boundaries within the platform.
+
+3.8 Stage 4 – Role Verification
+
+The user's assigned role is evaluated.
+
+Roles determine the general level of authority available within an organisation.
+
+Typical roles include:
+
+Owner
+Senior HR
+HR
+Manager
+Employee
+
+Future releases may introduce additional specialist roles without altering the Trust Model.
+
+3.9 Stage 5 – Permission Evaluation
+
+Permissions provide the primary mechanism for authorising actions.
+
+Rather than relying solely upon role names, permissions define precisely what actions a user may perform.
+
+Examples include:
+
+employees.view
+
+employees.edit
+
+employees.archive
+
+matters.manage
+
+talent.manage
+
+learn.assign
+
+compliance.audit
+
+billing.manage
+
+Roles are collections of permissions.
+
+Permissions authorise individual operations.
+
+3.10 Stage 6 – Resource Scope Validation
+
+Possessing a permission does not automatically provide unrestricted access.
+
+The platform must determine whether the requested resource falls within the user's authorised scope.
+
+Examples include:
+
+Assigned employees.
+Department-specific records.
+Organisation-wide resources.
+Personal records.
+Team-specific learning.
+Recruitment campaigns.
+Compliance audits.
+
+Scope validation prevents excessive access while maintaining operational flexibility.
+
+3.11 Stage 7 – Business Rule Validation
+
+Certain operations require additional business validation before permission can be granted.
+
+Examples include:
+
+Preventing deletion of legally required employment records.
+Restricting completion of mandatory compliance tasks.
+Preventing modification of completed audits.
+Enforcing onboarding sequences.
+Protecting signed documentation.
+Restricting recruitment progression where mandatory checks remain incomplete.
+
+Business rules provide an additional layer of protection beyond permissions alone.
+
+3.12 Stage 8 – Sensitive Data Classification
+
+Before confidential information is returned, the platform evaluates the sensitivity of the requested data.
+
+Examples include:
+
+Medical information.
+DBS records.
+Right to Work documentation.
+Disciplinary documentation.
+Grievance investigations.
+Safeguarding information.
+Payroll information.
+AI-generated professional advice.
+
+Additional permissions or validation may be required before highly sensitive information is disclosed.
+
+3.13 Stage 9 – Audit Decision
+
+The platform determines whether the action should be recorded within the audit framework.
+
+Examples include:
+
+Record creation.
+Record modification.
+Record deletion.
+AI requests.
+Exports.
+Downloads.
+Permission changes.
+Authentication events.
+Administrative actions.
+
+Audit logging supports accountability, investigation and regulatory compliance.
+
+3.14 Access Decision
+
+Only when every stage has been successfully completed shall access be granted.
+
+If any validation fails:
+
+The request is denied.
+No protected information is disclosed.
+An appropriate response is returned.
+Where appropriate, the failed attempt may be recorded within the audit framework.
+
+Failure should never expose sensitive implementation details to the requesting user.
+
+3.15 Application Across the Platform
+
+The Trust Model applies consistently throughout every component of LEO, including:
+
+Employees
+Matters
+Leo Talent
+Leo Learn
+Compliance
+HR Resources
+Foundations
+Connections
+Billing
+Reporting
+Artificial Intelligence
+APIs
+Storage
+Future platform modules
+
+No component may bypass the Trust Model.
+
+3.16 Architectural Benefits
+
+Implementing a single Trust Model provides:
+
+Consistent security decisions.
+Simplified Row Level Security policies.
+Reusable helper functions.
+Reduced implementation complexity.
+Improved maintainability.
+Stronger tenant isolation.
+Professional auditability.
+Enterprise scalability.
+Easier security reviews.
+Greater confidence in AI-driven functionality.
+3.17 Trust Model Statement
+
+The LEO Trust Model is the authoritative framework used to determine whether any protected operation within the platform may proceed.
+
+Authentication establishes identity.
+
+Identity establishes organisational membership.
+
+Organisational membership establishes context.
+
+Roles and permissions establish authority.
+
+Scope and business rules establish legitimacy.
+
+Audit establishes accountability.
+
+Only when all stages are successfully satisfied shall access be granted.
+
+This model forms the operational foundation of every security decision made throughout the LEO Platform.
+
+End of Chapter 3
+
+Chapter 4 – Authentication & Identity Architecture
+4. Authentication & Identity Architecture
+4.1 Introduction
+
+Authentication and identity form the first operational layer of the LEO Security Architecture.
+
+Authentication establishes that a user is who they claim to be.
+
+Identity establishes who that user is within the LEO Platform, which organisation they belong to, and the authority they possess within that organisation.
+
+These two concepts are deliberately separated.
+
+Authentication answers the question:
+
+"Who has signed in?"
+
+Identity answers the question:
+
+"Who is this person within LEO?"
+
+Separating these responsibilities provides a flexible, scalable and secure foundation capable of supporting organisations of varying sizes, multiple user types and future platform expansion.
+
+4.2 Architectural Principles
+
+Authentication and identity shall comply with the following principles:
+
+Authentication and identity remain separate responsibilities.
+Authentication never grants authority.
+Every authenticated user must resolve to a valid LEO identity before accessing protected resources.
+Every identity belongs to one or more organisations.
+Every identity has defined roles and permissions.
+Identity information is centrally managed.
+Authentication services never contain business permissions.
+Future authentication providers should integrate without changing the platform security model.
+4.3 Authentication Provider
+
+LEO uses Supabase Authentication as the platform's identity provider.
+
+Supabase Authentication is responsible for:
+
+User registration
+Secure password storage
+Password verification
+Email verification
+Password reset
+Session management
+Refresh tokens
+Access tokens
+Session expiry
+Device authentication
+
+Authentication services do not determine platform permissions.
+
+4.4 Identity Architecture
+
+Once authentication succeeds, LEO resolves the authenticated user into its internal identity model.
+
+The identity model is independent of authentication and contains the information required to operate the platform securely.
+
+The logical identity chain is:
+
+Supabase Authentication
+        │
+        ▼
+auth.users
+        │
+        ▼
+user_profiles
+        │
+        ▼
+organisation_memberships
+        │
+        ▼
+employees (where applicable)
+        │
+        ▼
+Roles
+        │
+        ▼
+Permissions
+
+Authentication identifies the account.
+
+Identity establishes the user's relationship with the platform.
+
+4.5 Separation of Responsibilities
+
+The responsibilities of each layer are clearly defined.
+
+Authentication
+
+Responsible for:
+
+Credentials
+Sessions
+Passwords
+Email verification
+Login status
+
+Authentication is not responsible for:
+
+Organisations
+Roles
+Permissions
+Employees
+HR records
+Identity
+
+Responsible for:
+
+User profile
+Organisation membership
+Employee linkage
+Role assignment
+Permission assignment
+Account status
+User preferences
+
+Identity does not manage passwords or sessions.
+
+4.6 Account Lifecycle
+
+Every user account progresses through a controlled lifecycle.
+
+The standard lifecycle is:
+
+Invitation Created
+        │
+        ▼
+Invitation Sent
+        │
+        ▼
+Invitation Accepted
+        │
+        ▼
+Account Created
+        │
+        ▼
+Email Verified
+        │
+        ▼
+Active
+        │
+        ▼
+Suspended
+        │
+        ▼
+Reactivated
+        │
+        ▼
+Archived
+
+Accounts should never bypass lifecycle validation.
+
+4.7 User Registration
+
+New users shall normally enter the platform through an invitation generated by an authorised organisation administrator.
+
+The invitation process shall:
+
+Associate the user with an organisation.
+Assign an initial role.
+Apply default permissions.
+Record the invitation.
+Generate an activation link.
+Require email verification.
+Prevent duplicate active invitations.
+
+Self-registration may be supported in future where appropriate.
+
+4.8 Authentication Flow
+
+The standard authentication sequence is:
+
+User Enters Credentials
+        │
+        ▼
+Supabase Authentication
+        │
+        ▼
+Session Created
+        │
+        ▼
+Resolve Identity
+        │
+        ▼
+Resolve Organisation Membership
+        │
+        ▼
+Resolve Roles
+        │
+        ▼
+Resolve Permissions
+        │
+        ▼
+Trust Model Evaluation
+        │
+        ▼
+Platform Access
+
+Authentication alone never provides direct access to platform resources.
+
+4.9 Session Management
+
+Authenticated sessions shall be securely managed throughout their lifecycle.
+
+The platform shall:
+
+Validate session tokens.
+Detect expired sessions.
+Refresh tokens securely.
+Prevent invalid sessions from accessing protected resources.
+Support secure sign-out.
+Invalidate sessions following significant security events where appropriate.
+
+Future enhancements may include device management and session history.
+
+4.10 Email Verification
+
+Email verification confirms ownership of the registered email address.
+
+Users shall normally verify their email address before full platform access is granted.
+
+Unverified accounts may be restricted from accessing protected organisational data.
+
+4.11 Password Management
+
+Passwords are managed exclusively by Supabase Authentication.
+
+LEO shall never:
+
+Store passwords.
+Process password hashes.
+Log passwords.
+Display passwords.
+Transmit passwords outside the authentication provider.
+
+Password complexity, storage and verification are delegated to the authentication provider.
+
+4.12 Password Reset
+
+Password reset shall be performed through secure verification mechanisms provided by the authentication service.
+
+The process shall:
+
+Verify account ownership.
+Generate a secure reset token.
+Expire unused reset requests.
+Prevent replay attacks.
+Record security events where appropriate.
+4.13 Multi-Factor Authentication
+
+The architecture shall support Multi-Factor Authentication (MFA) without requiring structural redesign.
+
+Future support may include:
+
+Authenticator applications.
+Security keys.
+Passkeys.
+One-time verification codes.
+
+MFA requirements may vary according to organisational policy.
+
+4.14 Account Status
+
+Each identity shall maintain a platform status.
+
+Typical states include:
+
+Pending
+Active
+Suspended
+Locked
+Archived
+Deleted (where legally permissible)
+
+Status determines whether an authenticated user may continue through the Trust Model.
+
+4.15 Identity Resolution
+
+Every authenticated request must successfully resolve to a valid platform identity.
+
+Identity resolution determines:
+
+Organisation membership.
+Employee relationship.
+Assigned roles.
+Assigned permissions.
+Account status.
+Security context.
+
+Failure to resolve identity shall terminate the request.
+
+4.16 Future Authentication Providers
+
+The authentication architecture should support future providers without redesigning the identity model.
+
+Potential future integrations include:
+
+Microsoft Entra ID
+Google Workspace
+Okta
+Auth0
+SAML 2.0
+OpenID Connect
+
+Regardless of provider, all authenticated users shall resolve into the same LEO identity architecture.
+
+4.17 Security Considerations
+
+Authentication shall comply with the principles defined within the Security Philosophy.
+
+Particular emphasis shall be placed upon:
+
+Secure session handling.
+Identity verification.
+Prevention of account enumeration.
+Secure invitation workflows.
+Secure password management.
+Session invalidation.
+Email verification.
+Controlled account lifecycle.
+Audit logging of significant authentication events.
+
+Authentication should minimise attack surface while providing a seamless user experience.
+
+4.18 Implementation Requirements
+
+The LEO Platform shall:
+
+Use Supabase Authentication as the authoritative authentication provider.
+Separate authentication from identity and authorisation.
+Resolve every authenticated session into a valid LEO identity.
+Associate every identity with one or more organisations.
+Support invitation-based onboarding.
+Support controlled account lifecycle management.
+Maintain secure session management.
+Support future Multi-Factor Authentication without redesign.
+Maintain compatibility with future enterprise identity providers.
+Ensure authentication integrates directly with the LEO Trust Model.
+
+Authentication establishes identity.
+
+Identity establishes organisational context.
+
+Authorisation determines access.
+
+These responsibilities shall remain independent throughout the platform architecture.
+
+End of Chapter 4
+
+Chapter 5 – Identity & Organisation Model
+5. Identity & Organisation Model
+5.1 Introduction
+
+The Identity & Organisation Model defines how individuals are represented within the LEO Platform and how those individuals are associated with organisations, employment records, permissions and platform functionality.
+
+It provides the structural foundation upon which authentication, authorisation, multi-tenancy and Row Level Security are built.
+
+Identity within LEO is deliberately separated from employment records.
+
+An employee is a business entity.
+
+A user identity is a security entity.
+
+Although these entities are commonly linked, they perform different architectural responsibilities and must remain independent.
+
+5.2 Purpose
+
+The Identity & Organisation Model exists to:
+
+Establish a single authoritative identity for every platform user.
+Support secure multi-tenant operation.
+Allow users to belong to one or more organisations.
+Separate authentication from employment data.
+Support future platform expansion without redesign.
+Provide a consistent foundation for permissions and Row Level Security.
+Enable secure collaboration across future LEO services.
+5.3 Core Identity Architecture
+
+The logical identity architecture is illustrated below.
+
+                Authentication
+                     │
+                     ▼
+               auth.users
+                     │
+                     ▼
+              user_profiles
+                     │
+                     ▼
+       organisation_memberships
+             │                │
+             │                │
+             ▼                ▼
+        employees         platform roles
+             │                │
+             └────────┬───────┘
+                      ▼
+                 permissions
+                      │
+                      ▼
+               Trust Model
+
+Every protected request shall resolve through this structure before access is granted.
+
+5.4 Identity Components
+
+The identity model consists of several independent components.
+
+Authentication Identity
+
+Managed exclusively by Supabase Authentication.
+
+Responsible for:
+
+Login credentials.
+Password management.
+Sessions.
+Email verification.
+User Profile
+
+Represents the individual using the platform.
+
+Contains information such as:
+
+Name.
+Preferred display name.
+Contact information.
+Profile preferences.
+Notification preferences.
+Accessibility preferences.
+
+The user profile represents the person, not their employment.
+
+Organisation Membership
+
+Defines the relationship between a user and an organisation.
+
+Each membership records:
+
+Organisation.
+Membership status.
+Assigned role.
+Default permissions.
+Membership dates.
+Invitation status.
+
+Membership provides organisational context for every request.
+
+Employee Record
+
+Employees represent individuals within the employer's workforce.
+
+Employee records contain business information including:
+
+Employment details.
+Leave.
+Training.
+Compliance.
+Development.
+Recruitment history.
+Employment documentation.
+
+Employee records are business entities rather than security entities.
+
+5.5 Separation of Identity and Employment
+
+A fundamental design principle of LEO is the separation between identity and employment.
+
+This separation enables scenarios such as:
+
+HR consultants.
+External auditors.
+Learning providers.
+Recruitment partners.
+Temporary administrators.
+Future client support roles.
+
+These users may require platform access without being employees of the organisation.
+
+Similarly, employee records may exist before platform access is granted or after access has been removed.
+
+5.6 Organisation Model
+
+Every organisation within LEO represents an independent tenant.
+
+Each organisation maintains ownership of its:
+
+Employees.
+Matters.
+Learning.
+Recruitment.
+Compliance.
+Documents.
+Policies.
+AI knowledge.
+Audit records.
+Platform configuration.
+
+Organisation boundaries shall never be crossed without explicit architectural support and authorisation.
+
+5.7 Organisation Membership
+
+Users may belong to one or more organisations.
+
+Each membership is independent.
+
+A user may therefore be:
+
+Owner of one organisation.
+Manager within another.
+External consultant for a third.
+
+Permissions are evaluated separately for each active membership.
+
+The active organisation context determines which data may be accessed during a session.
+
+5.8 Membership Lifecycle
+
+Organisation membership follows a controlled lifecycle.
+
+Invitation
+
+↓
+
+Pending
+
+↓
+
+Accepted
+
+↓
+
+Active
+
+↓
+
+Suspended
+
+↓
+
+Reactivated
+
+↓
+
+Removed
+
+↓
+
+Archived
+
+Historical membership records should be retained for audit purposes.
+
+5.9 User Switching
+
+Future versions of LEO may allow users with multiple organisation memberships to switch between organisations without requiring a second authentication.
+
+Organisation switching shall:
+
+Change security context.
+Reload permissions.
+Reload organisational configuration.
+Refresh applicable AI knowledge.
+Refresh organisation-specific settings.
+
+No data from the previous organisation shall remain accessible after the switch.
+
+5.10 Identity Resolution
+
+Each authenticated request must successfully resolve:
+
+User Profile.
+Active Organisation.
+Membership.
+Role.
+Permissions.
+Employee Link (where applicable).
+
+Failure at any stage shall terminate the request.
+
+5.11 Employee Linkage
+
+Where a platform user is also an employee, the identity model shall link the user profile to the employee record.
+
+This relationship enables:
+
+Self-service.
+Employee development.
+Leave requests.
+Learning assignments.
+Performance reviews.
+Compliance records.
+Personal document access.
+
+The employee relationship shall remain optional.
+
+5.12 Identity Ownership
+
+Each user profile shall possess one authoritative identity.
+
+Duplicate platform identities for the same individual should be prevented wherever reasonably possible.
+
+Identity merges should only occur through controlled administrative processes.
+
+5.13 Identity Status
+
+Each platform identity shall maintain a current operational status.
+
+Examples include:
+
+Pending.
+Active.
+Suspended.
+Locked.
+Archived.
+
+Inactive identities shall not access protected resources.
+
+5.14 Organisation Ownership
+
+Each organisation shall possess one or more designated Owners.
+
+Owners possess ultimate responsibility for:
+
+Organisation configuration.
+User invitations.
+Billing.
+Security administration.
+Permission management.
+Organisation lifecycle.
+
+Ownership responsibilities should be transferable through controlled administrative processes.
+
+5.15 Identity Audit
+
+Changes affecting identity shall be auditable.
+
+Examples include:
+
+Invitations.
+Membership changes.
+Role changes.
+Organisation switching.
+Account suspension.
+Account activation.
+Identity linkage.
+Permission assignment.
+
+Identity history provides accountability throughout the lifecycle of every user.
+
+5.16 Architectural Principles
+
+The Identity & Organisation Model shall always maintain:
+
+One authenticated identity per user.
+One user profile per identity.
+One or more organisation memberships.
+Optional employee linkage.
+Independent business records.
+Independent permissions.
+Complete tenant isolation.
+Consistent identity resolution.
+Full auditability.
+5.17 Future Expansion
+
+The architecture has been designed to support future platform capabilities without structural redesign, including:
+
+Group organisations.
+Franchise management.
+Multi-company employers.
+External consultants.
+Temporary agency workers.
+Client support users.
+Enterprise identity providers.
+Single Sign-On.
+Federated identity.
+Cross-platform integrations.
+
+Future expansion should not require changes to the underlying identity model.
+
+5.18 Implementation Requirements
+
+The LEO Platform shall:
+
+Maintain a clear separation between authentication, identity and employment.
+Resolve every authenticated session into a valid platform identity.
+Associate identities with one or more organisation memberships.
+Support optional linkage to employee records.
+Maintain complete tenant isolation.
+Prevent duplicate active identities where reasonably practicable.
+Support organisation switching for multi-membership users.
+Record significant identity events within the audit framework.
+Provide a scalable identity architecture capable of supporting future enterprise functionality without redesign.
+
+The Identity & Organisation Model provides the structural foundation for the Authorisation Engine, Row Level Security policies and all future security controls implemented throughout the LEO Platform.
+
+End of Chapter 5
+
+Chapter 6 – Multi-Tenant Security Architecture
+6. Multi-Tenant Security Architecture
+6.1 Introduction
+
+LEO is designed as a secure, multi-tenant Software-as-a-Service (SaaS) platform.
+
+A multi-tenant architecture enables multiple independent organisations to operate within a shared application and infrastructure whilst ensuring complete separation of organisational data, permissions, processes and AI interactions.
+
+Each organisation shall operate as an independent security boundary.
+
+No organisation shall have visibility of, or access to, another organisation's information unless explicitly supported through future platform functionality and authorised using controlled security mechanisms.
+
+Multi-tenancy is therefore considered one of the primary architectural principles of the LEO Platform.
+
+6.2 Objectives
+
+The Multi-Tenant Security Architecture has the following objectives:
+
+Ensure complete logical separation between organisations.
+Prevent accidental or malicious cross-organisation access.
+Maintain consistent security across every platform module.
+Support organisations of all sizes.
+Allow future enterprise expansion without redesign.
+Simplify Row Level Security implementation.
+Ensure AI operates only within the requesting organisation's security context.
+Maintain independent audit trails for each organisation.
+6.3 Tenant Definition
+
+Within LEO, a tenant represents a single organisation.
+
+Each tenant maintains complete ownership of its:
+
+Employees
+Matters
+Compliance records
+Recruitment activities
+Learning content
+Policies
+Documents
+AI knowledge
+Audit history
+Settings
+Integrations
+Billing information
+
+Tenant ownership extends to all future platform modules unless explicitly documented otherwise.
+
+6.4 Shared Platform, Isolated Data
+
+LEO operates using a shared application architecture.
+
+The application codebase, infrastructure and database are shared between all organisations.
+
+Business data is not.
+
+Every organisation's data remains logically isolated through:
+
+Identity resolution
+Organisation membership
+Authorisation
+Row Level Security
+Permission evaluation
+Trust Model validation
+
+Sharing infrastructure must never compromise data isolation.
+
+6.5 Organisation Boundary
+
+The organisation is the primary security boundary within LEO.
+
+Every protected business record shall belong to exactly one organisation unless specifically designed as a global platform resource.
+
+Examples include:
+
+Employee records
+Recruitment records
+Learning assignments
+Policies
+Documents
+Audit logs
+Compliance records
+AI conversations
+
+Organisation ownership shall be explicit within the database schema.
+
+6.6 Global Platform Resources
+
+Certain platform resources are intentionally shared across all organisations.
+
+Examples may include:
+
+System configuration
+Platform feature flags
+Standard templates
+Legislation knowledge
+ACAS guidance
+Public learning resources
+Product updates
+
+Global resources shall remain read-only to customer organisations unless specifically authorised.
+
+6.7 Tenant Isolation
+
+Tenant isolation shall be enforced at multiple layers.
+
+These include:
+
+Identity Layer
+
+Users only resolve into organisations for which they possess active membership.
+
+Authorisation Layer
+
+Permissions are evaluated within the context of the active organisation.
+
+Database Layer
+
+Row Level Security prevents access to records belonging to other organisations.
+
+API Layer
+
+Every API request validates organisation context before processing.
+
+Artificial Intelligence Layer
+
+AI shall only receive organisational information that the requesting user is authorised to access.
+
+Storage Layer
+
+Uploaded documents shall remain isolated within organisation-specific storage structures.
+
+Audit Layer
+
+Audit records shall remain logically separated between organisations.
+
+6.8 Organisation Context
+
+Every authenticated session operates within an active organisation context.
+
+The organisation context determines:
+
+Visible employees
+Matters
+Documents
+Policies
+Learning
+Recruitment
+Compliance
+AI knowledge
+Permissions
+Settings
+Branding
+Integrations
+
+Changing organisation changes the complete security context.
+
+6.9 Cross-Tenant Protection
+
+Cross-tenant access is prohibited unless explicitly supported through future platform functionality.
+
+The platform shall actively prevent:
+
+Database access across organisations.
+API access across organisations.
+File access across organisations.
+AI context leakage.
+Search results containing external tenant information.
+Reporting across unauthorised organisations.
+Cached information from previous organisation contexts.
+
+Tenant isolation shall be independently enforced at each architectural layer.
+
+6.10 Organisation Switching
+
+Future versions of LEO may support users belonging to multiple organisations.
+
+When switching organisations, the platform shall:
+
+Validate membership.
+Reload permissions.
+Refresh security context.
+Refresh AI context.
+Refresh organisational configuration.
+Reload organisation-specific data.
+Invalidate cached data belonging to the previous organisation.
+
+No previous organisation information shall remain accessible following the switch.
+
+6.11 AI Tenant Isolation
+
+Artificial Intelligence presents additional security considerations.
+
+Before organisational information is supplied to AI, the platform shall verify:
+
+User identity.
+Active organisation.
+Permissions.
+Resource scope.
+Information classification.
+
+AI requests shall never combine confidential information belonging to multiple organisations within a single context.
+
+Each AI interaction shall operate entirely within one tenant boundary.
+
+6.12 Data Ownership
+
+All customer-generated information remains the property of the originating organisation.
+
+This includes:
+
+Employee information.
+Uploaded documents.
+Policies.
+Recruitment records.
+Learning materials created by the customer.
+Audit records.
+Organisation knowledge.
+AI conversations generated using organisational data.
+
+The platform processes information on behalf of the organisation but does not assume ownership.
+
+6.13 Data Residency
+
+LEO shall maintain organisational data in accordance with applicable UK legislation and contractual obligations.
+
+Future infrastructure decisions should consider:
+
+Data residency.
+Backup locations.
+Disaster recovery.
+Regulatory requirements.
+Customer contractual commitments.
+
+Changes affecting data residency shall require architectural review.
+
+6.14 Tenant Provisioning
+
+Creating a new organisation shall establish an independent tenant.
+
+Provisioning includes:
+
+Organisation record.
+Initial Owner account.
+Default security configuration.
+Default permissions.
+Organisation settings.
+AI workspace.
+Audit framework.
+Storage allocation.
+Billing profile.
+Platform configuration.
+
+New tenants shall not inherit customer-specific data from existing organisations.
+
+6.15 Tenant Lifecycle
+
+Organisations progress through a managed lifecycle.
+
+Provisioned
+      │
+      ▼
+Configured
+      │
+      ▼
+Active
+      │
+      ▼
+Suspended
+      │
+      ▼
+Archived
+      │
+      ▼
+Deleted (where legally permissible)
+
+Historical audit records should be retained in accordance with legal and contractual requirements.
+
+6.16 Security Responsibilities
+
+The platform is responsible for:
+
+Infrastructure security.
+Authentication.
+Identity.
+Authorisation.
+Database security.
+Storage security.
+AI security.
+Platform monitoring.
+
+Customer organisations remain responsible for:
+
+User management.
+Internal permissions.
+Employment decisions.
+Uploaded content.
+Compliance with applicable legislation.
+Appropriate use of the platform.
+6.17 Architectural Principles
+
+The Multi-Tenant Security Architecture shall always ensure:
+
+One active organisation context per session.
+Complete logical isolation between organisations.
+Consistent security enforcement across every module.
+Independent audit records.
+Independent AI context.
+Independent storage.
+Independent permissions.
+Consistent Trust Model validation.
+Protection against cross-tenant access at every architectural layer.
+6.18 Future Expansion
+
+The architecture has been designed to support future enterprise functionality including:
+
+Organisation groups.
+Parent and subsidiary organisations.
+Franchise networks.
+Multi-brand organisations.
+Shared service centres.
+External consultants.
+Client support teams.
+Enterprise identity providers.
+Secure organisation collaboration.
+Controlled cross-tenant reporting where explicitly authorised.
+
+Future capabilities shall preserve the core principle of tenant isolation.
+
+6.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Treat every organisation as an independent security boundary.
+Associate all protected business records with an owning organisation.
+Enforce organisation isolation through the Trust Model and Row Level Security.
+Validate organisation context before processing every protected request.
+Prevent cross-tenant access unless explicitly authorised through controlled platform functionality.
+Ensure AI operates entirely within the active organisation's security context.
+Support future multi-organisation users without compromising security.
+Maintain independent audit, storage and configuration for each organisation.
+Preserve tenant isolation across all existing and future platform modules.
+
+The Multi-Tenant Security Architecture provides the foundation for Row Level Security, the Authorisation Engine and every permission decision made within the LEO Platform.
+
+End of Chapter 6
+
+7. Roles & Permission Framework
+7.1 Introduction
+
+The Roles & Permission Framework defines how authority is granted throughout the LEO Platform.
+
+Rather than relying upon fixed user types, LEO implements a flexible Role-Based Access Control (RBAC) model in which roles represent collections of permissions.
+
+This approach separates identity from authority, allowing organisations to assign appropriate access without altering the underlying security architecture.
+
+Every protected action performed within the platform shall be authorised through this framework.
+
+7.2 Purpose
+
+The purpose of the Roles & Permission Framework is to:
+
+Provide consistent authorisation across the platform.
+Support organisations of different sizes and structures.
+Simplify permission management.
+Minimise unnecessary access.
+Support future platform expansion.
+Reduce security risk through least privilege.
+Integrate directly with the Trust Model and Row Level Security.
+7.3 Design Principles
+
+The framework is based upon the following principles:
+
+Roles describe responsibilities.
+Permissions authorise actions.
+Users are assigned roles.
+Roles contain permissions.
+Permissions are evaluated for every protected request.
+Access is explicitly granted rather than implicitly assumed.
+Roles should remain relatively stable.
+Permissions may evolve as the platform develops.
+7.4 Role-Based Access Control (RBAC)
+
+LEO adopts a Role-Based Access Control (RBAC) model.
+
+Within this model:
+
+Users do not receive individual access to every feature.
+Users receive one or more roles.
+Roles define the permissions available to the user.
+Permissions determine whether a specific operation is authorised.
+
+This provides a consistent and maintainable authorisation model.
+
+7.5 Standard Platform Roles
+
+The platform initially supports the following standard roles.
+
+Owner
+
+The Owner possesses ultimate authority within an organisation.
+
+Typical responsibilities include:
+
+Organisation administration.
+Security administration.
+Billing.
+User management.
+Platform configuration.
+Permission management.
+Subscription management.
+Data exports.
+Organisation lifecycle management.
+
+An organisation should always maintain at least one active Owner.
+
+Senior HR
+
+Senior HR users possess broad operational responsibility for employment matters.
+
+Typical capabilities include:
+
+Employee management.
+Matters.
+Recruitment.
+Learning administration.
+Compliance oversight.
+Policy management.
+Reporting.
+Document management.
+AI-assisted professional guidance.
+
+Senior HR users normally possess administrative authority across operational HR functions but do not manage platform ownership.
+
+HR
+
+HR users support day-to-day employment administration.
+
+Typical responsibilities include:
+
+Employee records.
+Recruitment.
+Learning.
+Leave administration.
+Compliance monitoring.
+Documentation.
+AI support.
+
+Their permissions are typically more limited than Senior HR.
+
+Manager
+
+Managers primarily manage their own teams.
+
+Typical responsibilities include:
+
+Team members.
+Leave approvals.
+Reviews.
+One-to-ones.
+Development.
+Recruitment participation.
+Performance management.
+
+Managers normally access only those employees falling within their authorised scope.
+
+Employee
+
+Employees possess access primarily to their own information.
+
+Typical capabilities include:
+
+Personal profile.
+Leave requests.
+Learning assignments.
+Documents.
+Development records.
+Compliance tasks.
+Personal AI interactions.
+
+Employees shall not possess administrative authority.
+
+7.6 Future Roles
+
+The architecture has been designed to support future specialist roles without structural redesign.
+
+Examples include:
+
+External Consultant.
+External HR Advisor.
+Learning Provider.
+Recruitment Partner.
+Auditor.
+Investigator.
+Finance Administrator.
+Group Administrator.
+Franchise Administrator.
+Read-Only Administrator.
+
+Additional roles shall inherit the same permission framework.
+
+7.7 Permission Model
+
+Permissions provide the primary mechanism for authorising actions.
+
+Permissions describe what a user is allowed to do rather than who they are.
+
+Permissions should be:
+
+Human-readable.
+Predictable.
+Consistent.
+Granular.
+Reusable.
+
+Permissions should remain independent of application code wherever practical.
+
+7.8 Permission Naming Standard
+
+LEO adopts a consistent permission naming convention.
+
+The standard format is:
+
+module.action
+
+Examples include:
+
+employees.view
+employees.create
+employees.update
+employees.archive
+
+matters.view
+matters.manage
+
+talent.manage
+
+learn.assign
+
+compliance.audit
+
+documents.upload
+
+connections.manage
+
+billing.manage
+
+settings.manage
+
+The naming convention shall remain consistent throughout the platform.
+
+7.9 Permission Categories
+
+Permissions are grouped into functional areas.
+
+Examples include:
+
+Employee Management
+employees.view
+employees.create
+employees.update
+employees.archive
+employees.delete
+Matters
+matters.view
+matters.create
+matters.manage
+matters.close
+Leo Talent
+talent.view
+talent.manage
+talent.interview
+talent.offer
+talent.onboarding
+Leo Learn
+learn.view
+learn.assign
+learn.author
+learn.manage
+Compliance
+compliance.view
+compliance.audit
+compliance.manage
+Documents
+documents.view
+documents.upload
+documents.download
+documents.delete
+AI
+ai.ask
+ai.manage
+ai.review
+Settings
+settings.view
+settings.manage
+Billing
+billing.view
+billing.manage
+
+Future modules shall adopt the same naming convention.
+
+7.10 Permission Evaluation
+
+Every protected request shall evaluate permissions before access is granted.
+
+Permission evaluation forms part of the Trust Model.
+
+Possessing a role does not guarantee access.
+
+Permissions remain subject to:
+
+Organisation membership.
+Resource scope.
+Business rules.
+Information classification.
+7.11 Role Assignment
+
+Roles shall be assigned through controlled administrative processes.
+
+Role assignment shall:
+
+Be auditable.
+Validate organisational authority.
+Prevent unauthorised privilege escalation.
+Record assignment history.
+Support future approval workflows.
+
+Only authorised users may assign or modify roles.
+
+7.12 Multiple Roles
+
+Future versions of LEO may allow users to possess multiple roles within the same organisation.
+
+Where multiple roles exist:
+
+Permissions shall be combined.
+Duplicate permissions ignored.
+Explicit restrictions shall take precedence where implemented.
+
+The permission engine shall calculate the user's effective permissions before processing requests.
+
+7.13 Permission Inheritance
+
+Permissions should be inherited through roles rather than assigned individually wherever practical.
+
+This simplifies administration and reduces inconsistency.
+
+Direct permission assignment should remain available only where justified by future enterprise requirements.
+
+7.14 Principle of Least Privilege
+
+Permission assignment shall follow the Principle of Least Privilege.
+
+Users should receive only the permissions necessary to perform their responsibilities.
+
+Administrative permissions should be granted sparingly.
+
+Unused permissions should be removed.
+
+7.15 Role Lifecycle
+
+Roles themselves shall possess lifecycle management.
+
+Typical lifecycle:
+
+Draft
+
+↓
+
+Approved
+
+↓
+
+Active
+
+↓
+
+Deprecated
+
+↓
+
+Archived
+
+Historical role definitions should be retained for audit purposes.
+
+7.16 Permission Audit
+
+Permission changes shall be fully auditable.
+
+Events include:
+
+Role assignment.
+Role removal.
+Permission changes.
+Permission inheritance.
+Administrative overrides.
+Failed authorisation attempts.
+Temporary access grants.
+
+Audit records support investigation and compliance.
+
+7.17 Future Expansion
+
+The framework supports future enterprise functionality including:
+
+Custom organisation roles.
+Temporary permissions.
+Time-limited access.
+Approval-based permissions.
+Delegated administration.
+Department-specific permissions.
+Site-specific permissions.
+Project-based permissions.
+Conditional permissions.
+Attribute-Based Access Control (ABAC) where appropriate.
+
+Future enhancements shall remain compatible with the existing RBAC architecture.
+
+7.18 Implementation Requirements
+
+The LEO Platform shall:
+
+Implement Role-Based Access Control (RBAC) as the primary authorisation model.
+Assign permissions through roles rather than individual users wherever practical.
+Evaluate permissions for every protected operation.
+Maintain a consistent module.action permission naming convention.
+Support multiple roles per user where required.
+Apply the Principle of Least Privilege.
+Audit all significant role and permission changes.
+Prevent unauthorised privilege escalation.
+Ensure roles integrate directly with the Trust Model, Authorisation Engine and Row Level Security framework.
+
+Roles define responsibility.
+
+Permissions define authority.
+
+The combination of both provides the foundation for secure, scalable and maintainable access control throughout the LEO Platform.
+
+End of Chapter 7
+
+Chapter 8 – Authorisation Engine
+8. Authorisation Engine
+8.1 Introduction
+
+The LEO Authorisation Engine is the central decision-making component responsible for determining whether an authenticated user may perform a requested operation.
+
+It translates the principles defined within the LEO Trust Model into consistent, enforceable security decisions across the entire platform.
+
+The Authorisation Engine operates independently of business modules and applies identical decision logic regardless of whether the request originates from the user interface, an API, an AI interaction, an integration, a background process or a future platform capability.
+
+Every protected operation within LEO shall be authorised through this engine.
+
+8.2 Purpose
+
+The purpose of the Authorisation Engine is to:
+
+Provide a single source of truth for authorisation decisions.
+Ensure consistent security behaviour throughout the platform.
+Eliminate duplicated permission logic.
+Support Row Level Security.
+Support AI access control.
+Protect multi-tenant boundaries.
+Simplify future development.
+Improve maintainability and auditability.
+8.3 Architectural Principles
+
+The Authorisation Engine shall operate according to the following principles:
+
+Every request is evaluated independently.
+Authentication never grants authority.
+Permissions must be explicitly granted.
+Organisation context is mandatory.
+Resource scope must always be validated.
+Business rules may restrict otherwise permitted actions.
+Security decisions are deterministic and repeatable.
+Every significant authorisation decision should be auditable.
+8.4 Position within the Security Architecture
+
+The Authorisation Engine forms the operational bridge between authentication and resource access.
+
+User Request
+      │
+      ▼
+Authentication
+      │
+      ▼
+Identity Resolution
+      │
+      ▼
+Organisation Context
+      │
+      ▼
+Authorisation Engine
+      │
+      ▼
+Row Level Security
+      │
+      ▼
+Business Logic
+      │
+      ▼
+Response
+
+No protected request shall bypass the Authorisation Engine.
+
+8.5 Responsibilities
+
+The Authorisation Engine is responsible for determining:
+
+Who is making the request.
+Which organisation is active.
+Which role(s) apply.
+Which permissions are available.
+Whether the requested resource belongs to the active organisation.
+Whether business rules permit the action.
+Whether sensitive information requires additional validation.
+Whether the action should be audited.
+
+The engine is not responsible for authentication or session management.
+
+8.6 Authorisation Workflow
+
+Every protected request follows the same logical sequence.
+
+Request Received
+        │
+        ▼
+Resolve Identity
+        │
+        ▼
+Resolve Organisation
+        │
+        ▼
+Resolve Active Membership
+        │
+        ▼
+Resolve Effective Permissions
+        │
+        ▼
+Validate Resource Ownership
+        │
+        ▼
+Validate Resource Scope
+        │
+        ▼
+Validate Business Rules
+        │
+        ▼
+Determine Audit Requirements
+        │
+        ▼
+Permit or Deny
+
+Failure at any stage results in denial.
+
+8.7 Effective Permissions
+
+The engine calculates the user's effective permissions before processing a request.
+
+Effective permissions are derived from:
+
+Assigned roles.
+Role inheritance (where implemented).
+Future temporary permissions.
+Future delegated permissions.
+Organisation membership.
+
+The resulting permission set represents the maximum authority available within the current organisation.
+
+8.8 Scope Validation
+
+Possessing a permission is not sufficient on its own.
+
+The Authorisation Engine must determine whether the requested resource falls within the user's authorised scope.
+
+Examples include:
+
+The employee belongs to the active organisation.
+The manager is assigned responsibility for that employee.
+The document belongs to the requesting organisation.
+The learning assignment is visible to the user.
+The recruitment campaign belongs to the organisation.
+The compliance record falls within the user's authority.
+
+Scope validation prevents excessive access whilst maintaining operational flexibility.
+
+8.9 Business Rule Validation
+
+Business rules provide an additional layer of authorisation beyond permissions.
+
+Examples include:
+
+Signed documents cannot be edited.
+Archived employees cannot be modified without restoration.
+Completed compliance audits cannot be deleted.
+Onboarding cannot progress until mandatory tasks are complete.
+Recruitment cannot move to appointment until required checks have been completed.
+Learning certificates cannot be issued until assessments have been passed.
+
+Business rules are evaluated after permission checks but before access is granted.
+
+8.10 Sensitive Information Controls
+
+Certain categories of information require enhanced protection.
+
+Examples include:
+
+Medical records.
+DBS information.
+Right to Work evidence.
+Safeguarding records.
+Investigation notes.
+Grievances.
+Disciplinary records.
+Payroll information.
+AI-generated professional advice.
+
+The Authorisation Engine may require additional validation before access to these categories is granted.
+
+8.11 Artificial Intelligence Authorisation
+
+Artificial Intelligence operates under the same Authorisation Engine as every other platform component.
+
+Before organisational information is supplied to AI, the engine shall confirm:
+
+Identity.
+Organisation membership.
+Effective permissions.
+Resource scope.
+Information classification.
+
+AI shall never retrieve information beyond the user's authorised access.
+
+AI does not possess independent authority.
+
+8.12 Helper Functions
+
+The Authorisation Engine shall expose reusable helper functions for consistent implementation throughout the platform.
+
+Illustrative examples include:
+
+current_organisation_id()
+
+current_user_profile()
+
+current_employee_id()
+
+current_roles()
+
+effective_permissions()
+
+has_permission(permission)
+
+can_access_employee(employee_id)
+
+can_access_document(document_id)
+
+can_manage_matter(matter_id)
+
+These functions provide a consistent interface for:
+
+Row Level Security.
+API validation.
+Application services.
+Artificial Intelligence.
+Background processing.
+
+Business logic should not duplicate authorisation decisions.
+
+8.13 Integration with Row Level Security
+
+The Authorisation Engine and Row Level Security work together.
+
+The engine determines whether access should be permitted.
+
+Row Level Security enforces that decision within the database.
+
+This separation provides:
+
+Centralised authorisation logic.
+Simplified RLS policies.
+Consistent security behaviour.
+Reduced duplication.
+Easier maintenance.
+8.14 Denied Requests
+
+When access is denied:
+
+No protected information shall be returned.
+Error responses shall avoid exposing implementation details.
+Failed authorisation attempts may be audited.
+The application should provide an appropriate user-facing message.
+Security events may trigger future monitoring or alerting.
+
+Denial should be predictable and consistent across the platform.
+
+8.15 Performance Considerations
+
+The Authorisation Engine shall be designed to minimise unnecessary processing.
+
+Authorisation decisions should:
+
+Use reusable helper functions.
+Minimise repeated permission calculations.
+Reuse validated organisation context during a request.
+Support efficient Row Level Security evaluation.
+Scale to large enterprise organisations.
+
+Performance optimisation must never reduce security.
+
+8.16 Extensibility
+
+The engine has been designed to support future enhancements including:
+
+Department-based permissions.
+Site-based permissions.
+Temporary permissions.
+Approval workflows.
+Attribute-Based Access Control (ABAC).
+Time-based permissions.
+Conditional permissions.
+Risk-based authorisation.
+External identity providers.
+Enterprise policy engines.
+
+Future enhancements should extend rather than replace the existing architecture.
+
+8.17 Architectural Principles
+
+The Authorisation Engine shall always ensure:
+
+One consistent authorisation process.
+Explicit permission evaluation.
+Organisation-aware decisions.
+Resource scope validation.
+Business rule enforcement.
+Sensitive information protection.
+AI governance.
+Reusable helper functions.
+Database-level enforcement through Row Level Security.
+Complete auditability.
+8.18 Implementation Requirements
+
+The LEO Platform shall:
+
+Implement a central Authorisation Engine for all protected operations.
+Evaluate identity, organisation, permissions and scope before granting access.
+Use reusable helper functions rather than duplicating authorisation logic.
+Integrate directly with the Trust Model and Row Level Security.
+Apply identical authorisation standards across user interfaces, APIs, AI services, integrations and background processes.
+Support future enterprise authorisation features without architectural redesign.
+Record significant authorisation events within the audit framework where appropriate.
+
+The Authorisation Engine is the operational core of LEO's security model.
+
+It transforms the principles defined in the Trust Model into consistent, enforceable and auditable security decisions, ensuring that every protected action within the platform is authorised in a predictable, scalable and secure manner.
+
+End of Chapter 8
+
+Chapter 9 – Row Level Security (RLS) Architecture
+9. Row Level Security (RLS) Architecture
+9.1 Introduction
+
+Row Level Security (RLS) provides the primary database enforcement mechanism within the LEO Platform.
+
+Whilst the Trust Model and Authorisation Engine determine whether a user should be permitted to perform an action, Row Level Security ensures that the database itself enforces those decisions.
+
+This architecture prevents unauthorised access to protected information even if requests bypass the application layer.
+
+Every protected business table within the LEO Platform shall operate under Row Level Security.
+
+9.2 Purpose
+
+The purpose of Row Level Security is to:
+
+Enforce organisation isolation.
+Prevent unauthorised data access.
+Protect confidential employment information.
+Simplify application code.
+Provide defence in depth.
+Support secure multi-tenancy.
+Ensure database-level enforcement.
+Integrate directly with the Authorisation Engine.
+9.3 Security Philosophy
+
+LEO adopts a deny-by-default approach to database access.
+
+Every protected table shall:
+
+Have Row Level Security enabled.
+Have no implicit access.
+Require explicit security policies.
+Validate every request.
+Prevent accidental exposure.
+
+Absence of an applicable policy shall result in denial of access.
+
+9.4 Architectural Principles
+
+Row Level Security within LEO shall:
+
+Protect every tenant.
+Operate consistently.
+Be simple to understand.
+Use reusable helper functions.
+Avoid duplicated SQL logic.
+Remain maintainable.
+Support future expansion.
+Operate independently of the user interface.
+9.5 Database Enforcement
+
+Row Level Security shall be considered the final enforcement layer.
+
+The complete security chain is:
+
+User Request
+      │
+      ▼
+Authentication
+      │
+      ▼
+Identity Resolution
+      │
+      ▼
+Organisation Context
+      │
+      ▼
+Authorisation Engine
+      │
+      ▼
+Application Validation
+      │
+      ▼
+Row Level Security
+      │
+      ▼
+Database Access
+
+Even if earlier controls fail, Row Level Security remains responsible for protecting the underlying data.
+
+9.6 Protected Tables
+
+All business tables containing organisation-specific information shall operate under Row Level Security.
+
+Examples include:
+
+Employees
+Matters
+Recruitment
+Learning
+Compliance
+Documents
+Audit Logs
+Company Knowledge
+Organisation Settings
+AI Activity
+Billing
+Future modules
+
+System tables managed by Supabase shall continue to use their own security model.
+
+9.7 Organisation Isolation
+
+The first responsibility of every RLS policy is to enforce organisation boundaries.
+
+A record belonging to one organisation shall never be visible to another organisation unless explicitly authorised through controlled future functionality.
+
+Organisation validation shall be performed before any other business logic.
+
+9.8 Helper Function Strategy
+
+LEO shall avoid embedding complex SQL expressions directly within RLS policies.
+
+Instead, policies shall utilise reusable helper functions provided by the Authorisation Engine.
+
+Illustrative examples include:
+
+current_organisation_id()
+
+current_membership_id()
+
+current_employee_id()
+
+has_permission(permission)
+
+can_access_employee(employee_id)
+
+can_access_document(document_id)
+
+can_manage_matter(matter_id)
+
+Policies should remain concise, readable and consistent.
+
+9.9 Policy Standards
+
+Every Row Level Security policy shall satisfy the following standards:
+
+Clearly defined purpose.
+Single responsibility.
+Human-readable naming.
+Reusable helper functions.
+Organisation validation.
+Appropriate permission checks.
+Minimal complexity.
+Predictable behaviour.
+
+Policies should never duplicate complex business logic.
+
+9.10 Policy Naming Convention
+
+Policies shall adopt a consistent naming standard.
+
+Recommended format:
+
+<Table> – <Operation> – <Purpose>
+
+Examples include:
+
+Employees – Select – Organisation Access
+
+Employees – Update – Manager Access
+
+Matters – Insert – HR Team
+
+Learning – Select – Assigned Learner
+
+Documents – Delete – Owner Only
+
+Consistent naming simplifies maintenance and auditing.
+
+9.11 SELECT Policies
+
+SELECT policies determine which records are visible.
+
+Visibility shall typically depend upon:
+
+Organisation membership.
+Permissions.
+Resource scope.
+Business rules.
+
+Users should never receive records outside their authorised scope.
+
+9.12 INSERT Policies
+
+INSERT policies determine whether new records may be created.
+
+Validation shall typically include:
+
+Organisation ownership.
+Appropriate permissions.
+Valid business context.
+Data integrity requirements.
+
+Users shall not create records on behalf of another organisation.
+
+9.13 UPDATE Policies
+
+UPDATE policies determine whether records may be modified.
+
+Typical validation includes:
+
+Organisation ownership.
+Permissions.
+Record state.
+Business rules.
+Resource scope.
+
+Certain records may become immutable following completion.
+
+9.14 DELETE Policies
+
+Deletion represents one of the highest-risk operations.
+
+Where possible, LEO shall favour:
+
+Archiving.
+Soft deletion.
+Lifecycle management.
+
+Permanent deletion shall normally be restricted to authorised administrative roles and only where legally appropriate.
+
+9.15 Sensitive Information
+
+Certain information requires enhanced protection.
+
+Examples include:
+
+Medical records.
+DBS checks.
+Safeguarding.
+Right to Work.
+Investigations.
+Grievances.
+Disciplinary records.
+Payroll.
+AI professional reasoning.
+
+Additional helper functions or permission checks may be required before disclosure.
+
+9.16 Storage Integration
+
+Database security shall align with storage security.
+
+Users authorised to access a document record shall also satisfy storage access validation.
+
+File visibility shall never exceed the visibility of its associated database record.
+
+9.17 Artificial Intelligence
+
+Artificial Intelligence must operate within Row Level Security boundaries.
+
+AI shall never retrieve records that would be inaccessible through standard platform interfaces.
+
+All AI context retrieval shall respect:
+
+Organisation boundaries.
+Permissions.
+Resource scope.
+Information classification.
+9.18 Performance
+
+Policies shall be designed for efficiency.
+
+Good practice includes:
+
+Reusable helper functions.
+Indexed organisation identifiers.
+Simple policy expressions.
+Efficient joins.
+Avoidance of duplicated calculations.
+
+Performance optimisation shall never compromise security.
+
+9.19 Testing Requirements
+
+Every policy shall be tested against representative scenarios.
+
+Testing should include:
+
+Owner access.
+Senior HR access.
+HR access.
+Manager access.
+Employee self-service.
+External users.
+Cross-tenant access attempts.
+Archived records.
+Sensitive information.
+API requests.
+AI requests.
+
+Security testing shall form part of the development lifecycle.
+
+9.20 Future Expansion
+
+The architecture supports future enhancements including:
+
+Department-level security.
+Site-level security.
+Temporary permissions.
+Time-based access.
+Conditional policies.
+Enterprise delegation.
+Shared services.
+Organisation groups.
+External collaborators.
+Attribute-Based Access Control (ABAC).
+
+Future enhancements should extend existing policy standards rather than replace them.
+
+9.21 Implementation Requirements
+
+The LEO Platform shall:
+
+Enable Row Level Security on every protected business table.
+Operate using a deny-by-default security model.
+Implement explicit policies for SELECT, INSERT, UPDATE and DELETE operations where appropriate.
+Enforce organisation isolation through every policy.
+Use reusable helper functions to minimise duplicated logic.
+Align database access with the Authorisation Engine and Trust Model.
+Protect sensitive information through enhanced validation.
+Ensure AI, APIs and storage access comply with the same Row Level Security principles.
+Maintain readable, maintainable and consistently named policies.
+Test every policy before deployment to production.
+
+Row Level Security is the final enforcement layer within the LEO Security Architecture. It provides database-level assurance that every access decision is consistent with the Trust Model, Authorisation Engine and multi-tenant security principles, ensuring that organisational data remains protected regardless of how it is accessed.
+
+End of Chapter 9
+
+Chapter 10 – Database Security Architecture
+10. Database Security Architecture
+10.1 Introduction
+
+The database is the authoritative source of business information within the LEO Platform.
+
+It stores employment records, organisational data, recruitment information, learning records, compliance evidence, AI activity, audit logs and platform configuration.
+
+As the platform's most valuable asset, the database shall be protected through multiple independent layers of security, ensuring confidentiality, integrity, availability and resilience.
+
+Database security extends beyond Row Level Security and encompasses schema design, data validation, privileged access, secure functions, encryption, auditing, backup and operational governance.
+
+10.2 Objectives
+
+The Database Security Architecture has the following objectives:
+
+Protect organisational information from unauthorised access.
+Maintain complete tenant isolation.
+Ensure integrity of business records.
+Support secure AI operations.
+Minimise privileged database access.
+Prevent accidental data exposure.
+Maintain comprehensive auditability.
+Support long-term platform scalability.
+10.3 Security Principles
+
+The database architecture shall always follow these principles:
+
+Deny by default.
+Least privilege.
+Defence in depth.
+Secure by design.
+Explicit authorisation.
+Data integrity first.
+Auditability.
+Predictable behaviour.
+
+Database security must never rely solely upon application code.
+
+10.4 Schema Design Standards
+
+Database schemas shall be designed to promote security, maintainability and consistency.
+
+Every table should:
+
+Have a clearly defined purpose.
+Contain a primary key.
+Maintain appropriate foreign key relationships.
+Support organisation ownership where applicable.
+Contain audit timestamps.
+Validate mandatory data.
+Avoid unnecessary duplication.
+
+Schema design should minimise opportunities for inconsistent or insecure data.
+
+10.5 Primary Keys
+
+All business entities shall possess immutable primary keys.
+
+LEO shall standardise on UUID identifiers for business records wherever practical.
+
+UUIDs reduce predictability, improve security and simplify distributed operations compared with sequential identifiers.
+
+Primary keys should never be reused.
+
+10.6 Foreign Keys & Referential Integrity
+
+Relationships between tables shall be protected through foreign key constraints.
+
+Referential integrity shall ensure that:
+
+Child records cannot reference non-existent parents.
+Orphaned records are prevented.
+Cascading behaviour is explicitly defined.
+Business relationships remain consistent.
+
+Deletion behaviour shall be carefully considered to avoid accidental data loss.
+
+10.7 Data Validation
+
+The database shall enforce core validation independently of the application.
+
+Validation may include:
+
+Required fields.
+Check constraints.
+Valid date ranges.
+Enumerated values.
+Unique constraints.
+Numeric limits.
+Referential integrity.
+
+Application validation improves user experience.
+
+Database validation protects data integrity.
+
+10.8 Secure Database Functions
+
+Database functions shall be treated as privileged code.
+
+Every function shall:
+
+Have a clearly defined purpose.
+Use explicit parameter validation.
+Operate with the minimum required privileges.
+Avoid dynamic SQL unless essential.
+Be documented.
+Be version controlled.
+Be security reviewed.
+
+Functions should remain small, predictable and reusable.
+
+10.9 SECURITY DEFINER Functions
+
+Functions executed with elevated privileges require additional safeguards.
+
+Where SECURITY DEFINER is necessary:
+
+Usage shall be justified.
+Ownership shall be controlled.
+Access shall be restricted.
+Inputs shall be validated.
+Behaviour shall be documented.
+Security review shall be completed.
+
+SECURITY DEFINER should be considered an exception rather than the default.
+
+10.10 Search Path Protection
+
+Every privileged database function shall explicitly define its search_path.
+
+Failure to define search_path may expose functions to object substitution attacks.
+
+The platform standard shall require privileged functions to:
+
+Explicitly define the intended schema.
+Avoid reliance on inherited search paths.
+Prevent execution of unintended objects.
+
+Search path protection is mandatory for privileged functions.
+
+10.11 Row Level Security
+
+All protected business tables shall operate under Row Level Security as defined within Chapter 9.
+
+The database shall never expose protected records through unrestricted queries.
+
+Database security assumes that application controls may fail and therefore enforces security independently.
+
+10.12 Privileged Database Access
+
+Direct database administration shall be restricted.
+
+Administrative access should be limited to authorised platform administrators.
+
+Routine platform operation shall occur through controlled application services rather than privileged database accounts.
+
+Administrative credentials shall never be embedded within application code.
+
+10.13 Database Roles
+
+Database roles shall be clearly separated.
+
+Typical categories include:
+
+Platform administration.
+Migration execution.
+Application services.
+Background processing.
+Reporting.
+Read-only administration.
+
+Each role shall possess only the privileges necessary to fulfil its responsibilities.
+
+10.14 Encryption
+
+Sensitive information shall be protected throughout its lifecycle.
+
+The platform shall utilise:
+
+Encryption in transit.
+Encryption at rest.
+Secure password storage through the authentication provider.
+Secure secret management.
+
+Future enhancements may introduce application-level encryption for particularly sensitive categories of information.
+
+10.15 Data Classification
+
+Database records should be classified according to sensitivity.
+
+Typical classifications include:
+
+Public
+
+Information suitable for unrestricted publication.
+
+Internal
+
+Operational information intended for authorised users.
+
+Confidential
+
+Employment information requiring controlled access.
+
+Restricted
+
+Highly sensitive information requiring enhanced protection.
+
+Examples include:
+
+Medical records.
+DBS information.
+Safeguarding.
+Investigations.
+Payroll.
+Identity documentation.
+
+Higher classifications require stronger security controls.
+
+10.16 Audit & Change History
+
+Significant database activity shall be auditable.
+
+Examples include:
+
+Record creation.
+Updates.
+Deletion.
+Permission changes.
+Identity changes.
+Administrative operations.
+Security events.
+
+Audit records shall be protected from unauthorised modification.
+
+10.17 Backup & Recovery
+
+Database security includes protection against data loss.
+
+The platform shall maintain:
+
+Automated backups.
+Point-in-time recovery where supported.
+Tested restoration procedures.
+Disaster recovery planning.
+Recovery verification.
+
+Backups should be encrypted and protected to the same standard as production data.
+
+10.18 Monitoring
+
+Database activity shall be monitored for abnormal behaviour.
+
+Examples include:
+
+Failed authentication.
+Excessive queries.
+Permission failures.
+Unexpected administrative activity.
+Resource exhaustion.
+Failed backups.
+Security-related errors.
+
+Monitoring supports proactive security management.
+
+10.19 Development Standards
+
+Database development shall comply with established engineering standards.
+
+Changes should:
+
+Be version controlled.
+Use repeatable migrations.
+Undergo peer review where applicable.
+Be tested before production deployment.
+Maintain backwards compatibility where practical.
+Include rollback planning.
+
+Schema modifications shall never bypass the migration process.
+
+10.20 Future Expansion
+
+The Database Security Architecture supports future capabilities including:
+
+Database partitioning.
+Read replicas.
+Enterprise reporting.
+Analytics environments.
+Secure data warehousing.
+Advanced encryption.
+Customer-managed encryption keys.
+Cross-region resilience.
+Regulatory data residency.
+High availability clusters.
+
+Future enhancements should preserve the principles defined within this architecture.
+
+10.21 Implementation Requirements
+
+The LEO Platform shall:
+
+Protect all business information through layered database security controls.
+Standardise on UUID primary keys for business entities wherever practical.
+Enforce referential integrity through foreign key constraints.
+Validate critical business rules within the database.
+Restrict privileged database access.
+Require explicit search_path definitions for privileged functions.
+Minimise use of SECURITY DEFINER functions and document any that are required.
+Protect sensitive information through appropriate encryption and classification.
+Maintain comprehensive audit records for significant database activity.
+Implement secure backup, monitoring and recovery processes.
+Ensure every database change is delivered through controlled migrations.
+
+The database is the foundation of the LEO Platform. Its security architecture provides the final guarantee that organisational information remains accurate, confidential and resilient, regardless of how the platform evolves. It forms the trusted data layer upon which every workspace, integration and AI capability depends.
+
+End of Chapter 10
+
+Chapter 11 – Storage & Document Security
+11. Storage & Document Security
+11.1 Introduction
+
+The LEO Platform manages a wide range of digital documents throughout the employment lifecycle.
+
+These include recruitment documents, employment records, compliance evidence, learning materials, policies, certificates, audit evidence and organisational knowledge.
+
+Many of these documents contain confidential or legally protected information.
+
+The Storage & Document Security Architecture defines how documents are securely stored, accessed, transferred, retained and deleted throughout their lifecycle.
+
+The objective is to ensure that every document receives security controls appropriate to its sensitivity while remaining accessible to authorised users.
+
+11.2 Objectives
+
+The Storage & Document Security Architecture aims to:
+
+Protect confidential documents.
+Prevent unauthorised access.
+Maintain complete tenant isolation.
+Support secure document sharing.
+Ensure consistent access control.
+Protect document integrity.
+Support regulatory compliance.
+Maintain comprehensive auditability.
+11.3 Security Principles
+
+Document security shall follow the principles established throughout the LEO Security Architecture.
+
+Every document shall:
+
+Belong to a defined organisation.
+Possess an owning business record where appropriate.
+Be protected by authentication.
+Be protected by authorisation.
+Comply with Row Level Security.
+Be auditable.
+Be retained according to policy.
+Be securely deleted when appropriate.
+11.4 Storage Architecture
+
+LEO utilises secure cloud object storage for document management.
+
+The storage architecture consists of:
+
+Secure storage buckets.
+Organisation-specific access.
+Metadata stored within the database.
+Controlled download mechanisms.
+Temporary signed access where appropriate.
+Audit logging.
+Lifecycle management.
+
+Storage objects shall never bypass platform security controls.
+
+11.5 Document Ownership
+
+Every uploaded document shall possess an identifiable owner.
+
+Ownership may be:
+
+Organisation.
+Employee.
+Candidate.
+Matter.
+Learning module.
+Compliance record.
+Recruitment campaign.
+Company knowledge.
+Platform administration.
+
+Document ownership determines security context.
+
+11.6 Document Categories
+
+LEO documents shall be categorised according to purpose.
+
+Typical categories include:
+
+Recruitment
+CVs.
+Application forms.
+Interview notes.
+References.
+Offer letters.
+Employment
+Contracts.
+Variations.
+Policies acknowledged.
+Personnel documents.
+Compliance
+DBS certificates.
+Right to Work.
+Driving licences.
+Professional registrations.
+Safeguarding evidence.
+Learning
+Certificates.
+Evidence.
+Assignments.
+Assessments.
+Supporting documentation.
+Employee Development
+Reviews.
+Objectives.
+One-to-ones.
+Capability documentation.
+Matters
+Investigation evidence.
+Disciplinary documentation.
+Grievances.
+Witness statements.
+Hearing records.
+Organisation
+Policies.
+Handbooks.
+Templates.
+Knowledge documents.
+
+Each category may require different retention periods and permissions.
+
+11.7 Organisation Isolation
+
+Every stored document shall belong to one organisation.
+
+Users shall never access documents belonging to another organisation unless explicitly authorised through future platform functionality.
+
+Storage architecture shall reinforce the same tenant isolation enforced throughout the database.
+
+11.8 Access Control
+
+Document access shall require:
+
+Authentication.
+Identity resolution.
+Organisation validation.
+Permission evaluation.
+Resource scope validation.
+
+Storage access shall never rely solely upon possession of a file path or storage object identifier.
+
+11.9 Database Integration
+
+Storage shall always integrate with database records.
+
+The database remains the authoritative source for:
+
+Ownership.
+Permissions.
+Classification.
+Lifecycle.
+Metadata.
+Audit history.
+
+Storage objects should not be accessed independently of their associated database records.
+
+11.10 Secure Downloads
+
+Documents shall be delivered through secure download mechanisms.
+
+The platform should:
+
+Validate authorisation.
+Generate temporary signed access where appropriate.
+Prevent direct public access.
+Expire temporary download links.
+Audit download events where appropriate.
+
+Permanent public URLs shall not be used for confidential documents.
+
+11.11 Secure Uploads
+
+Every upload shall undergo validation before becoming available.
+
+Validation should include:
+
+Authentication.
+Organisation ownership.
+File size.
+Permitted file types.
+Malware scanning (future enhancement).
+Metadata validation.
+Storage classification.
+
+Uploads failing validation shall be rejected.
+
+11.12 Sensitive Documents
+
+Certain document categories require enhanced protection.
+
+Examples include:
+
+Medical records.
+DBS certificates.
+Right to Work documents.
+Identity documentation.
+Investigation evidence.
+Payroll information.
+Safeguarding records.
+Settlement agreements.
+
+Access to these categories should require appropriate permissions and additional validation where necessary.
+
+11.13 Artificial Intelligence
+
+Artificial Intelligence shall not directly access storage.
+
+AI may only receive document information after:
+
+Identity validation.
+Organisation validation.
+Permission checks.
+Resource scope validation.
+Information classification.
+
+AI document retrieval shall comply with the same security model as standard document access.
+
+11.14 Version Control
+
+Where document versioning is supported, the platform shall maintain:
+
+Version number.
+Author.
+Timestamp.
+Change summary.
+Previous versions.
+Current published version.
+
+Historical versions should remain protected by the same security controls as current versions.
+
+11.15 Document Retention
+
+Documents shall be retained according to:
+
+Employment legislation.
+UK GDPR.
+Organisational policy.
+Regulatory requirements.
+Operational necessity.
+
+Retention schedules should be configurable where appropriate.
+
+Expired documents should follow controlled disposal procedures.
+
+11.16 Secure Deletion
+
+Where deletion is permitted:
+
+Authorisation shall be validated.
+Audit records retained.
+Business rules enforced.
+Legal retention requirements respected.
+
+Certain records should be archived rather than permanently deleted.
+
+11.17 Audit Requirements
+
+Significant document events shall be auditable.
+
+Examples include:
+
+Upload.
+Download.
+Replacement.
+Deletion.
+Sharing.
+Permission changes.
+Version publication.
+AI access.
+Export.
+
+Audit history provides accountability throughout the document lifecycle.
+
+11.18 Future Enhancements
+
+The storage architecture has been designed to support future capabilities including:
+
+Malware scanning.
+Document watermarking.
+Digital signatures.
+Electronic signatures.
+OCR processing.
+AI document summarisation.
+AI document classification.
+Document expiry notifications.
+Secure external sharing.
+Legal hold functionality.
+
+Future enhancements shall preserve the existing security architecture.
+
+11.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Store confidential documents within secure cloud storage.
+Associate every document with an owning organisation and business record where applicable.
+Protect document access through authentication, authorisation and organisation validation.
+Prevent direct public access to confidential documents.
+Deliver downloads through secure, time-limited mechanisms where appropriate.
+Validate all uploads before storage.
+Maintain comprehensive document metadata and audit history.
+Support configurable document retention and secure deletion policies.
+Apply enhanced protection to sensitive document categories.
+Ensure AI accesses documents only through the Authorisation Engine and Trust Model.
+
+The Storage & Document Security Architecture extends the LEO Security Architecture beyond the database, ensuring that every document stored within the platform is protected with the same rigorous security standards that govern all other platform resources.
+
+End of Chapter 11
+
+Chapter 12 – API & Integration Security
+12. API & Integration Security
+12.1 Introduction
+
+Application Programming Interfaces (APIs) and third-party integrations extend the capabilities of the LEO Platform by enabling secure communication between internal platform services and authorised external systems.
+
+These interfaces provide access to organisational data, automation services, artificial intelligence, document management, recruitment workflows, learning platforms, financial systems and future enterprise integrations.
+
+As APIs represent one of the primary attack surfaces within any cloud platform, every API and integration within LEO shall operate under the same security architecture defined throughout this document.
+
+No API or integration shall bypass the LEO Trust Model, Authorisation Engine or Row Level Security.
+
+12.2 Objectives
+
+The API & Integration Security Architecture aims to:
+
+Protect organisational data during transmission.
+Prevent unauthorised API access.
+Maintain tenant isolation.
+Secure third-party integrations.
+Protect authentication credentials.
+Validate every request.
+Prevent abuse of platform services.
+Maintain complete auditability.
+12.3 Security Principles
+
+All APIs and integrations shall operate according to the following principles:
+
+Authentication is mandatory.
+Authorisation is mandatory.
+Organisation context is mandatory.
+Least privilege applies.
+APIs never bypass Row Level Security.
+Every request is validated.
+Secrets are protected.
+Every significant action is auditable.
+12.4 API Categories
+
+LEO APIs are divided into distinct categories.
+
+Internal APIs
+
+Used by the LEO application itself.
+
+Examples include:
+
+Employees
+Matters
+Leo Talent
+Leo Learn
+Compliance
+Documents
+Billing
+Reporting
+
+Internal APIs remain protected by the full security architecture.
+
+External APIs
+
+Used to integrate with authorised third-party platforms.
+
+Examples include:
+
+Microsoft 365
+Google Workspace
+Xero
+Canva
+Slack
+Microsoft Teams
+Zoom
+Dropbox
+OneDrive
+Google Drive
+Adobe Express
+Future enterprise systems
+
+External APIs shall only expose information authorised through the Trust Model.
+
+System APIs
+
+Used internally by background services.
+
+Examples include:
+
+Scheduled tasks
+AI processing
+Notifications
+Reporting
+Synchronisation
+Background imports
+
+System APIs shall operate under controlled service identities.
+
+12.5 Authentication
+
+Every API request shall be authenticated.
+
+Supported authentication mechanisms include:
+
+Supabase Authentication
+Secure service tokens
+OAuth 2.0
+Future enterprise authentication providers
+
+Unauthenticated requests shall not access protected resources.
+
+12.6 Authorisation
+
+Authentication alone is insufficient.
+
+Every API request shall pass through the Authorisation Engine.
+
+Validation includes:
+
+Identity
+Organisation membership
+Permissions
+Resource scope
+Business rules
+
+APIs shall never implement alternative authorisation mechanisms.
+
+12.7 Organisation Context
+
+Every protected API request shall operate within an active organisation context.
+
+The active organisation determines:
+
+Accessible resources
+Permissions
+AI context
+Storage access
+Configuration
+Audit ownership
+
+Organisation context shall never be inferred from client-supplied identifiers alone.
+
+12.8 Input Validation
+
+Every API endpoint shall validate incoming data.
+
+Validation includes:
+
+Required parameters
+Data types
+Length restrictions
+Enumerated values
+UUID validation
+File metadata
+Date validation
+Business rules
+
+Invalid requests shall be rejected before processing.
+
+12.9 Output Protection
+
+API responses shall only include information that the requesting user is authorised to access.
+
+Responses should:
+
+Exclude confidential information unless required.
+Minimise unnecessary data.
+Respect information classification.
+Prevent cross-tenant exposure.
+
+APIs should avoid returning excessive information.
+
+12.10 Secrets Management
+
+API credentials represent highly sensitive platform assets.
+
+Secrets shall:
+
+Never be embedded in source code.
+Never be committed to version control.
+Be stored using secure secret management.
+Be rotated where appropriate.
+Be accessible only to authorised platform services.
+
+Secret exposure shall be treated as a security incident.
+
+12.11 OAuth Integrations
+
+Many third-party services utilise OAuth for delegated access.
+
+LEO shall support secure OAuth workflows.
+
+OAuth tokens shall:
+
+Be encrypted where appropriate.
+Be securely stored.
+Possess limited scope.
+Be revocable.
+Expire appropriately.
+Be auditable.
+
+OAuth permissions should request only the minimum access required.
+
+12.12 Webhooks
+
+Webhooks allow external systems to notify LEO of events.
+
+Incoming webhooks shall:
+
+Validate authenticity.
+Verify signatures where supported.
+Reject unauthorised requests.
+Validate payloads.
+Record security events.
+
+Outgoing webhooks shall:
+
+Deliver only authorised information.
+Protect sensitive data.
+Support retries.
+Record delivery history.
+12.13 Rate Limiting
+
+The platform shall implement rate limiting to protect services against abuse.
+
+Rate limiting may be applied according to:
+
+User
+Organisation
+API endpoint
+Service account
+IP address
+Authentication status
+
+Rate limiting protects both platform stability and security.
+
+12.14 Artificial Intelligence
+
+AI integrations shall operate under the same API security model.
+
+Before AI receives organisational information, the platform shall validate:
+
+Identity.
+Organisation.
+Permissions.
+Resource scope.
+Information classification.
+
+AI providers shall never receive unrestricted organisational data.
+
+12.15 External Integrations
+
+Every external integration shall maintain an independent security profile.
+
+Each integration shall define:
+
+Connected organisation.
+Authorised scopes.
+Authentication method.
+Token status.
+Last synchronisation.
+Failure history.
+Audit history.
+
+Integrations shall be isolated from one another.
+
+12.16 Error Handling
+
+API responses shall avoid exposing sensitive implementation details.
+
+Errors should:
+
+Be predictable.
+Use standard response structures.
+Avoid revealing database structure.
+Avoid revealing internal architecture.
+Provide meaningful client feedback.
+Record security events where appropriate.
+
+Security-related failures should be distinguishable from operational failures without exposing internal information.
+
+12.17 Monitoring
+
+API activity shall be monitored.
+
+Examples include:
+
+Authentication failures.
+Permission failures.
+Excessive requests.
+Failed integrations.
+Expired tokens.
+Synchronisation failures.
+Webhook failures.
+Security events.
+
+Monitoring supports proactive security management.
+
+12.18 Future Expansion
+
+The architecture supports future capabilities including:
+
+Enterprise APIs.
+GraphQL.
+SCIM provisioning.
+SAML integrations.
+Enterprise webhooks.
+Event streaming.
+Secure partner APIs.
+Customer API keys.
+Developer platform.
+Marketplace integrations.
+
+Future APIs shall comply with the same security architecture.
+
+12.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Authenticate every API request.
+Authorise every protected operation through the Authorisation Engine.
+Enforce organisation context on every protected request.
+Validate all incoming data.
+Protect all outgoing responses.
+Store credentials securely.
+Support secure OAuth workflows.
+Validate webhook authenticity.
+Implement rate limiting and abuse protection.
+Ensure AI integrations operate within the same security framework as the core platform.
+Monitor and audit significant API activity.
+Ensure every integration complies with the Trust Model, Row Level Security and Multi-Tenant Security Architecture.
+
+The API & Integration Security Architecture ensures that every interface into or out of the LEO Platform adheres to the same security standards as the platform itself. Whether a request originates from a user, an AI service, a scheduled process or an external integration, it is subject to the same rigorous authentication, authorisation and tenant isolation controls that protect all organisational data.
+
+End of Chapter 12
+
+Chapter 13 – Artificial Intelligence Security Architecture
+13. Artificial Intelligence Security Architecture
+13.1 Introduction
+
+Artificial Intelligence is a core capability of the LEO Platform rather than an isolated feature.
+
+Unlike conventional AI assistants that respond solely to user prompts, LEO delivers professional guidance informed by organisational knowledge, employment law, platform data, documented processes and contextual reasoning.
+
+This capability introduces additional security responsibilities.
+
+Artificial Intelligence must never possess unrestricted access to organisational information.
+
+Every interaction between Artificial Intelligence and platform data shall operate within the same security architecture governing every other component of the LEO Platform.
+
+The AI Security Architecture ensures that intelligent assistance remains secure, explainable, auditable and professionally accountable.
+
+13.2 Objectives
+
+The Artificial Intelligence Security Architecture aims to:
+
+Protect confidential organisational information.
+Prevent unauthorised AI access.
+Maintain tenant isolation.
+Ensure AI operates only within authorised security boundaries.
+Prevent information leakage.
+Maintain professional accountability.
+Support explainable AI decision-making.
+Maintain complete auditability.
+13.3 Security Principles
+
+Artificial Intelligence within LEO shall operate according to the following principles:
+
+AI has no independent authority.
+AI never bypasses the Trust Model.
+AI only receives authorised information.
+AI respects organisation boundaries.
+AI responses remain attributable.
+Human decision-makers remain accountable.
+AI reasoning shall be explainable where appropriate.
+AI interactions shall be auditable.
+13.4 Position Within the Security Architecture
+
+Artificial Intelligence operates as a consumer of authorised information rather than a privileged platform component.
+
+User Request
+      │
+      ▼
+Authentication
+      │
+      ▼
+Identity Resolution
+      │
+      ▼
+Organisation Context
+      │
+      ▼
+Authorisation Engine
+      │
+      ▼
+Row Level Security
+      │
+      ▼
+Knowledge Retrieval
+      │
+      ▼
+Professional Reasoning Layer
+      │
+      ▼
+Prompt Construction
+      │
+      ▼
+Artificial Intelligence
+      │
+      ▼
+Professional Response
+
+Artificial Intelligence receives only information that has already passed the security architecture.
+
+13.5 AI Security Boundary
+
+Artificial Intelligence shall never communicate directly with the platform database.
+
+Instead, AI receives information only after:
+
+Authentication.
+Identity resolution.
+Organisation validation.
+Permission validation.
+Resource scope validation.
+Information classification.
+Business rule validation.
+
+This establishes a clear security boundary between the AI model and protected organisational information.
+
+13.6 Context Retrieval
+
+Context retrieval represents one of the most critical security processes within the platform.
+
+Before any information is included within an AI prompt, LEO shall determine whether the requesting user is authorised to access that information.
+
+Context sources may include:
+
+Employee records.
+Matters.
+Policies.
+Organisation knowledge.
+Learning content.
+Recruitment records.
+Compliance information.
+Company documents.
+Previous AI conversations where appropriate.
+Applicable legislation and guidance.
+
+Only authorised context shall be retrieved.
+
+13.7 Knowledge Hierarchy
+
+Artificial Intelligence shall retrieve information according to a defined hierarchy.
+
+Typical knowledge sources include:
+
+Applicable legislation.
+ACAS guidance.
+Regulatory guidance.
+Organisation policies.
+Organisation configuration.
+Relevant employee information.
+Relevant matters.
+Relevant recruitment information.
+Relevant learning information.
+Previous authorised platform context.
+
+The hierarchy ensures that AI responses remain both professionally grounded and organisation-specific.
+
+13.8 Organisation Isolation
+
+AI interactions shall remain completely isolated between organisations.
+
+The AI context for one organisation shall never include:
+
+Another organisation's employees.
+Policies.
+Matters.
+Learning materials.
+Recruitment activity.
+Documents.
+AI conversations.
+Audit records.
+Organisation knowledge.
+
+Tenant isolation applies equally to AI processing.
+
+13.9 Information Classification
+
+Before information is supplied to AI, LEO shall evaluate its sensitivity.
+
+Typical classifications include:
+
+Public.
+Internal.
+Confidential.
+Restricted.
+
+Restricted information may require enhanced validation or exclusion depending upon organisational policy and user permissions.
+
+13.10 Prompt Construction
+
+Prompt construction shall occur entirely within the secure platform environment.
+
+Prompt generation shall:
+
+Include only authorised context.
+Exclude unnecessary information.
+Minimise sensitive data.
+Respect organisation boundaries.
+Apply professional reasoning.
+Preserve confidentiality.
+
+Raw database records should never be passed directly to AI.
+
+13.11 Professional Reasoning Layer
+
+LEO introduces an intermediate Professional Reasoning Layer between organisational data and the AI model.
+
+This layer is responsible for:
+
+Context analysis.
+Matter classification.
+Risk identification.
+Professional framework selection.
+Applicable legislation selection.
+Policy alignment.
+Prompt optimisation.
+
+The Professional Reasoning Layer ensures that AI receives structured, professionally relevant context rather than unrestricted platform data.
+
+13.12 AI Response Validation
+
+AI responses should undergo validation before presentation where appropriate.
+
+Validation may include:
+
+Response formatting.
+Professional standards.
+Policy consistency.
+Information completeness.
+Sensitive content review.
+Citation of authoritative sources where available.
+
+AI responses remain advisory unless explicitly supported by platform automation.
+
+13.13 Human Accountability
+
+Artificial Intelligence supports professional decision-making.
+
+It does not replace professional judgement.
+
+Ultimate responsibility for employment decisions remains with the employer and authorised platform users.
+
+AI recommendations shall not automatically execute business actions without appropriate user approval.
+
+13.14 AI Memory
+
+Artificial Intelligence may utilise organisational memory where authorised.
+
+Memory shall:
+
+Belong to the organisation.
+Respect permissions.
+Remain tenant-isolated.
+Support contextual responses.
+Remain auditable.
+
+Users shall never receive memory belonging to another organisation.
+
+13.15 AI Audit
+
+Significant AI activity shall be recorded.
+
+Examples include:
+
+AI requests.
+Context sources used.
+Prompt generation.
+AI provider.
+Response generation.
+User feedback.
+AI-assisted decisions.
+Administrative AI configuration changes.
+
+Audit records support accountability and continuous improvement.
+
+13.16 External AI Providers
+
+Where external AI providers are utilised, LEO shall maintain responsibility for:
+
+Prompt construction.
+Context filtering.
+Permission enforcement.
+Organisation isolation.
+Security validation.
+Output handling.
+
+External AI providers shall not determine platform permissions.
+
+13.17 AI Safety Controls
+
+The platform shall implement safeguards including:
+
+Prompt injection resistance.
+Context validation.
+Input sanitisation.
+Output review where appropriate.
+Sensitive information filtering.
+Hallucination mitigation through authoritative context.
+Protection against unauthorised data disclosure.
+
+AI security extends beyond infrastructure to include safe operational behaviour.
+
+13.18 Future Expansion
+
+The architecture supports future AI capabilities including:
+
+Multi-agent reasoning.
+AI workflow automation.
+Predictive analytics.
+Risk modelling.
+Document intelligence.
+Voice interaction.
+Video analysis.
+Advanced compliance assistants.
+Organisation-specific AI models.
+Federated AI services.
+
+Future enhancements shall comply with the existing security architecture.
+
+13.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Treat Artificial Intelligence as a consumer of authorised information rather than a privileged platform component.
+Ensure AI receives only information that has passed the Trust Model, Authorisation Engine and Row Level Security.
+Maintain complete organisation isolation during AI processing.
+Implement secure context retrieval and controlled prompt construction.
+Protect sensitive information through classification and permission validation.
+Maintain human accountability for employment decisions.
+Record significant AI activity within the audit framework.
+Apply appropriate safeguards against prompt injection, unauthorised disclosure and unsafe outputs.
+Ensure all future AI capabilities integrate with the existing Security Architecture rather than bypassing it.
+
+Artificial Intelligence is one of LEO's defining capabilities. Its value depends not only upon the quality of its professional guidance but also upon the trust organisations place in its handling of confidential information. The Artificial Intelligence Security Architecture ensures that every AI interaction is secure, explainable, auditable and aligned with the same rigorous standards that govern every other component of the LEO Platform.
+
+End of Chapter 13
+
+Chapter 14 – Audit, Monitoring & Security Intelligence
+14. Audit, Monitoring & Security Intelligence
+14.1 Introduction
+
+Security controls are only effective if significant activity can be observed, verified and investigated.
+
+The LEO Platform shall maintain a comprehensive audit and monitoring framework that records security-relevant events, operational activity and administrative actions throughout the platform.
+
+The objective is not only to detect security incidents but also to provide accountability, support investigations, demonstrate regulatory compliance and continuously improve the platform's security posture.
+
+Audit and monitoring are considered integral components of the LEO Security Architecture rather than optional operational features.
+
+14.2 Objectives
+
+The Audit, Monitoring & Security Intelligence Architecture aims to:
+
+Provide accountability for significant actions.
+Detect unauthorised activity.
+Support incident investigation.
+Demonstrate regulatory compliance.
+Protect audit integrity.
+Monitor platform health.
+Support operational reporting.
+Improve security through continuous observation.
+14.3 Security Principles
+
+Audit and monitoring shall operate according to the following principles:
+
+Significant actions are recorded.
+Audit records are tamper-resistant.
+Monitoring operates continuously.
+Security events are investigated.
+Audit data is organisation-aware.
+Monitoring respects tenant isolation.
+Logs are retained appropriately.
+Security intelligence supports continuous improvement.
+14.4 Audit Architecture
+
+The audit framework consists of three complementary layers:
+
+Business Audit
+
+Tracks business activity such as:
+
+Employee changes.
+Recruitment decisions.
+Learning activity.
+Compliance actions.
+Matters.
+Document activity.
+Security Audit
+
+Tracks security events including:
+
+Authentication.
+Permission changes.
+Failed access.
+Account status changes.
+Administrative actions.
+Security configuration.
+Operational Monitoring
+
+Tracks platform health including:
+
+Background jobs.
+API performance.
+Integration failures.
+Storage activity.
+AI processing.
+Database performance.
+
+Together these layers provide complete operational visibility.
+
+14.5 Audit Events
+
+The platform shall record significant events including, but not limited to:
+
+Authentication
+Login.
+Logout.
+Failed login.
+Password reset.
+Email verification.
+Invitation acceptance.
+Identity
+User creation.
+Membership changes.
+Role assignment.
+Permission changes.
+Organisation switching.
+Account suspension.
+Employees
+Record creation.
+Updates.
+Archive.
+Restoration.
+Deletion where permitted.
+Recruitment
+Vacancy creation.
+Candidate progression.
+Interview outcomes.
+Offers.
+Appointments.
+Onboarding.
+Learning
+Assignment.
+Completion.
+Assessment.
+Certification.
+AI Studio activity.
+Compliance
+Audit completion.
+Risk assessment.
+Policy publication.
+Evidence upload.
+Documents
+Upload.
+Download.
+Replacement.
+Deletion.
+Version publication.
+Artificial Intelligence
+AI requests.
+Context retrieval.
+AI responses.
+AI configuration changes.
+Administration
+Security configuration.
+Platform settings.
+Billing changes.
+Integration changes.
+14.6 Audit Record Structure
+
+Every audit entry should record, where applicable:
+
+Audit identifier.
+Organisation.
+User.
+Membership.
+Employee (if relevant).
+Timestamp.
+Module.
+Entity.
+Entity identifier.
+Action performed.
+Previous values.
+New values.
+Request origin.
+Session identifier.
+IP address where available.
+Outcome.
+Correlation identifier for related events.
+
+Audit records should remain consistent across all modules.
+
+14.7 Audit Integrity
+
+Audit records shall be protected from unauthorised modification.
+
+The platform shall:
+
+Prevent standard users editing audit records.
+Restrict deletion.
+Record administrative access.
+Protect historical integrity.
+Preserve chronological order.
+
+Audit information should be treated as evidential records.
+
+14.8 Security Monitoring
+
+Continuous monitoring shall identify abnormal behaviour including:
+
+Repeated authentication failures.
+Permission failures.
+Suspicious API activity.
+Excessive downloads.
+Unusual AI usage.
+Unexpected administrative activity.
+Integration failures.
+Storage anomalies.
+
+Monitoring supports proactive security management.
+
+14.9 Security Intelligence
+
+Monitoring information should be analysed to identify trends.
+
+Examples include:
+
+Repeated failed logins.
+Privilege escalation attempts.
+Unusual document downloads.
+Excessive exports.
+High-risk AI usage.
+Repeated permission denials.
+Integration instability.
+
+Security intelligence supports continuous platform improvement.
+
+14.10 Alerts
+
+Certain events should generate immediate operational alerts.
+
+Illustrative examples include:
+
+Multiple failed authentication attempts.
+Administrative permission changes.
+Organisation ownership changes.
+Security configuration changes.
+Suspicious download activity.
+Storage failures.
+Backup failures.
+Unexpected service disruption.
+
+Alert thresholds should be configurable where appropriate.
+
+14.11 Reporting
+
+The audit framework shall support reporting for:
+
+Internal administration.
+Security review.
+Compliance.
+Customer investigations.
+Regulatory enquiries.
+Platform diagnostics.
+Operational analytics.
+
+Reports should respect organisation boundaries.
+
+14.12 Retention
+
+Audit records shall be retained according to:
+
+Legal obligations.
+Regulatory requirements.
+Customer contractual commitments.
+Internal operational policy.
+
+Retention periods should balance compliance, investigation capability and storage management.
+
+14.13 Privacy
+
+Audit records frequently contain personal information.
+
+The platform shall:
+
+Minimise unnecessary personal data.
+Protect audit confidentiality.
+Restrict access.
+Comply with UK GDPR.
+Respect information classification.
+
+Monitoring shall never compromise individual privacy unnecessarily.
+
+14.14 Incident Investigation
+
+The audit framework shall support investigation of:
+
+Security incidents.
+Data breaches.
+Unauthorised access.
+Misuse of permissions.
+Administrative errors.
+AI-related events.
+Integration failures.
+Operational outages.
+
+Audit information should enable investigators to reconstruct significant events accurately.
+
+14.15 Future Enhancements
+
+The architecture supports future capabilities including:
+
+Real-time security dashboards.
+Behavioural analytics.
+Threat detection.
+Machine learning anomaly detection.
+SIEM integration.
+Security scoring.
+Compliance reporting.
+Automated incident workflows.
+Executive security reporting.
+Predictive operational monitoring.
+
+Future capabilities shall integrate with the existing audit architecture.
+
+14.16 Implementation Requirements
+
+The LEO Platform shall:
+
+Maintain comprehensive audit records for significant platform activity.
+Protect audit records from unauthorised modification.
+Monitor authentication, authorisation, AI, APIs, storage and administrative activity.
+Detect abnormal operational behaviour.
+Support configurable alerts for significant security events.
+Maintain organisation-aware audit records.
+Support regulatory, operational and customer reporting.
+Retain audit information according to applicable legal and contractual requirements.
+Protect audit data in accordance with the wider Security Architecture.
+Ensure every future platform capability integrates with the audit framework.
+
+The Audit, Monitoring & Security Intelligence Architecture provides the operational visibility required to maintain trust in the LEO Platform. It transforms security from a preventative control into a continuously observable capability, ensuring that every significant action is accountable, every security event is traceable and the platform remains resilient as it grows.
+
+End of Chapter 14
+
+Chapter 15 – Data Protection & Privacy Architecture
+15. Data Protection & Privacy Architecture
+15.1 Introduction
+
+The LEO Platform processes personal data throughout the employment lifecycle, including recruitment, employment, learning, compliance, employee relations and organisational administration.
+
+As a platform designed for employers operating in England and Wales, LEO is committed to protecting personal information in accordance with the UK General Data Protection Regulation (UK GDPR), the Data Protection Act 2018, and other applicable legislation.
+
+Privacy is not treated as a separate compliance exercise but as a fundamental architectural principle. Every component of the platform shall be designed to minimise unnecessary data processing, protect individual rights and ensure that personal information is handled lawfully, fairly and securely.
+
+15.2 Objectives
+
+The Data Protection & Privacy Architecture aims to:
+
+Protect personal information.
+Ensure lawful processing of personal data.
+Support compliance with UK GDPR and the Data Protection Act 2018.
+Protect special category data.
+Enable data subject rights.
+Minimise unnecessary data collection.
+Support secure retention and disposal.
+Build organisational trust.
+15.3 Privacy Principles
+
+The LEO Platform shall operate according to the UK GDPR data protection principles.
+
+Personal data shall be:
+
+Processed lawfully, fairly and transparently.
+Collected for specified, explicit and legitimate purposes.
+Limited to what is necessary.
+Accurate and kept up to date.
+Retained only as long as necessary.
+Processed securely.
+Subject to organisational accountability.
+
+These principles shall underpin every feature developed within the platform.
+
+15.4 Lawful Processing
+
+LEO acts primarily as a data processor, processing personal information on behalf of employer organisations, who remain the data controllers for their workforce data.
+
+The platform shall support organisations in processing data under appropriate lawful bases, including:
+
+Performance of a contract.
+Compliance with legal obligations.
+Legitimate interests.
+Vital interests where applicable.
+Public task where applicable.
+Consent where required.
+
+The platform shall not assume a lawful basis without the controller's instruction.
+
+15.5 Data Categories
+
+The platform processes a range of information including:
+
+Personal Data
+
+Examples include:
+
+Names.
+Contact details.
+Employment details.
+Attendance.
+Training.
+Performance records.
+Recruitment information.
+Special Category Data
+
+Examples include:
+
+Health information.
+Disability information.
+Occupational health records.
+Equality information where collected.
+Trade union information where applicable.
+
+Special category data shall receive enhanced protection.
+
+Criminal Offence Data
+
+Examples include:
+
+DBS information.
+Criminal record disclosures.
+Safeguarding checks.
+
+Processing of criminal offence data shall comply with applicable legislation and organisational policies.
+
+15.6 Data Minimisation
+
+Only information necessary for the intended purpose shall be collected.
+
+The platform shall:
+
+Avoid unnecessary fields.
+Avoid duplicate information.
+Limit optional data collection.
+Encourage proportionate record keeping.
+Support configurable organisational data requirements.
+
+Excessive data collection shall be avoided.
+
+15.7 Purpose Limitation
+
+Information collected for one purpose shall not automatically be reused for another incompatible purpose.
+
+Examples include:
+
+Recruitment information.
+Learning records.
+Compliance evidence.
+Employee relations documentation.
+
+Where additional processing is required, organisations remain responsible for ensuring an appropriate lawful basis exists.
+
+15.8 Data Accuracy
+
+The platform shall support the maintenance of accurate records.
+
+Mechanisms include:
+
+User updates.
+Administrative corrections.
+Validation rules.
+Review workflows.
+Audit history.
+
+Historical audit information shall preserve previous values without compromising current data accuracy.
+
+15.9 Data Subject Rights
+
+The platform shall support organisations in responding to data subject rights under UK GDPR.
+
+These include:
+
+Right to be informed.
+Right of access.
+Right to rectification.
+Right to erasure where applicable.
+Right to restrict processing.
+Right to data portability where applicable.
+Right to object where applicable.
+Rights relating to automated decision-making.
+
+LEO provides tooling to assist organisations in fulfilling these obligations but responsibility for responding rests with the data controller.
+
+15.10 Subject Access Requests (SARs)
+
+The platform shall provide functionality to assist organisations in managing Subject Access Requests.
+
+Capabilities may include:
+
+Identifying relevant records.
+Exporting applicable information.
+Tracking SAR progress.
+Recording decisions.
+Maintaining audit history.
+Supporting statutory response timeframes.
+
+Sensitive third-party information shall be considered before disclosure.
+
+15.11 Retention
+
+Personal data shall not be retained indefinitely.
+
+Retention shall be determined by:
+
+Employment legislation.
+Regulatory requirements.
+Organisational policy.
+Business necessity.
+Legal proceedings.
+Contractual obligations.
+
+Retention schedules should be configurable where appropriate.
+
+15.12 Secure Disposal
+
+When retention periods expire, the platform shall support secure disposal through:
+
+Controlled deletion.
+Archiving where appropriate.
+Removal from active systems.
+Secure storage lifecycle management.
+Audit recording of disposal actions.
+
+Disposal shall comply with legal obligations and organisational requirements.
+
+15.13 International Transfers
+
+The LEO Platform is designed primarily for organisations operating in England and Wales.
+
+Where personal data is transferred internationally, appropriate safeguards shall be implemented in accordance with UK GDPR requirements.
+
+International transfers shall be documented and subject to appropriate contractual and technical protections.
+
+15.14 Privacy by Design
+
+Privacy considerations shall form part of every development activity.
+
+Every new feature shall consider:
+
+Data minimisation.
+Information classification.
+Access controls.
+Retention.
+Auditability.
+Security.
+Transparency.
+User expectations.
+
+Privacy shall be incorporated during design rather than added retrospectively.
+
+15.15 Artificial Intelligence & Privacy
+
+Artificial Intelligence shall process only information authorised through the platform's security architecture.
+
+AI processing shall:
+
+Respect organisation boundaries.
+Use authorised context only.
+Minimise unnecessary personal data.
+Protect confidential information.
+Support transparency.
+Maintain auditability.
+
+AI shall not become an uncontrolled repository of personal information.
+
+15.16 Third-Party Processors
+
+The platform may utilise approved third-party processors to deliver specific services.
+
+Examples include:
+
+Cloud hosting.
+Authentication.
+Artificial Intelligence.
+Email delivery.
+Document storage.
+Payment processing.
+
+All processors shall be subject to appropriate contractual and security safeguards.
+
+15.17 Privacy Governance
+
+Privacy governance includes:
+
+Information Asset ownership.
+Data Protection Impact Assessments (DPIAs) where required.
+Privacy notices.
+Data Processing Agreements.
+Subprocessor management.
+Internal governance.
+Continuous compliance review.
+
+Governance supports ongoing accountability.
+
+15.18 Future Expansion
+
+The architecture supports future capabilities including:
+
+Automated retention management.
+Enhanced SAR workflows.
+Privacy dashboards.
+Consent management.
+International data residency.
+Customer-managed retention policies.
+Enhanced DPIA tooling.
+Privacy risk scoring.
+Automated data classification.
+Advanced regulatory reporting.
+
+Future enhancements shall align with the existing privacy architecture.
+
+15.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Process personal data in accordance with UK GDPR and the Data Protection Act 2018.
+Support organisations in fulfilling their responsibilities as data controllers.
+Protect special category and criminal offence data through enhanced controls.
+Implement data minimisation throughout the platform.
+Support Subject Access Requests and other data subject rights.
+Provide configurable retention and secure disposal capabilities.
+Incorporate Privacy by Design into every new feature.
+Ensure Artificial Intelligence complies with the wider Security and Privacy Architecture.
+Maintain appropriate governance over third-party processors.
+Continuously review privacy controls as legislation and platform capabilities evolve.
+
+The Data Protection & Privacy Architecture ensures that privacy is embedded throughout the LEO Platform rather than treated as a standalone compliance obligation. By aligning technical safeguards with legal requirements and organisational accountability, the platform enables employers to manage personal information confidently, responsibly and transparently while maintaining the trust of their workforce.
+
+End of Chapter 15
+
+Chapter 16 – Secure Development & Engineering Standards
+16. Secure Development & Engineering Standards
+16.1 Introduction
+
+Security within the LEO Platform begins long before software reaches production.
+
+Every feature, database migration, user interface, API, integration and Artificial Intelligence capability shall be designed, developed, tested and deployed according to secure engineering practices.
+
+The Secure Development & Engineering Standards define the mandatory technical standards that govern the construction and maintenance of the LEO Platform.
+
+These standards establish a consistent approach to software engineering, ensuring that security, quality, maintainability and scalability remain integral to every stage of development.
+
+16.2 Objectives
+
+The Secure Development & Engineering Standards aim to:
+
+Embed security throughout the software development lifecycle.
+Reduce vulnerabilities introduced during development.
+Promote consistent engineering practices.
+Protect production systems.
+Improve software quality.
+Support maintainability.
+Enable secure future expansion.
+Ensure repeatable deployments.
+16.3 Secure Development Principles
+
+All development within LEO shall follow these principles:
+
+Security by Design.
+Privacy by Design.
+Least Privilege.
+Defence in Depth.
+Simplicity.
+Consistency.
+Explicit validation.
+Fail securely.
+Continuous improvement.
+
+Security is considered a functional requirement rather than an optional enhancement.
+
+16.4 Development Lifecycle
+
+Every feature shall progress through a controlled development lifecycle.
+
+Typical stages include:
+
+Requirements analysis.
+Architectural design.
+Security review.
+Development.
+Code review.
+Testing.
+User acceptance.
+Deployment.
+Monitoring.
+Continuous improvement.
+
+Security considerations shall be incorporated throughout every stage.
+
+16.5 Source Control
+
+All platform source code shall be maintained using version control.
+
+The platform shall utilise Git as the authoritative source control system.
+
+Development standards include:
+
+Meaningful commit messages.
+Small logical commits where practical.
+Feature branches where appropriate.
+Protected production branches.
+Documented release history.
+Version tagging for production releases.
+
+Direct modification of production code outside version control is prohibited.
+
+16.6 Coding Standards
+
+Code shall be:
+
+Readable.
+Consistent.
+Self-documenting where practical.
+Modular.
+Reusable.
+Predictable.
+Maintainable.
+
+Developers shall avoid:
+
+Unnecessary duplication.
+Hard-coded secrets.
+Excessive complexity.
+Unused code.
+Dead code.
+Unvalidated inputs.
+
+Consistency improves both security and maintainability.
+
+16.7 Input Validation
+
+All user-supplied information shall be treated as untrusted.
+
+Validation shall occur for:
+
+User input.
+API requests.
+File uploads.
+AI prompts.
+Import files.
+Query parameters.
+URL parameters.
+Integration payloads.
+
+Validation shall occur before business processing begins.
+
+16.8 Error Handling
+
+Errors shall be handled predictably.
+
+Applications shall:
+
+Prevent sensitive information disclosure.
+Provide meaningful user feedback.
+Record operational diagnostics.
+Record security events where appropriate.
+Fail safely.
+
+Production environments shall never expose stack traces or internal implementation details to end users.
+
+16.9 Database Development
+
+Database modifications shall:
+
+Use controlled migrations.
+Be version controlled.
+Preserve data integrity.
+Maintain backwards compatibility where practical.
+Include rollback planning.
+Undergo testing before production deployment.
+
+Direct modification of production schemas outside controlled migrations shall not be permitted.
+
+16.10 Secrets Management
+
+Sensitive credentials shall never be stored within source code.
+
+Examples include:
+
+API keys.
+Database credentials.
+OAuth secrets.
+AI provider credentials.
+Encryption keys.
+Service account credentials.
+
+Secrets shall be stored using approved secure secret management mechanisms.
+
+16.11 Third-Party Dependencies
+
+External libraries introduce potential security risks.
+
+Before adoption, dependencies should be evaluated for:
+
+Reputation.
+Maintenance status.
+Licensing.
+Security history.
+Community support.
+Long-term viability.
+
+Unused dependencies should be removed promptly.
+
+16.12 Artificial Intelligence Development
+
+Artificial Intelligence features shall comply with the wider AI Security Architecture.
+
+Development standards include:
+
+Controlled context retrieval.
+Prompt validation.
+Output validation.
+Security review.
+Audit integration.
+Organisation isolation.
+Permission enforcement.
+
+AI development shall follow the same engineering standards as all other platform features.
+
+16.13 Testing Standards
+
+Every significant feature shall undergo appropriate testing.
+
+Testing includes:
+
+Functional Testing
+
+Verification of expected behaviour.
+
+Security Testing
+
+Verification of authentication, authorisation, validation and access controls.
+
+Integration Testing
+
+Verification of communication between platform components.
+
+Regression Testing
+
+Verification that existing functionality remains unaffected.
+
+User Acceptance Testing
+
+Validation against business requirements.
+
+Testing shall occur before production deployment.
+
+16.14 Code Review
+
+Significant code changes should undergo structured review.
+
+Reviews should consider:
+
+Correctness.
+Security.
+Maintainability.
+Performance.
+Scalability.
+Consistency.
+Documentation.
+
+Security-sensitive changes shall receive additional scrutiny.
+
+16.15 Deployment Standards
+
+Production deployments shall:
+
+Be repeatable.
+Be documented.
+Use approved deployment processes.
+Verify successful completion.
+Support rollback where necessary.
+Record deployment history.
+
+Emergency changes shall remain subject to post-implementation review.
+
+16.16 Documentation
+
+Every significant platform component shall be documented.
+
+Documentation should include:
+
+Purpose.
+Architecture.
+Dependencies.
+Security considerations.
+Configuration.
+Database changes.
+API changes.
+Operational requirements.
+
+Documentation forms part of the platform's maintainability strategy.
+
+16.17 Operational Security
+
+Development environments shall remain separate from production.
+
+Operational standards include:
+
+Secure authentication.
+Controlled administrative access.
+Environment separation.
+Secure configuration management.
+Logging.
+Monitoring.
+Backup verification.
+
+Development convenience shall never compromise production security.
+
+16.18 Future Expansion
+
+The engineering framework supports future capabilities including:
+
+Automated security testing.
+Continuous Integration (CI).
+Continuous Deployment (CD).
+Static code analysis.
+Dependency scanning.
+Infrastructure as Code.
+Container security.
+Automated compliance validation.
+Secure release pipelines.
+Enterprise engineering governance.
+
+Future engineering improvements shall align with the existing secure development standards.
+
+16.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Apply secure engineering practices throughout the software development lifecycle.
+Maintain all source code within controlled version control.
+Validate all external input.
+Protect secrets using approved secure storage mechanisms.
+Develop database changes through controlled migrations.
+Evaluate and monitor third-party dependencies.
+Test all significant functionality before production deployment.
+Review security-sensitive code changes.
+Maintain comprehensive technical documentation.
+Ensure future engineering processes strengthen rather than weaken the Security Architecture.
+
+The Secure Development & Engineering Standards establish the foundation for building and maintaining the LEO Platform responsibly. By embedding security into every stage of software engineering—from design and coding to testing, deployment and maintenance—the platform can evolve confidently while preserving the integrity, reliability and trust upon which employers depend.
+
+End of Chapter 16
+
+Chapter 17 – Incident Response, Business Continuity & Disaster Recovery
+17. Incident Response, Business Continuity & Disaster Recovery
+17.1 Introduction
+
+Despite comprehensive preventative controls, no technology platform can eliminate all operational or security risks.
+
+The LEO Platform shall maintain a structured Incident Response, Business Continuity and Disaster Recovery framework to ensure that security incidents, service disruptions and major operational failures are managed consistently, professionally and transparently.
+
+The objective is to minimise disruption, protect customer data, maintain trust and restore services safely while preserving evidence and meeting legal and contractual obligations.
+
+Resilience is considered a fundamental characteristic of the LEO Platform.
+
+17.2 Objectives
+
+The Incident Response, Business Continuity & Disaster Recovery Architecture aims to:
+
+Protect organisational data during incidents.
+Restore services as quickly and safely as possible.
+Minimise operational disruption.
+Preserve evidence.
+Meet legal and regulatory obligations.
+Maintain customer confidence.
+Support continuous improvement.
+Ensure platform resilience.
+17.3 Security Principles
+
+The platform shall operate according to the following principles during any incident:
+
+Safety first.
+Protect data integrity.
+Preserve evidence.
+Contain before recovery.
+Restore services securely.
+Communicate transparently.
+Learn from every incident.
+Improve continuously.
+
+Incident response shall prioritise both technical recovery and organisational trust.
+
+17.4 Incident Categories
+
+Security and operational events shall be classified according to their nature.
+
+Examples include:
+
+Security Incidents
+Unauthorised access.
+Credential compromise.
+Privilege escalation.
+Malware.
+Data exposure.
+API abuse.
+AI misuse.
+Integration compromise.
+Operational Incidents
+Service outages.
+Database failures.
+Storage failures.
+Authentication failures.
+Infrastructure issues.
+Deployment failures.
+Third-party service outages.
+Data Protection Incidents
+Personal data breach.
+Accidental disclosure.
+Incorrect recipient.
+Unauthorised processing.
+Loss of sensitive information.
+Business Incidents
+Critical supplier failure.
+Major operational disruption.
+Legal intervention.
+Regulatory investigation.
+
+Each category may require different response procedures.
+
+17.5 Incident Severity
+
+Incidents shall be assigned an appropriate severity level.
+
+Critical
+
+Major security breach or complete platform outage affecting multiple organisations.
+
+High
+
+Serious degradation of core platform services or confirmed compromise of sensitive systems.
+
+Medium
+
+Limited operational impact with manageable business disruption.
+
+Low
+
+Minor issues with minimal operational impact.
+
+Severity determines escalation priorities and response expectations.
+
+17.6 Incident Response Lifecycle
+
+Every incident shall follow a structured lifecycle.
+
+Detection
+      │
+      ▼
+Assessment
+      │
+      ▼
+Classification
+      │
+      ▼
+Containment
+      │
+      ▼
+Investigation
+      │
+      ▼
+Eradication
+      │
+      ▼
+Recovery
+      │
+      ▼
+Validation
+      │
+      ▼
+Lessons Learned
+
+This structured approach ensures consistent and repeatable incident management.
+
+17.7 Detection
+
+Incidents may be identified through:
+
+Security monitoring.
+Audit logs.
+Automated alerts.
+Customer reports.
+Internal observations.
+Infrastructure monitoring.
+Third-party notifications.
+Artificial Intelligence monitoring.
+
+All reports shall be assessed promptly.
+
+17.8 Containment
+
+The primary objective following confirmation of an incident is to prevent further impact.
+
+Containment actions may include:
+
+Restricting user access.
+Disabling integrations.
+Isolating services.
+Revoking credentials.
+Blocking malicious activity.
+Suspending compromised accounts.
+Temporarily disabling affected features.
+
+Containment should minimise disruption while preserving evidence.
+
+17.9 Investigation
+
+Incident investigation shall determine:
+
+What happened.
+When it occurred.
+Which systems were affected.
+Which organisations were affected.
+Root cause.
+Security weaknesses exploited.
+Evidence required.
+Recovery requirements.
+
+Audit records and monitoring information shall support investigations.
+
+17.10 Recovery
+
+Recovery shall restore services in a controlled manner.
+
+Recovery activities include:
+
+Restoring infrastructure.
+Restoring databases where necessary.
+Validating data integrity.
+Re-enabling integrations.
+Verifying authentication.
+Confirming tenant isolation.
+Performing security validation before reopening services.
+
+Recovery shall never compromise security for speed.
+
+17.11 Business Continuity
+
+Business Continuity ensures that essential services remain available during disruption.
+
+The platform shall seek to maintain continuity for:
+
+Authentication.
+Employee records.
+Matters.
+Recruitment.
+Learning.
+Compliance.
+Document storage.
+Artificial Intelligence.
+Customer administration.
+
+Critical services should receive recovery priority.
+
+17.12 Disaster Recovery
+
+Disaster Recovery addresses catastrophic failure scenarios.
+
+Recovery planning shall include:
+
+Infrastructure failure.
+Database corruption.
+Regional cloud outages.
+Storage failure.
+Authentication provider disruption.
+Accidental deletion.
+Major cyber attack.
+
+Documented recovery procedures shall be maintained and periodically tested.
+
+17.13 Backup Strategy
+
+Backups form an essential component of disaster recovery.
+
+The platform shall maintain:
+
+Automated backups.
+Secure backup storage.
+Encrypted backups.
+Recovery testing.
+Point-in-time recovery where supported.
+Verification of successful backup completion.
+
+Backups shall receive the same level of protection as production data.
+
+17.14 Communications
+
+Clear communication is essential during incidents.
+
+Communications may include:
+
+Internal operational updates.
+Customer notifications where appropriate.
+Regulatory notifications where required.
+Supplier communication.
+Status page updates.
+Post-incident summaries.
+
+Communications shall be accurate, timely and proportionate.
+
+17.15 Regulatory Notification
+
+Where required by law, the platform shall support organisations in meeting regulatory obligations.
+
+Examples include:
+
+Personal data breaches.
+Information Commissioner's Office (ICO) notification requirements.
+Contractual reporting obligations.
+
+LEO shall cooperate with customers where incidents affect their organisational data.
+
+17.16 Post-Incident Review
+
+Every significant incident shall conclude with a structured review.
+
+The review should identify:
+
+Root cause.
+Contributing factors.
+Effectiveness of response.
+Opportunities for improvement.
+Security enhancements.
+Documentation updates.
+Training requirements.
+
+Lessons learned shall inform future platform development.
+
+17.17 Testing & Exercises
+
+Incident response and recovery plans shall be tested periodically.
+
+Testing may include:
+
+Table-top exercises.
+Backup restoration testing.
+Disaster recovery simulations.
+Security incident simulations.
+Integration failure scenarios.
+Authentication failures.
+AI service failures.
+
+Testing improves organisational preparedness.
+
+17.18 Future Expansion
+
+The resilience architecture supports future capabilities including:
+
+Automated failover.
+Multi-region deployments.
+Active-active infrastructure.
+Enterprise resilience reporting.
+Automated disaster recovery validation.
+Cyber resilience testing.
+Business continuity dashboards.
+Recovery orchestration.
+Advanced threat intelligence integration.
+ISO 22301 readiness.
+
+Future enhancements shall strengthen, rather than replace, the existing resilience architecture.
+
+17.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Maintain documented incident response procedures.
+Classify incidents according to defined severity levels.
+Detect, investigate and contain security incidents promptly.
+Preserve evidence throughout incident handling.
+Restore services using controlled recovery procedures.
+Maintain documented business continuity and disaster recovery plans.
+Protect and regularly test backups.
+Support organisations in meeting regulatory notification obligations where applicable.
+Conduct post-incident reviews following significant events.
+Continuously improve resilience through testing, monitoring and lessons learned.
+
+The Incident Response, Business Continuity & Disaster Recovery Architecture ensures that the LEO Platform remains resilient in the face of operational disruption and security threats. By combining structured incident management with robust recovery planning and continuous improvement, the platform protects organisational data, maintains service availability and reinforces the trust placed in it by employers throughout England and Wales.
+
+End of Chapter 17
+
+Chapter 18 – Security Roadmap & Continuous Improvement
+18. Security Roadmap & Continuous Improvement
+18.1 Introduction
+
+Security is not a fixed state but an ongoing process of improvement.
+
+As the LEO Platform evolves, new technologies, legislative changes, customer requirements and emerging cyber threats will continually reshape the security landscape.
+
+The purpose of this roadmap is to establish a structured framework for the ongoing development of the platform's security capabilities, ensuring that LEO remains resilient, trustworthy and aligned with recognised industry standards throughout its lifecycle.
+
+18.2 Objectives
+
+The Security Roadmap aims to:
+
+Maintain a proactive security posture.
+Continuously improve platform resilience.
+Support organisational growth.
+Respond to emerging threats.
+Enhance customer confidence.
+Align with recognised security standards.
+Support enterprise customers.
+Protect the long-term integrity of the platform.
+18.3 Security Philosophy
+
+Continuous improvement shall be guided by the following principles:
+
+Security evolves with the platform.
+Improvements are risk-based.
+Security enhancements shall not unnecessarily compromise usability.
+Preventative controls are preferred over reactive controls.
+Lessons learned inform future development.
+Security is everyone's responsibility.
+Continuous review is essential.
+18.4 Governance
+
+Responsibility for security governance includes:
+
+Reviewing security architecture.
+Monitoring emerging threats.
+Reviewing legislation.
+Assessing customer requirements.
+Evaluating platform risks.
+Prioritising improvements.
+Approving security changes.
+
+Governance ensures that security remains aligned with the wider objectives of the platform.
+
+18.5 Regular Security Reviews
+
+The platform shall periodically review:
+
+Authentication.
+Authorisation.
+Artificial Intelligence.
+APIs.
+Integrations.
+Storage.
+Database architecture.
+Infrastructure.
+Monitoring.
+Audit controls.
+
+Reviews should identify opportunities for continual enhancement.
+
+18.6 Vulnerability Management
+
+Known vulnerabilities shall be managed through a structured process.
+
+Activities include:
+
+Identification.
+Risk assessment.
+Prioritisation.
+Remediation.
+Verification.
+Documentation.
+Continuous monitoring.
+
+Security weaknesses should be addressed proportionately to their assessed risk.
+
+18.7 Dependency Management
+
+Third-party software introduces ongoing security considerations.
+
+The platform shall:
+
+Monitor dependency updates.
+Apply security patches.
+Remove obsolete packages.
+Review licensing.
+Assess supply-chain risks.
+
+Dependency maintenance forms part of normal platform operations.
+
+18.8 Penetration Testing
+
+Independent penetration testing shall become part of the platform's ongoing assurance programme.
+
+Testing should include:
+
+Authentication.
+Authorisation.
+APIs.
+Artificial Intelligence.
+Storage.
+Multi-tenancy.
+Integrations.
+Infrastructure.
+Business logic.
+
+Penetration testing should be repeated following major architectural changes.
+
+18.9 Security Assessments
+
+Periodic security assessments should evaluate:
+
+Platform architecture.
+Configuration.
+Database security.
+Operational controls.
+Secure development practices.
+Third-party integrations.
+AI capabilities.
+Customer-facing functionality.
+
+Assessment findings should inform future development priorities.
+
+18.10 Compliance Readiness
+
+The platform architecture has been designed to support future compliance initiatives.
+
+Potential future objectives include:
+
+ISO 27001.
+Cyber Essentials Plus.
+SOC 2.
+Enterprise customer security questionnaires.
+Government procurement requirements.
+Sector-specific compliance frameworks.
+
+The platform shall evolve towards these standards as organisational requirements mature.
+
+18.11 Identity Roadmap
+
+Future identity enhancements may include:
+
+Multi-Factor Authentication (MFA).
+Single Sign-On (SSO).
+SAML 2.0.
+OpenID Connect.
+SCIM provisioning.
+Enterprise identity federation.
+Hardware security keys.
+Conditional access policies.
+
+These capabilities shall integrate with the existing Identity Architecture.
+
+18.12 Authorisation Roadmap
+
+Future authorisation enhancements may include:
+
+Attribute-Based Access Control (ABAC).
+Department-level permissions.
+Site-level permissions.
+Temporary delegated access.
+Time-limited permissions.
+Dynamic risk-based authorisation.
+Enterprise approval workflows.
+
+Future enhancements shall extend the existing Authorisation Engine rather than replace it.
+
+18.13 Artificial Intelligence Roadmap
+
+Artificial Intelligence security will continue to evolve alongside platform capabilities.
+
+Potential future enhancements include:
+
+Explainable AI improvements.
+Organisation-specific AI models.
+Secure Retrieval-Augmented Generation (RAG).
+AI confidence scoring.
+Automated legal updates.
+AI quality assurance.
+AI policy validation.
+Multi-agent collaboration.
+Predictive employment insights.
+Enhanced AI governance.
+
+AI development shall continue to prioritise security, transparency and human accountability.
+
+18.14 Infrastructure Roadmap
+
+Future infrastructure improvements may include:
+
+Multi-region deployment.
+High availability architecture.
+Automated failover.
+Enhanced disaster recovery.
+Infrastructure as Code.
+Container orchestration.
+Advanced monitoring.
+Cloud security automation.
+Performance optimisation.
+
+Infrastructure improvements shall strengthen operational resilience without compromising security.
+
+18.15 Customer Assurance
+
+As the platform grows, security transparency shall become increasingly important.
+
+Future customer assurance initiatives may include:
+
+Trust Centre enhancements.
+Published security documentation.
+Security white papers.
+Independent assurance reports.
+Service availability reporting.
+Responsible disclosure programme.
+Customer security questionnaires.
+Security awareness resources.
+
+These initiatives will help organisations understand how their information is protected.
+
+18.16 Security Metrics
+
+The platform should monitor measurable indicators of security maturity.
+
+Illustrative metrics include:
+
+Authentication success and failure rates.
+Time to detect incidents.
+Time to respond to incidents.
+Time to remediate vulnerabilities.
+Number of unresolved security issues.
+Patch compliance.
+Backup success rates.
+Penetration testing findings.
+Platform availability.
+AI security events.
+
+Metrics support informed decision-making and continuous improvement.
+
+18.17 Continuous Improvement Cycle
+
+Security improvements shall follow a structured lifecycle.
+
+Plan
+   │
+   ▼
+Assess
+   │
+   ▼
+Improve
+   │
+   ▼
+Implement
+   │
+   ▼
+Monitor
+   │
+   ▼
+Review
+   │
+   ▼
+Repeat
+
+This cycle reinforces the principle that security is an ongoing operational discipline rather than a one-time project.
+
+18.18 Long-Term Vision
+
+The long-term vision for the LEO Platform is to establish a security posture that is:
+
+Trusted by employers.
+Recognised by enterprise customers.
+Aligned with UK regulatory expectations.
+Resilient against evolving cyber threats.
+Transparent in its governance.
+Secure by default.
+Continuously improving.
+Scalable alongside platform growth.
+
+Security should become a competitive strength of the platform rather than merely a compliance requirement.
+
+18.19 Implementation Requirements
+
+The LEO Platform shall:
+
+Maintain a documented security roadmap and review it regularly.
+Periodically review all aspects of the Security Architecture.
+Operate a structured vulnerability management process.
+Maintain third-party dependency oversight.
+Conduct regular penetration testing and security assessments.
+Progress towards recognised security standards where appropriate.
+Continuously enhance identity, authorisation and AI security capabilities.
+Monitor security performance using measurable metrics.
+Strengthen customer assurance through transparency and governance.
+Embed continuous improvement into every stage of the platform's evolution.
+
+The Security Roadmap & Continuous Improvement Architecture concludes the LEO Security Architecture by recognising that security is a living discipline. Through structured governance, measurable objectives and ongoing enhancement, the platform is designed not only to meet today's security expectations but to adapt confidently to the challenges of tomorrow while maintaining the trust of employers and protecting the information entrusted to it.
+
+End of Security Architecture
+Security Architecture Summary
+
+The LEO Security Architecture consists of eighteen integrated chapters that together establish the platform's security foundation:
+
+Purpose
+Security Philosophy
+LEO Trust Model
+Authentication & Identity Architecture
+Identity & Organisation Model
+Multi-Tenant Security Architecture
+Roles & Permission Framework
+Authorisation Engine
+Row Level Security Architecture
+Database Security Architecture
+Storage & Document Security
+API & Integration Security
+Artificial Intelligence Security Architecture
+Audit, Monitoring & Security Intelligence
+Data Protection & Privacy Architecture
+Secure Development & Engineering Standards
+Incident Response, Business Continuity & Disaster Recovery
+Security Roadmap & Continuous Improvement
+
+Together, these chapters define a comprehensive, enterprise-grade security framework for the LEO Platform. They provide the principles, standards and governance needed to protect organisational data, support secure artificial intelligence, enable scalable multi-tenant operations and guide future development. This document should be read alongside the LEO Platform Master Specification, LEO Architecture Blueprint and LEO Database Schema, forming one of the core technical reference documents for the platform.

@@ -1098,7 +1098,7 @@ export default function ApplicationsWorkspace() {
 
     const { error: updateError } = await supabase
       .from("leo_talent_applications")
-      .update(updatePayload)
+      .update(updatePayload as any)
       .eq("id", application.id);
 
     if (updateError) {
@@ -1960,3 +1960,4 @@ export default function ApplicationsWorkspace() {
     </section>
   );
 }
+

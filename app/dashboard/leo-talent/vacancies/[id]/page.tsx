@@ -31,6 +31,7 @@ type ApprovalStatus =
 
 type WorkspaceTab =
   | "overview"
+  | "publication"
   | "applications"
   | "candidates"
   | "interviews"
@@ -77,7 +78,50 @@ type Vacancy = {
   required_reference_count: number;
   archived_at: string | null;
   created_at: string;
+  published_at?: string | null;
+  role_summary?: string | null;
+  responsibilities?: string | null;
+  essential_criteria?: string | null;
+  desirable_criteria?: string | null;
+  benefits?: string | null;
+  advert_text?: string | null;
+  metadata?: Record<string, unknown> | null;
   updated_at: string;
+};
+
+type PublicationChannel = {
+  id: string;
+  organisation_id: string | null;
+  vacancy_id: string;
+  channel_name: string;
+  channel_type: string;
+  external_reference?: string | null;
+  published_url?: string | null;
+  status: string;
+  published_at?: string | null;
+  closed_at?: string | null;
+  connection_provider_key?: string | null;
+  connection_payload?: Record<string, unknown> | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type VacancyQuestion = {
+  id: string;
+  organisation_id: string | null;
+  vacancy_id: string;
+  question_text: string;
+  help_text?: string | null;
+  question_type: string;
+  options: unknown[];
+  is_required: boolean;
+  is_knockout: boolean;
+  knockout_rule: Record<string, unknown>;
+  blind_review_excluded: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 type Application = {
@@ -182,7 +226,15 @@ type UserContext = {
 };
 
 type TableAvailability = Record<
-  "applications" | "candidates" | "interviews" | "dueDiligence" | "offers" | "documents" | "activity",
+  | "publicationChannels"
+  | "vacancyQuestions"
+  | "applications"
+  | "candidates"
+  | "interviews"
+  | "dueDiligence"
+  | "offers"
+  | "documents"
+  | "activity",
   boolean
 >;
 
@@ -195,6 +247,7 @@ const roleRank: Record<PlatformRole, number> = {
 
 const tabs: Array<{ id: WorkspaceTab; label: string }> = [
   { id: "overview", label: "Overview" },
+  { id: "publication", label: "Publication" },
   { id: "applications", label: "Applications" },
   { id: "candidates", label: "Candidates" },
   { id: "interviews", label: "Interviews" },
@@ -206,6 +259,8 @@ const tabs: Array<{ id: WorkspaceTab; label: string }> = [
 ];
 
 const emptyAvailability: TableAvailability = {
+  publicationChannels: true,
+  vacancyQuestions: true,
   applications: true,
   candidates: true,
   interviews: true,
@@ -295,6 +350,8 @@ export default function VacancyWorkspacePage() {
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+  const [publicationChannels, setPublicationChannels] = useState<PublicationChannel[]>([]);
+  const [vacancyQuestions, setVacancyQuestions] = useState<VacancyQuestion[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [interviews, setInterviews] = useState<Interview[]>([]);
@@ -319,6 +376,14 @@ export default function VacancyWorkspacePage() {
   const [documentType, setDocumentType] = useState("Job description");
   const [documentNotes, setDocumentNotes] = useState("");
   const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelType, setNewChannelType] = useState("manual");
+  const [newChannelUrl, setNewChannelUrl] = useState("");
+  const [questionText, setQuestionText] = useState("");
+  const [questionHelpText, setQuestionHelpText] = useState("");
+  const [questionType, setQuestionType] = useState("long_text");
+  const [questionRequired, setQuestionRequired] = useState(false);
+  const [questionKnockout, setQuestionKnockout] = useState(false);
 
   const canManage = roleRank[userContext.role] >= roleRank.Manager;
   const canAdminister = roleRank[userContext.role] >= roleRank.Senior;
@@ -416,6 +481,8 @@ export default function VacancyWorkspacePage() {
       setVacancy(vacancyResult.data as Vacancy);
 
       const [
+        publicationChannelRows,
+        vacancyQuestionRows,
         applicationRows,
         candidateRows,
         interviewRows,
@@ -424,6 +491,18 @@ export default function VacancyWorkspacePage() {
         documentRows,
         activityRows,
       ] = await Promise.all([
+        safeLoad<PublicationChannel>(
+          "leo_talent_vacancy_publication_channels",
+          "vacancy_id",
+          "publicationChannels",
+          "created_at",
+        ),
+        safeLoad<VacancyQuestion>(
+          "leo_talent_vacancy_questions",
+          "vacancy_id",
+          "vacancyQuestions",
+          "display_order",
+        ),
         safeLoad<Application>("leo_talent_applications", "vacancy_id", "applications"),
         safeLoad<Candidate>("leo_talent_candidates", "vacancy_id", "candidates"),
         safeLoad<Interview>("leo_talent_interviews", "vacancy_id", "interviews"),
@@ -441,6 +520,10 @@ export default function VacancyWorkspacePage() {
         ),
       ]);
 
+      setPublicationChannels(publicationChannelRows);
+      setVacancyQuestions(
+        [...vacancyQuestionRows].sort((a, b) => a.display_order - b.display_order),
+      );
       setApplications(applicationRows);
       setCandidates(candidateRows);
       setInterviews(interviewRows);
@@ -558,6 +641,345 @@ export default function VacancyWorkspacePage() {
     },
     [userContext, vacancy?.organisation_id, vacancyId],
   );
+
+  const publicVacancyPath = vacancyId ? `/careers/${vacancyId}` : "";
+
+  const publicVacancyUrl = useMemo(() => {
+    if (!publicVacancyPath) return "";
+    if (typeof window === "undefined") return publicVacancyPath;
+    return `${window.location.origin}${publicVacancyPath}`;
+  }, [publicVacancyPath]);
+
+  const updatePublicationSettings = useCallback(
+    async (updates: Record<string, unknown>, successMessage: string) => {
+      if (!vacancy || !canManage) {
+        setErrorMessage("You do not have access to change publication settings.");
+        return;
+      }
+
+      setWorkingAction("publication-settings");
+      setErrorMessage("");
+      setActionMessage("");
+
+      const nextMetadata = { ...(vacancy.metadata ?? {}), ...updates };
+      const { error } = await supabase
+        .from("leo_talent_vacancies")
+        .update({ metadata: nextMetadata, updated_at: todayIso(), updated_by: userContext.userId })
+        .eq("id", vacancy.id);
+
+      if (error) {
+        setErrorMessage(`Publication settings could not be saved. ${error.message}`);
+        setWorkingAction(null);
+        return;
+      }
+
+      await recordActivity("vacancy_publication_settings_updated", successMessage, updates);
+      setActionMessage(successMessage);
+      setWorkingAction(null);
+      await loadWorkspace(true);
+    },
+    [canManage, loadWorkspace, recordActivity, userContext.userId, vacancy],
+  );
+
+  const publishVacancy = useCallback(async () => {
+    if (!vacancy || !canManage) {
+      setErrorMessage("You do not have access to publish this vacancy.");
+      return;
+    }
+
+    if (!vacancy.title.trim() || !vacancy.advert_text?.trim()) {
+      setErrorMessage("Add a vacancy title and advert text before publishing.");
+      setActiveTab("overview");
+      return;
+    }
+
+    if (vacancy.closing_date) {
+      const closing = new Date(`${vacancy.closing_date}T23:59:59`);
+      if (closing.getTime() < Date.now()) {
+        setErrorMessage("The closing date has passed. Update it before publishing.");
+        return;
+      }
+    }
+
+    setWorkingAction("publish-vacancy");
+    setErrorMessage("");
+    setActionMessage("");
+
+    const now = todayIso();
+    const vacancyUpdate = await supabase
+      .from("leo_talent_vacancies")
+      .update({
+        status: "open",
+        approval_status:
+          vacancy.approval_status === "not_required" ? "approved" : vacancy.approval_status,
+        published_at: now,
+        opening_date: vacancy.opening_date ?? now.slice(0, 10),
+        updated_at: now,
+        updated_by: userContext.userId,
+      })
+      .eq("id", vacancy.id);
+
+    if (vacancyUpdate.error) {
+      setErrorMessage(`The vacancy could not be published. ${vacancyUpdate.error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+
+    const publicRouteResult = await supabase
+      .from("leo_public_careers_vacancies")
+      .select("organisation_slug, vacancy_slug")
+      .eq("vacancy_id", vacancy.id)
+      .maybeSingle();
+
+    if (publicRouteResult.error || !publicRouteResult.data) {
+      setErrorMessage(
+        `The vacancy was opened, but its public Careers route could not be resolved. ${publicRouteResult.error?.message ?? "Check the public careers view and publication rules."}`,
+      );
+      setWorkingAction(null);
+      await loadWorkspace(true);
+      return;
+    }
+
+    const resolvedPublicPath = `/careers/${encodeURIComponent(
+      publicRouteResult.data.organisation_slug,
+    )}/${encodeURIComponent(publicRouteResult.data.vacancy_slug)}`;
+    const resolvedPublicUrl =
+      typeof window === "undefined"
+        ? resolvedPublicPath
+        : `${window.location.origin}${resolvedPublicPath}`;
+
+    const existingLeoChannel = publicationChannels.find(
+      (channel) => channel.channel_name.toLowerCase() === "leo careers",
+    );
+
+    const channelPayload = {
+      organisation_id: vacancy.organisation_id,
+      vacancy_id: vacancy.id,
+      channel_name: "LEO Careers",
+      channel_type: "leo_careers",
+      published_url: resolvedPublicUrl,
+      status: "published",
+      published_at: now,
+      closed_at: null,
+      updated_at: now,
+    };
+
+    const channelResult = existingLeoChannel
+      ? await supabase
+          .from("leo_talent_vacancy_publication_channels")
+          .update(channelPayload)
+          .eq("id", existingLeoChannel.id)
+      : await supabase
+          .from("leo_talent_vacancy_publication_channels")
+          .insert({ ...channelPayload, created_at: now });
+
+    if (channelResult.error) {
+      setErrorMessage(
+        `The vacancy was opened, but its LEO Careers channel could not be recorded. ${channelResult.error.message}`,
+      );
+      setWorkingAction(null);
+      await loadWorkspace(true);
+      return;
+    }
+
+    await recordActivity("vacancy_published", "Vacancy published to LEO Careers.", {
+      public_url: resolvedPublicUrl,
+    });
+    setActionMessage("Vacancy published to LEO Careers.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [
+    canManage,
+    loadWorkspace,
+    publicVacancyPath,
+    publicVacancyUrl,
+    publicationChannels,
+    recordActivity,
+    userContext.userId,
+    vacancy,
+  ]);
+
+  const unpublishVacancy = useCallback(async () => {
+    if (!vacancy || !canManage) {
+      setErrorMessage("You do not have access to unpublish this vacancy.");
+      return;
+    }
+
+    if (!window.confirm("Remove this vacancy from all published channels? Existing applications will be retained.")) return;
+
+    setWorkingAction("unpublish-vacancy");
+    setErrorMessage("");
+    const now = todayIso();
+
+    const vacancyResult = await supabase
+      .from("leo_talent_vacancies")
+      .update({ status: "paused", updated_at: now, updated_by: userContext.userId })
+      .eq("id", vacancy.id);
+
+    if (vacancyResult.error) {
+      setErrorMessage(`The vacancy could not be unpublished. ${vacancyResult.error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+
+    const channelResult = await supabase
+      .from("leo_talent_vacancy_publication_channels")
+      .update({ status: "closed", closed_at: now, updated_at: now })
+      .eq("vacancy_id", vacancy.id)
+      .eq("status", "published");
+
+    if (channelResult.error) {
+      setErrorMessage(`Publication channels could not all be closed. ${channelResult.error.message}`);
+      setWorkingAction(null);
+      await loadWorkspace(true);
+      return;
+    }
+
+    await recordActivity("vacancy_unpublished", "Vacancy removed from published channels.");
+    setActionMessage("Vacancy unpublished. Existing applications remain available.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, recordActivity, userContext.userId, vacancy]);
+
+  const addPublicationChannel = useCallback(async () => {
+    if (!vacancy || !canManage || !newChannelName.trim()) {
+      setErrorMessage("Add a publication channel name.");
+      return;
+    }
+
+    setWorkingAction("add-publication-channel");
+    setErrorMessage("");
+    const now = todayIso();
+    const { error } = await supabase.from("leo_talent_vacancy_publication_channels").insert({
+      organisation_id: vacancy.organisation_id,
+      vacancy_id: vacancy.id,
+      channel_name: newChannelName.trim(),
+      channel_type: newChannelType,
+      published_url: newChannelUrl.trim() || null,
+      status: newChannelUrl.trim() ? "published" : "planned",
+      published_at: newChannelUrl.trim() ? now : null,
+      connection_payload: {},
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (error) {
+      setErrorMessage(`The publication channel could not be added. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+
+    await recordActivity("vacancy_publication_channel_added", `Publication channel added: ${newChannelName.trim()}.`);
+    setNewChannelName("");
+    setNewChannelType("manual");
+    setNewChannelUrl("");
+    setActionMessage("Publication channel added.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, newChannelName, newChannelType, newChannelUrl, recordActivity, vacancy]);
+
+  const updateChannelStatus = useCallback(async (channel: PublicationChannel, status: string) => {
+    if (!canManage) return;
+    setWorkingAction(`channel-${channel.id}`);
+    setErrorMessage("");
+    const now = todayIso();
+    const { error } = await supabase
+      .from("leo_talent_vacancy_publication_channels")
+      .update({
+        status,
+        published_at: status === "published" ? channel.published_at ?? now : channel.published_at,
+        closed_at: status === "closed" ? now : null,
+        updated_at: now,
+      })
+      .eq("id", channel.id);
+
+    if (error) {
+      setErrorMessage(`The channel could not be updated. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+    await recordActivity("vacancy_publication_channel_updated", `${channel.channel_name} marked ${humanise(status)}.`);
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, recordActivity]);
+
+  const addVacancyQuestion = useCallback(async () => {
+    if (!vacancy || !canManage || !questionText.trim()) {
+      setErrorMessage("Enter the application question.");
+      return;
+    }
+
+    setWorkingAction("add-vacancy-question");
+    setErrorMessage("");
+    const now = todayIso();
+    const { error } = await supabase.from("leo_talent_vacancy_questions").insert({
+      organisation_id: vacancy.organisation_id,
+      vacancy_id: vacancy.id,
+      question_text: questionText.trim(),
+      help_text: questionHelpText.trim() || null,
+      question_type: questionType,
+      options: [],
+      is_required: questionRequired,
+      is_knockout: questionKnockout,
+      knockout_rule: {},
+      blind_review_excluded: false,
+      display_order: vacancyQuestions.length,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (error) {
+      setErrorMessage(`The application question could not be added. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+
+    await recordActivity("vacancy_question_added", "Application question added.", { question: questionText.trim() });
+    setQuestionText("");
+    setQuestionHelpText("");
+    setQuestionType("long_text");
+    setQuestionRequired(false);
+    setQuestionKnockout(false);
+    setActionMessage("Application question added.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, questionHelpText, questionKnockout, questionRequired, questionText, questionType, recordActivity, vacancy, vacancyQuestions.length]);
+
+  const toggleVacancyQuestion = useCallback(async (question: VacancyQuestion, updates: Partial<VacancyQuestion>) => {
+    if (!canManage) return;
+    setWorkingAction(`question-${question.id}`);
+    setErrorMessage("");
+    const { error } = await supabase
+      .from("leo_talent_vacancy_questions")
+      .update({ ...updates, updated_at: todayIso() })
+      .eq("id", question.id);
+
+    if (error) {
+      setErrorMessage(`The application question could not be updated. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace]);
+
+  const deleteVacancyQuestion = useCallback(async (question: VacancyQuestion) => {
+    if (!canManage || !window.confirm("Delete this application question?")) return;
+    setWorkingAction(`question-${question.id}`);
+    const { error } = await supabase
+      .from("leo_talent_vacancy_questions")
+      .delete()
+      .eq("id", question.id);
+    if (error) {
+      setErrorMessage(`The application question could not be deleted. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+    await recordActivity("vacancy_question_deleted", "Application question deleted.", { question: question.question_text });
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, recordActivity]);
 
   const updateVacancyStatus = useCallback(
     async (
@@ -919,6 +1341,43 @@ export default function VacancyWorkspacePage() {
         <OverviewTab vacancy={vacancy} canManage={canManage} onStatus={updateVacancyStatus} />
       ) : null}
 
+      {activeTab === "publication" ? (
+        <PublicationTab
+          vacancy={vacancy}
+          channels={publicationChannels}
+          questions={vacancyQuestions}
+          channelsAvailable={availability.publicationChannels}
+          questionsAvailable={availability.vacancyQuestions}
+          canManage={canManage}
+          workingAction={workingAction}
+          publicUrl={publicVacancyUrl || publicVacancyPath}
+          newChannelName={newChannelName}
+          newChannelType={newChannelType}
+          newChannelUrl={newChannelUrl}
+          questionText={questionText}
+          questionHelpText={questionHelpText}
+          questionType={questionType}
+          questionRequired={questionRequired}
+          questionKnockout={questionKnockout}
+          onNewChannelName={setNewChannelName}
+          onNewChannelType={setNewChannelType}
+          onNewChannelUrl={setNewChannelUrl}
+          onQuestionText={setQuestionText}
+          onQuestionHelpText={setQuestionHelpText}
+          onQuestionType={setQuestionType}
+          onQuestionRequired={setQuestionRequired}
+          onQuestionKnockout={setQuestionKnockout}
+          onPublish={() => void publishVacancy()}
+          onUnpublish={() => void unpublishVacancy()}
+          onAddChannel={() => void addPublicationChannel()}
+          onChannelStatus={(channel, status) => void updateChannelStatus(channel, status)}
+          onAddQuestion={() => void addVacancyQuestion()}
+          onQuestionUpdate={(question, updates) => void toggleVacancyQuestion(question, updates)}
+          onQuestionDelete={(question) => void deleteVacancyQuestion(question)}
+          onSettings={(updates, message) => void updatePublicationSettings(updates, message)}
+        />
+      ) : null}
+
       {activeTab === "applications" ? (
         <ApplicationsTab
           records={filteredApplications}
@@ -1170,6 +1629,281 @@ function OverviewTab({
       </aside>
     </div>
   );
+}
+
+function PublicationTab({
+  vacancy,
+  channels,
+  questions,
+  channelsAvailable,
+  questionsAvailable,
+  canManage,
+  workingAction,
+  publicUrl,
+  newChannelName,
+  newChannelType,
+  newChannelUrl,
+  questionText,
+  questionHelpText,
+  questionType,
+  questionRequired,
+  questionKnockout,
+  onNewChannelName,
+  onNewChannelType,
+  onNewChannelUrl,
+  onQuestionText,
+  onQuestionHelpText,
+  onQuestionType,
+  onQuestionRequired,
+  onQuestionKnockout,
+  onPublish,
+  onUnpublish,
+  onAddChannel,
+  onChannelStatus,
+  onAddQuestion,
+  onQuestionUpdate,
+  onQuestionDelete,
+  onSettings,
+}: {
+  vacancy: Vacancy;
+  channels: PublicationChannel[];
+  questions: VacancyQuestion[];
+  channelsAvailable: boolean;
+  questionsAvailable: boolean;
+  canManage: boolean;
+  workingAction: string | null;
+  publicUrl: string;
+  newChannelName: string;
+  newChannelType: string;
+  newChannelUrl: string;
+  questionText: string;
+  questionHelpText: string;
+  questionType: string;
+  questionRequired: boolean;
+  questionKnockout: boolean;
+  onNewChannelName: (value: string) => void;
+  onNewChannelType: (value: string) => void;
+  onNewChannelUrl: (value: string) => void;
+  onQuestionText: (value: string) => void;
+  onQuestionHelpText: (value: string) => void;
+  onQuestionType: (value: string) => void;
+  onQuestionRequired: (value: boolean) => void;
+  onQuestionKnockout: (value: boolean) => void;
+  onPublish: () => void;
+  onUnpublish: () => void;
+  onAddChannel: () => void;
+  onChannelStatus: (channel: PublicationChannel, status: string) => void;
+  onAddQuestion: () => void;
+  onQuestionUpdate: (question: VacancyQuestion, updates: Partial<VacancyQuestion>) => void;
+  onQuestionDelete: (question: VacancyQuestion) => void;
+  onSettings: (updates: Record<string, unknown>, message: string) => void;
+}) {
+  const metadata = vacancy.metadata ?? {};
+  const published = vacancy.status === "open" && Boolean(vacancy.published_at);
+  const liveChannels = channels.filter((channel) => channel.status === "published").length;
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+    } catch {
+      window.prompt("Copy this public vacancy link:", publicUrl);
+    }
+  };
+
+  return (
+    <div style={styles.settingsGrid}>
+      <section style={styles.publicationHero}>
+        <div>
+          <p style={styles.eyebrow}>VACANCY PUBLICATION</p>
+          <h2 style={styles.publicationTitle}>
+            {published ? "This vacancy is live" : "Prepare and publish this vacancy"}
+          </h2>
+          <p style={styles.publicationDescription}>
+            Control the public advert, application experience and every channel used to promote this role.
+          </p>
+        </div>
+        <div style={styles.publicationHeroActions}>
+          <span style={published ? styles.livePill : styles.draftPill}>
+            {published ? `Live on ${liveChannels || 1} channel${liveChannels === 1 ? "" : "s"}` : humanise(vacancy.status)}
+          </span>
+          {canManage ? (
+            published ? (
+              <button type="button" style={styles.secondaryButton} onClick={onUnpublish} disabled={workingAction !== null}>
+                {workingAction === "unpublish-vacancy" ? "Unpublishing…" : "Unpublish vacancy"}
+              </button>
+            ) : (
+              <button type="button" style={styles.primaryButton} onClick={onPublish} disabled={workingAction !== null}>
+                {workingAction === "publish-vacancy" ? "Publishing…" : "Publish vacancy"}
+              </button>
+            )
+          ) : null}
+        </div>
+      </section>
+
+      <div style={styles.contentGrid}>
+        <section style={styles.panel}>
+          <SectionHeading title="Public Vacancy" description="The candidate-facing link and core advert readiness." />
+          <div style={styles.readinessGrid}>
+            <ReadinessItem label="Vacancy title" ready={Boolean(vacancy.title.trim())} />
+            <ReadinessItem label="Advert text" ready={Boolean(vacancy.advert_text?.trim())} />
+            <ReadinessItem label="Closing date" ready={Boolean(vacancy.closing_date)} />
+            <ReadinessItem label="Application questions" ready={questions.length > 0} optional />
+          </div>
+          <div style={styles.publicLinkBox}>
+            <div style={{ minWidth: 0 }}>
+              <span style={styles.detailLabel}>Public URL</span>
+              <div style={styles.publicLinkText}>{publicUrl}</div>
+            </div>
+            <div style={styles.buttonRow}>
+              <button type="button" style={styles.secondaryButton} onClick={() => void copyLink()}>Copy link</button>
+              <button type="button" style={styles.secondaryButton} onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}>Preview</button>
+            </div>
+          </div>
+          <div style={styles.detailGrid}>
+            <Detail label="Published" value={formatDate(vacancy.published_at, true)} />
+            <Detail label="Applications open" value={formatDate(vacancy.opening_date)} />
+            <Detail label="Closing date" value={formatDate(vacancy.closing_date)} />
+            <Detail label="Visibility" value={vacancy.is_internal_only ? "Internal only" : "Public"} />
+          </div>
+        </section>
+
+        <aside style={styles.sideColumn}>
+          <section style={styles.panel}>
+            <SectionHeading title="Candidate Experience" description="Set what applicants must provide." />
+            <ToggleSetting
+              label="Accept online applications"
+              description="Allow candidates to apply through the public vacancy page."
+              checked={metadata.accept_online_applications !== false}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ accept_online_applications: checked }, "Online application setting updated.")}
+            />
+            <ToggleSetting
+              label="Require CV"
+              description="Candidates must upload a current CV before submission."
+              checked={metadata.require_cv === true}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ require_cv: checked }, "CV requirement updated.")}
+            />
+            <ToggleSetting
+              label="Require cover letter"
+              description="Candidates must provide a supporting statement or cover letter."
+              checked={metadata.require_cover_letter === true}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ require_cover_letter: checked }, "Cover letter requirement updated.")}
+            />
+            <ToggleSetting
+              label="Automatic acknowledgement"
+              description="Prepare an acknowledgement when an application is submitted."
+              checked={metadata.automatic_acknowledgement !== false}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ automatic_acknowledgement: checked }, "Acknowledgement setting updated.")}
+            />
+          </section>
+        </aside>
+      </div>
+
+      <section style={styles.panel}>
+        <SectionHeading title="Publication Channels" description="Track every place where this vacancy is planned, published, paused or closed." />
+        {!channelsAvailable ? (
+          <UnavailableState table="leo_talent_vacancy_publication_channels" />
+        ) : (
+          <>
+            {channels.length === 0 ? (
+              <EmptyState title="No publication channels" description="Publish to LEO Careers or add an external channel below." />
+            ) : (
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead><tr><th style={styles.th}>Channel</th><th style={styles.th}>Type</th><th style={styles.th}>Status</th><th style={styles.th}>Published</th><th style={styles.th}>Link</th><th style={styles.th}>Action</th></tr></thead>
+                  <tbody>
+                    {channels.map((channel) => (
+                      <tr key={channel.id}>
+                        <td style={styles.td}><strong>{channel.channel_name}</strong></td>
+                        <td style={styles.td}>{humanise(channel.channel_type)}</td>
+                        <td style={styles.td}><span style={styles.inlinePill}>{humanise(channel.status)}</span></td>
+                        <td style={styles.td}>{formatDate(channel.published_at, true)}</td>
+                        <td style={styles.td}>{channel.published_url ? <button type="button" style={styles.linkButton} onClick={() => window.open(channel.published_url || "", "_blank", "noopener,noreferrer")}>Open link</button> : "Not recorded"}</td>
+                        <td style={styles.td}>
+                          {canManage ? (
+                            <select value={channel.status} onChange={(event) => onChannelStatus(channel, event.target.value)} style={styles.compactSelect} disabled={workingAction !== null}>
+                              <option value="planned">Planned</option><option value="published">Published</option><option value="paused">Paused</option><option value="closed">Closed</option>
+                            </select>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {canManage ? (
+              <div style={styles.inlineFormGrid}>
+                <FieldLabel label="Channel name"><input value={newChannelName} onChange={(event) => onNewChannelName(event.target.value)} style={styles.input} placeholder="e.g. LinkedIn" /></FieldLabel>
+                <FieldLabel label="Channel type"><select value={newChannelType} onChange={(event) => onNewChannelType(event.target.value)} style={styles.input}><option value="manual">Manual</option><option value="job_board">Job board</option><option value="company_website">Company website</option><option value="social">Social media</option><option value="connection">Connection</option></select></FieldLabel>
+                <FieldLabel label="Published URL"><input value={newChannelUrl} onChange={(event) => onNewChannelUrl(event.target.value)} style={styles.input} placeholder="Optional" /></FieldLabel>
+                <button type="button" style={styles.primaryButton} onClick={onAddChannel} disabled={workingAction !== null}>{workingAction === "add-publication-channel" ? "Adding…" : "Add channel"}</button>
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section style={styles.panel}>
+        <SectionHeading title="Application Questions" description="Build the vacancy-specific questions candidates complete when they apply." />
+        {!questionsAvailable ? (
+          <UnavailableState table="leo_talent_vacancy_questions" />
+        ) : (
+          <div style={styles.questionLayout}>
+            <div>
+              {questions.length === 0 ? <EmptyState title="No custom questions" description="Candidates will complete only the standard application fields until questions are added." /> : (
+                <div style={styles.cardList}>
+                  {questions.map((question, index) => (
+                    <article key={question.id} style={styles.questionCard}>
+                      <div style={styles.questionNumber}>{index + 1}</div>
+                      <div style={{ flex: "1 1 360px" }}>
+                        <h3 style={styles.listCardTitle}>{question.question_text}</h3>
+                        <p style={styles.listCardText}>{humanise(question.question_type)}{question.help_text ? ` · ${question.help_text}` : ""}</p>
+                        <div style={styles.questionFlags}>
+                          {question.is_required ? <span style={styles.inlinePill}>Required</span> : null}
+                          {question.is_knockout ? <span style={styles.warningPill}>Knockout</span> : null}
+                          {!question.is_active ? <span style={styles.disabledPill}>Inactive</span> : null}
+                        </div>
+                      </div>
+                      {canManage ? (
+                        <div style={styles.listCardActions}>
+                          <button type="button" style={styles.linkButton} onClick={() => onQuestionUpdate(question, { is_active: !question.is_active })} disabled={workingAction !== null}>{question.is_active ? "Deactivate" : "Activate"}</button>
+                          <button type="button" style={styles.deleteLinkButton} onClick={() => onQuestionDelete(question)} disabled={workingAction !== null}>Delete</button>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+            {canManage ? (
+              <aside style={styles.questionBuilder}>
+                <h3 style={styles.listCardTitle}>Add a question</h3>
+                <div style={styles.formStack}>
+                  <FieldLabel label="Question"><textarea value={questionText} onChange={(event) => onQuestionText(event.target.value)} style={styles.textarea} rows={3} /></FieldLabel>
+                  <FieldLabel label="Help text"><input value={questionHelpText} onChange={(event) => onQuestionHelpText(event.target.value)} style={styles.input} placeholder="Optional guidance" /></FieldLabel>
+                  <FieldLabel label="Answer type"><select value={questionType} onChange={(event) => onQuestionType(event.target.value)} style={styles.input}><option value="long_text">Long text</option><option value="short_text">Short text</option><option value="yes_no">Yes / No</option><option value="number">Number</option><option value="date">Date</option><option value="file">File upload</option></select></FieldLabel>
+                  <label style={styles.checkboxLine}><input type="checkbox" checked={questionRequired} onChange={(event) => onQuestionRequired(event.target.checked)} /> Required question</label>
+                  <label style={styles.checkboxLine}><input type="checkbox" checked={questionKnockout} onChange={(event) => onQuestionKnockout(event.target.checked)} /> Knockout question</label>
+                  <button type="button" style={styles.primaryButton} onClick={onAddQuestion} disabled={workingAction !== null}>{workingAction === "add-vacancy-question" ? "Adding…" : "Add question"}</button>
+                </div>
+              </aside>
+            ) : null}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ReadinessItem({ label, ready, optional = false }: { label: string; ready: boolean; optional?: boolean }) {
+  return <div style={styles.readinessItem}><span style={ready ? styles.readinessReady : styles.readinessMissing}>{ready ? "✓" : "!"}</span><span>{label}{optional ? " (optional)" : ""}</span></div>;
+}
+
+function ToggleSetting({ label, description, checked, disabled, onChange }: { label: string; description: string; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) {
+  return <label style={styles.toggleSetting}><div><div style={styles.toggleLabel}>{label}</div><div style={styles.toggleDescription}>{description}</div></div><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /></label>;
 }
 
 function ApplicationsTab({
@@ -2724,4 +3458,39 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "14px",
     lineHeight: 1.6,
   },
+  publicationHero: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "20px",
+    flexWrap: "wrap",
+    padding: "24px",
+    background: "linear-gradient(135deg, #F7F1FC 0%, #F5FFF9 100%)",
+    border: "1px solid #DED0E8",
+    borderRadius: "16px",
+  },
+  publicationTitle: { margin: 0, color: "#1F2937", fontSize: "24px" },
+  publicationDescription: { margin: "7px 0 0", maxWidth: "720px", color: "#5F6670", fontSize: "13px", lineHeight: 1.6 },
+  publicationHeroActions: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" },
+  livePill: { display: "inline-flex", padding: "7px 11px", borderRadius: "999px", background: "#EAF8F0", color: "#2F6847", fontSize: "12px", fontWeight: 800 },
+  draftPill: { display: "inline-flex", padding: "7px 11px", borderRadius: "999px", background: "#FFFFFF", color: "#6E5084", border: "1px solid #CDB2E2", fontSize: "12px", fontWeight: 800 },
+  readinessGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px", marginBottom: "16px" },
+  readinessItem: { display: "flex", alignItems: "center", gap: "8px", padding: "11px", background: "#FAFAFB", border: "1px solid #ECEEF1", borderRadius: "10px", color: "#374151", fontSize: "12px", fontWeight: 700 },
+  readinessReady: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "21px", height: "21px", borderRadius: "50%", background: "#EAF8F0", color: "#2F6847", fontWeight: 900 },
+  readinessMissing: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "21px", height: "21px", borderRadius: "50%", background: "#FFF4E8", color: "#9A5B1D", fontWeight: 900 },
+  publicLinkBox: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "14px", flexWrap: "wrap", padding: "14px", marginBottom: "14px", background: "#F7F1FC", border: "1px solid #DED0E8", borderRadius: "12px" },
+  publicLinkText: { marginTop: "5px", color: "#4B3B58", fontSize: "13px", overflowWrap: "anywhere" },
+  toggleSetting: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "14px", padding: "12px 0", borderBottom: "1px solid #EEF0F2", cursor: "pointer" },
+  toggleLabel: { color: "#374151", fontSize: "13px", fontWeight: 750 },
+  toggleDescription: { marginTop: "4px", color: "#6B7280", fontSize: "11px", lineHeight: 1.45 },
+  compactSelect: { minHeight: "34px", padding: "6px 8px", background: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: "8px", color: "#374151", fontSize: "12px" },
+  inlineFormGrid: { display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(150px, .7fr) minmax(220px, 1.2fr) auto", gap: "12px", alignItems: "end", marginTop: "18px", paddingTop: "18px", borderTop: "1px solid #EEF0F2" },
+  questionLayout: { display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)", gap: "16px", alignItems: "start" },
+  questionCard: { display: "flex", alignItems: "flex-start", gap: "13px", flexWrap: "wrap", padding: "15px", background: "#FAFAFB", border: "1px solid #ECEEF1", borderRadius: "12px" },
+  questionNumber: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", flex: "0 0 28px", borderRadius: "9px", background: "#F1EAF6", color: "#6E5084", fontSize: "12px", fontWeight: 900 },
+  questionFlags: { display: "flex", gap: "7px", flexWrap: "wrap", marginTop: "8px" },
+  warningPill: { display: "inline-flex", padding: "5px 8px", background: "#FFF4E8", borderRadius: "999px", color: "#8A551E", fontSize: "11px", fontWeight: 750 },
+  questionBuilder: { padding: "16px", background: "#FAFAFB", border: "1px solid #ECEEF1", borderRadius: "12px" },
+  checkboxLine: { display: "flex", alignItems: "center", gap: "8px", color: "#374151", fontSize: "12px", fontWeight: 650 },
+  deleteLinkButton: { border: 0, background: "transparent", color: "#9F4058", padding: 0, fontSize: "13px", fontWeight: 750, cursor: "pointer" },
 };

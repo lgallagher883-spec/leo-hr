@@ -31,6 +31,7 @@ type PlatformRole =
 type VacancyForm = {
   vacancyReference: string;
   title: string;
+  advertText: string;
   businessArea: string;
   department: string;
   locationName: string;
@@ -73,6 +74,7 @@ type UserContext = {
 const initialForm: VacancyForm = {
   vacancyReference: "",
   title: "",
+  advertText: "",
   businessArea: "",
   department: "",
   locationName: "",
@@ -256,42 +258,65 @@ export default function CreateVacancyPage() {
         setUserContext({
           userId: null,
           organisationId: null,
-          role: "Owner",
+          role: "Employee",
         });
+        setPageError(
+          "You must be signed in to create a vacancy.",
+        );
         return;
       }
 
-      const possibleColumns = [
-        "user_id",
-        "auth_user_id",
-        "id",
-      ];
+      const { data: memberships, error: membershipError } =
+        await supabase
+          .from("organisation_memberships")
+          .select(
+            "organisation_id, role, membership_status, is_default_organisation, access_starts_at, access_ends_at, created_at",
+          )
+          .eq("user_id", user.id)
+          .eq("membership_status", "active")
+          .order("is_default_organisation", {
+            ascending: false,
+          })
+          .order("created_at", { ascending: true });
 
-      let profile: Record<string, unknown> | null = null;
+      if (membershipError) {
+        throw membershipError;
+      }
 
-      for (const column of possibleColumns) {
-        const result = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq(column, user.id)
-          .limit(1);
+      const now = Date.now();
 
-        if (!result.error && result.data?.length) {
-          profile = result.data[0] as Record<string, unknown>;
-          break;
-        }
+      const membership = (memberships ?? []).find(
+        (item) => {
+          const startsAt = item.access_starts_at
+            ? new Date(item.access_starts_at).getTime()
+            : null;
+          const endsAt = item.access_ends_at
+            ? new Date(item.access_ends_at).getTime()
+            : null;
+
+          return (
+            (startsAt === null || startsAt <= now) &&
+            (endsAt === null || endsAt > now)
+          );
+        },
+      );
+
+      if (!membership?.organisation_id) {
+        setUserContext({
+          userId: user.id,
+          organisationId: null,
+          role: "Employee",
+        });
+        setPageError(
+          "Leo could not find an active organisation membership for your account.",
+        );
+        return;
       }
 
       setUserContext({
         userId: user.id,
-        organisationId:
-          (profile?.organisation_id as string | number | null) ??
-          null,
-        role: normaliseRole(
-          profile?.platform_role ??
-            profile?.role ??
-            profile?.access_level,
-        ),
+        organisationId: membership.organisation_id,
+        role: normaliseRole(membership.role),
       });
     } catch (error) {
       console.warn(
@@ -302,8 +327,11 @@ export default function CreateVacancyPage() {
       setUserContext({
         userId: null,
         organisationId: null,
-        role: "Owner",
+        role: "Employee",
       });
+      setPageError(
+        "Leo could not load your organisation access.",
+      );
     } finally {
       setLoadingContext(false);
     }
@@ -438,6 +466,11 @@ export default function CreateVacancyPage() {
     }
 
     if (intendedStatus === "open") {
+      if (!form.advertText.trim()) {
+        nextErrors.advertText =
+          "Enter the vacancy advert before opening the vacancy.";
+      }
+
       if (!form.department.trim()) {
         nextErrors.department =
           "Enter a department before opening the vacancy.";
@@ -501,6 +534,20 @@ export default function CreateVacancyPage() {
     setPageError("");
     setPageMessage("");
 
+    if (!userContext.userId) {
+      setPageError(
+        "You must be signed in to create a vacancy.",
+      );
+      return;
+    }
+
+    if (!userContext.organisationId) {
+      setPageError(
+        "Leo could not find an active organisation for your account.",
+      );
+      return;
+    }
+
     if (!canCreate) {
       setPageError(
         "You do not have access to create vacancies.",
@@ -542,6 +589,7 @@ export default function CreateVacancyPage() {
       vacancy_reference:
         form.vacancyReference.trim(),
       title: form.title.trim(),
+      advert_text: optionalText(form.advertText),
       business_area: optionalText(form.businessArea),
       department: optionalText(form.department),
       location_name: optionalText(
@@ -595,6 +643,10 @@ export default function CreateVacancyPage() {
         form.requiredReferenceCount,
       ),
       archived_at: null,
+      published_at:
+        vacancyStatus === "open" ? now : null,
+      created_by: userContext.userId,
+      updated_by: userContext.userId,
       created_at: now,
       updated_at: now,
     };
@@ -654,6 +706,7 @@ export default function CreateVacancyPage() {
   function handleCancel() {
     const hasEnteredInformation =
       form.title.trim() ||
+      form.advertText.trim() ||
       form.businessArea.trim() ||
       form.department.trim() ||
       form.locationName.trim() ||
@@ -841,6 +894,31 @@ export default function CreateVacancyPage() {
                 disabled={savingMode !== null}
               />
             </Field>
+
+            <div style={styles.fullWidthField}>
+              <Field
+                label="Vacancy advert"
+                error={errors.advertText}
+                hint="This is the candidate-facing vacancy description shown on LEO Careers."
+              >
+                <textarea
+                  value={form.advertText}
+                  onChange={(event) =>
+                    updateField(
+                      "advertText",
+                      event.target.value,
+                    )
+                  }
+                  style={{
+                    ...inputStyle(Boolean(errors.advertText)),
+                    minHeight: "180px",
+                    resize: "vertical",
+                  }}
+                  placeholder="Describe the role, responsibilities, requirements and what the organisation offers."
+                  disabled={savingMode !== null}
+                />
+              </Field>
+            </div>
 
             <Field label="Business area">
               <input
@@ -1600,7 +1678,7 @@ function inputStyle(hasError: boolean): CSSProperties {
   return hasError
     ? {
         ...styles.input,
-        borderColor: "#C96B82",
+        border: "1px solid #C96B82",
         background: "#FFF9FA",
       }
     : styles.input;
@@ -1708,6 +1786,9 @@ const styles: Record<string, CSSProperties> = {
     gridTemplateColumns:
       "repeat(auto-fit, minmax(240px, 1fr))",
     gap: "16px",
+  },
+  fullWidthField: {
+    gridColumn: "1 / -1",
   },
   field: {
     display: "flex",

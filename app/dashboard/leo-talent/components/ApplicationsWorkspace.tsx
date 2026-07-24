@@ -56,6 +56,7 @@ type CandidateSummary = {
 
 type VacancySummary = {
   id: string;
+  organisation_id: string | null;
   vacancy_reference: string;
   title: string;
   department: string | null;
@@ -65,6 +66,10 @@ type VacancySummary = {
   blind_review_enabled: boolean;
   ai_screening_enabled: boolean;
   safer_recruitment_required: boolean;
+  requires_dbs: boolean;
+  dbs_level: string | null;
+  required_reference_count: number;
+  overseas_check_required_if_applicable: boolean;
 };
 
 type TalentApplication = {
@@ -120,6 +125,47 @@ type EditingApplication = {
   status: ApplicationStatus;
 };
 
+
+
+type VacancyOption = VacancySummary;
+
+type UploadDocument = {
+  type: "cv" | "cover_letter" | "application_form" | "portfolio";
+  file: File | null;
+};
+
+type UploadForm = {
+  vacancyId: string;
+  source: string;
+  sourceDetail: string;
+  firstName: string;
+  middleNames: string;
+  lastName: string;
+  preferredName: string;
+  email: string;
+  phone: string;
+  isInternalCandidate: boolean;
+};
+
+type IndeedRow = {
+  rowNumber: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  appliedAt: string;
+  raw: Record<string, string>;
+  selected: boolean;
+  issue: string | null;
+};
+
+type ImportProvider = {
+  key: string;
+  name: string;
+  description: string;
+  available: boolean;
+};
+
 type SupabaseApplicationRow = Omit<
   TalentApplication,
   "candidate" | "vacancy"
@@ -132,6 +178,33 @@ type SupabaseApplicationRow = Omit<
     | VacancySummary
     | VacancySummary[]
     | null;
+};
+
+
+
+const importProviders: ImportProvider[] = [
+  { key: "indeed", name: "Indeed", description: "Import candidates from an Indeed CSV export.", available: true },
+  { key: "linkedin", name: "LinkedIn", description: "Direct LinkedIn application import.", available: false },
+  { key: "reed", name: "Reed", description: "Import applications received through Reed.", available: false },
+  { key: "totaljobs", name: "Totaljobs", description: "Import applications received through Totaljobs.", available: false },
+  { key: "website", name: "Employer website", description: "Connect an employer-hosted application form.", available: false },
+  { key: "email", name: "Email inbox", description: "Import applications from a recruitment mailbox.", available: false },
+  { key: "agency", name: "Recruitment agency", description: "Receive structured agency submissions.", available: false },
+  { key: "spreadsheet", name: "CSV / Excel", description: "Import a general application spreadsheet.", available: false },
+  { key: "other", name: "Other source", description: "Configure another application source.", available: false },
+];
+
+const emptyUploadForm: UploadForm = {
+  vacancyId: "",
+  source: "email",
+  sourceDetail: "",
+  firstName: "",
+  middleNames: "",
+  lastName: "",
+  preferredName: "",
+  email: "",
+  phone: "",
+  isInternalCandidate: false,
 };
 
 const filterOptions: Array<{
@@ -587,6 +660,27 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "13px",
     lineHeight: 1.6,
   },
+  modalBackdrop: { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(40, 31, 45, 0.46)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" },
+  modal: { width: "min(760px, 100%)", maxHeight: "92vh", overflowY: "auto", border: "1px solid #E7DDED", borderRadius: "20px", background: "#FFFFFF", boxShadow: "0 24px 70px rgba(48, 37, 54, 0.24)" },
+  modalWide: { width: "min(1040px, 100%)" },
+  modalHeader: { display: "flex", justifyContent: "space-between", gap: "16px", padding: "20px", borderBottom: "1px solid #EEE6F2" },
+  modalBody: { display: "flex", flexDirection: "column", gap: "18px", padding: "20px" },
+  modalFooter: { display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", padding: "18px 20px", borderTop: "1px solid #EEE6F2" },
+  formGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" },
+  field: { display: "flex", flexDirection: "column", gap: "7px" },
+  label: { color: "#5F5265", fontSize: "12px", fontWeight: 750 },
+  input: { width: "100%", boxSizing: "border-box", border: "1px solid #DCCFE5", borderRadius: "11px", background: "#FFFFFF", color: "#302536", padding: "10px 12px", fontSize: "13px", outline: "none" },
+  helpText: { margin: 0, color: "#867A8B", fontSize: "11px", lineHeight: 1.45 },
+  providerGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" },
+  providerCard: { textAlign: "left", border: "1px solid #E5DAEB", borderRadius: "14px", background: "#FFFFFF", padding: "15px", cursor: "pointer" },
+  providerDisabled: { opacity: 0.62, cursor: "not-allowed", background: "#FAF8FB" },
+  providerTitle: { margin: 0, color: "#3C3042", fontSize: "14px", fontWeight: 780 },
+  providerText: { margin: "5px 0 0", color: "#7A6F7F", fontSize: "12px", lineHeight: 1.45 },
+  comingSoon: { display: "inline-flex", marginTop: "9px", borderRadius: "999px", background: "#F1EAF6", color: "#6E5084", padding: "4px 7px", fontSize: "10px", fontWeight: 750 },
+  documentRow: { display: "grid", gridTemplateColumns: "150px minmax(220px, 1fr)", gap: "12px", alignItems: "center" },
+  importTable: { width: "100%", minWidth: "760px", borderCollapse: "collapse" },
+  checkboxRow: { display: "flex", alignItems: "center", gap: "8px", color: "#5F5265", fontSize: "13px" },
+  summaryBox: { border: "1px solid #E5DAEB", borderRadius: "14px", background: "#FBF8FD", padding: "14px", color: "#64576A", fontSize: "13px", lineHeight: 1.5 },
 };
 
 function firstRelatedRecord<T>(
@@ -704,6 +798,72 @@ function isClosed(
   );
 }
 
+
+
+function cleanFileName(fileName: string): string {
+  return fileName.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
+}
+
+function normaliseEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function splitCandidateName(value: string): { firstName: string; lastName: string } {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "Not recorded" };
+  return { firstName: parts.slice(0, -1).join(" "), lastName: parts.at(-1) ?? "Not recorded" };
+}
+
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    const next = line[index + 1];
+    if (character === '"' && quoted && next === '"') { current += '"'; index += 1; continue; }
+    if (character === '"') { quoted = !quoted; continue; }
+    if (character === "," && !quoted) { values.push(current.trim()); current = ""; continue; }
+    current += character;
+  }
+  values.push(current.trim());
+  return values;
+}
+
+function parseIndeedCsv(text: string): IndeedRow[] {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (lines.length < 2) return [];
+  const headers = parseCsvLine(lines[0]).map((header) => header.trim().toLowerCase());
+  const findValue = (record: Record<string, string>, candidates: string[]) => {
+    for (const candidate of candidates) {
+      const key = Object.keys(record).find((header) => header === candidate || header.includes(candidate));
+      if (key && record[key]) return record[key];
+    }
+    return "";
+  };
+   return lines.slice(1).map((line, index) => {
+    const values = parseCsvLine(line);
+    const raw = headers.reduce<Record<string, string>>((record, header, headerIndex) => { record[header || `column_${headerIndex + 1}`] = values[headerIndex] ?? ""; return record; }, {});
+    let firstName = findValue(raw, ["first name", "firstname", "given name"]);
+    let lastName = findValue(raw, ["last name", "lastname", "surname", "family name"]);
+    if (!firstName || !lastName) {
+      const split = splitCandidateName(findValue(raw, ["candidate name", "applicant name", "name"]));
+      firstName ||= split.firstName; lastName ||= split.lastName;
+    }
+    const email = normaliseEmail(findValue(raw, ["email address", "email"]));
+    const phone = findValue(raw, ["phone number", "telephone", "mobile", "phone"]);
+    const appliedAt = findValue(raw, ["application date", "applied date", "date applied", "submitted at", "submitted"]);
+    const issue = !firstName || !lastName ? "Candidate name is missing." : !email ? "Email is missing; a new candidate record will be created without duplicate email matching." : null;
+    return { rowNumber: index + 2, firstName, lastName, email, phone, appliedAt, raw, selected: true, issue };
+  });
+}
+
+function toIsoDateTime(value: string): string {
+  if (!value.trim()) return new Date().toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
 export default function ApplicationsWorkspace() {
   const [applications, setApplications] = useState<
     TalentApplication[]
@@ -731,6 +891,25 @@ export default function ApplicationsWorkspace() {
   const [actionApplicationId, setActionApplicationId] =
     useState<string | null>(null);
 
+  const [vacancies, setVacancies] = useState<VacancyOption[]>([]);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [selectedImportProvider, setSelectedImportProvider] = useState<string | null>(null);
+  const [uploadForm, setUploadForm] = useState<UploadForm>(emptyUploadForm);
+  const [uploadDocuments, setUploadDocuments] = useState<UploadDocument[]>([
+    { type: "cv", file: null },
+    { type: "cover_letter", file: null },
+    { type: "application_form", file: null },
+    { type: "portfolio", file: null },
+  ]);
+  const [savingIntake, setSavingIntake] = useState(false);
+  const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [indeedVacancyId, setIndeedVacancyId] = useState("");
+  const [indeedFileName, setIndeedFileName] = useState("");
+  const [indeedRows, setIndeedRows] = useState<IndeedRow[]>([]);
+  const [indeedImportResult, setIndeedImportResult] = useState<string | null>(null);
+
+
   const loadApplications = useCallback(
     async (refresh = false) => {
       if (refresh) {
@@ -742,7 +921,7 @@ export default function ApplicationsWorkspace() {
       setError(null);
       setActionMessage(null);
 
-      const [applicationsResult, stagesResult] =
+      const [applicationsResult, stagesResult, vacanciesResult] =
         await Promise.all([
           supabase
             .from("leo_talent_applications")
@@ -790,6 +969,7 @@ export default function ApplicationsWorkspace() {
                 ),
                 vacancy:leo_talent_vacancies (
                   id,
+                  organisation_id,
                   vacancy_reference,
                   title,
                   department,
@@ -798,7 +978,11 @@ export default function ApplicationsWorkspace() {
                   closing_date,
                   blind_review_enabled,
                   ai_screening_enabled,
-                  safer_recruitment_required
+                  safer_recruitment_required,
+                  requires_dbs,
+                  dbs_level,
+                  required_reference_count,
+                  overseas_check_required_if_applicable
                 )
               `,
             )
@@ -823,6 +1007,12 @@ export default function ApplicationsWorkspace() {
             .order("display_order", {
               ascending: true,
             }),
+
+          supabase
+            .from("leo_talent_vacancies")
+            .select("id, organisation_id, vacancy_reference, title, department, location_name, status, closing_date, blind_review_enabled, ai_screening_enabled, safer_recruitment_required, requires_dbs, dbs_level, required_reference_count, overseas_check_required_if_applicable")
+            .is("archived_at", null)
+            .order("created_at", { ascending: false }),
         ]);
 
       if (applicationsResult.error) {
@@ -853,6 +1043,13 @@ export default function ApplicationsWorkspace() {
         );
       } else {
         setPipelineStages(fallbackStages);
+      }
+
+      if (!vacanciesResult.error) {
+        setVacancies((vacanciesResult.data ?? []) as VacancyOption[]);
+      } else {
+        console.error("Unable to load vacancies for application intake:", vacanciesResult.error);
+        setVacancies([]);
       }
 
       setLoading(false);
@@ -1035,7 +1232,222 @@ export default function ApplicationsWorkspace() {
   function cancelEditing() {
     setEditingApplication(null);
   }
-    async function saveApplicationChanges(
+
+  async function ensureDueDiligenceProfile(
+    application: TalentApplication,
+  ): Promise<"created" | "existing"> {
+    const organisationId =
+      application.organisation_id ??
+      application.vacancy?.organisation_id ??
+      null;
+
+    if (!organisationId) {
+      throw new Error(
+        "This application is not linked to an organisation, so its due diligence profile could not be created.",
+      );
+    }
+
+    if (!application.vacancy_id || !application.candidate_id) {
+      throw new Error(
+        "This application is missing its vacancy or candidate link, so its due diligence profile could not be created.",
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    const { data: existingProfile, error: existingProfileError } =
+      await supabase
+        .from("leo_talent_safer_recruitment_profiles")
+        .select("id")
+        .eq("application_id", application.id)
+        .maybeSingle();
+
+    if (existingProfileError) {
+      throw existingProfileError;
+    }
+
+    let profileId = existingProfile?.id ?? null;
+    let result: "created" | "existing" = "existing";
+
+    if (!profileId) {
+      const { data: createdProfile, error: profileInsertError } =
+        await supabase
+          .from("leo_talent_safer_recruitment_profiles")
+          .insert({
+            organisation_id: organisationId,
+            application_id: application.id,
+            vacancy_id: application.vacancy_id,
+            candidate_id: application.candidate_id,
+            status: "in_progress",
+            overall_risk_level: "not_assessed",
+            review_required:
+              application.vacancy?.safer_recruitment_required ?? false,
+            updated_at: now,
+          } as any)
+          .select("id")
+          .single();
+
+      if (profileInsertError) {
+        const duplicateProfile =
+          profileInsertError.code === "23505" ||
+          profileInsertError.message.toLowerCase().includes("duplicate") ||
+          profileInsertError.message.toLowerCase().includes("unique");
+
+        if (!duplicateProfile) {
+          throw profileInsertError;
+        }
+
+        const { data: recoveredProfile, error: recoveryError } =
+          await supabase
+            .from("leo_talent_safer_recruitment_profiles")
+            .select("id")
+            .eq("application_id", application.id)
+            .single();
+
+        if (recoveryError || !recoveredProfile?.id) {
+          throw recoveryError ?? profileInsertError;
+        }
+
+        profileId = recoveredProfile.id;
+      } else {
+        profileId = createdProfile?.id ?? null;
+        result = "created";
+      }
+    }
+
+    if (!profileId) {
+      throw new Error(
+        "Leo created the due diligence profile but could not retrieve its identifier.",
+      );
+    }
+
+    async function ensureSingleCheck(
+      tableName:
+        | "leo_talent_identity_checks"
+        | "leo_talent_right_to_work_checks"
+        | "leo_talent_dbs_checks"
+        | "leo_talent_overseas_checks",
+      payload: Record<string, unknown>,
+    ) {
+      const { data: existingCheck, error: checkLookupError } =
+        await (supabase as any)
+          .from(tableName)
+          .select("id")
+          .eq("safer_recruitment_profile_id", profileId)
+          .limit(1)
+          .maybeSingle();
+
+      if (checkLookupError) {
+        throw checkLookupError;
+      }
+
+      if (existingCheck?.id) {
+        return;
+      }
+
+      const { error: checkInsertError } = await (supabase as any)
+        .from(tableName)
+        .insert({
+          organisation_id: organisationId,
+          safer_recruitment_profile_id: profileId,
+          ...payload,
+        });
+
+      if (
+        checkInsertError &&
+        checkInsertError.code !== "23505"
+      ) {
+        throw checkInsertError;
+      }
+    }
+
+    await ensureSingleCheck("leo_talent_identity_checks", {
+      document_type: "Passport",
+      status: "pending",
+    });
+
+    await ensureSingleCheck("leo_talent_right_to_work_checks", {
+      check_type: "manual",
+      right_to_work_status: "pending",
+    });
+
+    const requiredReferenceCount = Math.max(
+      1,
+      Math.min(
+        application.vacancy?.required_reference_count ?? 2,
+        5,
+      ),
+    );
+
+    const { data: existingReferences, error: referencesLookupError } =
+      await supabase
+        .from("leo_talent_references")
+        .select("reference_number")
+        .eq("safer_recruitment_profile_id", profileId);
+
+    if (referencesLookupError) {
+      throw referencesLookupError;
+    }
+
+    const existingReferenceNumbers = new Set(
+      (existingReferences ?? []).map(
+        (reference) => reference.reference_number,
+      ),
+    );
+
+    const missingReferences = Array.from(
+      { length: requiredReferenceCount },
+      (_, index) => index + 1,
+    )
+      .filter(
+        (referenceNumber) =>
+          !existingReferenceNumbers.has(referenceNumber),
+      )
+      .map((referenceNumber) => ({
+        organisation_id: organisationId,
+        safer_recruitment_profile_id: profileId,
+        reference_number: referenceNumber,
+        referee_name: `Referee ${referenceNumber}`,
+        request_status: "not_requested",
+        phone_verification_required: true,
+        phone_verification_status: "not_started",
+        outcome: "pending",
+      }));
+
+    if (missingReferences.length > 0) {
+      const { error: referencesInsertError } = await supabase
+        .from("leo_talent_references")
+        .insert(missingReferences as any);
+
+      if (
+        referencesInsertError &&
+        referencesInsertError.code !== "23505"
+      ) {
+        throw referencesInsertError;
+      }
+    }
+
+    await ensureSingleCheck("leo_talent_dbs_checks", {
+      dbs_level: application.vacancy?.dbs_level || "enhanced",
+      status: application.vacancy?.requires_dbs
+        ? "application_required"
+        : "not_required",
+    });
+
+    if (
+      application.vacancy
+        ?.overseas_check_required_if_applicable
+    ) {
+      await ensureSingleCheck("leo_talent_overseas_checks", {
+        country: "Not recorded",
+        status: "not_started",
+      });
+    }
+
+    return result;
+  }
+
+  async function saveApplicationChanges(
     application: TalentApplication,
   ) {
     if (
@@ -1085,7 +1497,7 @@ export default function ApplicationsWorkspace() {
       )
     ) {
       updatePayload.closed_at =
-        application.closed_at ?? now;
+             application.closed_at ?? now;
     } else if (
       closedStatuses.includes(application.status) &&
       !closedStatuses.includes(
@@ -1115,10 +1527,40 @@ export default function ApplicationsWorkspace() {
       return;
     }
 
+    let dueDiligenceProfileResult:
+      | "created"
+      | "existing"
+      | null = null;
+
+    if (stageChanged && editingApplication.stage === "checks") {
+      try {
+        dueDiligenceProfileResult =
+          await ensureDueDiligenceProfile(application);
+      } catch (profileError) {
+        console.error(
+          "Application updated, but the due diligence profile could not be created:",
+          profileError,
+        );
+
+        setEditingApplication(null);
+        setSavingApplicationId(null);
+        setError(
+          `${application.application_reference} was moved to Pre-emp Checks, but Leo could not create its due diligence profile. The application change was saved. Try saving the stage again or refresh and retry.`,
+        );
+
+        await loadApplications(true);
+        return;
+      }
+    }
+
     setEditingApplication(null);
     setSavingApplicationId(null);
     setActionMessage(
-      `${application.application_reference} was updated successfully.`,
+      dueDiligenceProfileResult === "created"
+        ? `${application.application_reference} was moved to Pre-emp Checks and its due diligence profile was created.`
+        : dueDiligenceProfileResult === "existing"
+          ? `${application.application_reference} was updated and its existing due diligence profile was retained.`
+          : `${application.application_reference} was updated successfully.`,
     );
 
     await loadApplications(true);
@@ -1267,6 +1709,293 @@ export default function ApplicationsWorkspace() {
     setActionApplicationId(null);
   }
 
+
+  function resetUploadForm() {
+    setUploadForm(emptyUploadForm);
+    setUploadDocuments([
+      { type: "cv", file: null },
+      { type: "cover_letter", file: null },
+      { type: "application_form", file: null },
+      { type: "portfolio", file: null },
+    ]);
+    setIntakeError(null);
+  }
+
+  function closeUpload() {
+    if (savingIntake) return;
+    setUploadOpen(false);
+    resetUploadForm();
+  }
+
+  function closeImport() {
+    if (savingIntake) return;
+    setImportOpen(false);
+    setSelectedImportProvider(null);
+    setIndeedVacancyId("");
+    setIndeedFileName("");
+    setIndeedRows([]);
+    setIndeedImportResult(null);
+    setIntakeError(null);
+  }
+
+  async function getActorUserId(): Promise<string | null> {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  }
+
+  async function findOrCreateCandidate(args: {
+    organisationId: string;
+    firstName: string;
+    middleNames?: string;
+    lastName: string;
+    preferredName?: string;
+    email?: string;
+    phone?: string;
+    source: string;
+    sourceDetail?: string;
+    isInternalCandidate?: boolean;
+    actorUserId: string | null;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; created: boolean }> {
+    const email = normaliseEmail(args.email ?? "");
+    if (email) {
+      const { data: existing, error: existingError } = await supabase
+        .from("leo_talent_candidates")
+        .select("id")
+        .eq("organisation_id", args.organisationId)
+        .ilike("email", email)
+        .is("archived_at", null)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existing?.id) return { id: existing.id, created: false };
+    }
+
+    const { data: created, error: createError } = await supabase
+      .from("leo_talent_candidates")
+      .insert({
+        organisation_id: args.organisationId,
+        first_name: args.firstName.trim(),
+        middle_names: args.middleNames?.trim() || null,
+        last_name: args.lastName.trim(),
+        preferred_name: args.preferredName?.trim() || null,
+        email: email || null,
+        phone: args.phone?.trim() || null,
+        is_internal_candidate: Boolean(args.isInternalCandidate),
+        source: args.source,
+        source_detail: args.sourceDetail?.trim() || null,
+        metadata: args.metadata ?? {},
+        created_by: args.actorUserId,
+        updated_by: args.actorUserId,
+      } as any)
+      .select("id")
+      .single();
+    if (createError || !created?.id) throw createError ?? new Error("Candidate record was not returned.");
+    return { id: created.id, created: true };
+  }
+
+  async function createApplication(args: {
+    organisationId: string;
+    vacancy: VacancyOption;
+    candidateId: string;
+    source: string;
+    submittedAt: string;
+    actorUserId: string | null;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ id: string; reference: string }> {
+    const { data: duplicate, error: duplicateError } = await supabase
+      .from("leo_talent_applications")
+      .select("id, application_reference")
+      .eq("vacancy_id", args.vacancy.id)
+      .eq("candidate_id", args.candidateId)
+      .maybeSingle();
+    if (duplicateError) throw duplicateError;
+    if (duplicate?.id) throw new Error(`This candidate already has application ${duplicate.application_reference} for the selected vacancy.`);
+
+    const { data: created, error: createError } = await supabase
+      .from("leo_talent_applications")
+      .insert({
+        organisation_id: args.organisationId,
+        vacancy_id: args.vacancy.id,
+        candidate_id: args.candidateId,
+        current_stage_key: "new",
+        status: "active",
+        source: args.source,
+        submitted_at: args.submittedAt,
+        blind_review_enabled: args.vacancy.blind_review_enabled,
+        ai_screening_enabled: args.vacancy.ai_screening_enabled,
+        metadata: args.metadata ?? {},
+        created_by: args.actorUserId,
+        updated_by: args.actorUserId,
+      } as any)
+      .select("id, application_reference")
+      .single();
+    if (createError || !created?.id) throw createError ?? new Error("Application record was not returned.");
+    return { id: created.id, reference: created.application_reference };
+  }
+
+  async function uploadCandidateDocument(args: {
+    file: File;
+    type: UploadDocument["type"];
+    organisationId: string;
+    candidateId: string;
+    vacancyId: string;
+    applicationId: string;
+    actorUserId: string | null;
+  }) {
+    const filePath = `${args.organisationId}/${args.candidateId}/${args.applicationId}/${crypto.randomUUID()}-${cleanFileName(args.file.name)}`;
+    const { error: storageError } = await supabase.storage
+      .from("leo-talent-candidate-documents")
+      .upload(filePath, args.file, { cacheControl: "3600", upsert: false, contentType: args.file.type || undefined });
+    if (storageError) throw storageError;
+
+    const { error: documentError } = await supabase
+      .from("leo_talent_candidate_documents")
+      .insert({
+        organisation_id: args.organisationId,
+        candidate_id: args.candidateId,
+        vacancy_id: args.vacancyId,
+        application_id: args.applicationId,
+        document_type: args.type,
+        title: args.type === "cv" ? "Curriculum vitae" : formatValue(args.type),
+        file_name: args.file.name,
+        file_path: filePath,
+        mime_type: args.file.type || null,
+        file_size_bytes: args.file.size,
+        is_sensitive: false,
+        visible_to_candidate: false,
+        metadata: { intake_route: "applications_workspace" },
+        uploaded_by: args.actorUserId,
+      } as any);
+    if (documentError) {
+      await supabase.storage.from("leo-talent-candidate-documents").remove([filePath]);
+      throw documentError;
+    }
+  }
+
+  async function submitUploadApplication() {
+    setIntakeError(null);
+    setActionMessage(null);
+    const vacancy = vacancies.find((item) => item.id === uploadForm.vacancyId);
+    const cv = uploadDocuments.find((document) => document.type === "cv")?.file;
+    if (!vacancy) { setIntakeError("Select the vacancy this application relates to."); return; }
+    if (!uploadForm.firstName.trim() || !uploadForm.lastName.trim()) { setIntakeError("Enter the candidate's first and last name."); return; }
+    if (!cv) { setIntakeError("Upload the candidate's CV before saving the application."); return; }
+    if (cv.size > 15 * 1024 * 1024) { setIntakeError("The CV must be 15 MB or smaller."); return; }
+
+    setSavingIntake(true);
+    try {
+      const actorUserId = await getActorUserId();
+      if (!vacancy.organisation_id) throw new Error("The selected vacancy is not linked to an organisation.");
+      const candidate = await findOrCreateCandidate({
+        organisationId: vacancy.organisation_id,
+        firstName: uploadForm.firstName,
+        middleNames: uploadForm.middleNames,
+        lastName: uploadForm.lastName,
+        preferredName: uploadForm.preferredName,
+        email: uploadForm.email,
+        phone: uploadForm.phone,
+        source: uploadForm.source,
+        sourceDetail: uploadForm.sourceDetail,
+        isInternalCandidate: uploadForm.isInternalCandidate,
+        actorUserId,
+        metadata: { intake_route: "cv_upload" },
+      });
+      const application = await createApplication({
+        organisationId: vacancy.organisation_id,
+        vacancy,
+        candidateId: candidate.id,
+        source: uploadForm.source,
+        submittedAt: new Date().toISOString(),
+        actorUserId,
+        metadata: { intake_route: "cv_upload", source_detail: uploadForm.sourceDetail || null },
+      });
+      for (const document of uploadDocuments) {
+        if (!document.file) continue;
+        if (document.file.size > 15 * 1024 * 1024) throw new Error(`${document.file.name} is larger than the 15 MB upload limit.`);
+        await uploadCandidateDocument({ file: document.file, type: document.type, organisationId: vacancy.organisation_id, candidateId: candidate.id, vacancyId: vacancy.id, applicationId: application.id, actorUserId });
+      }
+      setUploadOpen(false);
+      resetUploadForm();
+      setActionMessage(`${application.reference} was created and the CV was uploaded successfully.`);
+      await loadApplications(true);
+    } catch (uploadError) {
+      console.error("Unable to create uploaded application:", uploadError);
+      setIntakeError(uploadError instanceof Error ? uploadError.message : "Leo could not create this application. No further applications were imported.");
+    } finally {
+      setSavingIntake(false);
+    }
+  }
+
+  async function readIndeedFile(file: File | null) {
+    setIntakeError(null);
+    setIndeedImportResult(null);
+    setIndeedRows([]);
+     setIndeedFileName(file?.name ?? "");
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) { setIntakeError("For launch, Indeed imports must use a CSV export file."); return; }
+    const rows = parseIndeedCsv(await file.text());
+    if (rows.length === 0) { setIntakeError("No applicant rows were found in this CSV file."); return; }
+    setIndeedRows(rows);
+  }
+
+  async function importIndeedApplications() {
+    setIntakeError(null);
+    setIndeedImportResult(null);
+    const vacancy = vacancies.find((item) => item.id === indeedVacancyId);
+    const selectedRows = indeedRows.filter((row) => row.selected);
+    if (!vacancy) { setIntakeError("Select the vacancy these Indeed applications relate to."); return; }
+    if (!vacancy.organisation_id) { setIntakeError("The selected vacancy is not linked to an organisation."); return; }
+    if (selectedRows.length === 0) { setIntakeError("Select at least one applicant to import."); return; }
+    if (selectedRows.some((row) => !row.firstName.trim() || !row.lastName.trim())) { setIntakeError("Every selected row must include a candidate name."); return; }
+
+    setSavingIntake(true);
+    let imported = 0;
+    let skipped = 0;
+    const failures: string[] = [];
+    try {
+      const actorUserId = await getActorUserId();
+      for (const row of selectedRows) {
+        try {
+          const candidate = await findOrCreateCandidate({
+            organisationId: vacancy.organisation_id,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            email: row.email,
+            phone: row.phone,
+            source: "indeed",
+            sourceDetail: indeedFileName,
+            actorUserId,
+            metadata: { intake_route: "indeed_csv", indeed_row: row.raw },
+          });
+          await createApplication({
+            organisationId: vacancy.organisation_id,
+            vacancy,
+            candidateId: candidate.id,
+            source: "indeed",
+            submittedAt: toIsoDateTime(row.appliedAt),
+            actorUserId,
+            metadata: { intake_route: "indeed_csv", import_file: indeedFileName, indeed_row_number: row.rowNumber, original_data: row.raw },
+          });
+          imported += 1;
+        } catch (rowError) {
+          const message = rowError instanceof Error ? rowError.message : "Unknown import error.";
+          if (message.includes("already has application")) skipped += 1;
+          else failures.push(`Row ${row.rowNumber}: ${message}`);
+        }
+      }
+      const result = `${imported} imported, ${skipped} duplicate${skipped === 1 ? "" : "s"} skipped${failures.length ? `, ${failures.length} failed` : ""}.`;
+      setIndeedImportResult(result);
+      setActionMessage(`Indeed import completed: ${result}`);
+      await loadApplications(true);
+      if (failures.length) setIntakeError(failures.slice(0, 5).join(" "));
+    } catch (importError) {
+      console.error("Unable to import Indeed applications:", importError);
+      setIntakeError(importError instanceof Error ? importError.message : "Leo could not complete the Indeed import.");
+    } finally {
+      setSavingIntake(false);
+    }
+  }
+
   function exportCurrentView() {
     if (filteredApplications.length === 0) {
       setActionMessage(
@@ -1412,6 +2141,14 @@ export default function ApplicationsWorkspace() {
         </div>
 
         <div style={styles.headerActions}>
+          <button type="button" style={styles.primaryButton} onClick={() => { setIntakeError(null); setUploadOpen(true); }}>
+            Upload CV
+          </button>
+
+          <button type="button" style={styles.secondaryButton} onClick={() => { setIntakeError(null); setImportOpen(true); }}>
+            Import applications
+                    </button>
+
           <button
             type="button"
             style={{
@@ -1580,6 +2317,13 @@ export default function ApplicationsWorkspace() {
                 ? "Applications will appear here when candidates apply for an open vacancy."
                 : "Try changing the search term or selecting another register filter."}
             </p>
+
+            {applications.length === 0 ? (
+              <div style={{ ...styles.headerActions, justifyContent: "center", marginTop: "18px" }}>
+                <button type="button" style={styles.primaryButton} onClick={() => setUploadOpen(true)}>Upload CV</button>
+                <button type="button" style={styles.secondaryButton} onClick={() => setImportOpen(true)}>Import applications</button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div style={styles.tableWrapper}>
@@ -1957,7 +2701,71 @@ export default function ApplicationsWorkspace() {
           </div>
         )}
       </section>
-    </section>
+
+      {uploadOpen ? (
+        <div style={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeUpload(); }}>
+          <section style={styles.modal} role="dialog" aria-modal="true" aria-labelledby="upload-cv-title">
+            <header style={styles.modalHeader}>
+              <div>
+                <h2 id="upload-cv-title" style={styles.panelTitle}>Upload CV</h2>
+                <p style={styles.panelText}>Create or match the candidate, create their application and store the CV against the selected vacancy.</p>
+              </div>
+              <button type="button" style={styles.textButton} onClick={closeUpload} disabled={savingIntake}>Close</button>
+            </header>
+            <div style={styles.modalBody}>
+              {intakeError ? <div role="alert" style={styles.error}>{intakeError}</div> : null}
+              <div style={styles.formGrid}>
+                <label style={styles.field}><span style={styles.label}>Vacancy *</span><select style={styles.input} value={uploadForm.vacancyId} onChange={(event) => setUploadForm((current) => ({ ...current, vacancyId: event.target.value }))}><option value="">Select vacancy</option>{vacancies.map((vacancy) => <option key={vacancy.id} value={vacancy.id}>{vacancy.vacancy_reference} · {vacancy.title}</option>)}</select></label>
+                <label style={styles.field}><span style={styles.label}>Application source *</span><select style={styles.input} value={uploadForm.source} onChange={(event) => setUploadForm((current) => ({ ...current, source: event.target.value }))}><option value="indeed">Indeed</option><option value="email">Email</option><option value="employer_website">Employer website</option><option value="linkedin">LinkedIn</option><option value="reed">Reed</option><option value="totaljobs">Totaljobs</option><option value="recruitment_agency">Recruitment agency</option><option value="employee_referral">Employee referral</option><option value="internal">Internal application</option><option value="other">Other</option></select></label>
+                <label style={styles.field}><span style={styles.label}>Source details</span><input style={styles.input} value={uploadForm.sourceDetail} onChange={(event) => setUploadForm((current) => ({ ...current, sourceDetail: event.target.value }))} placeholder="Agency name, mailbox or other detail" /></label>
+                <label style={styles.checkboxRow}><input type="checkbox" checked={uploadForm.isInternalCandidate} onChange={(event) => setUploadForm((current) => ({ ...current, isInternalCandidate: event.target.checked }))} />Internal candidate</label>
+              </div>
+              <div style={styles.formGrid}>
+                <label style={styles.field}><span style={styles.label}>First name *</span><input style={styles.input} value={uploadForm.firstName} onChange={(event) => setUploadForm((current) => ({ ...current, firstName: event.target.value }))} /></label>
+                <label style={styles.field}><span style={styles.label}>Middle names</span><input style={styles.input} value={uploadForm.middleNames} onChange={(event) => setUploadForm((current) => ({ ...current, middleNames: event.target.value }))} /></label>
+                <label style={styles.field}><span style={styles.label}>Last name *</span><input style={styles.input} value={uploadForm.lastName} onChange={(event) => setUploadForm((current) => ({ ...current, lastName: event.target.value }))} /></label>
+                <label style={styles.field}><span style={styles.label}>Preferred name</span><input style={styles.input} value={uploadForm.preferredName} onChange={(event) => setUploadForm((current) => ({ ...current, preferredName: event.target.value }))} /></label>
+                <label style={styles.field}><span style={styles.label}>Email</span><input type="email" style={styles.input} value={uploadForm.email} onChange={(event) => setUploadForm((current) => ({ ...current, email: event.target.value }))} /></label>
+                <label style={styles.field}><span style={styles.label}>Telephone</span><input type="tel" style={styles.input} value={uploadForm.phone} onChange={(event) => setUploadForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+              </div>
+              <div style={styles.field}>
+                <span style={styles.label}>Application documents</span>
+                {uploadDocuments.map((document, index) => <label key={document.type} style={styles.documentRow}><span style={styles.label}>{document.type === "cv" ? "CV *" : formatValue(document.type)}</span><input type="file" accept=".pdf,.doc,.docx,.rtf,.txt,.odt" style={styles.input} onChange={(event) => { const file = event.target.files?.[0] ?? null; setUploadDocuments((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, file } : item)); }} /></label>)}
+                <p style={styles.helpText}>Accepted documents: PDF, Word, RTF, text and ODT. Maximum 15 MB per file.</p>
+              </div>
+            </div>
+            <footer style={styles.modalFooter}><button type="button" style={styles.secondaryButton} onClick={closeUpload} disabled={savingIntake}>Cancel</button><button type="button" style={{ ...styles.primaryButton, ...(savingIntake ? styles.disabledButton : {}) }} disabled={savingIntake} onClick={() => void submitUploadApplication()}>{savingIntake ? "Saving application…" : "Save application"}</button></footer>
+          </section>
+        </div>
+      ) : null}
+
+      {importOpen ? (
+        <div style={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeImport(); }}>
+          <section style={{ ...styles.modal, ...(selectedImportProvider === "indeed" ? styles.modalWide : {}) }} role="dialog" aria-modal="true" aria-labelledby="import-title">
+            <header style={styles.modalHeader}>
+              <div><h2 id="import-title" style={styles.panelTitle}>{selectedImportProvider === "indeed" ? "Import from Indeed" : "Import applications"}</h2><p style={styles.panelText}>{selectedImportProvider === "indeed" ? "Upload an Indeed CSV export, preview the applicants and import them into one LEO vacancy." : "Choose where the applications are coming from."}</p></div>
+              <button type="button" style={styles.textButton} onClick={closeImport} disabled={savingIntake}>Close</button>
+            </header>
+            <div style={styles.modalBody}>
+              {intakeError ? <div role="alert" style={styles.error}>{intakeError}</div> : null}
+              {selectedImportProvider !== "indeed" ? (
+                <div style={styles.providerGrid}>{importProviders.map((provider) => <button key={provider.key} type="button" style={{ ...styles.providerCard, ...(!provider.available ? styles.providerDisabled : {}) }} disabled={!provider.available} onClick={() => provider.available && setSelectedImportProvider(provider.key)}><p style={styles.providerTitle}>{provider.name}</p><p style={styles.providerText}>{provider.description}</p>{provider.available ? <span style={styles.comingSoon}>Available now</span> : <span style={styles.comingSoon}>Coming soon</span>}</button>)}</div>
+              ) : (
+                <>
+                  <div style={styles.formGrid}>
+                    <label style={styles.field}><span style={styles.label}>Vacancy *</span><select style={styles.input} value={indeedVacancyId} onChange={(event) => setIndeedVacancyId(event.target.value)}><option value="">Select vacancy</option>{vacancies.map((vacancy) => <option key={vacancy.id} value={vacancy.id}>{vacancy.vacancy_reference} · {vacancy.title}</option>)}</select></label>
+                    <label style={styles.field}><span style={styles.label}>Indeed CSV export *</span><input type="file" accept=".csv,text/csv" style={styles.input} onChange={(event) => void readIndeedFile(event.target.files?.[0] ?? null)} /><p style={styles.helpText}>{indeedFileName || "No file selected"}</p></label>
+                  </div>
+                  {indeedImportResult ? <div role="status" style={styles.message}>{indeedImportResult}</div> : null}
+                  {indeedRows.length > 0 ? <><div style={styles.summaryBox}>{indeedRows.filter((row) => row.selected).length} of {indeedRows.length} applicants selected for import. Candidate email is used to match existing records where available.</div><div style={styles.tableWrapper}><table style={styles.importTable}><thead><tr><th style={styles.th}>Import</th><th style={styles.th}>Candidate</th><th style={styles.th}>Email</th><th style={styles.th}>Telephone</th><th style={styles.th}>Applied</th><th style={styles.th}>Review</th></tr></thead><tbody>{indeedRows.map((row, index) => <tr key={`${row.rowNumber}-${row.email}-${index}`}><td style={styles.td}><input type="checkbox" checked={row.selected} onChange={(event) => setIndeedRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: event.target.checked } : item))} /></td><td style={styles.td}><input aria-label={`First name row ${row.rowNumber}`} style={styles.input} value={row.firstName} onChange={(event) => setIndeedRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, firstName: event.target.value } : item))} /><input aria-label={`Last name row ${row.rowNumber}`} style={{ ...styles.input, marginTop: "7px" }} value={row.lastName} onChange={(event) => setIndeedRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, lastName: event.target.value } : item))} /></td><td style={styles.td}>{row.email || "Not supplied"}</td><td style={styles.td}>{row.phone || "Not supplied"}</td><td style={styles.td}>{row.appliedAt || "Import date"}</td><td style={styles.td}>{row.issue ? <span style={styles.subtleText}>{row.issue}</span> : <span style={styles.statusPill}>Ready</span>}</td></tr>)}</tbody></table></div></> : <div style={styles.summaryBox}>Export the applicant list from Indeed as CSV, then upload it here. LEO will preview the rows before creating any records.</div>}
+                </>
+              )}
+            </div>
+            <footer style={styles.modalFooter}>{selectedImportProvider === "indeed" ? <button type="button" style={styles.secondaryButton} onClick={() => { setSelectedImportProvider(null); setIndeedRows([]); setIndeedFileName(""); setIntakeError(null); }}>Back</button> : null}<button type="button" style={styles.secondaryButton} onClick={closeImport} disabled={savingIntake}>Cancel</button>{selectedImportProvider === "indeed" ? <button type="button" style={{ ...styles.primaryButton, ...(savingIntake ? styles.disabledButton : {}) }} disabled={savingIntake || indeedRows.length === 0} onClick={() => void importIndeedApplications()}>{savingIntake ? "Importing…" : "Import selected"}</button> : null}</footer>
+          </section>
+        </div>
+      ) : null}
+
+        </section>
   );
 }
-

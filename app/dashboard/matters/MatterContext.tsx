@@ -4,12 +4,9 @@ import {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from "react";
-
-import { createClient } from "@/lib/supabase/client";
 
 export type Matter = {
   id: number;
@@ -42,6 +39,13 @@ type MatterContextType = {
   ) => Promise<Matter | null>;
 };
 
+type MattersApiResponse = {
+  success: boolean;
+  matters?: Matter[];
+  matter?: Matter;
+  error?: string;
+};
+
 const MatterContext = createContext<MatterContextType | undefined>(undefined);
 
 export function MatterProvider({
@@ -49,62 +53,39 @@ export function MatterProvider({
 }: {
   children: ReactNode;
 }) {
-  const supabase = useMemo(() => createClient(), []);
   const [matters, setMatters] = useState<Matter[]>([]);
 
   useEffect(() => {
     let active = true;
 
     async function loadMatters() {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (!active) return;
-
-      if (userError || !user) {
-        console.error(
-          "Error loading matters: no authenticated user session was available.",
-          userError,
-        );
-        setMatters([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("matters")
-        .select(
-          "id, title, status, description, employee_id, matter_type, subject, matter_lead, created_at",
-        )
-        .order("id", {
-          ascending: false,
+      try {
+        const response = await fetch("/api/matters", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
         });
 
-      if (!active) return;
+        const result = (await response.json()) as MattersApiResponse;
 
-      if (error) {
-        console.error(
-          "Error loading matters:",
-          JSON.stringify(error, null, 2),
-        );
+        if (!active) return;
+
+        if (!response.ok || !result.success) {
+          console.error(
+            "Error loading matters:",
+            result.error || `Request failed with status ${response.status}`,
+          );
+          setMatters([]);
+          return;
+        }
+
+        setMatters(result.matters || []);
+      } catch (error) {
+        if (!active) return;
+
+        console.error("Error loading matters:", error);
         setMatters([]);
-        return;
       }
-
-      setMatters(
-        (data || []).map((matter) => ({
-          id: matter.id,
-          title: matter.title,
-          status: matter.status || "Open",
-          description: matter.description || "",
-          employee_id: matter.employee_id ?? null,
-          matter_type: matter.matter_type ?? null,
-          subject: matter.subject ?? null,
-          matter_lead: matter.matter_lead ?? null,
-          created_at: matter.created_at ?? null,
-        })),
-      );
     }
 
     void loadMatters();
@@ -112,7 +93,7 @@ export function MatterProvider({
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
   async function addMatter(
     titleOrMatter: string | NewMatterInput,
@@ -131,69 +112,54 @@ export function MatterProvider({
           }
         : titleOrMatter;
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error(
-        "Matter could not be saved because no authenticated user session was available.",
-        userError,
-      );
-
-      alert("Matter could not be saved because your session is unavailable.");
-      return null;
-    }
-
-    const { data, error } = await supabase
-      .from("matters")
-      .insert([
-        {
-          title: matter.title,
-          status: "Open",
-          description: matter.description || "",
-          employee_id: matter.employeeId ?? null,
-          matter_type: matter.matterType ?? null,
-          subject: matter.subject || matter.title,
-          matter_lead: matter.matterLead || null,
+    try {
+      const response = await fetch("/api/matters", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ])
-      .select(
-        "id, title, status, description, employee_id, matter_type, subject, matter_lead, created_at",
-      )
-      .single();
+        body: JSON.stringify({
+          title: matter.title,
+          description: matter.description || "",
+          employeeId: matter.employeeId ?? null,
+          matterType: matter.matterType ?? null,
+          subject: matter.subject || matter.title,
+          matterLead: matter.matterLead || null,
+        }),
+      });
 
-    if (error || !data) {
-      console.error(
-        "Supabase insert error:",
-        JSON.stringify(error, null, 2),
-      );
+      const result = (await response.json()) as MattersApiResponse;
+
+      if (!response.ok || !result.success || !result.matter) {
+        console.error(
+          "Matter could not be saved:",
+          result.error || `Request failed with status ${response.status}`,
+        );
+
+        alert(
+          `Matter could not be saved: ${
+            result.error || "Unknown error"
+          }`,
+        );
+
+        return null;
+      }
+
+      setMatters((previous) => [result.matter as Matter, ...previous]);
+
+      return result.matter;
+    } catch (error) {
+      console.error("Matter could not be saved:", error);
 
       alert(
         `Matter could not be saved: ${
-          error?.message || "Unknown error"
+          error instanceof Error ? error.message : "Unknown error"
         }`,
       );
 
       return null;
     }
-
-    const newMatter: Matter = {
-      id: data.id,
-      title: data.title,
-      status: data.status || "Open",
-      description: data.description || "",
-      employee_id: data.employee_id ?? null,
-      matter_type: data.matter_type ?? null,
-      subject: data.subject ?? null,
-      matter_lead: data.matter_lead ?? null,
-      created_at: data.created_at ?? null,
-    };
-
-    setMatters((previous) => [newMatter, ...previous]);
-
-    return newMatter;
   }
 
   return (

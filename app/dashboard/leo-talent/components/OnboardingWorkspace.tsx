@@ -21,7 +21,9 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
@@ -56,6 +58,16 @@ type ItemCategory =
   | "other";
 
 type ItemOwnerType = "candidate" | "manager" | "hr" | "employer" | "system";
+
+type OnboardingSection =
+  | "overview"
+  | "documents"
+  | "due_diligence"
+  | "payroll"
+  | "equipment"
+  | "learning"
+  | "tasks"
+  | "timeline";
 
 interface Appointment {
   id: string;
@@ -129,6 +141,7 @@ interface Vacancy {
 
 interface Offer {
   id: string;
+  organisation_id: string | null;
   application_id: string;
   vacancy_id: string;
   candidate_id: string;
@@ -200,10 +213,10 @@ interface ItemTemplate {
 const appointmentStatusLabels: Record<AppointmentStatus, string> = {
   pre_employment: "Pre-employment",
   checks_in_progress: "Checks in progress",
-  ready_to_start: "Ready to start",
+  ready_to_start: "Ready for commencement",
   employee_creation_pending: "Employee creation pending",
   employee_created: "Employee created",
-  started: "Started",
+  started: "Employment commenced",
   withdrawn: "Withdrawn",
   cancelled: "Cancelled",
 };
@@ -236,6 +249,17 @@ const ownerLabels: Record<ItemOwnerType, string> = {
   employer: "Employer",
   system: "System",
 };
+
+const onboardingSections: Array<{ value: OnboardingSection; label: string }> = [
+  { value: "overview", label: "Overview" },
+  { value: "documents", label: "Documents" },
+  { value: "due_diligence", label: "Due Diligence" },
+  { value: "payroll", label: "Payroll" },
+  { value: "equipment", label: "Equipment & Access" },
+  { value: "learning", label: "Learning" },
+  { value: "tasks", label: "Tasks" },
+  { value: "timeline", label: "Timeline" },
+];
 
 const initialCreateForm: CreateForm = {
   offerId: "",
@@ -326,7 +350,7 @@ const itemTemplates: ItemTemplate[] = [
     category: "documents",
     description: "Confirm the signed contract has been received and stored.",
     ownerType: "candidate",
-    dueOffsetDays: -3,
+    dueOffsetDays: -2,
     candidateVisible: true,
     candidateEditable: true,
     mandatory: true,
@@ -382,49 +406,13 @@ const itemTemplates: ItemTemplate[] = [
   },
   {
     key: "first_day_arrangements",
-    name: "Confirm first-day arrangements",
+    name: "Confirm commencement arrangements",
     category: "induction",
     description:
-      "Send arrival time, location, contact details and first-day expectations.",
+      "Confirm the date of commencement, reporting arrangements, location and key contacts.",
     ownerType: "manager",
     dueOffsetDays: -3,
     candidateVisible: true,
-    candidateEditable: false,
-    mandatory: true,
-  },
-  {
-    key: "workplace_induction",
-    name: "Complete workplace induction",
-    category: "induction",
-    description:
-      "Complete the welcome, workplace and health and safety induction.",
-    ownerType: "manager",
-    dueOffsetDays: 0,
-    candidateVisible: true,
-    candidateEditable: false,
-    mandatory: true,
-  },
-  {
-    key: "first_week_checkin",
-    name: "Complete first-week check-in",
-    category: "manager_action",
-    description:
-      "Review wellbeing, access, workload, understanding and early support needs.",
-    ownerType: "manager",
-    dueOffsetDays: 5,
-    candidateVisible: false,
-    candidateEditable: false,
-    mandatory: true,
-  },
-  {
-    key: "probation_handover",
-    name: "Hand onboarding into probation",
-    category: "manager_action",
-    description:
-      "Transfer relevant onboarding information and outstanding actions into probation.",
-    ownerType: "hr",
-    dueOffsetDays: 30,
-    candidateVisible: false,
     candidateEditable: false,
     mandatory: true,
   },
@@ -523,6 +511,8 @@ export default function OnboardingWorkspace() {
   const [showTask, setShowTask] = useState(false);
   const [createForm, setCreateForm] = useState<CreateForm>(initialCreateForm);
   const [taskForm, setTaskForm] = useState<TaskForm>(initialTaskForm);
+  const [activeSection, setActiveSection] = useState<OnboardingSection>("overview");
+  const acceptedOfferSyncRef = useRef(false);
 
   const loadData = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true);
@@ -548,7 +538,7 @@ export default function OnboardingWorkspace() {
         supabase
           .from("leo_talent_offers")
           .select(
-            "id, application_id, vacancy_id, candidate_id, status, job_title, department, location_name, manager_name, manager_user_id, proposed_start_date, accepted_at, archived_at",
+            "id, organisation_id, application_id, vacancy_id, candidate_id, status, job_title, department, location_name, manager_name, manager_user_id, proposed_start_date, accepted_at, archived_at",
           )
           .is("archived_at", null),
         supabase
@@ -602,6 +592,89 @@ export default function OnboardingWorkspace() {
     const timer = window.setTimeout(() => setNotice(null), 4000);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+
+  useEffect(() => {
+    if (loading || acceptedOfferSyncRef.current) return;
+
+    const usedOfferIds = new Set(appointments.map((item) => item.offer_id));
+    const missingAcceptedOffers = offers.filter(
+      (offer) =>
+        (offer.status === "accepted" || Boolean(offer.accepted_at)) &&
+        !offer.archived_at &&
+        !usedOfferIds.has(offer.id),
+    );
+
+    if (missingAcceptedOffers.length === 0) return;
+
+    acceptedOfferSyncRef.current = true;
+
+    async function synchroniseAcceptedOffers() {
+      try {
+        for (const offer of missingAcceptedOffers) {
+          const vacancy = vacancies.find((item) => item.id === offer.vacancy_id);
+          const { data, error: appointmentError } = await supabase
+            .from("leo_talent_appointments")
+            .insert({
+              organisation_id: offer.organisation_id,
+              offer_id: offer.id,
+              application_id: offer.application_id,
+              vacancy_id: offer.vacancy_id,
+              candidate_id: offer.candidate_id,
+              status: "pre_employment",
+              agreed_start_date: offer.proposed_start_date,
+              manager_name:
+                offer.manager_name ?? vacancy?.hiring_manager_name ?? null,
+              manager_user_id:
+                offer.manager_user_id ?? vacancy?.hiring_manager_user_id ?? null,
+              department: offer.department ?? vacancy?.department ?? null,
+              location_name: offer.location_name ?? vacancy?.location_name ?? null,
+            })
+            .select("*")
+            .single();
+
+          if (appointmentError) {
+            if (appointmentError.code === "23505") continue;
+            throw appointmentError;
+          }
+
+          const appointment = data as Appointment;
+          if (offer.proposed_start_date) {
+            const { error: itemsError } = await supabase
+              .from("leo_talent_onboarding_items")
+              .insert(
+                generatedAutomaticItems(
+                  appointment.id,
+                  offer.proposed_start_date,
+                  offer.organisation_id,
+                ),
+              );
+            if (itemsError) throw itemsError;
+          }
+
+          const { error: applicationError } = await supabase
+            .from("leo_talent_applications")
+            .update({ status: "onboarding", current_stage_key: "onboarding" })
+            .eq("id", offer.application_id);
+          if (applicationError) throw applicationError;
+        }
+
+        setNotice("Accepted offers have been added to onboarding automatically.");
+        await loadData(true);
+      } catch (syncError) {
+        setError(
+          errorMessage(
+            syncError,
+            "Accepted offers could not be connected to onboarding.",
+          ),
+        );
+      } finally {
+        acceptedOfferSyncRef.current = false;
+      }
+    }
+
+    void synchroniseAcceptedOffers();
+  }, [appointments, loading, loadData, offers, vacancies]);
 
   const candidateMap = useMemo(
     () => new Map(candidates.map((item) => [item.id, item])),
@@ -685,10 +758,47 @@ export default function OnboardingWorkspace() {
     [itemMap, selectedId],
   );
 
+  const visibleSelectedItems = useMemo(() => {
+    if (activeSection === "overview") {
+      return selectedItems
+        .filter((item) => !["complete", "not_required"].includes(item.status))
+        .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"))
+        .slice(0, 6);
+    }
+    if (activeSection === "documents") {
+      return selectedItems.filter((item) => item.item_category === "documents");
+    }
+    if (activeSection === "due_diligence") {
+      return selectedItems.filter(
+        (item) => item.item_category === "safer_recruitment",
+      );
+    }
+    if (activeSection === "payroll") {
+      return selectedItems.filter((item) => item.item_category === "payroll");
+    }
+    if (activeSection === "equipment") {
+      return selectedItems.filter((item) => item.item_category === "equipment");
+    }
+    if (activeSection === "learning") {
+      return selectedItems.filter((item) => item.item_category === "learning");
+    }
+    if (activeSection === "tasks") {
+      return selectedItems.filter((item) =>
+        [
+          "candidate_details",
+          "induction",
+          "manager_action",
+          "other",
+        ].includes(item.item_category),
+      );
+    }
+    return [];
+  }, [activeSection, selectedItems]);
+
   const availableOffers = useMemo(() => {
     const used = new Set(appointments.map((item) => item.offer_id));
     return offers
-      .filter((offer) => offer.status === "accepted" && !used.has(offer.id))
+      .filter((offer) => (offer.status === "accepted" || Boolean(offer.accepted_at)) && !used.has(offer.id))
       .map((offer) => ({
         offer,
         candidate: candidateMap.get(offer.candidate_id),
@@ -777,6 +887,29 @@ export default function OnboardingWorkspace() {
       }));
   }
 
+  function generatedAutomaticItems(
+    appointmentId: string,
+    startDate: string,
+    organisationId: string | null,
+  ) {
+    return itemTemplates
+      .filter((template) => template.conditional !== "dbs")
+      .map((template) => ({
+        organisation_id: organisationId,
+        appointment_id: appointmentId,
+        item_key: template.key,
+        item_name: template.name,
+        item_category: template.category,
+        description: template.description,
+        owner_type: template.ownerType,
+        due_date: addDays(startDate, template.dueOffsetDays),
+        status: "not_started" as ItemStatus,
+        candidate_visible: template.candidateVisible,
+        candidate_editable: template.candidateEditable,
+        metadata: { mandatory: template.mandatory, generated_automatically: true },
+      }));
+  }
+
   async function createAppointment() {
     if (!createForm.offerId) return setError("Select an accepted offer.");
     if (!createForm.agreedStartDate)
@@ -846,7 +979,7 @@ export default function OnboardingWorkspace() {
       setCreateForm(initialCreateForm);
       setShowCreate(false);
       setSelectedId(appointment.id);
-      setNotice("Appointment created and onboarding checklist generated.");
+      setNotice("Onboarding created and checklist generated.");
     } catch (createError) {
       setError(
         errorMessage(
@@ -966,7 +1099,7 @@ export default function OnboardingWorkspace() {
     if (!window.confirm("Archive this appointment?")) return;
     await updateAppointment(
       { archived_at: new Date().toISOString() },
-      "Appointment archived.",
+      "Onboarding record archived.",
     );
     setSelectedId(null);
   }
@@ -1013,415 +1146,323 @@ export default function OnboardingWorkspace() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center gap-3 text-sm text-slate-600">
-          <Loader2 className="h-5 w-5 animate-spin text-[#6e5084]" />
-          <strong>Loading onboarding…</strong>
+      <div>
+        <WorkspaceHeading />
+        <div style={loadingPanelStyle}>
+          <Loader2
+            size={28}
+            strokeWidth={2}
+            style={{ ...spinnerIconStyle }}
+          />
+          <strong style={loadingTitleStyle}>Loading onboarding</strong>
+          <p style={loadingTextStyle}>
+            Leo is preparing the new starter register.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="onboarding-workspace w-full text-slate-900">
+    <div>
       <style>{onboardingWorkspaceCss}</style>
-      <header className="mb-4 flex flex-col items-start justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-6 lg:flex-row">
+
+      <div style={workspaceHeaderStyle}>
         <div>
-          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-[#6e5084]">
-            LEO TALENT
-          </p>
-          <h1 className="text-3xl font-semibold text-slate-950">Onboarding</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Manage each accepted candidate from appointment through
-            pre-employment checks, employee creation and their first day.
+          <h2 style={workspaceTitleStyle}>Onboarding</h2>
+          <p style={workspaceDescriptionStyle}>
+            Manage every new starter from accepted offer through pre-employment
+            checks, employee creation and their date of commencement.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+
+        <div style={headerActionsStyle}>
           <button
+            type="button"
+            style={secondaryButtonStyle}
             onClick={() => void loadData(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700"
           >
-            <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
+            <RefreshCw size={16} />
+            {refreshing ? "Refreshing…" : "Refresh"}
           </button>
+
           <button
+            type="button"
+            style={secondaryButtonStyle}
             onClick={exportView}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700"
           >
-            <Download className="h-4 w-4" /> Export current view
+            <Download size={16} />
+            Export current view
+          </button>
+
+          <button
+            type="button"
+            style={primaryButtonStyle}
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus size={16} />
+            Start onboarding
           </button>
         </div>
-      </header>
-
-      {error && (
-        <Banner tone="error" onClose={() => setError(null)}>
-          {error}
-        </Banner>
-      )}
-      {notice && <Banner tone="success">{notice}</Banner>}
-
-      <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Active onboarding" value={metrics.active} />
-        <Metric label="Ready to start" value={metrics.ready} />
-        <Metric label="Overdue items" value={metrics.overdue} />
-        <Metric label="Employees created" value={metrics.employeeCreated} />
-        <Metric label="Started" value={metrics.started} />
-      </section>
-
-      <div className="grid items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-2xl border border-slate-200 bg-white p-4 xl:sticky xl:top-4">
-          <h2 className="text-lg font-semibold text-slate-950">
-            Starter journeys
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Select an appointment or begin onboarding from an accepted offer.
-          </p>
-
-          <div className="mt-4 rounded-xl border border-[#e8daf2] bg-[#f7f1fc] p-3">
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Create onboarding for
-            </label>
-            <select
-              value=""
-              onChange={(event) => {
-                selectOffer(event.target.value);
-                if (event.target.value) setShowCreate(true);
-              }}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
-            >
-              <option value="">Select accepted candidate</option>
-              {availableOffers.map(({ offer, candidate }) => (
-                <option key={offer.id} value={offer.id}>
-                  {candidate!.preferred_name || candidate!.first_name}{" "}
-                  {candidate!.last_name} · {offer.job_title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-300 px-3">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search starter or role"
-              className="min-w-0 flex-1 border-0 py-2.5 text-sm outline-none"
-            />
-          </label>
-
-          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(e.target.value as "all" | AppointmentStatus)
-                }
-                className="w-full appearance-none rounded-xl border border-slate-300 bg-white py-2.5 pl-3 pr-9 text-sm"
-              >
-                <option value="all">All statuses</option>
-                {Object.entries(appointmentStatusLabels).map(
-                  ([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ),
-                )}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-            <button
-              onClick={() => setShowArchived((value) => !value)}
-              className="rounded-xl border border-slate-300 px-3 text-sm font-semibold"
-            >
-              {showArchived ? "Current" : "Archived"}
-            </button>
-          </div>
-
-          <div className="mt-3 space-y-2">
-            {filtered.length === 0 ? (
-              <div className="py-8 text-center text-sm text-slate-500">
-                No onboarding records match this view.
-              </div>
-            ) : (
-              filtered.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={`w-full rounded-xl border p-3 text-left ${selectedId === item.id ? "border-[#cdb2e2] bg-[#f7f1fc]" : "border-slate-200 bg-white"}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="truncate text-sm text-slate-950">
-                      {item.fullName}
-                    </strong>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold">
-                      {appointmentStatusLabels[item.status]}
-                    </span>
-                  </div>
-                  <div className="mt-1 truncate text-sm text-slate-600">
-                    {item.jobTitle}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {formatDate(item.agreed_start_date)} · {item.progress}%
-                    complete
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </aside>
-
-        <main className="min-w-0">
-          {!selected ? (
-            <div className="flex min-h-[440px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 text-center">
-              <Sparkles className="h-7 w-7 text-[#6e5084]" />
-              <h2 className="mt-3 text-xl font-semibold text-slate-950">
-                Select or create onboarding
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                The complete starter journey will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <section className="rounded-2xl border border-[#e5d9ef] bg-gradient-to-br from-[#f7f1fc] to-white p-6">
-                <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-                  <div>
-                    <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#6e5084]">
-                      STARTER JOURNEY
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                      {selected.fullName}
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-500">
-                      {selected.jobTitle} · Starts{" "}
-                      {formatDate(selected.agreed_start_date)}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-[#cdb2e2] bg-white px-3 py-2 text-sm font-semibold text-[#6e5084]">
-                    {appointmentStatusLabels[selected.status]}
-                  </span>
-                </div>
-              </section>
-
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Summary
-                  label="Progress"
-                  value={`${selected.progress}%`}
-                  detail={`${selected.completedTaskCount} of ${selected.taskCount} items complete`}
-                />
-                <Summary
-                  label="Manager"
-                  value={selected.manager_name || "Not recorded"}
-                  detail={selected.department || "Department not recorded"}
-                />
-                <Summary
-                  label="Location"
-                  value={selected.location_name || "Not recorded"}
-                  detail={selected.personalEmail || "No personal email"}
-                />
-                <Summary
-                  label="Outstanding"
-                  value={String(
-                    selected.overdueTaskCount + selected.blockedTaskCount,
-                  )}
-                  detail={
-                    selected.overdueTaskCount
-                      ? `${selected.overdueTaskCount} overdue`
-                      : "No overdue items"
-                  }
-                />
-              </section>
-
-              <section className="rounded-2xl border border-slate-200 bg-white p-6">
-                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-950">
-                      Onboarding checklist
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Track each action, owner, due date and candidate
-                      visibility.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowTask(true)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#cdb2e2] bg-[#f7f1fc] px-4 py-2.5 text-sm font-semibold text-[#6e5084]"
-                  >
-                    <Plus className="h-4 w-4" /> Add item
-                  </button>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {selectedItems.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-                      No onboarding items recorded.
-                    </div>
-                  ) : (
-                    selectedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-slate-200 p-4"
-                      >
-                        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="font-semibold text-slate-900">
-                                {item.item_name}
-                              </h4>
-                              <span className="rounded-full bg-[#f7f1fc] px-2 py-1 text-[11px] font-semibold text-[#6e5084]">
-                                {categoryLabels[item.item_category]}
-                              </span>
-                              {isPast(item.due_date) &&
-                                item.status !== "complete" && (
-                                  <span className="rounded-full bg-[#fff7f7] px-2 py-1 text-[11px] font-semibold text-[#7b3f3f]">
-                                    Overdue
-                                  </span>
-                                )}
-                            </div>
-                            {item.description && (
-                              <p className="mt-2 text-sm leading-6 text-slate-500">
-                                {item.description}
-                              </p>
-                            )}
-                            <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
-                              <span>Owner: {ownerLabels[item.owner_type]}</span>
-                              <span>Due: {formatDate(item.due_date)}</span>
-                              <span>
-                                {item.candidate_visible
-                                  ? "Visible to starter"
-                                  : "Employer only"}
-                              </span>
-                            </div>
-                          </div>
-                          <select
-                            value={item.status}
-                            disabled={actionId === item.id}
-                            onChange={(e) =>
-                              void updateItem(
-                                item,
-                                e.target.value as ItemStatus,
-                              )
-                            }
-                            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                          >
-                            {Object.entries(itemStatusLabels).map(
-                              ([value, label]) => (
-                                <option key={value} value={value}>
-                                  {label}
-                                </option>
-                              ),
-                            )}
-                          </select>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-slate-200 bg-white p-6">
-                <h3 className="text-lg font-semibold text-slate-950">
-                  Progress appointment
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Move the appointment through the existing Talent workflow.
-                </p>
-                <div className="mt-4 flex flex-wrap justify-end gap-2">
-                  {selected.status === "pre_employment" && (
-                    <ActionButton
-                      onClick={() =>
-                        void updateAppointment(
-                          { status: "checks_in_progress" },
-                          "Checks moved into progress.",
-                        )
-                      }
-                    >
-                      Start checks
-                    </ActionButton>
-                  )}
-                  {selected.status === "checks_in_progress" && (
-                    <ActionButton
-                      onClick={() =>
-                        void updateAppointment(
-                          { status: "ready_to_start" },
-                          "Appointment marked ready to start.",
-                        )
-                      }
-                    >
-                      Mark ready to start
-                    </ActionButton>
-                  )}
-                  {selected.status === "ready_to_start" && (
-                    <ActionButton
-                      onClick={() =>
-                        void updateAppointment(
-                          { status: "employee_creation_pending" },
-                          "Employee creation is now pending.",
-                        )
-                      }
-                    >
-                      Prepare employee record
-                    </ActionButton>
-                  )}
-                  {selected.status === "employee_creation_pending" && (
-                    <ActionButton
-                      onClick={() =>
-                        void updateAppointment(
-                          {
-                            status: "employee_created",
-                            employee_created_at: new Date().toISOString(),
-                          },
-                          "Employee creation recorded.",
-                        )
-                      }
-                    >
-                      Record employee created
-                    </ActionButton>
-                  )}
-                  {selected.status === "employee_created" && (
-                    <ActionButton
-                      onClick={() =>
-                        void updateAppointment(
-                          {
-                            status: "started",
-                            actual_start_date: new Date()
-                              .toISOString()
-                              .slice(0, 10),
-                            onboarding_transferred: true,
-                          },
-                          "Starter marked as started.",
-                        )
-                      }
-                    >
-                      Confirm started
-                    </ActionButton>
-                  )}
-                  {!selected.archived_at && (
-                    <button
-                      onClick={() => void archiveAppointment()}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700"
-                    >
-                      <Archive className="h-4 w-4" /> Archive
-                    </button>
-                  )}
-                </div>
-              </section>
-            </div>
-          )}
-        </main>
       </div>
 
-      {showCreate && (
+      {error ? (
+        <div style={errorPanelStyle}>
+          <div style={messageContentStyle}>
+            <CircleAlert size={18} />
+            <div>
+              <strong style={errorTitleStyle}>
+                Onboarding could not be updated
+              </strong>
+              <p style={errorTextStyle}>{error}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            style={compactButtonStyle}
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div style={successPanelStyle}>
+          <div style={messageContentStyle}>
+            <CheckCircle2 size={18} />
+            <strong style={successTextStyle}>{notice}</strong>
+          </div>
+        </div>
+      ) : null}
+
+      <div style={kpiGridStyle}>
+        <KpiCard
+          label="New Starters"
+          value={String(metrics.active)}
+          active={statusFilter === "all" && !showArchived}
+          onClick={() => {
+            setStatusFilter("all");
+            setShowArchived(false);
+          }}
+        />
+
+        <KpiCard
+          label="Ready for Commencement"
+          value={String(metrics.ready)}
+          active={statusFilter === "ready_to_start"}
+          onClick={() => {
+            setStatusFilter("ready_to_start");
+            setShowArchived(false);
+          }}
+        />
+
+        <KpiCard
+          label="Overdue Items"
+          value={String(metrics.overdue)}
+          warning={metrics.overdue > 0}
+          onClick={() => {
+            setStatusFilter("all");
+            setShowArchived(false);
+          }}
+        />
+
+        <KpiCard
+          label="Employees Created"
+          value={String(metrics.employeeCreated)}
+          active={statusFilter === "employee_created"}
+          onClick={() => {
+            setStatusFilter("employee_created");
+            setShowArchived(false);
+          }}
+        />
+
+        <KpiCard
+          label="Employment Commenced"
+          value={String(metrics.started)}
+          active={statusFilter === "started"}
+          onClick={() => {
+            setStatusFilter("started");
+            setShowArchived(false);
+          }}
+        />
+      </div>
+
+      <div style={registerPanelStyle}>
+        <div style={registerHeadingStyle}>
+          <div>
+            <h3 style={panelTitleStyle}>New Starter Register</h3>
+            <p style={panelDescriptionStyle}>
+              Review active, completed and archived onboarding records across
+              every vacancy.
+            </p>
+          </div>
+
+          <span style={resultCountStyle}>
+            {filtered.length} {filtered.length === 1 ? "starter" : "starters"}
+          </span>
+        </div>
+
+        <div style={automationPanelStyle}>
+          <Sparkles size={18} color="#6E5084" />
+          <div>
+            <strong style={automationTitleStyle}>
+              Connected automatically
+            </strong>
+            <p style={automationTextStyle}>
+              Accepted offers create the starter onboarding record
+              automatically. Manual creation remains available for exceptional
+              cases.
+            </p>
+          </div>
+        </div>
+
+        <div style={filterAreaStyle}>
+          <label style={fieldStyle}>
+            <span style={fieldLabelStyle}>Search onboarding</span>
+            <div style={searchInputWrapStyle}>
+              <Search size={16} color="#9CA3AF" />
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search starter, role, department, location or reference"
+                style={searchInputStyle}
+              />
+            </div>
+          </label>
+
+          <div style={filterButtonRowStyle}>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("all");
+                setShowArchived(false);
+              }}
+              style={
+                statusFilter === "all" && !showArchived
+                  ? activeFilterButtonStyle
+                  : filterButtonStyle
+              }
+            >
+              Current
+            </button>
+
+            {(
+              Object.entries(appointmentStatusLabels) as Array<
+                [AppointmentStatus, string]
+              >
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(value);
+                  setShowArchived(false);
+                }}
+                style={
+                  statusFilter === value && !showArchived
+                    ? activeFilterButtonStyle
+                    : filterButtonStyle
+                }
+              >
+                {label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("all");
+                setShowArchived(true);
+              }}
+              style={
+                showArchived ? activeFilterButtonStyle : filterButtonStyle
+              }
+            >
+              Archived
+            </button>
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div style={emptyPanelStyle}>
+            <div style={emptyIconStyle}>✦</div>
+            <strong style={emptyTitleStyle}>
+              {views.length === 0
+                ? "No onboarding records have been created"
+                : "No onboarding records match this view"}
+            </strong>
+            <p style={emptyTextStyle}>
+              {views.length === 0
+                ? "Accepted offers will appear here automatically, or you can start onboarding manually."
+                : "Try changing the search term or selecting another onboarding status."}
+            </p>
+            {views.length === 0 ? (
+              <button
+                type="button"
+                style={emptyPrimaryButtonStyle}
+                onClick={() => setShowCreate(true)}
+              >
+                Start first onboarding
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <div style={starterListStyle}>
+            {filtered.map((appointment) => (
+              <OnboardingCard
+                key={appointment.id}
+                appointment={appointment}
+                items={itemMap.get(appointment.id) ?? []}
+                expanded={selectedId === appointment.id}
+                activeSection={activeSection}
+                visibleItems={
+                  selectedId === appointment.id ? visibleSelectedItems : []
+                }
+                actionId={actionId}
+                onToggle={() => {
+                  if (selectedId === appointment.id) {
+                    setSelectedId(null);
+                  } else {
+                    setSelectedId(appointment.id);
+                    setActiveSection("overview");
+                  }
+                }}
+                onSectionChange={setActiveSection}
+                onAddItem={() => {
+                  setSelectedId(appointment.id);
+                  setShowTask(true);
+                }}
+                onUpdateItem={(item, status) => void updateItem(item, status)}
+                onProgress={(changes, message) => {
+                  setSelectedId(appointment.id);
+                  void updateAppointment(changes, message);
+                }}
+                onArchive={() => {
+                  setSelectedId(appointment.id);
+                  void archiveAppointment();
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showCreate ? (
         <Modal title="Start onboarding" onClose={() => setShowCreate(false)}>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div style={modalIntroStyle}>
+            Select an accepted offer and confirm the starter arrangements. Leo
+            will generate the standard onboarding checklist.
+          </div>
+
+          <div style={twoColumnGridStyle}>
             <Field label="Accepted offer" full>
               <select
                 value={createForm.offerId}
-                onChange={(e) => selectOffer(e.target.value)}
-                className={inputClass}
+                onChange={(event) => selectOffer(event.target.value)}
+                style={inputStyle}
               >
                 <option value="">Select accepted offer</option>
                 {availableOffers.map(({ offer, candidate }) => (
@@ -1432,123 +1473,160 @@ export default function OnboardingWorkspace() {
                 ))}
               </select>
             </Field>
+
             <Field label="Agreed start date">
               <input
                 type="date"
                 value={createForm.agreedStartDate}
-                onChange={(e) =>
-                  setCreateForm((c) => ({
-                    ...c,
-                    agreedStartDate: e.target.value,
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    agreedStartDate: event.target.value,
                   }))
                 }
-                className={inputClass}
+                style={inputStyle}
               />
             </Field>
+
             <Field label="Manager">
               <input
                 value={createForm.managerName}
-                onChange={(e) =>
-                  setCreateForm((c) => ({ ...c, managerName: e.target.value }))
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    managerName: event.target.value,
+                  }))
                 }
-                className={inputClass}
+                style={inputStyle}
               />
             </Field>
+
             <Field label="Department">
               <input
                 value={createForm.department}
-                onChange={(e) =>
-                  setCreateForm((c) => ({ ...c, department: e.target.value }))
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    department: event.target.value,
+                  }))
                 }
-                className={inputClass}
+                style={inputStyle}
               />
             </Field>
+
             <Field label="Location">
               <input
                 value={createForm.locationName}
-                onChange={(e) =>
-                  setCreateForm((c) => ({ ...c, locationName: e.target.value }))
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    locationName: event.target.value,
+                  }))
                 }
-                className={inputClass}
+                style={inputStyle}
               />
             </Field>
+          </div>
+
+          <div style={toggleGridStyle}>
             <Toggle
               label="Include DBS or safeguarding clearance"
               checked={createForm.includeDbs}
               onChange={(value) =>
-                setCreateForm((c) => ({ ...c, includeDbs: value }))
+                setCreateForm((current) => ({
+                  ...current,
+                  includeDbs: value,
+                }))
               }
             />
             <Toggle
               label="Include equipment preparation"
               checked={createForm.includeEquipment}
               onChange={(value) =>
-                setCreateForm((c) => ({ ...c, includeEquipment: value }))
+                setCreateForm((current) => ({
+                  ...current,
+                  includeEquipment: value,
+                }))
               }
             />
             <Toggle
               label="Include Leo Learn assignments"
               checked={createForm.includeLearning}
               onChange={(value) =>
-                setCreateForm((c) => ({ ...c, includeLearning: value }))
+                setCreateForm((current) => ({
+                  ...current,
+                  includeLearning: value,
+                }))
               }
             />
           </div>
-          <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
+
+          <div style={modalActionsStyle}>
             <button
+              type="button"
+              style={secondaryButtonStyle}
               onClick={() => setShowCreate(false)}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
             >
               Cancel
             </button>
             <button
+              type="button"
+              style={primaryButtonStyle}
               onClick={() => void createAppointment()}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#6e5084] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ClipboardCheck className="h-4 w-4" />
-              )}{" "}
-              Create appointment
+              {saving ? <Loader2 size={16} /> : <ClipboardCheck size={16} />}
+              {saving ? "Creating…" : "Create onboarding"}
             </button>
           </div>
         </Modal>
-      )}
+      ) : null}
 
-      {showTask && selected && (
+      {showTask && selected ? (
         <Modal title="Add onboarding item" onClose={() => setShowTask(false)}>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div style={modalIntroStyle}>
+            Add a tailored action to {selected.fullName}&apos;s onboarding
+            record.
+          </div>
+
+          <div style={twoColumnGridStyle}>
             <Field label="Item name" full>
               <input
                 value={taskForm.itemName}
-                onChange={(e) =>
-                  setTaskForm((c) => ({ ...c, itemName: e.target.value }))
+                onChange={(event) =>
+                  setTaskForm((current) => ({
+                    ...current,
+                    itemName: event.target.value,
+                  }))
                 }
-                className={inputClass}
+                style={inputStyle}
               />
             </Field>
+
             <Field label="Description" full>
               <textarea
                 rows={4}
                 value={taskForm.description}
-                onChange={(e) =>
-                  setTaskForm((c) => ({ ...c, description: e.target.value }))
+                onChange={(event) =>
+                  setTaskForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
                 }
-                className={inputClass}
+                style={textAreaStyle}
               />
             </Field>
+
             <Field label="Category">
               <select
                 value={taskForm.category}
-                onChange={(e) =>
-                  setTaskForm((c) => ({
-                    ...c,
-                    category: e.target.value as ItemCategory,
+                onChange={(event) =>
+                  setTaskForm((current) => ({
+                    ...current,
+                    category: event.target.value as ItemCategory,
                   }))
                 }
-                className={inputClass}
+                style={inputStyle}
               >
                 {Object.entries(categoryLabels).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -1557,16 +1635,17 @@ export default function OnboardingWorkspace() {
                 ))}
               </select>
             </Field>
+
             <Field label="Owner">
               <select
                 value={taskForm.ownerType}
-                onChange={(e) =>
-                  setTaskForm((c) => ({
-                    ...c,
-                    ownerType: e.target.value as ItemOwnerType,
+                onChange={(event) =>
+                  setTaskForm((current) => ({
+                    ...current,
+                    ownerType: event.target.value as ItemOwnerType,
                   }))
                 }
-                className={inputClass}
+                style={inputStyle}
               >
                 {Object.entries(ownerLabels).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -1575,137 +1654,632 @@ export default function OnboardingWorkspace() {
                 ))}
               </select>
             </Field>
+
             <Field label="Due date">
               <input
                 type="date"
                 value={taskForm.dueDate}
-                onChange={(e) =>
-                  setTaskForm((c) => ({ ...c, dueDate: e.target.value }))
+                onChange={(event) =>
+                  setTaskForm((current) => ({
+                    ...current,
+                    dueDate: event.target.value,
+                  }))
                 }
-                className={inputClass}
+                style={inputStyle}
               />
             </Field>
+          </div>
+
+          <div style={toggleGridStyle}>
             <Toggle
               label="Visible to new starter"
               checked={taskForm.candidateVisible}
               onChange={(value) =>
-                setTaskForm((c) => ({ ...c, candidateVisible: value }))
+                setTaskForm((current) => ({
+                  ...current,
+                  candidateVisible: value,
+                }))
               }
             />
             <Toggle
               label="Editable by new starter"
               checked={taskForm.candidateEditable}
               onChange={(value) =>
-                setTaskForm((c) => ({ ...c, candidateEditable: value }))
+                setTaskForm((current) => ({
+                  ...current,
+                  candidateEditable: value,
+                }))
               }
             />
           </div>
-          <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
+
+          <div style={modalActionsStyle}>
             <button
+              type="button"
+              style={secondaryButtonStyle}
               onClick={() => setShowTask(false)}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold"
             >
               Cancel
             </button>
             <button
+              type="button"
+              style={primaryButtonStyle}
               onClick={() => void createTask()}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#6e5084] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}{" "}
-              Add item
+              {saving ? <Loader2 size={16} /> : <Plus size={16} />}
+              {saving ? "Adding…" : "Add item"}
             </button>
           </div>
         </Modal>
-      )}
+      ) : null}
     </div>
   );
 }
 
-const inputClass =
-  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-[#a983c2] focus:ring-4 focus:ring-[#f7f1fc]";
-
-function Banner({
-  tone,
-  children,
-  onClose,
+function OnboardingCard({
+  appointment,
+  items,
+  expanded,
+  activeSection,
+  visibleItems,
+  actionId,
+  onToggle,
+  onSectionChange,
+  onAddItem,
+  onUpdateItem,
+  onProgress,
+  onArchive,
 }: {
-  tone: "error" | "success";
-  children: ReactNode;
-  onClose?: () => void;
+  appointment: AppointmentView;
+  items: OnboardingItem[];
+  expanded: boolean;
+  activeSection: OnboardingSection;
+  visibleItems: OnboardingItem[];
+  actionId: string | null;
+  onToggle: () => void;
+  onSectionChange: (section: OnboardingSection) => void;
+  onAddItem: () => void;
+  onUpdateItem: (item: OnboardingItem, status: ItemStatus) => void;
+  onProgress: (changes: Partial<Appointment>, message: string) => void;
+  onArchive: () => void;
 }) {
-  const error = tone === "error";
+  const initials = appointment.fullName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
+  const outstanding = items.filter(
+    (item) => !["complete", "not_required"].includes(item.status),
+  ).length;
+
   return (
-    <div
-      className={`mb-3 flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${error ? "border-[#f2caca] bg-[#fff7f7] text-[#8a2e2e]" : "border-[#cde5d6] bg-[#f5fff9] text-[#276749]"}`}
-    >
-      <div className="flex items-start gap-3">
-        {error ? (
-          <CircleAlert className="mt-0.5 h-4 w-4" />
-        ) : (
-          <Check className="mt-0.5 h-4 w-4" />
-        )}
-        <span>{children}</span>
+    <article style={starterCardStyle}>
+      <div style={starterHeadingStyle}>
+        <div style={starterIdentityStyle}>
+          <div style={starterAvatarStyle}>{initials || "—"}</div>
+          <div>
+            <h4 style={starterNameStyle}>{appointment.fullName}</h4>
+            <p style={referenceStyle}>
+              {appointment.appointment_reference} · {appointment.jobTitle}
+            </p>
+          </div>
+        </div>
+
+        <div style={badgeRowStyle}>
+          <span style={getAppointmentStatusBadgeStyle(appointment.status)}>
+            {appointmentStatusLabels[appointment.status]}
+          </span>
+          {appointment.archived_at ? (
+            <span style={archivedBadgeStyle}>Archived</span>
+          ) : null}
+        </div>
       </div>
-      {onClose && (
-        <button onClick={onClose}>
-          <X className="h-4 w-4" />
+
+      <div style={starterDetailsGridStyle}>
+        <Detail
+          label="Start Date"
+          value={formatDate(appointment.agreed_start_date)}
+          help={
+            appointment.actual_start_date
+              ? `Actual: ${formatDate(appointment.actual_start_date)}`
+              : "Agreed commencement"
+          }
+        />
+        <Detail
+          label="Manager"
+          value={appointment.manager_name || "Not recorded"}
+          help={appointment.department || "Department not recorded"}
+        />
+        <Detail
+          label="Location"
+          value={appointment.location_name || "Not recorded"}
+          help={appointment.personalEmail || "No personal email"}
+        />
+        <Detail
+          label="Progress"
+          value={`${appointment.progress}%`}
+          help={`${appointment.completedTaskCount} of ${appointment.taskCount} complete`}
+        />
+        <Detail
+          label="Outstanding"
+          value={String(outstanding)}
+          help={
+            appointment.overdueTaskCount
+              ? `${appointment.overdueTaskCount} overdue`
+              : "No overdue items"
+          }
+        />
+        <Detail
+          label="Blocked"
+          value={String(appointment.blockedTaskCount)}
+          help={
+            appointment.blockedTaskCount
+              ? "Requires attention"
+              : "No blocked items"
+          }
+        />
+      </div>
+
+      <div style={progressTrackStyle}>
+        <div
+          style={{
+            ...progressBarStyle,
+            width: `${Math.min(100, Math.max(0, appointment.progress))}%`,
+          }}
+        />
+      </div>
+
+      {expanded ? (
+        <div style={expandedAreaStyle}>
+          <div style={starterOverviewGridStyle}>
+            <InformationPanel title="Starter Information">
+              <InformationRow
+                label="Personal email"
+                value={appointment.personalEmail || "Not recorded"}
+              />
+              <InformationRow
+                label="Telephone"
+                value={appointment.phone || "Not recorded"}
+              />
+              <InformationRow
+                label="Department"
+                value={appointment.department || "Not recorded"}
+              />
+              <InformationRow
+                label="Manager"
+                value={appointment.manager_name || "Not recorded"}
+              />
+              <InformationRow
+                label="Location"
+                value={appointment.location_name || "Not recorded"}
+              />
+            </InformationPanel>
+
+            <InformationPanel title="Appointment Handover">
+              <InformationRow
+                label="Employee record"
+                value={
+                  appointment.employee_id
+                    ? `Employee ${appointment.employee_id}`
+                    : "Not yet created"
+                }
+              />
+              <InformationRow
+                label="Recruitment summary"
+                value={
+                  appointment.recruitment_summary_transferred
+                    ? "Transferred"
+                    : "Pending"
+                }
+              />
+              <InformationRow
+                label="Documents"
+                value={
+                  appointment.documents_transferred ? "Transferred" : "Pending"
+                }
+              />
+              <InformationRow
+                label="Learning pathway"
+                value={
+                  appointment.learning_pathway_triggered
+                    ? "Triggered"
+                    : "Not triggered"
+                }
+              />
+              <InformationRow
+                label="Handover"
+                value={
+                  appointment.handover_completed_at
+                    ? "Completed"
+                    : "Not completed"
+                }
+              />
+            </InformationPanel>
+          </div>
+
+          <div style={sectionToolbarStyle}>
+            <div style={sectionButtonRowStyle}>
+              {onboardingSections.map((section) => (
+                <button
+                  key={section.value}
+                  type="button"
+                  onClick={() => onSectionChange(section.value)}
+                  style={
+                    activeSection === section.value
+                      ? activeSectionButtonStyle
+                      : sectionButtonStyle
+                  }
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
+
+            {activeSection !== "timeline" ? (
+              <button
+                type="button"
+                style={secondaryButtonStyle}
+                onClick={onAddItem}
+              >
+                <Plus size={15} />
+                Add item
+              </button>
+            ) : null}
+          </div>
+
+          {activeSection === "timeline" ? (
+            <div style={timelineGridStyle}>
+              <TimelineStep label="Application" complete />
+              <TimelineStep label="Interview" complete />
+              <TimelineStep label="Offer accepted" complete />
+              <TimelineStep label="Appointment created" complete />
+              <TimelineStep
+                label="Onboarding"
+                complete={appointment.progress === 100}
+                current={appointment.progress < 100}
+              />
+              <TimelineStep
+                label="Employee created"
+                complete={["employee_created", "started"].includes(
+                  appointment.status,
+                )}
+                current={
+                  appointment.status === "employee_creation_pending"
+                }
+              />
+              <TimelineStep
+                label="Date of commencement"
+                complete={appointment.status === "started"}
+                current={appointment.status === "employee_created"}
+                detail={formatDate(appointment.agreed_start_date)}
+              />
+            </div>
+          ) : (
+            <div style={itemListStyle}>
+              {visibleItems.length === 0 ? (
+                <div style={emptyItemsStyle}>
+                  {activeSection === "overview"
+                    ? "No outstanding onboarding actions."
+                    : "No items are recorded in this section."}
+                </div>
+              ) : (
+                visibleItems.map((item) => (
+                  <OnboardingItemCard
+                    key={item.id}
+                    item={item}
+                    actioning={actionId === item.id}
+                    onUpdate={(status) => onUpdateItem(item, status)}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <div style={cardActionsStyle}>
+        <button type="button" style={secondaryButtonStyle} onClick={onToggle}>
+          {expanded ? "Hide details" : "View details"}
         </button>
-      )}
-    </div>
+
+        {!appointment.archived_at ? (
+          <>
+            {appointment.status === "pre_employment" ? (
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                onClick={() =>
+                  onProgress(
+                    { status: "checks_in_progress" },
+                    "Checks moved into progress.",
+                  )
+                }
+              >
+                <ClipboardCheck size={15} />
+                Start due diligence
+              </button>
+            ) : null}
+
+            {appointment.status === "checks_in_progress" ? (
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                onClick={() =>
+                  onProgress(
+                    { status: "ready_to_start" },
+                    "Onboarding marked ready for commencement.",
+                  )
+                }
+              >
+                <CheckCircle2 size={15} />
+                Ready for commencement
+              </button>
+            ) : null}
+
+            {appointment.status === "ready_to_start" ? (
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                onClick={() =>
+                  onProgress(
+                    { status: "employee_creation_pending" },
+                    "Employee creation is now pending.",
+                  )
+                }
+              >
+                <UserCheck size={15} />
+                Create employee
+              </button>
+            ) : null}
+
+            {appointment.status === "employee_creation_pending" ? (
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                onClick={() =>
+                  onProgress(
+                    {
+                      status: "employee_created",
+                      employee_created_at: new Date().toISOString(),
+                    },
+                    "Employee creation recorded.",
+                  )
+                }
+              >
+                <UserCheck size={15} />
+                Confirm employee created
+              </button>
+            ) : null}
+
+            {appointment.status === "employee_created" ? (
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                onClick={() =>
+                  onProgress(
+                    {
+                      status: "started",
+                      actual_start_date: new Date()
+                        .toISOString()
+                        .slice(0, 10),
+                      onboarding_transferred: true,
+                    },
+                    "Employment commencement recorded.",
+                  )
+                }
+              >
+                <CalendarDays size={15} />
+                Confirm commencement
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              style={archiveButtonStyle}
+              onClick={onArchive}
+            >
+              <Archive size={15} />
+              Archive
+            </button>
+          </>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function OnboardingItemCard({
+  item,
+  actioning,
+  onUpdate,
+}: {
+  item: OnboardingItem;
+  actioning: boolean;
+  onUpdate: (status: ItemStatus) => void;
+}) {
+  const overdue = isPast(item.due_date) && item.status !== "complete";
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="text-sm text-slate-600">{label}</div>
-      <div className="mt-2 text-3xl font-semibold text-[#6e5084]">{value}</div>
+    <div style={itemCardStyle}>
+      <div style={itemHeadingStyle}>
+        <div>
+          <div style={badgeRowLeftStyle}>
+            <h5 style={itemTitleStyle}>{item.item_name}</h5>
+            <span style={categoryBadgeStyle}>
+              {categoryLabels[item.item_category]}
+            </span>
+            {overdue ? <span style={overdueBadgeStyle}>Overdue</span> : null}
+          </div>
+
+          {item.description ? (
+            <p style={itemDescriptionStyle}>{item.description}</p>
+          ) : null}
+        </div>
+
+        <select
+          value={item.status}
+          onChange={(event) => onUpdate(event.target.value as ItemStatus)}
+          disabled={actioning}
+          style={statusSelectStyle}
+        >
+          {(
+            Object.entries(itemStatusLabels) as Array<[ItemStatus, string]>
+          ).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={itemMetaRowStyle}>
+        <span>Owner: {ownerLabels[item.owner_type]}</span>
+        <span>Due: {formatDate(item.due_date)}</span>
+        <span>
+          {item.candidate_visible ? "Visible to starter" : "Employer only"}
+        </span>
+        {Boolean(item.metadata?.mandatory ?? true) ? (
+          <span>Mandatory</span>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function Summary({
+function WorkspaceHeading() {
+  return (
+    <div style={workspaceHeaderStyle}>
+      <div>
+        <h2 style={workspaceTitleStyle}>Onboarding</h2>
+        <p style={workspaceDescriptionStyle}>
+          Manage every new starter from accepted offer through pre-employment
+          checks, employee creation and their date of commencement.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({
   label,
   value,
-  detail,
+  active = false,
+  warning = false,
+  onClick,
 }: {
   label: string;
   value: string;
-  detail: string;
+  active?: boolean;
+  warning?: boolean;
+  onClick?: () => void;
+}) {
+  const style = active
+    ? activeKpiCardStyle
+    : warning
+      ? warningKpiCardStyle
+      : kpiCardStyle;
+
+  return (
+    <button
+      type="button"
+      style={style}
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      <div style={kpiValueStyle}>{value}</div>
+      <div style={kpiLabelStyle}>{label}</div>
+    </button>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  help,
+}: {
+  label: string;
+  value: string;
+  help?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-        {label}
-      </div>
-      <div className="mt-2 break-words text-xl font-semibold text-slate-950">
-        {value}
-      </div>
-      <div className="mt-1 text-xs text-slate-500">{detail}</div>
+    <div>
+      <span style={detailLabelStyle}>{label}</span>
+      <strong style={detailValueStyle}>{value}</strong>
+      {help ? <span style={detailHelpStyle}>{help}</span> : null}
     </div>
   );
 }
 
-function ActionButton({
+function InformationPanel({
+  title,
   children,
-  onClick,
 }: {
+  title: string;
   children: ReactNode;
-  onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-xl bg-[#6e5084] px-4 py-2.5 text-sm font-semibold text-white"
+    <div style={informationPanelStyle}>
+      <h5 style={expandedPanelTitleStyle}>{title}</h5>
+      <div style={informationListStyle}>{children}</div>
+    </div>
+  );
+}
+
+function InformationRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={informationRowStyle}>
+      <span style={informationLabelStyle}>{label}</span>
+      <span style={informationValueStyle}>{value}</span>
+    </div>
+  );
+}
+
+function TimelineStep({
+  label,
+  complete = false,
+  current = false,
+  detail,
+}: {
+  label: string;
+  complete?: boolean;
+  current?: boolean;
+  detail?: string;
+}) {
+  return (
+    <div
+      style={
+        complete
+          ? completeTimelineStepStyle
+          : current
+            ? currentTimelineStepStyle
+            : timelineStepStyle
+      }
     >
-      <CheckCircle2 className="h-4 w-4" />
-      {children}
-    </button>
+      <div style={timelineHeadingStyle}>
+        <span
+          style={
+            complete
+              ? completeTimelineDotStyle
+              : current
+                ? currentTimelineDotStyle
+                : timelineDotStyle
+          }
+        >
+          {complete ? "✓" : current ? "•" : ""}
+        </span>
+        <strong style={timelineLabelStyle}>{label}</strong>
+      </div>
+      {detail ? <span style={timelineDetailStyle}>{detail}</span> : null}
+    </div>
   );
 }
 
@@ -1719,15 +2293,20 @@ function Modal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-          <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-          <button onClick={onClose}>
-            <X className="h-5 w-5" />
+    <div style={modalBackdropStyle}>
+      <div style={modalStyle}>
+        <div style={modalHeaderStyle}>
+          <h2 style={modalTitleStyle}>{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={closeButtonStyle}
+            aria-label={`Close ${title}`}
+          >
+            <X size={18} />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div style={modalBodyStyle}>{children}</div>
       </div>
     </div>
   );
@@ -1743,10 +2322,8 @@ function Field({
   full?: boolean;
 }) {
   return (
-    <label className={full ? "sm:col-span-2" : ""}>
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
-        {label}
-      </span>
+    <label style={full ? fullFieldStyle : fieldStyle}>
+      <span style={fieldLabelStyle}>{label}</span>
       {children}
     </label>
   );
@@ -1762,14 +2339,934 @@ function Toggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-[#eadff2] bg-[#fcf9fe] p-4">
+    <label style={toggleStyle}>
       <input
         type="checkbox"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 h-4 w-4"
+        onChange={(event) => onChange(event.target.checked)}
+        style={checkboxStyle}
       />
-      <span className="text-sm font-semibold text-slate-900">{label}</span>
+      <span style={toggleLabelStyle}>{label}</span>
     </label>
   );
 }
+
+function getAppointmentStatusBadgeStyle(
+  status: AppointmentStatus,
+): CSSProperties {
+  const base: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: "999px",
+    padding: "4px 8px",
+    border: "1px solid",
+    fontSize: "11px",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  };
+
+  switch (status) {
+    case "ready_to_start":
+    case "employee_created":
+    case "started":
+      return {
+        ...base,
+        background: "#F5FFF9",
+        borderColor: "#CFE5D7",
+        color: "#41644D",
+      };
+
+    case "pre_employment":
+    case "checks_in_progress":
+    case "employee_creation_pending":
+      return {
+        ...base,
+        background: "#F7F1FC",
+        borderColor: "#CDB2E2",
+        color: "#6E5084",
+      };
+
+    case "withdrawn":
+    case "cancelled":
+      return {
+        ...base,
+        background: "#F3F4F6",
+        borderColor: "#D1D5DB",
+        color: "#5B6470",
+      };
+  }
+}
+
+const workspaceHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+  gap: "16px",
+  marginBottom: "20px",
+};
+
+const workspaceTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "24px",
+  lineHeight: 1.2,
+};
+
+const workspaceDescriptionStyle: CSSProperties = {
+  margin: "8px 0 0",
+  maxWidth: "760px",
+  color: "#6B7280",
+  fontSize: "14px",
+  lineHeight: 1.6,
+};
+
+const headerActionsStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  gap: "8px",
+};
+
+const primaryButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  background: "#6E5084",
+  color: "#FFFFFF",
+  border: "none",
+  borderRadius: "10px",
+  padding: "10px 14px",
+  fontWeight: 700,
+  fontSize: "13px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const secondaryButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  background: "#FFFFFF",
+  color: "#6E5084",
+  border: "1px solid #CDB2E2",
+  borderRadius: "10px",
+  padding: "10px 14px",
+  fontWeight: 700,
+  fontSize: "13px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const compactButtonStyle: CSSProperties = {
+  ...secondaryButtonStyle,
+  padding: "7px 10px",
+  fontSize: "12px",
+};
+
+const archiveButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  background: "#FFFFFF",
+  color: "#6B7280",
+  border: "1px solid #D1D5DB",
+  borderRadius: "10px",
+  padding: "10px 14px",
+  fontWeight: 700,
+  fontSize: "13px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const kpiGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "12px",
+  marginBottom: "18px",
+};
+
+const kpiCardStyle: CSSProperties = {
+  width: "100%",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  borderRadius: "14px",
+  padding: "16px",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const activeKpiCardStyle: CSSProperties = {
+  ...kpiCardStyle,
+  border: "1px solid #6E5084",
+  boxShadow: "0 0 0 2px rgba(110, 80, 132, 0.10)",
+};
+
+const warningKpiCardStyle: CSSProperties = {
+  ...kpiCardStyle,
+  background: "#FFF9EE",
+  border: "1px solid #E8D9B7",
+};
+
+const kpiValueStyle: CSSProperties = {
+  color: "#6E5084",
+  fontSize: "26px",
+  fontWeight: 800,
+};
+
+const kpiLabelStyle: CSSProperties = {
+  marginTop: "6px",
+  color: "#6B7280",
+  fontSize: "13px",
+  lineHeight: 1.4,
+};
+
+const registerPanelStyle: CSSProperties = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "14px",
+  padding: "18px",
+  background: "#FFFFFF",
+};
+
+const registerHeadingStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "16px",
+  marginBottom: "14px",
+};
+
+const panelTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "16px",
+};
+
+const panelDescriptionStyle: CSSProperties = {
+  margin: "6px 0 0",
+  color: "#6B7280",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const resultCountStyle: CSSProperties = {
+  color: "#6E5084",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontSize: "12px",
+  fontWeight: 700,
+  whiteSpace: "nowrap",
+};
+
+const automationPanelStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "10px",
+  padding: "12px",
+  marginBottom: "14px",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  borderRadius: "11px",
+};
+
+const automationTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#374151",
+  fontSize: "12px",
+};
+
+const automationTextStyle: CSSProperties = {
+  margin: "4px 0 0",
+  color: "#6B7280",
+  fontSize: "11px",
+  lineHeight: 1.5,
+};
+
+const filterAreaStyle: CSSProperties = {
+  padding: "14px",
+  marginBottom: "16px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "12px",
+};
+
+const filterButtonRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  marginTop: "12px",
+};
+
+const filterButtonStyle: CSSProperties = {
+  background: "#FFFFFF",
+  color: "#6B7280",
+  border: "1px solid #D1D5DB",
+  borderRadius: "9px",
+  padding: "7px 10px",
+  fontSize: "12px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const activeFilterButtonStyle: CSSProperties = {
+  ...filterButtonStyle,
+  background: "#F7F1FC",
+  color: "#6E5084",
+  border: "1px solid #CDB2E2",
+};
+
+const fieldStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+};
+
+const fullFieldStyle: CSSProperties = {
+  ...fieldStyle,
+  gridColumn: "1 / -1",
+};
+
+const fieldLabelStyle: CSSProperties = {
+  display: "block",
+  marginBottom: "6px",
+  color: "#374151",
+  fontSize: "12px",
+  fontWeight: 700,
+};
+
+const searchInputWrapStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "0 12px",
+  background: "#FFFFFF",
+  border: "1px solid #D1D5DB",
+  borderRadius: "10px",
+};
+
+const searchInputStyle: CSSProperties = {
+  width: "100%",
+  border: "none",
+  outline: "none",
+  padding: "10px 0",
+  background: "transparent",
+  color: "#111827",
+  fontSize: "14px",
+};
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  minHeight: "40px",
+  border: "1px solid #D1D5DB",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  background: "#FFFFFF",
+  color: "#111827",
+  fontSize: "14px",
+  outline: "none",
+};
+
+const textAreaStyle: CSSProperties = {
+  ...inputStyle,
+  resize: "vertical",
+  fontFamily: "inherit",
+  lineHeight: 1.5,
+};
+
+const starterListStyle: CSSProperties = {
+  display: "grid",
+  gap: "12px",
+};
+
+const starterCardStyle: CSSProperties = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "13px",
+  padding: "16px",
+  background: "#FFFFFF",
+};
+
+const starterHeadingStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "16px",
+};
+
+const starterIdentityStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  minWidth: 0,
+};
+
+const starterAvatarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "42px",
+  height: "42px",
+  flexShrink: 0,
+  borderRadius: "12px",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 800,
+};
+
+const starterNameStyle: CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "16px",
+};
+
+const referenceStyle: CSSProperties = {
+  margin: "5px 0 0",
+  color: "#6B7280",
+  fontSize: "11px",
+  overflowWrap: "anywhere",
+};
+
+const badgeRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  gap: "6px",
+};
+
+const badgeRowLeftStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: "6px",
+};
+
+const archivedBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "4px 8px",
+  background: "#F3F4F6",
+  border: "1px solid #D1D5DB",
+  color: "#5B6470",
+  fontSize: "11px",
+  fontWeight: 700,
+  whiteSpace: "nowrap",
+};
+
+const starterDetailsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
+  gap: "14px",
+  marginTop: "16px",
+};
+
+const detailLabelStyle: CSSProperties = {
+  display: "block",
+  marginBottom: "4px",
+  color: "#6B7280",
+  fontSize: "10px",
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const detailValueStyle: CSSProperties = {
+  display: "block",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.4,
+};
+
+const detailHelpStyle: CSSProperties = {
+  display: "block",
+  marginTop: "3px",
+  color: "#6B7280",
+  fontSize: "11px",
+  lineHeight: 1.4,
+  overflowWrap: "anywhere",
+};
+
+const progressTrackStyle: CSSProperties = {
+  height: "7px",
+  marginTop: "15px",
+  overflow: "hidden",
+  background: "#EEF0F2",
+  borderRadius: "999px",
+};
+
+const progressBarStyle: CSSProperties = {
+  height: "100%",
+  background: "#6E5084",
+  borderRadius: "999px",
+  transition: "width 180ms ease",
+};
+
+const expandedAreaStyle: CSSProperties = {
+  marginTop: "16px",
+  paddingTop: "16px",
+  borderTop: "1px solid #EEF0F2",
+};
+
+const starterOverviewGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gap: "12px",
+};
+
+const informationPanelStyle: CSSProperties = {
+  padding: "14px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "11px",
+};
+
+const expandedPanelTitleStyle: CSSProperties = {
+  margin: "0 0 12px",
+  color: "#111827",
+  fontSize: "13px",
+};
+
+const informationListStyle: CSSProperties = {
+  display: "grid",
+  gap: "9px",
+};
+
+const informationRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "145px minmax(0, 1fr)",
+  gap: "10px",
+  paddingBottom: "8px",
+  borderBottom: "1px solid #E5E7EB",
+};
+
+const informationLabelStyle: CSSProperties = {
+  color: "#6B7280",
+  fontSize: "11px",
+  fontWeight: 700,
+};
+
+const informationValueStyle: CSSProperties = {
+  color: "#374151",
+  fontSize: "11px",
+  lineHeight: 1.5,
+  overflowWrap: "anywhere",
+};
+
+const sectionToolbarStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "10px",
+  marginTop: "14px",
+  padding: "12px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "11px",
+};
+
+const sectionButtonRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "7px",
+};
+
+const sectionButtonStyle: CSSProperties = {
+  background: "#FFFFFF",
+  color: "#6B7280",
+  border: "1px solid #D1D5DB",
+  borderRadius: "8px",
+  padding: "7px 9px",
+  fontSize: "11px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const activeSectionButtonStyle: CSSProperties = {
+  ...sectionButtonStyle,
+  background: "#F7F1FC",
+  color: "#6E5084",
+  border: "1px solid #CDB2E2",
+};
+
+const itemListStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  marginTop: "12px",
+};
+
+const itemCardStyle: CSSProperties = {
+  padding: "13px",
+  background: "#FFFFFF",
+  border: "1px solid #E5E7EB",
+  borderRadius: "11px",
+};
+
+const itemHeadingStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+  gap: "12px",
+};
+
+const itemTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#374151",
+  fontSize: "13px",
+};
+
+const itemDescriptionStyle: CSSProperties = {
+  margin: "7px 0 0",
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.55,
+};
+
+const categoryBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  borderRadius: "999px",
+  padding: "3px 7px",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  color: "#6E5084",
+  fontSize: "10px",
+  fontWeight: 700,
+};
+
+const overdueBadgeStyle: CSSProperties = {
+  ...categoryBadgeStyle,
+  background: "#FFF7F7",
+  border: "1px solid #EAD0D0",
+  color: "#7B3F3F",
+};
+
+const statusSelectStyle: CSSProperties = {
+  minHeight: "36px",
+  border: "1px solid #D1D5DB",
+  borderRadius: "9px",
+  padding: "7px 10px",
+  background: "#FFFFFF",
+  color: "#374151",
+  fontSize: "12px",
+};
+
+const itemMetaRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "12px",
+  marginTop: "10px",
+  color: "#6B7280",
+  fontSize: "10px",
+};
+
+const emptyItemsStyle: CSSProperties = {
+  padding: "22px",
+  background: "#F9FAFB",
+  border: "1px dashed #D1D5DB",
+  borderRadius: "10px",
+  color: "#6B7280",
+  fontSize: "12px",
+  textAlign: "center",
+};
+
+const timelineGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: "10px",
+  marginTop: "12px",
+};
+
+const timelineStepStyle: CSSProperties = {
+  padding: "13px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "11px",
+};
+
+const currentTimelineStepStyle: CSSProperties = {
+  ...timelineStepStyle,
+  background: "#F7F1FC",
+  border: "1px solid #CDB2E2",
+};
+
+const completeTimelineStepStyle: CSSProperties = {
+  ...timelineStepStyle,
+  background: "#F5FFF9",
+  border: "1px solid #CFE5D7",
+};
+
+const timelineHeadingStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const timelineDotStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "22px",
+  height: "22px",
+  borderRadius: "999px",
+  background: "#E5E7EB",
+  color: "#6B7280",
+  fontSize: "11px",
+  fontWeight: 800,
+};
+
+const currentTimelineDotStyle: CSSProperties = {
+  ...timelineDotStyle,
+  background: "#6E5084",
+  color: "#FFFFFF",
+};
+
+const completeTimelineDotStyle: CSSProperties = {
+  ...timelineDotStyle,
+  background: "#41644D",
+  color: "#FFFFFF",
+};
+
+const timelineLabelStyle: CSSProperties = {
+  color: "#374151",
+  fontSize: "12px",
+};
+
+const timelineDetailStyle: CSSProperties = {
+  display: "block",
+  marginTop: "7px",
+  color: "#6B7280",
+  fontSize: "10px",
+};
+
+const cardActionsStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  gap: "8px",
+  marginTop: "16px",
+  paddingTop: "14px",
+  borderTop: "1px solid #EEF0F2",
+};
+
+const emptyPanelStyle: CSSProperties = {
+  padding: "28px",
+  background: "#F9FAFB",
+  border: "1px dashed #D1D5DB",
+  borderRadius: "12px",
+  textAlign: "center",
+};
+
+const emptyIconStyle: CSSProperties = {
+  color: "#6E5084",
+  fontSize: "22px",
+  marginBottom: "8px",
+};
+
+const emptyTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#111827",
+  fontSize: "14px",
+};
+
+const emptyTextStyle: CSSProperties = {
+  margin: "8px 0 0",
+  color: "#6B7280",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const emptyPrimaryButtonStyle: CSSProperties = {
+  ...primaryButtonStyle,
+  marginTop: "14px",
+};
+
+const errorPanelStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "16px",
+  marginBottom: "18px",
+  padding: "14px",
+  border: "1px solid #E8D9B7",
+  borderRadius: "12px",
+  background: "#FFF9EE",
+};
+
+const successPanelStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  marginBottom: "18px",
+  padding: "13px 14px",
+  border: "1px solid #CFE5D7",
+  borderRadius: "12px",
+  background: "#F5FFF9",
+  color: "#41644D",
+};
+
+const messageContentStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "10px",
+};
+
+const errorTitleStyle: CSSProperties = {
+  color: "#5F4A22",
+  fontSize: "13px",
+};
+
+const errorTextStyle: CSSProperties = {
+  margin: "4px 0 0",
+  color: "#765E32",
+  fontSize: "12px",
+  lineHeight: 1.5,
+};
+
+const successTextStyle: CSSProperties = {
+  color: "#41644D",
+  fontSize: "12px",
+};
+
+const loadingPanelStyle: CSSProperties = {
+  padding: "38px",
+  border: "1px solid #E5E7EB",
+  borderRadius: "14px",
+  background: "#F9FAFB",
+  textAlign: "center",
+};
+
+const spinnerIconStyle: CSSProperties = {
+  display: "block",
+  margin: "0 auto 12px",
+  color: "#6E5084",
+  animation: "onboarding-spin 1s linear infinite",
+};
+
+const loadingTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#111827",
+  fontSize: "14px",
+};
+
+const loadingTextStyle: CSSProperties = {
+  margin: "7px 0 0",
+  color: "#6B7280",
+  fontSize: "13px",
+};
+
+const modalBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 100,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "18px",
+  background: "rgba(17, 24, 39, 0.45)",
+};
+
+const modalStyle: CSSProperties = {
+  width: "min(760px, 100%)",
+  maxHeight: "92vh",
+  overflowY: "auto",
+  background: "#FFFFFF",
+  borderRadius: "16px",
+  boxShadow: "0 24px 60px rgba(17, 24, 39, 0.22)",
+};
+
+const modalHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "16px",
+  padding: "18px 20px",
+  borderBottom: "1px solid #E5E7EB",
+};
+
+const modalTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "18px",
+};
+
+const closeButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "34px",
+  height: "34px",
+  border: "1px solid #D1D5DB",
+  borderRadius: "9px",
+  background: "#FFFFFF",
+  color: "#6B7280",
+  cursor: "pointer",
+};
+
+const modalBodyStyle: CSSProperties = {
+  padding: "20px",
+};
+
+const modalIntroStyle: CSSProperties = {
+  marginBottom: "16px",
+  padding: "12px",
+  background: "#F7F1FC",
+  border: "1px solid #E8DDF0",
+  borderRadius: "10px",
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.55,
+};
+
+const twoColumnGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: "12px",
+};
+
+const toggleGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "10px",
+  marginTop: "14px",
+};
+
+const toggleStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "9px",
+  padding: "12px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "10px",
+  cursor: "pointer",
+};
+
+const checkboxStyle: CSSProperties = {
+  width: "16px",
+  height: "16px",
+  marginTop: "1px",
+  accentColor: "#6E5084",
+};
+
+const toggleLabelStyle: CSSProperties = {
+  color: "#374151",
+  fontSize: "12px",
+  fontWeight: 700,
+  lineHeight: 1.45,
+};
+
+const modalActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+  gap: "8px",
+  marginTop: "18px",
+  paddingTop: "16px",
+  borderTop: "1px solid #E5E7EB",
+};

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useSearchParams } from "next/navigation";
 
 import ApplicationsWorkspace from "./components/ApplicationsWorkspace";
 import CandidateWorkspace from "./components/CandidateWorkspace";
@@ -35,9 +36,40 @@ const sections: TalentSection[] = [
   "Settings",
 ];
 
+function sectionFromQuery(value: string | null): TalentSection | null {
+  if (!value) return null;
+
+  const normalised = value.trim().toLowerCase().replaceAll("_", "-");
+
+  const matches: Record<string, TalentSection> = {
+    dashboard: "Dashboard",
+    vacancies: "Vacancies",
+    applications: "Applications",
+    candidates: "Candidates",
+    interviews: "Interviews",
+    "due-diligence": "Due Diligence",
+    due_diligence: "Due Diligence",
+    offers: "Offers & Appointments",
+    "offers-and-appointments": "Offers & Appointments",
+    onboarding: "Onboarding",
+    "ai-studio": "AI Studio",
+    settings: "Settings",
+  };
+
+  return matches[normalised] ?? null;
+}
+
 export default function LeoTalentPage() {
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] =
     useState<TalentSection>("Dashboard");
+
+  useEffect(() => {
+    const requestedSection = sectionFromQuery(searchParams.get("section"));
+    if (requestedSection) {
+      setActiveSection(requestedSection);
+    }
+  }, [searchParams]);
 
   return (
     <div style={pageStyle}>
@@ -373,7 +405,7 @@ function getSectionDescription(section: TalentSection): string {
     case "Interviews":
       return "Schedule interviews, coordinate panels and record structured outcomes.";
     case "Due Diligence":
-      return "Complete role-specific checks and confirm readiness for appointment.";
+      return "Complete shared candidate checks, evidence review and the final appointment decision.";
     case "Offers & Appointments":
       return "Prepare offers, confirm appointments and manage candidate responses.";
     case "Onboarding":
@@ -488,6 +520,8 @@ const workspaceStyle: CSSProperties = {
   borderColor: "#E5E7EB",
   borderRadius: 16,
   padding: 22,
+  boxSizing: "border-box",
+  overflow: "hidden",
 };
 
 const workspaceHeaderStyle: CSSProperties = {

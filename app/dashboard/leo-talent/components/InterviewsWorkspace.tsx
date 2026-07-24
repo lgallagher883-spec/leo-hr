@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 type InterviewType =
   | "telephone"
@@ -67,6 +67,7 @@ type InterviewFilter =
   | "awaiting_confirmation"
   | "reschedule"
   | "completed"
+  | "outcomes_pending"
   | "cancelled"
   | "archived"
   | "all";
@@ -232,7 +233,7 @@ const emptyForm: InterviewFormState = {
   stageNumber: "1",
   stageName: "First Interview",
   interviewType: "in_person",
-  status: "draft",
+  status: "scheduled",
   scheduledDate: "",
   startTime: "10:00",
   endTime: "11:00",
@@ -262,6 +263,7 @@ const filterOptions: Array<{
     label: "Reschedule Requested",
   },
   { value: "completed", label: "Completed" },
+  { value: "outcomes_pending", label: "Outcomes Pending" },
   { value: "cancelled", label: "Cancelled" },
   { value: "archived", label: "Archived" },
   { value: "all", label: "All" },
@@ -348,7 +350,23 @@ const liveInterviewStatuses: InterviewStatus[] = [
   "reschedule_requested",
 ];
 
+function isActiveScheduledInterview(
+  interview: TalentInterview,
+) {
+  return Boolean(
+    !interview.archived_at &&
+      interview.scheduled_start &&
+      (
+        liveInterviewStatuses.includes(interview.status) ||
+        interview.status === "draft"
+      ),
+  );
+}
+
 export default function InterviewsWorkspace() {
+  const supabase = useMemo(() => createClient(), []);
+
+  const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [interviews, setInterviews] = useState<
     TalentInterview[]
   >([]);
@@ -396,70 +414,214 @@ export default function InterviewsWorkspace() {
 
       setError(null);
 
-      const [
-        interviewsResult,
-        applicationsResult,
-        templatesResult,
-      ] = await Promise.all([
-        supabase
-          .from("leo_talent_interviews")
-          .select(
-            `
-              id,
-              organisation_id,
-              interview_reference,
-              application_id,
-              vacancy_id,
-              candidate_id,
-              template_id,
-              stage_number,
-              stage_name,
-              interview_type,
-              status,
-              scheduled_start,
-              scheduled_end,
-              timezone_name,
-              location,
-              meeting_url,
-              candidate_instructions,
-              internal_instructions,
-              invitation_sent_at,
-              candidate_confirmed_at,
-              completed_at,
-              overall_score,
-              outcome,
-              outcome_reason,
-              ai_recommendation,
-              ai_recommendation_reason,
-              calendar_provider,
-              calendar_event_id,
-              calendar_sync_status,
-              created_at,
-              updated_at,
-              archived_at,
-              candidate:leo_talent_candidates (
+      try {
+        let resolvedOrganisationId = organisationId;
+
+        if (!resolvedOrganisationId) {
+          const {
+            data: { user },
+            error: userError,
+          } = await supabase.auth.getUser();
+
+          if (userError) {
+            throw new Error(userError.message);
+          }
+
+          if (!user) {
+            throw new Error(
+              "You must be signed in to manage interviews.",
+            );
+          }
+
+          const membershipResult = await supabase
+            .from("organisation_memberships")
+            .select("organisation_id")
+            .eq("user_id", user.id)
+            .eq("membership_status", "active")
+            .order("is_default_organisation", {
+              ascending: false,
+            })
+            .order("created_at", {
+              ascending: true,
+            })
+            .limit(1)
+            .maybeSingle();
+
+          if (membershipResult.error) {
+            throw new Error(
+              membershipResult.error.message,
+            );
+          }
+
+          resolvedOrganisationId =
+            membershipResult.data?.organisation_id ??
+            null;
+
+          if (!resolvedOrganisationId) {
+            throw new Error(
+              "Leo could not find an active organisation for your account.",
+            );
+          }
+
+          setOrganisationId(resolvedOrganisationId);
+        }
+
+        const [
+          interviewsResult,
+          applicationsResult,
+          templatesResult,
+        ] = await Promise.all([
+          supabase
+            .from("leo_talent_interviews")
+            .select(
+              `
                 id,
-                candidate_reference,
-                first_name,
-                last_name,
-                preferred_name,
-                email,
-                phone
-              ),
-              vacancy:leo_talent_vacancies (
-                id,
-                vacancy_reference,
-                title,
-                department,
-                location_name
-              ),
-              application:leo_talent_applications (
+                organisation_id,
+                interview_reference,
+                application_id,
+                vacancy_id,
+                candidate_id,
+                template_id,
+                stage_number,
+                stage_name,
+                interview_type,
+                status,
+                scheduled_start,
+                scheduled_end,
+                timezone_name,
+                location,
+                meeting_url,
+                candidate_instructions,
+                internal_instructions,
+                invitation_sent_at,
+                candidate_confirmed_at,
+                completed_at,
+                overall_score,
+                outcome,
+                outcome_reason,
+                ai_recommendation,
+                ai_recommendation_reason,
+                calendar_provider,
+                calendar_event_id,
+                calendar_sync_status,
+                created_at,
+                updated_at,
+                archived_at,
+                candidate:leo_talent_candidates (
+                  id,
+                  candidate_reference,
+                  first_name,
+                  last_name,
+                  preferred_name,
+                  email,
+                  phone
+                ),
+                vacancy:leo_talent_vacancies (
+                  id,
+                  vacancy_reference,
+                  title,
+                  department,
+                  location_name
+                ),
+                application:leo_talent_applications (
+                  id,
+                  application_reference,
+                  current_stage_key,
+                  status
+                ),
+                template:leo_talent_interview_templates (
+                  id,
+                  name,
+                  description,
+                  stage_name,
+                  interview_type,
+                  instructions,
+                  total_score_available,
+                  pass_score,
+                  is_default,
+                  is_active,
+                  archived_at
+                ),
+                panel_members:leo_talent_interview_panel_members (
+                  id,
+                  interview_id,
+                  user_id,
+                  employee_id,
+                  member_name,
+                  member_email,
+                  panel_role,
+                  attendance_status,
+                  can_score,
+                  display_order,
+                  created_at,
+                  updated_at
+                ),
+                scorecards:leo_talent_interview_scorecards (
+                  id,
+                  interview_id,
+                  reviewer_name,
+                  status,
+                  total_score,
+                  maximum_score,
+                  recommendation,
+                  strengths,
+                  concerns,
+                  overall_notes,
+                  submitted_at
+                )
+              `,
+            )
+            .eq(
+              "organisation_id",
+              resolvedOrganisationId,
+            )
+            .order("scheduled_start", {
+              ascending: true,
+              nullsFirst: false,
+            }),
+
+          supabase
+            .from("leo_talent_applications")
+            .select(
+              `
                 id,
                 application_reference,
+                candidate_id,
+                vacancy_id,
                 current_stage_key,
-                status
-              ),
-              template:leo_talent_interview_templates (
+                status,
+                archived_at,
+                candidate:leo_talent_candidates (
+                  id,
+                  candidate_reference,
+                  first_name,
+                  last_name,
+                  preferred_name,
+                  email,
+                  phone
+                ),
+                vacancy:leo_talent_vacancies (
+                  id,
+                  vacancy_reference,
+                  title,
+                  department,
+                  location_name
+                )
+              `,
+            )
+            .eq(
+              "organisation_id",
+              resolvedOrganisationId,
+            )
+            .is("archived_at", null)
+            .order("updated_at", {
+              ascending: false,
+            }),
+
+          supabase
+            .from("leo_talent_interview_templates")
+            .select(
+              `
                 id,
                 name,
                 description,
@@ -471,153 +633,92 @@ export default function InterviewsWorkspace() {
                 is_default,
                 is_active,
                 archived_at
-              ),
-              panel_members:leo_talent_interview_panel_members (
-                id,
-                interview_id,
-                user_id,
-                employee_id,
-                member_name,
-                member_email,
-                panel_role,
-                attendance_status,
-                can_score,
-                display_order,
-                created_at,
-                updated_at
-              ),
-              scorecards:leo_talent_interview_scorecards (
-                id,
-                interview_id,
-                reviewer_name,
-                status,
-                total_score,
-                maximum_score,
-                recommendation,
-                strengths,
-                concerns,
-                overall_notes,
-                submitted_at
-              )
-            `,
-          )
-          .order("scheduled_start", {
-            ascending: true,
-            nullsFirst: false,
-          }),
+              `,
+            )
+            .eq(
+              "organisation_id",
+              resolvedOrganisationId,
+            )
+            .eq("is_active", true)
+            .is("archived_at", null)
+            .order("is_default", {
+              ascending: false,
+            })
+            .order("name", {
+              ascending: true,
+            }),
+        ]);
 
-        supabase
-          .from("leo_talent_applications")
-          .select(
-            `
-              id,
-              application_reference,
-              candidate_id,
-              vacancy_id,
-              current_stage_key,
-              status,
-              archived_at,
-              candidate:leo_talent_candidates (
-                id,
-                candidate_reference,
-                first_name,
-                last_name,
-                preferred_name,
-                email,
-                phone
-              ),
-              vacancy:leo_talent_vacancies (
-                id,
-                vacancy_reference,
-                title,
-                department,
-                location_name
-              )
-            `,
-          )
-          .is("archived_at", null)
-          .order("updated_at", {
-            ascending: false,
-          }),
+        if (interviewsResult.error) {
+          console.error(
+            "Unable to load interviews:",
+            interviewsResult.error,
+          );
 
-        supabase
-          .from("leo_talent_interview_templates")
-          .select(
-            `
-              id,
-              name,
-              description,
-              stage_name,
-              interview_type,
-              instructions,
-              total_score_available,
-              pass_score,
-              is_default,
-              is_active,
-              archived_at
-            `,
-          )
-          .eq("is_active", true)
-          .is("archived_at", null)
-          .order("is_default", {
-            ascending: false,
-          })
-          .order("name", {
-            ascending: true,
-          }),
-      ]);
+          setInterviews([]);
+          setError(
+            "Leo could not load the interview register.",
+          );
+        } else {
+          setInterviews(
+            normaliseInterviews(
+              interviewsResult.data ?? [],
+            ),
+          );
+        }
 
-      if (interviewsResult.error) {
+        if (applicationsResult.error) {
+          console.error(
+            "Unable to load interview applications:",
+            applicationsResult.error,
+          );
+
+          setApplications([]);
+          setError((current) =>
+            current ??
+            "Leo could not load the applications available for interview.",
+          );
+        } else {
+          setApplications(
+            normaliseApplications(
+              applicationsResult.data ?? [],
+            ),
+          );
+        }
+
+        if (templatesResult.error) {
+          console.error(
+            "Unable to load interview templates:",
+            templatesResult.error,
+          );
+
+          setTemplates([]);
+        } else {
+          setTemplates(
+            (templatesResult.data ??
+              []) as InterviewTemplate[],
+          );
+        }
+      } catch (loadError) {
         console.error(
-          "Unable to load interviews:",
-          interviewsResult.error,
+          "Unable to load the interview workspace:",
+          loadError,
         );
 
         setInterviews([]);
-        setError(
-          "Leo could not load the interview register. Check that the Talent database foundation has been completed, then try again.",
-        );
-      } else {
-        setInterviews(
-          normaliseInterviews(
-            interviewsResult.data ?? [],
-          ),
-        );
-      }
-
-      if (applicationsResult.error) {
-        console.error(
-          "Unable to load interview applications:",
-          applicationsResult.error,
-        );
-
         setApplications([]);
-      } else {
-        setApplications(
-          normaliseApplications(
-            applicationsResult.data ?? [],
-          ),
-        );
-      }
-
-      if (templatesResult.error) {
-        console.error(
-          "Unable to load interview templates:",
-          templatesResult.error,
-        );
-
         setTemplates([]);
-      } else {
-        setTemplates(
-          (templatesResult.data ??
-            []) as InterviewTemplate[],
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Leo could not load the interview workspace.",
         );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      setLoading(false);
-      setRefreshing(false);
     },
-    [],
+    [organisationId, supabase],
   );
 
   useEffect(() => {
@@ -631,22 +732,17 @@ export default function InterviewsWorkspace() {
     return {
       upcoming: interviews.filter(
         (interview) =>
-          !interview.archived_at &&
-          liveInterviewStatuses.includes(
-            interview.status,
-          ) &&
-          interview.scheduled_start !== null &&
+          isActiveScheduledInterview(interview) &&
           new Date(
-            interview.scheduled_start,
+            interview.scheduled_start as string,
           ).getTime() >= Date.now(),
       ).length,
 
       today: interviews.filter(
         (interview) =>
-          !interview.archived_at &&
-          interview.scheduled_start !== null &&
+          isActiveScheduledInterview(interview) &&
           isDateWithinRange(
-            interview.scheduled_start,
+            interview.scheduled_start as string,
             todayStart,
             todayEnd,
           ),
@@ -655,8 +751,14 @@ export default function InterviewsWorkspace() {
       awaitingConfirmation: interviews.filter(
         (interview) =>
           !interview.archived_at &&
-          ["scheduled", "invited"].includes(
-            interview.status,
+          (
+            ["scheduled", "invited"].includes(
+              interview.status,
+            ) ||
+            (
+              interview.status === "draft" &&
+              interview.scheduled_start !== null
+            )
           ),
       ).length,
 
@@ -740,22 +842,17 @@ export default function InterviewsWorkspace() {
         switch (activeFilter) {
           case "upcoming":
             matchesFilter =
-              !interview.archived_at &&
-              liveInterviewStatuses.includes(
-                interview.status,
-              ) &&
-              interview.scheduled_start !== null &&
+              isActiveScheduledInterview(interview) &&
               new Date(
-                interview.scheduled_start,
+                interview.scheduled_start as string,
               ).getTime() >= Date.now();
             break;
 
           case "today":
             matchesFilter =
-              !interview.archived_at &&
-              interview.scheduled_start !== null &&
+              isActiveScheduledInterview(interview) &&
               isDateWithinRange(
-                interview.scheduled_start,
+                interview.scheduled_start as string,
                 todayStart,
                 todayEnd,
               );
@@ -764,8 +861,14 @@ export default function InterviewsWorkspace() {
           case "awaiting_confirmation":
             matchesFilter =
               !interview.archived_at &&
-              ["scheduled", "invited"].includes(
-                interview.status,
+              (
+                ["scheduled", "invited"].includes(
+                  interview.status,
+                ) ||
+                (
+                  interview.status === "draft" &&
+                  interview.scheduled_start !== null
+                )
               );
             break;
 
@@ -780,6 +883,13 @@ export default function InterviewsWorkspace() {
             matchesFilter =
               !interview.archived_at &&
               interview.status === "completed";
+            break;
+
+          case "outcomes_pending":
+            matchesFilter =
+              !interview.archived_at &&
+              interview.status === "completed" &&
+              !interview.outcome;
             break;
 
           case "cancelled":
@@ -1165,6 +1275,13 @@ export default function InterviewsWorkspace() {
       return;
     }
 
+    if (!organisationId) {
+      setFormError(
+        "Leo could not identify your organisation. Refresh the workspace and try again.",
+      );
+      return;
+    }
+
     setSaving(true);
 
     const now = new Date().toISOString();
@@ -1178,6 +1295,7 @@ export default function InterviewsWorkspace() {
         : null;
 
     const payload = {
+      organisation_id: organisationId,
       application_id: application.id,
       candidate_id: application.candidate_id,
       vacancy_id: application.vacancy_id,
@@ -1780,11 +1898,15 @@ export default function InterviewsWorkspace() {
         <KpiCard
           label="Upcoming"
           value={String(metrics.upcoming)}
+          active={activeFilter === "upcoming"}
+          onClick={() => setActiveFilter("upcoming")}
         />
 
         <KpiCard
           label="Today"
           value={String(metrics.today)}
+          active={activeFilter === "today"}
+          onClick={() => setActiveFilter("today")}
         />
 
         <KpiCard
@@ -1792,6 +1914,10 @@ export default function InterviewsWorkspace() {
           value={String(
             metrics.awaitingConfirmation,
           )}
+          active={activeFilter === "awaiting_confirmation"}
+          onClick={() =>
+            setActiveFilter("awaiting_confirmation")
+          }
         />
 
         <KpiCard
@@ -1799,16 +1925,24 @@ export default function InterviewsWorkspace() {
           value={String(
             metrics.rescheduleRequested,
           )}
+          active={activeFilter === "reschedule"}
+          onClick={() => setActiveFilter("reschedule")}
         />
 
         <KpiCard
           label="Completed"
           value={String(metrics.completed)}
+          active={activeFilter === "completed"}
+          onClick={() => setActiveFilter("completed")}
         />
 
         <KpiCard
           label="Outcomes Pending"
           value={String(metrics.outcomesPending)}
+          active={activeFilter === "outcomes_pending"}
+          onClick={() =>
+            setActiveFilter("outcomes_pending")
+          }
         />
       </div>
 
@@ -3181,15 +3315,28 @@ function WorkspaceHeading() {
 function KpiCard({
   label,
   value,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div style={kpiCardStyle}>
+    <button
+      type="button"
+      style={
+        active
+          ? activeKpiCardStyle
+          : kpiCardStyle
+      }
+      onClick={onClick}
+      aria-pressed={active}
+    >
       <div style={kpiValueStyle}>{value}</div>
       <div style={kpiLabelStyle}>{label}</div>
-    </div>
+    </button>
   );
 }
 
@@ -3766,10 +3913,19 @@ const kpiGridStyle: CSSProperties = {
 };
 
 const kpiCardStyle: CSSProperties = {
+  width: "100%",
   background: "#F7F1FC",
   border: "1px solid #E8DDF0",
   borderRadius: "14px",
   padding: "16px",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const activeKpiCardStyle: CSSProperties = {
+  ...kpiCardStyle,
+  border: "1px solid #6E5084",
+  boxShadow: "0 0 0 2px rgba(110, 80, 132, 0.10)",
 };
 
 const kpiValueStyle: CSSProperties = {

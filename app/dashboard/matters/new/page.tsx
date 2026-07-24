@@ -5,16 +5,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import { useMatters } from "../MatterContext";
-import { recordAuditLog } from "../../../../lib/audit";
-
-const supabase = createClient(
-  process.env
-    .NEXT_PUBLIC_SUPABASE_URL!,
-  process.env
-    .NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Employee = {
   id: number;
@@ -72,37 +63,51 @@ export default function NewMatterPage() {
   ] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadEmployees() {
-      const { data, error } =
-        await supabase
-          .from("employees")
-          .select(
-            "id, name, role, status"
-          )
-          .neq(
-            "status",
-            "Archived"
-          )
-          .order("name", {
-            ascending: true,
-          });
+      try {
+        const response = await fetch("/api/employees", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
 
-      if (error) {
-        console.error(
-          "Error loading employees:",
-          error
-        );
+        const result = (await response.json()) as {
+          success?: boolean;
+          employees?: Employee[];
+          error?: string;
+        };
 
-        return;
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error || "Employees could not be loaded."
+          );
+        }
+
+        if (cancelled) return;
+
+        const availableEmployees = (result.employees || [])
+          .filter(
+            (employee) =>
+              employee.status?.trim().toLowerCase() !== "archived"
+          )
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        setEmployees(availableEmployees);
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("Error loading employees:", error);
+        setEmployees([]);
       }
-
-      setEmployees(
-        (data ||
-          []) as Employee[]
-      );
     }
 
-    loadEmployees();
+    void loadEmployees();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleCreate() {

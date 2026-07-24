@@ -4338,7 +4338,7 @@ const profileTabStyle: CSSProperties = {
 
 const activeProfileTabStyle: CSSProperties = {
   ...profileTabStyle,
-  borderColor: "#6E5084",
+  border: "1px solid #6E5084",
   background: "#F1EAF6",
   color: "#6E5084",
 };

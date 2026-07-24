@@ -124,26 +124,13 @@ type VacancyQuestion = {
   updated_at?: string | null;
 };
 
-type Application = {
-  id: string;
-  candidate_id: string | null;
-  vacancy_id: string;
-  application_reference?: string | null;
-  status?: string | null;
-  stage?: string | null;
-  source?: string | null;
-  submitted_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  candidate_name?: string | null;
-  candidate_email?: string | null;
-};
-
 type Candidate = {
   id: string;
-  vacancy_id?: string | null;
+  candidate_reference?: string | null;
   first_name?: string | null;
+  middle_names?: string | null;
   last_name?: string | null;
+  preferred_name?: string | null;
   full_name?: string | null;
   email?: string | null;
   telephone?: string | null;
@@ -151,6 +138,24 @@ type Candidate = {
   status?: string | null;
   current_stage?: string | null;
   created_at?: string | null;
+  archived_at?: string | null;
+};
+
+type Application = {
+  id: string;
+  candidate_id: string | null;
+  vacancy_id: string;
+  application_reference?: string | null;
+  status?: string | null;
+  current_stage_key?: string | null;
+  stage?: string | null;
+  source?: string | null;
+  submitted_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  candidate?: Candidate | Candidate[] | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
 };
 
 type Interview = {
@@ -169,16 +174,21 @@ type Interview = {
 
 type DueDiligenceRecord = {
   id: string;
+  organisation_id: string | null;
+  application_id: string;
   vacancy_id: string;
-  candidate_id?: string | null;
-  candidate_name?: string | null;
-  check_type?: string | null;
-  status?: string | null;
-  requested_at?: string | null;
-  completed_at?: string | null;
-  expiry_date?: string | null;
-  notes?: string | null;
-  created_at?: string | null;
+  candidate_id: string;
+  status: string;
+  overall_risk_level: string;
+  overall_notes: string | null;
+  review_required: boolean;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  candidate?: Candidate | null;
+  application_reference?: string | null;
 };
 
 type Offer = {
@@ -334,6 +344,13 @@ function candidateDisplayName(candidate: Candidate): string {
   return candidate.full_name || combined || "Candidate";
 }
 
+function firstRelatedRecord<T>(
+  value: T | T[] | null | undefined,
+): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
 function applicationDisplayName(application: Application): string {
   return application.candidate_name || application.candidate_email || "Candidate";
 }
@@ -480,13 +497,85 @@ export default function VacancyWorkspacePage() {
 
       setVacancy(vacancyResult.data as Vacancy);
 
+      const applicationsResult = await supabase
+        .from("leo_talent_applications")
+        .select(
+          `
+            id,
+            candidate_id,
+            vacancy_id,
+            application_reference,
+            status,
+            current_stage_key,
+            source,
+            submitted_at,
+            created_at,
+            updated_at,
+            candidate:leo_talent_candidates (
+              id,
+              candidate_reference,
+              first_name,
+              middle_names,
+              last_name,
+              preferred_name,
+              email,
+              phone,
+              archived_at
+            )
+          `,
+        )
+        .eq("vacancy_id", vacancyId)
+        .order("updated_at", { ascending: false });
+
+      if (applicationsResult.error) {
+        console.warn(
+          "leo_talent_applications could not be loaded:",
+          applicationsResult.error.message,
+        );
+        setAvailability((current) => ({
+          ...current,
+          applications: false,
+          candidates: false,
+        }));
+      } else {
+        setAvailability((current) => ({
+          ...current,
+          applications: true,
+          candidates: true,
+        }));
+      }
+
+      const applicationRows = ((applicationsResult.data ?? []) as Application[]).map(
+        (application) => {
+          const candidate = firstRelatedRecord(application.candidate);
+          return {
+            ...application,
+            stage: application.current_stage_key ?? application.stage ?? null,
+            candidate,
+            candidate_name: candidate ? candidateDisplayName(candidate) : null,
+            candidate_email: candidate?.email ?? null,
+          };
+        },
+      );
+
+      const candidateMap = new Map<string, Candidate>();
+      for (const application of applicationRows) {
+        const candidate = firstRelatedRecord(application.candidate);
+        if (candidate && !candidate.archived_at) {
+          candidateMap.set(candidate.id, {
+            ...candidate,
+            current_stage: application.current_stage_key ?? application.stage ?? null,
+            status: application.status ?? null,
+          });
+        }
+      }
+      const candidateRows = Array.from(candidateMap.values());
+
       const [
         publicationChannelRows,
         vacancyQuestionRows,
-        applicationRows,
-        candidateRows,
         interviewRows,
-        dueDiligenceRows,
+        saferProfileRows,
         offerRows,
         documentRows,
         activityRows,
@@ -503,16 +592,23 @@ export default function VacancyWorkspacePage() {
           "vacancyQuestions",
           "display_order",
         ),
-        safeLoad<Application>("leo_talent_applications", "vacancy_id", "applications"),
-        safeLoad<Candidate>("leo_talent_candidates", "vacancy_id", "candidates"),
-        safeLoad<Interview>("leo_talent_interviews", "vacancy_id", "interviews"),
+        safeLoad<Interview>(
+          "leo_talent_interviews",
+          "vacancy_id",
+          "interviews",
+        ),
         safeLoad<DueDiligenceRecord>(
-          "leo_talent_due_diligence",
+          "leo_talent_safer_recruitment_profiles",
           "vacancy_id",
           "dueDiligence",
+          "updated_at",
         ),
         safeLoad<Offer>("leo_talent_offers", "vacancy_id", "offers"),
-        safeLoad<TalentDocument>("leo_talent_vacancy_documents", "vacancy_id", "documents"),
+        safeLoad<TalentDocument>(
+          "leo_talent_vacancy_documents",
+          "vacancy_id",
+          "documents",
+        ),
         safeLoad<ActivityEvent>(
           "talent_analytics_events",
           "entity_id",
@@ -520,9 +616,29 @@ export default function VacancyWorkspacePage() {
         ),
       ]);
 
+      const applicationMap = new Map(
+        applicationRows.map((application) => [application.id, application]),
+      );
+
+      const dueDiligenceRows = saferProfileRows.map((profile) => {
+        const application = applicationMap.get(profile.application_id);
+        const candidate =
+          (application ? firstRelatedRecord(application.candidate) : null) ??
+          candidateMap.get(profile.candidate_id) ??
+          null;
+
+        return {
+          ...profile,
+          candidate,
+          application_reference: application?.application_reference ?? null,
+        };
+      });
+
       setPublicationChannels(publicationChannelRows);
       setVacancyQuestions(
-        [...vacancyQuestionRows].sort((a, b) => a.display_order - b.display_order),
+        [...vacancyQuestionRows].sort(
+          (a, b) => a.display_order - b.display_order,
+        ),
       );
       setApplications(applicationRows);
       setCandidates(candidateRows);
@@ -1444,6 +1560,7 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
           available={availability.dueDiligence}
           vacancyId={vacancy.id}
           router={router}
+          canManage={canManage}
         />
       ) : null}
 
@@ -2222,12 +2339,14 @@ function DueDiligenceTab({
   available,
   vacancyId,
   router,
+  canManage,
 }: {
   vacancy: Vacancy;
   records: DueDiligenceRecord[];
   available: boolean;
   vacancyId: string;
   router: ReturnType<typeof useRouter>;
+  canManage: boolean;
 }) {
   const requiredChecks = [
     vacancy.safer_recruitment_required ? "Standard Due Diligence" : null,
@@ -2240,35 +2359,42 @@ function DueDiligenceTab({
     vacancy.requires_driving ? "Driving checks" : null,
     vacancy.requires_qualification_checks ? "Qualification verification" : null,
     vacancy.regulated_role ? "Regulated role controls" : null,
-  ].filter(Boolean);
+  ].filter((item): item is string => Boolean(item));
+
+  const openDueDiligence = (profileId?: string) => {
+    const query = new URLSearchParams();
+    query.set("vacancyId", vacancyId);
+    if (profileId) query.set("profileId", profileId);
+    router.push(`/dashboard/leo-talent?section=due-diligence&${query.toString()}`);
+  };
 
   return (
     <div style={styles.contentGrid}>
       <section style={styles.panel}>
         <SectionHeading
           title="Due Diligence Register"
-          description="Track the checks required before a candidate can be appointed."
+          description="Track the candidate profiles created when applications enter Pre-employment Checks."
           action={
             <button
               type="button"
               style={styles.primaryButton}
-              onClick={() =>
-                router.push(
-                  `/dashboard/leo-talent/due-diligence/create?vacancyId=${vacancyId}`,
-                )
-              }
+              onClick={() => openDueDiligence(records[0]?.id)}
             >
-              Add check
+              Open Due Diligence
             </button>
           }
         />
 
         {!available ? (
-          <UnavailableState table="leo_talent_due_diligence" />
+          <UnavailableState table="leo_talent_safer_recruitment_profiles" />
         ) : records.length === 0 ? (
           <EmptyState
-            title="No checks recorded"
-            description="Candidate Due Diligence records will appear here."
+            title="No candidate profiles yet"
+            description={
+              canManage
+                ? "Move an application to Pre-employment Checks. LEO will create its due diligence profile automatically."
+                : "A profile will appear here when an application enters Pre-employment Checks."
+            }
           />
         ) : (
           <div style={styles.tableWrapper}>
@@ -2276,26 +2402,53 @@ function DueDiligenceTab({
               <thead>
                 <tr>
                   <th style={styles.th}>Candidate</th>
-                  <th style={styles.th}>Check</th>
+                  <th style={styles.th}>Application</th>
                   <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Risk</th>
+                  <th style={styles.th}>Review</th>
                   <th style={styles.th}>Completed</th>
-                  <th style={styles.th}>Expiry</th>
+                  <th style={styles.th}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {records.map((record) => (
                   <tr key={record.id}>
                     <td style={styles.td}>
-                      {record.candidate_name || "Candidate"}
+                      <strong>
+                        {record.candidate
+                          ? candidateDisplayName(record.candidate)
+                          : "Candidate"}
+                      </strong>
+                      {record.candidate?.email ? (
+                        <div style={styles.muted}>{record.candidate.email}</div>
+                      ) : null}
                     </td>
-                    <td style={styles.td}>{humanise(record.check_type)}</td>
+                    <td style={styles.td}>
+                      {record.application_reference || "Not recorded"}
+                    </td>
                     <td style={styles.td}>
                       <span style={styles.inlinePill}>
                         {humanise(record.status)}
                       </span>
                     </td>
-                    <td style={styles.td}>{formatDate(record.completed_at)}</td>
-                    <td style={styles.td}>{formatDate(record.expiry_date)}</td>
+                    <td style={styles.td}>
+                      {humanise(record.overall_risk_level)}
+                    </td>
+                    <td style={styles.td}>
+                      {record.review_required ? "Required" : "Not required"}
+                    </td>
+                    <td style={styles.td}>
+                      {formatDate(record.completed_at)}
+                    </td>
+                    <td style={styles.td}>
+                      <button
+                        type="button"
+                        style={styles.linkButton}
+                        onClick={() => openDueDiligence(record.id)}
+                      >
+                        Open profile
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

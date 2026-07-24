@@ -369,7 +369,7 @@ export default function OffersWorkspace() {
     setSelectedId((current) =>
       mappedOffers.some((offer) => offer.id === current)
         ? current
-        : mappedOffers[0]?.id || "",
+        : "",
     );
 
     const existingApplicationIds = new Set(mappedOffers.map((offer) => offer.application_id));
@@ -648,6 +648,75 @@ export default function OffersWorkspace() {
     });
   };
 
+  const acceptOfferAndStartOnboarding = async () => {
+    if (!draft) return;
+
+    setWorking("accept");
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const acceptedAt = draft.accepted_at || new Date().toISOString().slice(0, 10);
+
+    const offerResult = await supabase
+      .from("leo_talent_offers")
+      .update({
+        status: "accepted",
+        accepted_at: acceptedAt,
+        proposed_start_date: draft.proposed_start_date || null,
+        candidate_response_notes: draft.candidate_response_notes || null,
+      } as any)
+      .eq("id", draft.id)
+      .select("*")
+      .single();
+
+    if (offerResult.error) {
+      setErrorMessage(
+        `The offer acceptance could not be recorded. ${offerResult.error.message}`,
+      );
+      setWorking("");
+      return;
+    }
+
+    const existingAppointment = appointments.find(
+      (appointment) => appointment.offer_id === draft.id,
+    );
+
+    if (!existingAppointment) {
+      const appointmentResult = await supabase
+        .from("leo_talent_appointments")
+        .insert({
+          organisation_id: draft.organisation_id,
+          offer_id: draft.id,
+          application_id: draft.application_id,
+          vacancy_id: draft.vacancy_id,
+          candidate_id: draft.candidate_id,
+          status: "pre_employment",
+          agreed_start_date: draft.proposed_start_date || null,
+          manager_name: draft.manager_name || null,
+          department: draft.department || null,
+          location_name: draft.location_name || null,
+        })
+        .select("*")
+        .single();
+
+      if (appointmentResult.error && appointmentResult.error.code !== "23505") {
+        setErrorMessage(
+          `The offer was accepted, but the appointment record could not be created. ${appointmentResult.error.message}`,
+        );
+        setWorking("");
+        await loadData(true);
+        return;
+      }
+    }
+
+    setSuccessMessage(
+      "Offer accepted. The candidate will now appear in Onboarding.",
+    );
+    setWorking("");
+    await loadData(true);
+    setSelectedId(draft.id);
+  };
+
   const saveAppointment = async () => {
     if (!draft || !appointmentDraft) return;
 
@@ -849,14 +918,22 @@ export default function OffersWorkspace() {
         <Metric label="Ready to start" value={metrics.ready} />
       </section>
 
-      <div style={styles.workspaceGrid}>
-        <aside style={styles.sidebar}>
-          <SectionHeading
-            title="Offer journeys"
-            description="Select an offer or create one for an applicant."
-          />
+      <section style={styles.registerPanel}>
+        <div style={styles.registerHeading}>
+          <div>
+            <h2 style={styles.panelTitle}>Offer register</h2>
+            <p style={styles.panelDescription}>
+              Review every offer in one list. Open a record only when you need to
+              view or update its full offer and appointment details.
+            </p>
+          </div>
+          <span style={styles.resultCount}>
+            {filteredOffers.length} {filteredOffers.length === 1 ? "offer" : "offers"}
+          </span>
+        </div>
 
-          <div style={styles.createBox}>
+        <div style={styles.registerTools}>
+          <div style={styles.createBoxWide}>
             <label style={styles.label}>Create offer for</label>
             <select
               style={styles.input}
@@ -873,18 +950,18 @@ export default function OffersWorkspace() {
             </select>
           </div>
 
-          <label style={styles.search}>
+          <label style={styles.searchWide}>
             <Search size={16} />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search candidate or vacancy"
+              placeholder="Search candidate, vacancy or offer reference"
             />
           </label>
 
           <select
-            style={styles.input}
+            style={styles.statusSelect}
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
           >
@@ -896,549 +973,585 @@ export default function OffersWorkspace() {
               </option>
             ))}
           </select>
+        </div>
 
-          <div style={styles.offerList}>
-            {filteredOffers.length === 0 ? (
-              <div style={styles.empty}>
-                <UserCheck size={24} />
-                <strong>No offers match this view</strong>
-                <span>Select an applicant above to create an offer.</span>
-              </div>
-            ) : (
-              filteredOffers.map((offer) => (
-                <button
-                  key={offer.id}
-                  type="button"
-                  onClick={() => setSelectedId(offer.id)}
-                  style={
-                    offer.id === selectedId
-                      ? styles.offerCardActive
-                      : styles.offerCard
-                  }
-                >
-                  <div style={styles.offerCardTop}>
-                    <strong>{offer.candidate_name}</strong>
-                    <span style={styles.badge}>{humanise(offer.status)}</span>
-                  </div>
-                  <span>{offer.job_title}</span>
-                  <small>{offer.offer_reference}</small>
-                </button>
-              ))
-            )}
+        {filteredOffers.length === 0 ? (
+          <div style={styles.empty}>
+            <UserCheck size={24} />
+            <strong>No offers match this view</strong>
+            <span>Select an applicant above to create an offer.</span>
           </div>
-        </aside>
+        ) : (
+          <div style={styles.registerList}>
+            {filteredOffers.map((offer) => {
+              const expanded = offer.id === selectedId;
+              const appointment = appointments.find((item) => item.offer_id === offer.id);
 
-        <main style={styles.main}>
-          {!draft ? (
-            <div style={styles.largeEmpty}>
+              return (
+                <article key={offer.id} style={expanded ? styles.registerCardExpanded : styles.registerCard}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(expanded ? "" : offer.id)}
+                    style={styles.registerRowButton}
+                    aria-expanded={expanded}
+                  >
+                    <div style={styles.registerPrimary}>
+                      <strong style={styles.registerCandidate}>{offer.candidate_name}</strong>
+                      <span style={styles.registerVacancy}>{offer.job_title}</span>
+                      <small style={styles.registerReference}>{offer.offer_reference}</small>
+                    </div>
+
+                    <div style={styles.registerMeta}>
+                      <span style={styles.registerMetaLabel}>Start date</span>
+                      <strong>{offer.proposed_start_date || "Not set"}</strong>
+                    </div>
+
+                    <div style={styles.registerMeta}>
+                      <span style={styles.registerMetaLabel}>Appointment</span>
+                      <strong>{appointment ? humanise(appointment.status) : "Not created"}</strong>
+                    </div>
+
+                    <div style={styles.registerStatusArea}>
+                      <span style={styles.badge}>{humanise(offer.status)}</span>
+                      <span style={styles.expandLabel}>{expanded ? "Close" : "Open"}</span>
+                    </div>
+                  </button>
+
+                  {expanded ? (
+                    <div style={styles.offerDetail}>
+              <main style={styles.main}>
+              {!draft ? (
+              <div style={styles.largeEmpty}>
               <Sparkles size={28} />
               <h2>Select or create an offer</h2>
               <p>The offer and appointment record will appear here.</p>
-            </div>
-          ) : (
-            <>
+              </div>
+              ) : (
+              <>
               <section style={styles.hero}>
-                <div>
-                  <p style={styles.eyebrow}>CANDIDATE JOURNEY</p>
-                  <h2 style={styles.heroTitle}>{draft.candidate_name}</h2>
-                  <p style={styles.description}>
-                    {draft.job_title} · {draft.offer_reference}
-                  </p>
-                </div>
-                <span style={styles.heroStatus}>{humanise(draft.status)}</span>
+              <div>
+              <p style={styles.eyebrow}>CANDIDATE JOURNEY</p>
+              <h2 style={styles.heroTitle}>{draft.candidate_name}</h2>
+              <p style={styles.description}>
+              {draft.job_title} · {draft.offer_reference}
+              </p>
+              </div>
+              <span style={styles.heroStatus}>{humanise(draft.status)}</span>
               </section>
 
               <Journey
-                offerStatus={draft.status}
-                appointmentStatus={appointmentDraft?.status ?? null}
+              offerStatus={draft.status}
+              appointmentStatus={appointmentDraft?.status ?? null}
               />
 
               <section style={styles.panel}>
-                <SectionHeading
-                  title="Offer"
-                  description="Record the proposed employment terms and candidate decision."
-                />
+              <SectionHeading
+              title="Offer"
+              description="Record the proposed employment terms and candidate decision."
+              />
 
-                <div style={styles.formGrid}>
-                  <Field label="Offer status">
-                    <select
-                      style={styles.input}
-                      value={draft.status}
-                      onChange={(event) =>
-                        setOfferStatus(event.target.value as OfferStatus)
-                      }
-                    >
-                      {OFFER_STATUSES.map((status) => (
-                        <option key={status.value} value={status.value}>
-                          {status.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+              <div style={styles.formGrid}>
+              <Field label="Offer status">
+              <select
+              style={styles.input}
+              value={draft.status}
+              onChange={(event) =>
+              setOfferStatus(event.target.value as OfferStatus)
+              }
+              >
+              {OFFER_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+              {status.label}
+              </option>
+              ))}
+              </select>
+              </Field>
 
-                  <Field label="Offer type">
-                    <select
-                      style={styles.input}
-                      value={draft.offer_type}
-                      onChange={(event) =>
-                        updateDraft("offer_type", event.target.value)
-                      }
-                    >
-                      <option value="conditional">Conditional</option>
-                      <option value="unconditional">Unconditional</option>
-                      <option value="verbal">Verbal</option>
-                      <option value="revised">Revised</option>
-                    </select>
-                  </Field>
+              <Field label="Offer type">
+              <select
+              style={styles.input}
+              value={draft.offer_type}
+              onChange={(event) =>
+              updateDraft("offer_type", event.target.value)
+              }
+              >
+              <option value="conditional">Conditional</option>
+              <option value="unconditional">Unconditional</option>
+              <option value="verbal">Verbal</option>
+              <option value="revised">Revised</option>
+              </select>
+              </Field>
 
-                  <Field label="Approval status">
-                    <select
-                      style={styles.input}
-                      value={draft.approval_status}
-                      onChange={(event) =>
-                        updateDraft(
-                          "approval_status",
-                          event.target.value as ApprovalStatus,
-                        )
-                      }
-                    >
-                      <option value="not_required">Not required</option>
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="returned">Returned</option>
-                      <option value="declined">Declined</option>
-                    </select>
-                  </Field>
+              <Field label="Approval status">
+              <select
+              style={styles.input}
+              value={draft.approval_status}
+              onChange={(event) =>
+              updateDraft(
+              "approval_status",
+              event.target.value as ApprovalStatus,
+              )
+              }
+              >
+              <option value="not_required">Not required</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="returned">Returned</option>
+              <option value="declined">Declined</option>
+              </select>
+              </Field>
 
-                  <Field label="Job title">
-                    <input
-                      style={styles.input}
-                      value={draft.job_title}
-                      onChange={(event) =>
-                        updateDraft("job_title", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Job title">
+              <input
+              style={styles.input}
+              value={draft.job_title}
+              onChange={(event) =>
+              updateDraft("job_title", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Employment type">
-                    <input
-                      style={styles.input}
-                      value={draft.employment_type}
-                      onChange={(event) =>
-                        updateDraft("employment_type", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Employment type">
+              <input
+              style={styles.input}
+              value={draft.employment_type}
+              onChange={(event) =>
+              updateDraft("employment_type", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Proposed start date">
-                    <input
-                      style={styles.input}
-                      type="date"
-                      value={draft.proposed_start_date}
-                      onChange={(event) =>
-                        updateDraft("proposed_start_date", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Proposed start date">
+              <input
+              style={styles.input}
+              type="date"
+              value={draft.proposed_start_date}
+              onChange={(event) =>
+              updateDraft("proposed_start_date", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Salary">
-                    <input
-                      style={styles.input}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={draft.salary_amount}
-                      onChange={(event) =>
-                        updateDraft("salary_amount", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Salary">
+              <input
+              style={styles.input}
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.salary_amount}
+              onChange={(event) =>
+              updateDraft("salary_amount", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Salary period">
-                    <select
-                      style={styles.input}
-                      value={draft.salary_period}
-                      onChange={(event) =>
-                        updateDraft("salary_period", event.target.value)
-                      }
-                    >
-                      <option value="hour">Per hour</option>
-                      <option value="day">Per day</option>
-                      <option value="week">Per week</option>
-                      <option value="month">Per month</option>
-                      <option value="year">Per year</option>
-                      <option value="fixed">Fixed amount</option>
-                    </select>
-                  </Field>
+              <Field label="Salary period">
+              <select
+              style={styles.input}
+              value={draft.salary_period}
+              onChange={(event) =>
+              updateDraft("salary_period", event.target.value)
+              }
+              >
+              <option value="hour">Per hour</option>
+              <option value="day">Per day</option>
+              <option value="week">Per week</option>
+              <option value="month">Per month</option>
+              <option value="year">Per year</option>
+              <option value="fixed">Fixed amount</option>
+              </select>
+              </Field>
 
-                  <Field label="Hours per week">
-                    <input
-                      style={styles.input}
-                      type="number"
-                      min="0"
-                      step="0.25"
-                      value={draft.hours_per_week}
-                      onChange={(event) =>
-                        updateDraft("hours_per_week", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Hours per week">
+              <input
+              style={styles.input}
+              type="number"
+              min="0"
+              step="0.25"
+              value={draft.hours_per_week}
+              onChange={(event) =>
+              updateDraft("hours_per_week", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Probation months">
-                    <select
-                      style={styles.input}
-                      value={draft.probation_months}
-                      onChange={(event) =>
-                        updateDraft("probation_months", event.target.value)
-                      }
-                    >
-                      {[0, 1, 2, 3, 4, 5, 6].map((months) => (
-                        <option key={months} value={String(months)}>
-                          {months === 0 ? "No probation" : `${months} months`}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+              <Field label="Probation months">
+              <select
+              style={styles.input}
+              value={draft.probation_months}
+              onChange={(event) =>
+              updateDraft("probation_months", event.target.value)
+              }
+              >
+              {[0, 1, 2, 3, 4, 5, 6].map((months) => (
+              <option key={months} value={String(months)}>
+              {months === 0 ? "No probation" : `${months} months`}
+              </option>
+              ))}
+              </select>
+              </Field>
 
-                  <Field label="Holiday allowance (days)">
-                    <input
-                      style={styles.input}
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={draft.holiday_allowance_days}
-                      onChange={(event) =>
-                        updateDraft("holiday_allowance_days", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Holiday allowance (days)">
+              <input
+              style={styles.input}
+              type="number"
+              min="0"
+              step="0.5"
+              value={draft.holiday_allowance_days}
+              onChange={(event) =>
+              updateDraft("holiday_allowance_days", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Notice period">
-                    <input
-                      style={styles.input}
-                      value={draft.notice_period}
-                      onChange={(event) =>
-                        updateDraft("notice_period", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Notice period">
+              <input
+              style={styles.input}
+              value={draft.notice_period}
+              onChange={(event) =>
+              updateDraft("notice_period", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Manager">
-                    <input
-                      style={styles.input}
-                      value={draft.manager_name}
-                      onChange={(event) =>
-                        updateDraft("manager_name", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Manager">
+              <input
+              style={styles.input}
+              value={draft.manager_name}
+              onChange={(event) =>
+              updateDraft("manager_name", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Department">
-                    <input
-                      style={styles.input}
-                      value={draft.department}
-                      onChange={(event) =>
-                        updateDraft("department", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Department">
+              <input
+              style={styles.input}
+              value={draft.department}
+              onChange={(event) =>
+              updateDraft("department", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Location">
-                    <input
-                      style={styles.input}
-                      value={draft.location_name}
-                      onChange={(event) =>
-                        updateDraft("location_name", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Location">
+              <input
+              style={styles.input}
+              value={draft.location_name}
+              onChange={(event) =>
+              updateDraft("location_name", event.target.value)
+              }
+              />
+              </Field>
 
-                  <Field label="Response deadline">
-                    <input
-                      style={styles.input}
-                      type="date"
-                      value={draft.response_deadline}
-                      onChange={(event) =>
-                        updateDraft("response_deadline", event.target.value)
-                      }
-                    />
-                  </Field>
-                </div>
+              <Field label="Response deadline">
+              <input
+              style={styles.input}
+              type="date"
+              value={draft.response_deadline}
+              onChange={(event) =>
+              updateDraft("response_deadline", event.target.value)
+              }
+              />
+              </Field>
+              </div>
 
-                <Field label="Conditions">
-                  <textarea
-                    style={styles.textarea}
-                    rows={4}
-                    value={draft.conditions_text}
-                    onChange={(event) =>
-                      updateDraft("conditions_text", event.target.value)
-                    }
-                    placeholder="Enter one condition per line."
-                  />
-                </Field>
+              <Field label="Conditions">
+              <textarea
+              style={styles.textarea}
+              rows={4}
+              value={draft.conditions_text}
+              onChange={(event) =>
+              updateDraft("conditions_text", event.target.value)
+              }
+              placeholder="Enter one condition per line."
+              />
+              </Field>
 
-                <Field label="Approval notes">
-                  <textarea
-                    style={styles.textarea}
-                    rows={3}
-                    value={draft.approval_notes}
-                    onChange={(event) =>
-                      updateDraft("approval_notes", event.target.value)
-                    }
-                  />
-                </Field>
+              <Field label="Approval notes">
+              <textarea
+              style={styles.textarea}
+              rows={3}
+              value={draft.approval_notes}
+              onChange={(event) =>
+              updateDraft("approval_notes", event.target.value)
+              }
+              />
+              </Field>
 
-                <Field label="Candidate response notes">
-                  <textarea
-                    style={styles.textarea}
-                    rows={3}
-                    value={draft.candidate_response_notes}
-                    onChange={(event) =>
-                      updateDraft("candidate_response_notes", event.target.value)
-                    }
-                  />
-                </Field>
+              <Field label="Candidate response notes">
+              <textarea
+              style={styles.textarea}
+              rows={3}
+              value={draft.candidate_response_notes}
+              onChange={(event) =>
+              updateDraft("candidate_response_notes", event.target.value)
+              }
+              />
+              </Field>
 
-                {draft.status === "declined" ? (
-                  <Field label="Decline reason">
-                    <textarea
-                      style={styles.textarea}
-                      rows={3}
-                      value={draft.decline_reason}
-                      onChange={(event) =>
-                        updateDraft("decline_reason", event.target.value)
-                      }
-                    />
-                  </Field>
-                ) : null}
+              {draft.status === "declined" ? (
+              <Field label="Decline reason">
+              <textarea
+              style={styles.textarea}
+              rows={3}
+              value={draft.decline_reason}
+              onChange={(event) =>
+              updateDraft("decline_reason", event.target.value)
+              }
+              />
+              </Field>
+              ) : null}
 
-                {draft.status === "withdrawn" ? (
-                  <Field label="Withdrawal reason">
-                    <textarea
-                      style={styles.textarea}
-                      rows={3}
-                      value={draft.withdrawal_reason}
-                      onChange={(event) =>
-                        updateDraft("withdrawal_reason", event.target.value)
-                      }
-                    />
-                  </Field>
-                ) : null}
+              {draft.status === "withdrawn" ? (
+              <Field label="Withdrawal reason">
+              <textarea
+              style={styles.textarea}
+              rows={3}
+              value={draft.withdrawal_reason}
+              onChange={(event) =>
+              updateDraft("withdrawal_reason", event.target.value)
+              }
+              />
+              </Field>
+              ) : null}
 
-                <div style={styles.actionRow}>
-                  <button
-                    type="button"
-                    style={styles.secondaryButton}
-                    onClick={() => window.print()}
-                  >
-                    <Printer size={16} />
-                    Print
-                  </button>
-                  <button
-                    type="button"
-                    style={styles.secondaryButton}
-                    onClick={() =>
-                      setSuccessMessage(
-                        "Offer letter generation is ready for connection to Leo Draft.",
-                      )
-                    }
-                  >
-                    <FileText size={16} />
-                    Generate offer letter
-                  </button>
-                  <button
-                    type="button"
-                    style={styles.secondaryButton}
-                    onClick={() =>
-                      draft.candidate_email
-                        ? (window.location.href = `mailto:${draft.candidate_email}`)
-                        : setErrorMessage("No candidate email is recorded.")
-                    }
-                  >
-                    <Mail size={16} />
-                    Email candidate
-                  </button>
-                  <button
-                    type="button"
-                    style={styles.primaryButton}
-                    onClick={() => void saveOffer()}
-                    disabled={working === "save"}
-                  >
-                    {working === "save" ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Save size={16} />
-                    )}
-                    Save offer
-                  </button>
-                </div>
+              <div style={styles.actionRow}>
+              <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => window.print()}
+              >
+              <Printer size={16} />
+              Print
+              </button>
+              <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() =>
+              setSuccessMessage(
+              "Offer letter generation is ready for connection to Leo Draft.",
+              )
+              }
+              >
+              <FileText size={16} />
+              Generate offer letter
+              </button>
+              <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() =>
+              draft.candidate_email
+              ? (window.location.href = `mailto:${draft.candidate_email}`)
+              : setErrorMessage("No candidate email is recorded.")
+              }
+              >
+              <Mail size={16} />
+              Email candidate
+              </button>
+              {draft.status !== "accepted" ? (
+              <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => void acceptOfferAndStartOnboarding()}
+              disabled={working === "accept"}
+              >
+              {working === "accept" ? (
+              <Loader2 size={16} className="animate-spin" />
+              ) : (
+              <UserCheck size={16} />
+              )}
+              Accept offer & start onboarding
+              </button>
+              ) : null}
+              <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => void saveOffer()}
+              disabled={working === "save"}
+              >
+              {working === "save" ? (
+              <Loader2 size={16} className="animate-spin" />
+              ) : (
+              <Save size={16} />
+              )}
+              Save offer
+              </button>
+              </div>
               </section>
 
               {appointmentDraft ? (
-                <section style={styles.panel}>
-                  <SectionHeading
-                    title="Appointment"
-                    description="Manage the accepted candidate's pre-employment and employee handover."
-                  />
+              <section style={styles.panel}>
+              <SectionHeading
+              title="Appointment"
+              description="Manage the accepted candidate's pre-employment and employee handover."
+              />
 
-                  <div style={styles.formGrid}>
-                    <Field label="Appointment reference">
-                      <input
-                        style={styles.input}
-                        value={appointmentDraft.appointment_reference}
-                        disabled
-                      />
-                    </Field>
+              <div style={styles.formGrid}>
+              <Field label="Appointment reference">
+              <input
+              style={styles.input}
+              value={appointmentDraft.appointment_reference}
+              disabled
+              />
+              </Field>
 
-                    <Field label="Appointment status">
-                      <select
-                        style={styles.input}
-                        value={appointmentDraft.status}
-                        onChange={(event) =>
-                          updateAppointmentDraft(
-                            "status",
-                            event.target.value as AppointmentStatus,
-                          )
-                        }
-                      >
-                        {APPOINTMENT_STATUSES.map((status) => (
-                          <option key={status.value} value={status.value}>
-                            {status.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+              <Field label="Appointment status">
+              <select
+              style={styles.input}
+              value={appointmentDraft.status}
+              onChange={(event) =>
+              updateAppointmentDraft(
+              "status",
+              event.target.value as AppointmentStatus,
+              )
+              }
+              >
+              {APPOINTMENT_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+              {status.label}
+              </option>
+              ))}
+              </select>
+              </Field>
 
-                    <Field label="Agreed start date">
-                      <input
-                        style={styles.input}
-                        type="date"
-                        value={appointmentDraft.agreed_start_date}
-                        onChange={(event) =>
-                          updateAppointmentDraft(
-                            "agreed_start_date",
-                            event.target.value,
-                          )
-                        }
-                      />
-                    </Field>
+              <Field label="Agreed start date">
+              <input
+              style={styles.input}
+              type="date"
+              value={appointmentDraft.agreed_start_date}
+              onChange={(event) =>
+              updateAppointmentDraft(
+              "agreed_start_date",
+              event.target.value,
+              )
+              }
+              />
+              </Field>
 
-                    <Field label="Actual start date">
-                      <input
-                        style={styles.input}
-                        type="date"
-                        value={appointmentDraft.actual_start_date}
-                        onChange={(event) =>
-                          updateAppointmentDraft(
-                            "actual_start_date",
-                            event.target.value,
-                          )
-                        }
-                      />
-                    </Field>
-                  </div>
+              <Field label="Actual start date">
+              <input
+              style={styles.input}
+              type="date"
+              value={appointmentDraft.actual_start_date}
+              onChange={(event) =>
+              updateAppointmentDraft(
+              "actual_start_date",
+              event.target.value,
+              )
+              }
+              />
+              </Field>
+              </div>
 
-                  <div style={styles.transferGrid}>
-                    <TransferToggle
-                      label="Recruitment summary transferred"
-                      checked={appointmentDraft.recruitment_summary_transferred}
-                      onChange={(checked) =>
-                        updateAppointmentDraft(
-                          "recruitment_summary_transferred",
-                          checked,
-                        )
-                      }
-                    />
-                    <TransferToggle
-                      label="Documents transferred"
-                      checked={appointmentDraft.documents_transferred}
-                      onChange={(checked) =>
-                        updateAppointmentDraft("documents_transferred", checked)
-                      }
-                    />
-                    <TransferToggle
-                      label="Onboarding transferred"
-                      checked={appointmentDraft.onboarding_transferred}
-                      onChange={(checked) =>
-                        updateAppointmentDraft("onboarding_transferred", checked)
-                      }
-                    />
-                    <TransferToggle
-                      label="Leo Learn pathway triggered"
-                      checked={appointmentDraft.learning_pathway_triggered}
-                      onChange={(checked) =>
-                        updateAppointmentDraft(
-                          "learning_pathway_triggered",
-                          checked,
-                        )
-                      }
-                    />
-                  </div>
+              <div style={styles.transferGrid}>
+              <TransferToggle
+              label="Recruitment summary transferred"
+              checked={appointmentDraft.recruitment_summary_transferred}
+              onChange={(checked) =>
+              updateAppointmentDraft(
+              "recruitment_summary_transferred",
+              checked,
+              )
+              }
+              />
+              <TransferToggle
+              label="Documents transferred"
+              checked={appointmentDraft.documents_transferred}
+              onChange={(checked) =>
+              updateAppointmentDraft("documents_transferred", checked)
+              }
+              />
+              <TransferToggle
+              label="Onboarding transferred"
+              checked={appointmentDraft.onboarding_transferred}
+              onChange={(checked) =>
+              updateAppointmentDraft("onboarding_transferred", checked)
+              }
+              />
+              <TransferToggle
+              label="Leo Learn pathway triggered"
+              checked={appointmentDraft.learning_pathway_triggered}
+              onChange={(checked) =>
+              updateAppointmentDraft(
+              "learning_pathway_triggered",
+              checked,
+              )
+              }
+              />
+              </div>
 
-                  <Field label="Handover notes">
-                    <textarea
-                      style={styles.textarea}
-                      rows={4}
-                      value={appointmentDraft.handover_notes}
-                      onChange={(event) =>
-                        updateAppointmentDraft("handover_notes", event.target.value)
-                      }
-                    />
-                  </Field>
+              <Field label="Handover notes">
+              <textarea
+              style={styles.textarea}
+              rows={4}
+              value={appointmentDraft.handover_notes}
+              onChange={(event) =>
+              updateAppointmentDraft("handover_notes", event.target.value)
+              }
+              />
+              </Field>
 
-                  <div style={styles.convertBox}>
-                    <div>
-                      <h3 style={styles.convertTitle}>
-                        Convert Candidate to Employee
-                      </h3>
-                      <p style={styles.panelDescription}>
-                        Creates the employee record and preserves the recruitment
-                        and appointment history.
-                      </p>
-                    </div>
+              <div style={styles.convertBox}>
+              <div>
+              <h3 style={styles.convertTitle}>
+              Convert Candidate to Employee
+              </h3>
+              <p style={styles.panelDescription}>
+              Creates the employee record and preserves the recruitment
+              and appointment history.
+              </p>
+              </div>
 
-                    <div style={styles.actionRow}>
-                      <button
-                        type="button"
-                        style={styles.secondaryButton}
-                        onClick={() => void saveAppointment()}
-                        disabled={working === "appointment"}
-                      >
-                        <Save size={16} />
-                        Save appointment
-                      </button>
+              <div style={styles.actionRow}>
+              <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => void saveAppointment()}
+              disabled={working === "appointment"}
+              >
+              <Save size={16} />
+              Save appointment
+              </button>
 
-                      <button
-                        type="button"
-                        style={styles.convertButton}
-                        onClick={() => void convertToEmployee()}
-                        disabled={
-                          working === "convert" ||
-                          !["ready_to_start", "employee_creation_pending"].includes(
-                            appointmentDraft.status,
-                          )
-                        }
-                      >
-                        {working === "convert" ? (
-                          <Loader2 size={17} className="animate-spin" />
-                        ) : (
-                          <UserPlus size={17} />
-                        )}
-                        Convert Candidate to Employee
-                        <ArrowRight size={17} />
-                      </button>
-                    </div>
-                  </div>
-                </section>
+              <button
+              type="button"
+              style={styles.convertButton}
+              onClick={() => void convertToEmployee()}
+              disabled={
+              working === "convert" ||
+              !["ready_to_start", "employee_creation_pending"].includes(
+              appointmentDraft.status,
+              )
+              }
+              >
+              {working === "convert" ? (
+              <Loader2 size={17} className="animate-spin" />
+              ) : (
+              <UserPlus size={17} />
+              )}
+              Convert Candidate to Employee
+              <ArrowRight size={17} />
+              </button>
+              </div>
+              </div>
+              </section>
               ) : draft.status === "accepted" ? (
-                <section style={styles.notice}>
-                  Save the accepted offer to create its appointment record.
-                </section>
+              <section style={styles.notice}>
+              Save the accepted offer to create its appointment record.
+              </section>
               ) : null}
-            </>
-          )}
-        </main>
-      </div>
+              </>
+              )}
+              </main>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -1591,6 +1704,134 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 8,
+  },
+  registerPanel: {
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: 18,
+    padding: 20,
+  },
+  registerHeading: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 16,
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  resultCount: {
+    borderRadius: 999,
+    background: "#F7F1FC",
+    border: "1px solid #E8DAF2",
+    color: "#6E5084",
+    padding: "7px 11px",
+    fontSize: 13,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  registerTools: {
+    display: "grid",
+    gridTemplateColumns: "minmax(240px, 1fr) minmax(280px, 1.5fr) minmax(180px, 0.65fr)",
+    gap: 12,
+    alignItems: "end",
+    padding: 14,
+    marginBottom: 14,
+    borderRadius: 14,
+    background: "#FAFAFB",
+    border: "1px solid #ECEEF1",
+  },
+  createBoxWide: { minWidth: 0 },
+  searchWide: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 42,
+    border: "1px solid #D1D5DB",
+    borderRadius: 10,
+    padding: "0 11px",
+    background: "#FFFFFF",
+  },
+  statusSelect: {
+    width: "100%",
+    minHeight: 42,
+    boxSizing: "border-box",
+    border: "1px solid #D1D5DB",
+    borderRadius: 10,
+    padding: "10px 11px",
+    background: "#FFFFFF",
+    color: "#111827",
+    font: "inherit",
+  },
+  registerList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  registerCard: {
+    border: "1px solid #E5E7EB",
+    borderRadius: 14,
+    background: "#FFFFFF",
+    overflow: "hidden",
+  },
+  registerCardExpanded: {
+    border: "1px solid #CDB2E2",
+    borderRadius: 14,
+    background: "#FFFFFF",
+    overflow: "hidden",
+    boxShadow: "0 10px 28px rgba(82, 60, 99, 0.08)",
+  },
+  registerRowButton: {
+    width: "100%",
+    display: "grid",
+    gridTemplateColumns: "minmax(240px, 1.7fr) minmax(120px, 0.7fr) minmax(150px, 0.9fr) auto",
+    gap: 16,
+    alignItems: "center",
+    border: 0,
+    background: "transparent",
+    padding: 16,
+    textAlign: "left",
+    cursor: "pointer",
+    color: "#1F2937",
+  },
+  registerPrimary: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minWidth: 0,
+  },
+  registerCandidate: { color: "#111827", fontSize: 15 },
+  registerVacancy: { color: "#4B5563", fontSize: 14 },
+  registerReference: { color: "#9CA3AF", fontSize: 12 },
+  registerMeta: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    fontSize: 13,
+  },
+  registerMetaLabel: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+  },
+  registerStatusArea: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  expandLabel: {
+    color: "#6E5084",
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  offerDetail: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+    padding: "0 16px 16px",
+    borderTop: "1px solid #EEE7F3",
+    background: "#FCFAFD",
   },
   workspaceGrid: {
     display: "grid",

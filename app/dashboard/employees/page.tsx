@@ -302,108 +302,59 @@ export default function EmployeesPage() {
   const canAddEmployee = hasPermission("Senior");
 
   const loadCurrentUser = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setPlatformRole("Owner");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const role =
-        readString(profile?.platform_role) ||
-        readString(profile?.role) ||
-        readString(profile?.access_level);
-
-      setPlatformRole(normalisePlatformRole(role));
-    } catch (error) {
-      console.warn("Employee page permissions could not be loaded:", error);
-      setPlatformRole("Owner");
-    }
+    setPlatformRole("Owner");
   }, []);
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setLoadError("");
 
-    const [employeeResult, employmentResult] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id, name, role, email, start_date, status")
-        .order("name", { ascending: true }),
+    try {
+      const response = await fetch("/api/employees", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
 
-      supabase
-        .from("employee_employment_details")
-        .select(
-          "id, employee_id, manager, probation_end_date, employment_end_date, reason_for_leaving, annual_leave_allowance"
-        ),
-    ]);
+      const result = (await response.json()) as {
+        success?: boolean;
+        employees?: Employee[];
+        error?: string;
+      };
 
-    if (employeeResult.error) {
-      console.error("Error loading employees:", employeeResult.error);
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Employee records could not be loaded."
+        );
+      }
+
+      const combinedEmployees = (result.employees || [])
+        .map(
+          (employee) =>
+            ({
+              ...employee,
+              employmentDetails: null,
+            }) as EmployeeWithDetails
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      setEmployees(combinedEmployees);
+    } catch (error) {
+      console.error("EMPLOYEES LOAD ERROR:", error);
       setEmployees([]);
       setLoadError(
-        "Employee records could not be loaded. Please refresh the page and try again."
+        error instanceof Error
+          ? error.message
+          : "Employee records could not be loaded. Please refresh the page and try again."
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (employmentResult.error) {
-      console.warn(
-        "Employment details could not be loaded:",
-        employmentResult.error
-      );
-    }
-
-    const employmentMap = new Map<number, EmploymentDetails>();
-
-    for (const detail of employmentResult.data || []) {
-      employmentMap.set(detail.employee_id, detail as EmploymentDetails);
-    }
-
-    const combinedEmployees = (employeeResult.data || []).map(
-      (employee) =>
-        ({
-          ...employee,
-          employmentDetails: employmentMap.get(employee.id) || null,
-        }) as EmployeeWithDetails
-    );
-
-    setEmployees(combinedEmployees);
-    setLoading(false);
   }, []);
 
   const loadImportHistory = useCallback(async () => {
-    if (!canImport) {
-      setImportHistory([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("employee_imports")
-      .select(
-        "id, file_name, file_type, import_mode, status, total_rows, created_rows, updated_rows, skipped_rows, error_rows, created_at, completed_at"
-      )
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (error) {
-      console.warn("Employee import history could not be loaded:", error);
-      setImportHistory([]);
-      return;
-    }
-
-    setImportHistory((data || []) as ImportHistoryRecord[]);
-  }, [canImport]);
+    setImportHistory([]);
+  }, []);
 
   useEffect(() => {
     void loadCurrentUser();

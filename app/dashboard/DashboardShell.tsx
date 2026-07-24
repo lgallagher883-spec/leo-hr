@@ -10,7 +10,6 @@ import {
   Building2,
   CircleUserRound,
   ClipboardCheck,
-  CreditCard,
   FileSearch,
   FileText,
   GraduationCap,
@@ -96,11 +95,6 @@ const mainLinks: NavigationLink[] = [
     label: "Audit Logs",
     href: "/dashboard/audit-logs",
     icon: ClipboardCheck,
-  },
-  {
-    label: "Billing",
-    href: "/dashboard/billing",
-    icon: CreditCard,
   },
   {
     label: "Foundations",

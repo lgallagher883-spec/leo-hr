@@ -426,35 +426,54 @@ export default function CareersWorkspace({
     setSaving(false);
   }
 
+  const profileCompletion = [
+    displayName.trim(),
+    careersHeading.trim(),
+    careersIntro.trim(),
+    aboutOrganisation.trim(),
+    benefitsSummary.trim(),
+    careersEmail.trim() || careersPhone.trim(),
+  ].filter(Boolean).length;
+
+  const profileCompletionPercent = Math.round((profileCompletion / 6) * 100);
+  const brandingReady = Boolean(
+    logoUrl.trim() ||
+      heroImageUrl.trim() ||
+      primaryColour !== "#6E5084" ||
+      secondaryColour !== "#F7F1FC",
+  );
+
   if (loading) {
     return (
-      <div className="careers-workspace">
-        <div className="loading-card" aria-live="polite">
-          <div className="loading-line loading-line-wide" />
-          <div className="loading-line" />
-          <div className="loading-line loading-line-short" />
+      <section className="workspace careers-settings-workspace">
+        <div className="skeleton heading" />
+        <div className="summary-grid">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div className="skeleton summary" key={index} />
+          ))}
         </div>
-        <style jsx>{styles}</style>
-      </div>
+        <div className="skeleton panel" />
+        <style>{styles}</style>
+      </section>
     );
   }
 
   if (pageError) {
     return (
-      <div className="careers-workspace">
-        <section className="error-card" role="alert">
-          <p className="eyebrow">Unable to load</p>
-          <h2>Careers settings are unavailable</h2>
+      <section className="workspace careers-settings-workspace">
+        <div className="state error" role="alert">
+          <span aria-hidden="true">!</span>
+          <h2>Careers settings could not be loaded</h2>
           <p>{pageError}</p>
-        </section>
-        <style jsx>{styles}</style>
-      </div>
+        </div>
+        <style>{styles}</style>
+      </section>
     );
   }
 
   return (
-    <div className="careers-workspace">
-      <div className="workspace-heading">
+    <section className="workspace careers-settings-workspace">
+      <header className="workspace-heading">
         <div>
           <p className="eyebrow">Public Careers</p>
           <h2>Careers page settings</h2>
@@ -470,68 +489,140 @@ export default function CareersWorkspace({
               href={publicPath}
               target="_blank"
               rel="noreferrer"
-              className="secondary-button"
+              className="secondary"
             >
               Open public page
             </a>
           ) : null}
         </div>
+      </header>
+
+      <div className="summary-grid">
+        <article>
+          <span>Page status</span>
+          <strong className={careersEnabled ? "live-value" : undefined}>
+            {careersEnabled ? "Live" : "Hidden"}
+          </strong>
+          <small>
+            {careersEnabled
+              ? "The page is available to candidates"
+              : "Enable the page when it is ready"}
+          </small>
+        </article>
+
+        <article>
+          <span>Profile completion</span>
+          <strong>{profileCompletionPercent}%</strong>
+          <small>{profileCompletion} of 6 core sections completed</small>
+        </article>
+
+        <article>
+          <span>Branding</span>
+          <strong>{brandingReady ? "Added" : "Default"}</strong>
+          <small>
+            {brandingReady
+              ? "Organisation branding is configured"
+              : "LEO colours are currently in use"}
+          </small>
+        </article>
+
+        <article>
+          <span>Public address</span>
+          <strong className="address-value">
+            {organisationSlug || "Not available"}
+          </strong>
+          <small>{publicPath || "A public address has not been generated"}</small>
+        </article>
       </div>
 
       <form className="settings-form" onSubmit={handleSave}>
-        <section className="settings-card status-card">
-          <div className="section-heading">
+        <section className="panel visibility-panel">
+          <div className="panel-heading">
             <div>
               <p className="eyebrow">Visibility</p>
               <h3>Public Careers page</h3>
               <p>
-                Control whether candidates can access the organisation&apos;s
-                public vacancy page.
+                Control whether candidates can access the public page and
+                whether closed vacancies remain visible.
               </p>
             </div>
+          </div>
 
-            <label className="switch-field">
-              <input
-                type="checkbox"
-                checked={careersEnabled}
-                onChange={(event) => setCareersEnabled(event.target.checked)}
-                disabled={saving}
-              />
-              <span className="switch" aria-hidden="true" />
-              <span>{careersEnabled ? "Enabled" : "Disabled"}</span>
+          <div className="visibility-grid">
+            <label className="setting-row">
+              <div>
+                <strong>Enable public Careers page</strong>
+                <span>
+                  Make the organisation&apos;s Careers page available to
+                  candidates.
+                </span>
+              </div>
+
+              <span className="switch-control">
+                <input
+                  type="checkbox"
+                  checked={careersEnabled}
+                  onChange={(event) => setCareersEnabled(event.target.checked)}
+                  disabled={saving}
+                />
+                <span className="switch" aria-hidden="true" />
+                <span className="switch-label">
+                  {careersEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </span>
+            </label>
+
+            <label className="setting-row">
+              <div>
+                <strong>Show closed vacancies</strong>
+                <span>
+                  Keep previously advertised roles visible after they close.
+                </span>
+              </div>
+
+              <span className="switch-control">
+                <input
+                  type="checkbox"
+                  checked={showClosedVacancies}
+                  onChange={(event) =>
+                    setShowClosedVacancies(event.target.checked)
+                  }
+                  disabled={saving}
+                />
+                <span className="switch" aria-hidden="true" />
+                <span className="switch-label">
+                  {showClosedVacancies ? "Shown" : "Hidden"}
+                </span>
+              </span>
             </label>
           </div>
 
-          <div className="public-url-row">
+          <div className="public-address">
             <div>
               <span>Public page address</span>
               <strong>{publicPath || "Not available"}</strong>
             </div>
-
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={showClosedVacancies}
-                onChange={(event) =>
-                  setShowClosedVacancies(event.target.checked)
-                }
-                disabled={saving}
-              />
-              <span>Show closed vacancies</span>
-            </label>
+            <small>
+              This is generated from the organisation slug and cannot be
+              changed here.
+            </small>
           </div>
         </section>
 
-        <section className="settings-card">
-          <div className="section-heading simple">
+        <section className="panel">
+          <div className="panel-heading">
             <div>
               <p className="eyebrow">Page content</p>
               <h3>Organisation introduction</h3>
+              <p>
+                Introduce your organisation and explain what candidates can
+                expect from working with you.
+              </p>
             </div>
           </div>
 
           <div className="form-grid two-column">
-            <label className="field full-width">
+            <label className="field">
               <span>Organisation name</span>
               <input
                 type="text"
@@ -543,7 +634,7 @@ export default function CareersWorkspace({
               />
             </label>
 
-            <label className="field full-width">
+            <label className="field">
               <span>Careers heading</span>
               <input
                 type="text"
@@ -565,6 +656,7 @@ export default function CareersWorkspace({
                 maxLength={1200}
                 disabled={saving}
               />
+              <small>{careersIntro.length} / 1200 characters</small>
             </label>
 
             <label className="field full-width">
@@ -577,6 +669,7 @@ export default function CareersWorkspace({
                 maxLength={3000}
                 disabled={saving}
               />
+              <small>{aboutOrganisation.length} / 3000 characters</small>
             </label>
 
             <label className="field full-width">
@@ -589,62 +682,20 @@ export default function CareersWorkspace({
                 maxLength={2500}
                 disabled={saving}
               />
+              <small>{benefitsSummary.length} / 2500 characters</small>
             </label>
           </div>
         </section>
 
-        <section className="settings-card">
-          <div className="section-heading simple">
-            <div>
-              <p className="eyebrow">Contact</p>
-              <h3>Candidate contact details</h3>
-            </div>
-          </div>
-
-          <div className="form-grid two-column">
-            <label className="field">
-              <span>Careers email</span>
-              <input
-                type="email"
-                value={careersEmail}
-                onChange={(event) => setCareersEmail(event.target.value)}
-                placeholder="careers@example.co.uk"
-                maxLength={254}
-                disabled={saving}
-              />
-            </label>
-
-            <label className="field">
-              <span>Careers phone</span>
-              <input
-                type="tel"
-                value={careersPhone}
-                onChange={(event) => setCareersPhone(event.target.value)}
-                placeholder="01722 000000"
-                maxLength={40}
-                disabled={saving}
-              />
-            </label>
-
-            <label className="field full-width">
-              <span>Website</span>
-              <input
-                type="text"
-                value={websiteUrl}
-                onChange={(event) => setWebsiteUrl(event.target.value)}
-                placeholder="https://www.example.co.uk"
-                maxLength={300}
-                disabled={saving}
-              />
-            </label>
-          </div>
-        </section>
-
-        <section className="settings-card">
-          <div className="section-heading simple">
+        <section className="panel">
+          <div className="panel-heading">
             <div>
               <p className="eyebrow">Branding</p>
               <h3>Images and colours</h3>
+              <p>
+                Apply your organisation&apos;s visual identity to the public
+                Careers page.
+              </p>
             </div>
           </div>
 
@@ -659,6 +710,7 @@ export default function CareersWorkspace({
                 maxLength={500}
                 disabled={saving}
               />
+              <small>Use a secure, publicly accessible image address.</small>
             </label>
 
             <label className="field full-width">
@@ -671,6 +723,9 @@ export default function CareersWorkspace({
                 maxLength={500}
                 disabled={saving}
               />
+              <small>
+                This image will appear at the top of the public Careers page.
+              </small>
             </label>
 
             <label className="field colour-field">
@@ -713,18 +768,84 @@ export default function CareersWorkspace({
               </div>
             </label>
           </div>
+
+          <div className="colour-preview" aria-label="Brand colour preview">
+            <div style={{ backgroundColor: primaryColour }}>
+              <span>Primary</span>
+              <strong>{primaryColour.toUpperCase()}</strong>
+            </div>
+            <div style={{ backgroundColor: secondaryColour }}>
+              <span>Secondary</span>
+              <strong>{secondaryColour.toUpperCase()}</strong>
+            </div>
+          </div>
         </section>
 
-        <section className="settings-card">
-          <div className="section-heading simple">
+        <section className="panel">
+          <div className="panel-heading">
             <div>
-              <p className="eyebrow">Social links</p>
-              <h3>Organisation channels</h3>
+              <p className="eyebrow">Contact</p>
+              <h3>Candidate contact details</h3>
+              <p>
+                Add the contact details candidates should use for Careers
+                enquiries.
+              </p>
             </div>
           </div>
 
           <div className="form-grid two-column">
+            <label className="field">
+              <span>Careers email</span>
+              <input
+                type="email"
+                value={careersEmail}
+                onChange={(event) => setCareersEmail(event.target.value)}
+                placeholder="careers@example.co.uk"
+                maxLength={254}
+                disabled={saving}
+              />
+            </label>
+
+            <label className="field">
+              <span>Careers phone</span>
+              <input
+                type="tel"
+                value={careersPhone}
+                onChange={(event) => setCareersPhone(event.target.value)}
+                placeholder="01722 000000"
+                maxLength={40}
+                disabled={saving}
+              />
+            </label>
+
             <label className="field full-width">
+              <span>Website</span>
+              <input
+                type="text"
+                value={websiteUrl}
+                onChange={(event) => setWebsiteUrl(event.target.value)}
+                placeholder="https://www.example.co.uk"
+                maxLength={300}
+                disabled={saving}
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Social links</p>
+              <h3>Organisation channels</h3>
+              <p>
+                Connect candidates with your organisation&apos;s official
+                social channels.
+              </p>
+            </div>
+          </div>
+
+          <div className="form-grid">
+            <label className="field">
               <span>LinkedIn</span>
               <input
                 type="text"
@@ -736,7 +857,7 @@ export default function CareersWorkspace({
               />
             </label>
 
-            <label className="field full-width">
+            <label className="field">
               <span>Facebook</span>
               <input
                 type="text"
@@ -748,7 +869,7 @@ export default function CareersWorkspace({
               />
             </label>
 
-            <label className="field full-width">
+            <label className="field">
               <span>Instagram</span>
               <input
                 type="text"
@@ -772,71 +893,636 @@ export default function CareersWorkspace({
         ) : null}
 
         <div className="form-actions">
-          <button type="submit" className="primary-button" disabled={saving}>
+          <button type="submit" className="primary" disabled={saving}>
             {saving ? "Saving..." : "Save Careers settings"}
           </button>
         </div>
       </form>
 
-      <style jsx>{styles}</style>
-    </div>
+      <style>{styles}</style>
+    </section>
   );
 }
 
-const styles = `
-.careers-workspace{display:grid;gap:22px;color:#302637}
-.workspace-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
-.workspace-heading h2,.section-heading h3{margin:0;color:#2f2635}
-.workspace-heading h2{font-size:1.6rem}
-.workspace-heading p:not(.eyebrow),.section-heading p:not(.eyebrow){max-width:760px;margin:8px 0 0;color:#746a78;line-height:1.6}
-.eyebrow{margin:0 0 7px;color:#6e5084;font-size:.75rem;font-weight:850;letter-spacing:.09em;text-transform:uppercase}
-.heading-actions{display:flex;gap:10px;flex:0 0 auto}
-.secondary-button,.primary-button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:0 17px;font-weight:850;text-decoration:none;cursor:pointer}
-.secondary-button{border:1px solid #cdb2e2;background:#fff;color:#6e5084}
-.primary-button{border:0;background:#6e5084;color:#fff}
-.primary-button:disabled{opacity:.6;cursor:not-allowed}
-.settings-form{display:grid;gap:18px}
-.settings-card,.error-card,.loading-card{border:1px solid #e5dce8;border-radius:18px;background:#fff}
-.settings-card{padding:22px}
-.status-card{background:linear-gradient(135deg,#fff 0%,#fbf7fd 100%)}
-.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
-.section-heading.simple{display:block}
-.section-heading h3{font-size:1.22rem}
-.switch-field{display:flex;align-items:center;gap:10px;font-weight:800;cursor:pointer}
-.switch-field input{position:absolute;opacity:0;pointer-events:none}
-.switch{position:relative;width:48px;height:26px;border-radius:999px;background:#d8d0dc;transition:.2s ease}
-.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 7px rgba(50,35,59,.2);transition:.2s ease}
-.switch-field input:checked+.switch{background:#6e5084}
-.switch-field input:checked+.switch::after{transform:translateX(22px)}
-.public-url-row{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:20px;padding-top:18px;border-top:1px solid #ece4ee}
-.public-url-row span,.public-url-row strong{display:block}
-.public-url-row>div>span{color:#786f7c;font-size:.84rem}
-.public-url-row strong{margin-top:5px;word-break:break-all}
-.checkbox-field{display:flex;align-items:center;gap:9px;font-weight:750}
-.checkbox-field input{width:18px;height:18px;accent-color:#6e5084}
-.form-grid{display:grid;gap:17px;margin-top:20px}
-.form-grid.two-column{grid-template-columns:repeat(2,minmax(0,1fr))}
-.field{display:grid;gap:8px}
-.field.full-width{grid-column:1/-1}
-.field>span{font-size:.9rem;font-weight:800}
-.field input,.field textarea{width:100%;border:1px solid #d9cedd;border-radius:12px;background:#fff;padding:12px 13px;color:#312837;font:inherit}
-.field input{min-height:46px}
-.field textarea{resize:vertical;line-height:1.55}
-.field input:focus,.field textarea:focus{outline:3px solid rgba(110,80,132,.12);border-color:#6e5084}
-.colour-input-row{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px}
-.colour-input-row input[type="color"]{padding:4px}
-.notice{padding:14px 16px;border-radius:12px;font-weight:750}
-.notice.success{background:#e9f8f0;color:#246b46}
-.notice.error{background:#fff0f2;color:#9d3645}
-.form-actions{display:flex;justify-content:flex-end}
-.error-card,.loading-card{padding:24px}
-.error-card{border-color:#f0cbd0;background:#fffafb}
-.error-card h2{margin:0 0 8px}
-.error-card p:last-child{margin:0;color:#82414b}
-.loading-line{height:13px;width:58%;margin-bottom:12px;border-radius:999px;background:linear-gradient(90deg,#f0eaf2,#faf8fb,#f0eaf2);background-size:200% 100%;animation:pulse 1.4s infinite}
-.loading-line-wide{height:22px;width:34%}
-.loading-line-short{width:42%;margin-bottom:0}
-@keyframes pulse{to{background-position:-200% 0}}
-@media(max-width:800px){.workspace-heading,.section-heading,.public-url-row{display:grid}.heading-actions{justify-self:start}.form-grid.two-column{grid-template-columns:1fr}.field.full-width{grid-column:auto}}
-@media(max-width:560px){.settings-card{padding:17px}.form-actions{display:grid}.primary-button{width:100%}}
+const styles = `.careers-settings-workspace {
+  display: grid;
+  gap: 24px;
+  color: #2f2635;
+}
+
+.careers-settings-workspace *,
+.careers-settings-workspace *::before,
+.careers-settings-workspace *::after {
+  box-sizing: border-box;
+}
+
+.careers-settings-workspace .workspace-heading,
+.careers-settings-workspace .panel-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.careers-settings-workspace .workspace-heading {
+  padding: 4px 2px 0;
+}
+
+.careers-settings-workspace .workspace-heading h2,
+.careers-settings-workspace .panel-heading h3 {
+  margin: 0;
+  color: #2f2635;
+  letter-spacing: -0.025em;
+}
+
+.careers-settings-workspace .workspace-heading h2 {
+  font-size: clamp(1.65rem, 2vw, 2rem);
+  line-height: 1.15;
+}
+
+.careers-settings-workspace .panel-heading h3 {
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.careers-settings-workspace .workspace-heading p:not(.eyebrow),
+.careers-settings-workspace .panel-heading p:not(.eyebrow) {
+  margin: 9px 0 0;
+  max-width: 760px;
+  color: #716777;
+  line-height: 1.65;
+}
+
+.careers-settings-workspace .eyebrow {
+  margin: 0 0 8px;
+  color: #6e5084;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.careers-settings-workspace .heading-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.careers-settings-workspace button,
+.careers-settings-workspace input,
+.careers-settings-workspace textarea {
+  font: inherit;
+}
+
+.careers-settings-workspace .primary,
+.careers-settings-workspace .secondary {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 17px;
+  border-radius: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+  cursor: pointer;
+}
+
+.careers-settings-workspace .primary {
+  border: 1px solid #6e5084;
+  background: #6e5084;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(110, 80, 132, 0.16);
+}
+
+.careers-settings-workspace .primary:hover:not(:disabled) {
+  background: #624676;
+  border-color: #624676;
+  box-shadow: 0 10px 22px rgba(110, 80, 132, 0.22);
+  transform: translateY(-1px);
+}
+
+.careers-settings-workspace .secondary {
+  border: 1px solid #d9cbe2;
+  background: #ffffff;
+  color: #6e5084;
+}
+
+.careers-settings-workspace .secondary:hover {
+  border-color: #bca2cd;
+  background: #faf7fc;
+  transform: translateY(-1px);
+}
+
+.careers-settings-workspace .primary:focus-visible,
+.careers-settings-workspace .secondary:focus-visible,
+.careers-settings-workspace input:focus-visible,
+.careers-settings-workspace textarea:focus-visible {
+  outline: 3px solid rgba(110, 80, 132, 0.18);
+  outline-offset: 2px;
+}
+
+.careers-settings-workspace .primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.careers-settings-workspace .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.careers-settings-workspace .summary-grid article {
+  position: relative;
+  min-height: 128px;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid #e6ddea;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(75, 55, 84, 0.055);
+}
+
+.careers-settings-workspace .summary-grid article::after {
+  position: absolute;
+  top: -34px;
+  right: -34px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: #f5eef9;
+  content: "";
+}
+
+.careers-settings-workspace .summary-grid span,
+.careers-settings-workspace .summary-grid small {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: #716777;
+}
+
+.careers-settings-workspace .summary-grid span {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.careers-settings-workspace .summary-grid strong {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 9px 0 5px;
+  color: #34293a;
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.careers-settings-workspace .summary-grid strong.live-value {
+  color: #246b46;
+}
+
+.careers-settings-workspace .summary-grid strong.address-value {
+  overflow: hidden;
+  font-size: 1.15rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.careers-settings-workspace .summary-grid small {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.careers-settings-workspace .settings-form {
+  display: grid;
+  gap: 18px;
+}
+
+.careers-settings-workspace .panel {
+  padding: 22px;
+  border: 1px solid #e6ddea;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 12px 34px rgba(75, 55, 84, 0.055);
+}
+
+.careers-settings-workspace .visibility-panel {
+  border-color: #ddcfe6;
+  background:
+    linear-gradient(135deg, rgba(247, 241, 252, 0.9), rgba(255, 255, 255, 0.98));
+}
+
+.careers-settings-workspace .visibility-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.careers-settings-workspace .setting-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding: 17px;
+  border: 1px solid #e6ddea;
+  border-radius: 16px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.careers-settings-workspace .setting-row strong,
+.careers-settings-workspace .setting-row span {
+  display: block;
+}
+
+.careers-settings-workspace .setting-row strong {
+  color: #34293a;
+  font-size: 0.94rem;
+}
+
+.careers-settings-workspace .setting-row > div > span {
+  margin-top: 5px;
+  color: #786e7c;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.careers-settings-workspace .switch-control {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+}
+
+.careers-settings-workspace .switch-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.careers-settings-workspace .switch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 999px;
+  background: #d8d0dc;
+  transition: 0.2s ease;
+}
+
+.careers-settings-workspace .switch::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 7px rgba(50, 35, 59, 0.2);
+  transition: 0.2s ease;
+  content: "";
+}
+
+.careers-settings-workspace .switch-control input:checked + .switch {
+  background: #6e5084;
+}
+
+.careers-settings-workspace .switch-control input:checked + .switch::after {
+  transform: translateX(22px);
+}
+
+.careers-settings-workspace .switch-label {
+  min-width: 62px;
+  color: #5f5364;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.careers-settings-workspace .public-address {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px dashed #d7c9df;
+  border-radius: 16px;
+  background: #fcfafc;
+}
+
+.careers-settings-workspace .public-address span,
+.careers-settings-workspace .public-address strong {
+  display: block;
+}
+
+.careers-settings-workspace .public-address span {
+  color: #716777;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.careers-settings-workspace .public-address strong {
+  margin-top: 5px;
+  color: #6e5084;
+  overflow-wrap: anywhere;
+}
+
+.careers-settings-workspace .public-address small {
+  max-width: 380px;
+  color: #7b7080;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.careers-settings-workspace .form-grid {
+  display: grid;
+  gap: 17px;
+  margin-top: 20px;
+}
+
+.careers-settings-workspace .form-grid.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.careers-settings-workspace .field {
+  display: grid;
+  gap: 8px;
+}
+
+.careers-settings-workspace .field.full-width {
+  grid-column: 1 / -1;
+}
+
+.careers-settings-workspace .field > span {
+  color: #4b3f50;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.careers-settings-workspace .field input,
+.careers-settings-workspace .field textarea {
+  width: 100%;
+  border: 1px solid #d9cfdd;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px 13px;
+  color: #332a37;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.careers-settings-workspace .field input {
+  min-height: 44px;
+}
+
+.careers-settings-workspace .field textarea {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.careers-settings-workspace .field input:hover:not(:disabled),
+.careers-settings-workspace .field textarea:hover:not(:disabled) {
+  border-color: #c5b4ce;
+}
+
+.careers-settings-workspace .field input:focus,
+.careers-settings-workspace .field textarea:focus {
+  border-color: #8a6b9f;
+  box-shadow: 0 0 0 3px rgba(110, 80, 132, 0.1);
+  outline: none;
+}
+
+.careers-settings-workspace .field input:disabled,
+.careers-settings-workspace .field textarea:disabled {
+  background: #f7f4f8;
+  color: #837a86;
+}
+
+.careers-settings-workspace .field small {
+  color: #817584;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.careers-settings-workspace .colour-input-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.careers-settings-workspace .colour-input-row input[type="color"] {
+  padding: 4px;
+}
+
+.careers-settings-workspace .colour-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.careers-settings-workspace .colour-preview > div {
+  min-height: 82px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid rgba(47, 38, 53, 0.12);
+  border-radius: 15px;
+  color: #2f2635;
+}
+
+.careers-settings-workspace .colour-preview span,
+.careers-settings-workspace .colour-preview strong {
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.careers-settings-workspace .colour-preview span {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.careers-settings-workspace .colour-preview strong {
+  font-size: 0.82rem;
+}
+
+.careers-settings-workspace .notice {
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.careers-settings-workspace .notice.success {
+  border-color: #cfe9da;
+  background: #eef9f3;
+  color: #246b46;
+}
+
+.careers-settings-workspace .notice.error {
+  border-color: #f1d0d6;
+  background: #fff3f5;
+  color: #963746;
+}
+
+.careers-settings-workspace .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.careers-settings-workspace .state {
+  padding: 48px 26px;
+  border: 1px dashed #d9cfdd;
+  border-radius: 20px;
+  background: #fcfafc;
+  text-align: center;
+}
+
+.careers-settings-workspace .state > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #f0e7f5;
+  color: #6e5084;
+  font-weight: 900;
+}
+
+.careers-settings-workspace .state h2 {
+  margin: 0 0 8px;
+}
+
+.careers-settings-workspace .state p {
+  margin: 0 auto;
+  max-width: 650px;
+  color: #746a78;
+  line-height: 1.6;
+}
+
+.careers-settings-workspace .state.error > span {
+  background: #fff0f2;
+  color: #9d3645;
+}
+
+.careers-settings-workspace .skeleton {
+  border-radius: 16px;
+  background: linear-gradient(
+    90deg,
+    #f3eef5 25%,
+    #faf8fb 50%,
+    #f3eef5 75%
+  );
+  background-size: 200% 100%;
+  animation: careersSettingsPulse 1.4s infinite;
+}
+
+.careers-settings-workspace .skeleton.heading {
+  width: min(70%, 720px);
+  height: 78px;
+}
+
+.careers-settings-workspace .skeleton.summary {
+  height: 128px;
+}
+
+.careers-settings-workspace .skeleton.panel {
+  height: 340px;
+}
+
+@keyframes careersSettingsPulse {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 980px) {
+  .careers-settings-workspace .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .careers-settings-workspace .visibility-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .careers-settings-workspace .workspace-heading,
+  .careers-settings-workspace .panel-heading,
+  .careers-settings-workspace .public-address {
+    display: grid;
+  }
+
+  .careers-settings-workspace .heading-actions {
+    justify-content: flex-start;
+  }
+
+  .careers-settings-workspace .public-address small {
+    max-width: none;
+    text-align: left;
+  }
+
+  .careers-settings-workspace .form-grid.two-column,
+  .careers-settings-workspace .colour-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .careers-settings-workspace .field.full-width {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .careers-settings-workspace {
+    gap: 18px;
+  }
+
+  .careers-settings-workspace .panel {
+    padding: 18px;
+    border-radius: 17px;
+  }
+
+  .careers-settings-workspace .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .careers-settings-workspace .heading-actions,
+  .careers-settings-workspace .heading-actions .secondary,
+  .careers-settings-workspace .form-actions,
+  .careers-settings-workspace .form-actions .primary {
+    width: 100%;
+  }
+
+  .careers-settings-workspace .setting-row {
+    display: grid;
+  }
+
+  .careers-settings-workspace .switch-control {
+    justify-content: space-between;
+  }
+}
 `;

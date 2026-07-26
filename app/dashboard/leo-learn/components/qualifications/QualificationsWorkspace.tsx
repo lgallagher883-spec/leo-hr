@@ -457,79 +457,42 @@ export default function QualificationsWorkspace() {
     setLoading(true);
     setErrorMessage("");
 
-    const [
-      employeesResult,
-      typesResult,
-      qualificationsResult,
-      requirementsResult,
-      employeeRequirementsResult,
-    ] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id, name, role, status")
-        .neq("status", "Archived")
-        .order("name"),
+    try {
+      const response = await fetch("/api/leo-learn/qualifications", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      supabase
-        .from("qualification_types")
-        .select("*")
-        .eq("is_archived", false)
-        .eq("is_active", true)
-        .order("name"),
+      const payload = (await response.json()) as {
+        success?: boolean;
+        employees?: Employee[];
+        qualificationTypes?: QualificationType[];
+        qualifications?: EmployeeQualification[];
+        requirements?: QualificationRequirement[];
+        employeeRequirements?: EmployeeRequirement[];
+        error?: string;
+      };
 
-      supabase
-        .from("employee_qualifications")
-        .select("*")
-        .eq("is_archived", false)
-        .order("updated_at", { ascending: false }),
+      if (!response.ok || !payload.success) {
+        console.error("Error loading qualifications workspace:", payload.error);
+        setErrorMessage(payload.error || "Qualifications and certificates could not be loaded.");
+        setLoading(false);
+        return;
+      }
 
-      supabase
-        .from("qualification_requirements")
-        .select("*")
-        .eq("is_archived", false)
-        .order("updated_at", { ascending: false }),
-
-      supabase
-        .from("employee_qualification_requirements")
-        .select("*")
-        .order("updated_at", { ascending: false }),
-    ]);
-
-    const firstError =
-      employeesResult.error ||
-      typesResult.error ||
-      qualificationsResult.error ||
-      requirementsResult.error ||
-      employeeRequirementsResult.error;
-
-    if (firstError) {
-      console.error(
-        "Error loading qualifications workspace:",
-        firstError
-      );
-      setErrorMessage(
-        "Qualifications and certificates could not be loaded."
-      );
+      setEmployees((payload.employees || []) as Employee[]);
+      setQualificationTypes((payload.qualificationTypes || []) as QualificationType[]);
+      setQualifications((payload.qualifications || []) as EmployeeQualification[]);
+      setRequirements((payload.requirements || []) as QualificationRequirement[]);
+      setEmployeeRequirements((payload.employeeRequirements || []) as EmployeeRequirement[]);
+    } catch (error) {
+      console.error("Error loading qualifications workspace:", error);
+      setErrorMessage("Qualifications and certificates could not be loaded.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setEmployees((employeesResult.data || []) as Employee[]);
-    setQualificationTypes(
-      (typesResult.data || []) as QualificationType[]
-    );
-    setQualifications(
-      (qualificationsResult.data || []) as EmployeeQualification[]
-    );
-    setRequirements(
-      (requirementsResult.data || []) as QualificationRequirement[]
-    );
-    setEmployeeRequirements(
-      (employeeRequirementsResult.data ||
-        []) as EmployeeRequirement[]
-    );
-
-    setLoading(false);
   }
 
   async function loadQualificationWorkspace(

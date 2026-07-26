@@ -137,106 +137,43 @@ export default function LearningLibrary() {
     setLoading(true);
     setErrorMessage("");
 
-    const [
-      modulesResult,
-      categoriesResult,
-      providersResult,
-    ] = await Promise.all([
-      supabase
-        .from("learning_modules")
-        .select(
-          `
-          id,
-          title,
-          description,
-          learning_type,
-          delivery_method,
-          category_id,
-          provider_id,
-          status,
-          estimated_duration_minutes,
-          assignment_eligible,
-          certificate_available,
-          assessment_required,
-          manager_validation_required,
-          review_frequency_months,
-          last_reviewed_at,
-          next_review_date,
-          current_version_number,
-          source_type,
-          created_at,
-          updated_at
-          `
-        )
-        .eq("is_archived", false)
-        .order("updated_at", { ascending: false }),
+    try {
+      const response = await fetch("/api/leo-learn/library", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      supabase
-        .from("learning_categories")
-        .select("id, name")
-        .eq("is_archived", false)
-        .eq("is_active", true)
-        .order("display_order", {
-          ascending: true,
-        }),
+      const payload = (await response.json()) as {
+        success?: boolean;
+        modules?: LearningModule[];
+        categories?: LearningCategory[];
+        providers?: LearningProvider[];
+        error?: string;
+      };
 
-      supabase
-        .from("learning_providers")
-        .select("id, name")
-        .eq("is_archived", false)
-        .eq("is_active", true)
-        .order("name", { ascending: true }),
-    ]);
+      if (!response.ok || !payload.success) {
+        console.error(
+          "Error loading learning library data:",
+          payload.error
+        );
+        setErrorMessage(
+          payload.error || "The Learning Library could not be loaded."
+        );
+        setLoading(false);
+        return;
+      }
 
-    if (modulesResult.error) {
-      console.error(
-        "Error loading learning modules:",
-        modulesResult.error
-      );
-      setErrorMessage(
-        "The Learning Library could not be loaded."
-      );
+      setModules((payload.modules || []) as LearningModule[]);
+      setCategories((payload.categories || []) as LearningCategory[]);
+      setProviders((payload.providers || []) as LearningProvider[]);
+    } catch (error) {
+      console.error("Error loading learning library data:", error);
+      setErrorMessage("The Learning Library could not be loaded.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (categoriesResult.error) {
-      console.error(
-        "Error loading learning categories:",
-        categoriesResult.error
-      );
-      setErrorMessage(
-        "Learning categories could not be loaded."
-      );
-      setLoading(false);
-      return;
-    }
-
-    if (providersResult.error) {
-      console.error(
-        "Error loading learning providers:",
-        providersResult.error
-      );
-      setErrorMessage(
-        "Learning providers could not be loaded."
-      );
-      setLoading(false);
-      return;
-    }
-
-    setModules(
-      (modulesResult.data || []) as LearningModule[]
-    );
-    setCategories(
-      (categoriesResult.data ||
-        []) as LearningCategory[]
-    );
-    setProviders(
-      (providersResult.data ||
-        []) as LearningProvider[]
-    );
-
-    setLoading(false);
   }
 
   async function reloadWorkspaceModule(

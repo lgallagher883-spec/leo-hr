@@ -295,21 +295,34 @@ export default function DevelopmentPathways() {
     setLoading(true);
     setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("development_pathways")
-      .select("*")
-      .eq("is_archived", false)
-      .order("updated_at", { ascending: false });
+    try {
+      const response = await fetch("/api/leo-learn/pathways", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (error) {
+      const payload = (await response.json()) as {
+        success?: boolean;
+        pathways?: Pathway[];
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        console.error("Error loading development pathways:", payload.error);
+        setErrorMessage(payload.error || "Development pathways could not be loaded.");
+        setLoading(false);
+        return;
+      }
+
+      setPathways((payload.pathways || []) as Pathway[]);
+    } catch (error) {
       console.error("Error loading development pathways:", error);
       setErrorMessage("Development pathways could not be loaded.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setPathways((data || []) as Pathway[]);
-    setLoading(false);
   }
 
   async function loadPathwayWorkspace(pathwayId: number) {

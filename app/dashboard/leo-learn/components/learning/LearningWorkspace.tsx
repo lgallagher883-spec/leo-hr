@@ -320,74 +320,38 @@ export default function LearningWorkspace() {
     setLoading(true);
     setErrorMessage("");
 
-    const [employeeResult, moduleResult, assignmentResult] =
-      await Promise.all([
-        supabase
-          .from("employees")
-          .select("id, name, role, status")
-          .neq("status", "Archived")
-          .order("name"),
+    try {
+      const response = await fetch("/api/leo-learn/learning", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-        supabase
-          .from("learning_modules")
-          .select(
-            `
-            id,
-            title,
-            description,
-            status,
-            learning_type,
-            delivery_method,
-            estimated_duration_minutes,
-            assessment_required,
-            certificate_available,
-            manager_validation_required
-            `
-          )
-          .eq("is_archived", false)
-          .order("title"),
+      const payload = (await response.json()) as {
+        success?: boolean;
+        employees?: Employee[];
+        modules?: LearningModule[];
+        assignments?: LearningAssignment[];
+        error?: string;
+      };
 
-        supabase
-          .from("learning_assignments")
-          .select("*")
-          .eq("is_archived", false)
-          .order("updated_at", { ascending: false }),
-      ]);
+      if (!response.ok || !payload.success) {
+        console.error("Error loading learning workspace data:", payload.error);
+        setErrorMessage(payload.error || "Learning data could not be loaded.");
+        setLoading(false);
+        return;
+      }
 
-    if (employeeResult.error) {
-      console.error("Error loading employees:", employeeResult.error);
-      setErrorMessage("Employees could not be loaded.");
+      setEmployees((payload.employees || []) as Employee[]);
+      setModules((payload.modules || []) as LearningModule[]);
+      setAssignments((payload.assignments || []) as LearningAssignment[]);
+    } catch (error) {
+      console.error("Error loading learning workspace data:", error);
+      setErrorMessage("Learning data could not be loaded.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (moduleResult.error) {
-      console.error(
-        "Error loading learning modules:",
-        moduleResult.error
-      );
-      setErrorMessage("Learning modules could not be loaded.");
-      setLoading(false);
-      return;
-    }
-
-    if (assignmentResult.error) {
-      console.error(
-        "Error loading learning assignments:",
-        assignmentResult.error
-      );
-      setErrorMessage("Learning assignments could not be loaded.");
-      setLoading(false);
-      return;
-    }
-
-    setEmployees((employeeResult.data || []) as Employee[]);
-    setModules((moduleResult.data || []) as LearningModule[]);
-    setAssignments(
-      (assignmentResult.data || []) as LearningAssignment[]
-    );
-
-    setLoading(false);
   }
 
   async function loadAssignmentWorkspace(

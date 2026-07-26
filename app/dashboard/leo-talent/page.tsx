@@ -65,7 +65,17 @@ export default function LeoTalentPage() {
     useState<TalentSection>("Dashboard");
 
   useEffect(() => {
-    const requestedSection = sectionFromQuery(searchParams.get("section"));
+    const candidateId = searchParams.get("candidateId");
+
+    if (candidateId) {
+      setActiveSection("Candidates");
+      return;
+    }
+
+    const requestedSection = sectionFromQuery(
+      searchParams.get("section"),
+    );
+
     if (requestedSection) {
       setActiveSection(requestedSection);
     }

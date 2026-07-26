@@ -54,7 +54,7 @@ export default function MatterDetailPage() {
     if (!matter) return;
     loadConversation();
     loadTimeline();
-    ensureMatterCreatedTimelineEvent();
+    // ensureMatterCreatedTimelineEvent();
   }, [matter?.id]);
 
   async function loadConversation() {
@@ -94,33 +94,33 @@ export default function MatterDetailPage() {
   }
 
   async function addTimelineEvent({
-    eventType,
+  eventType,
+  title,
+  description,
+  createdBy = "System",
+}: {
+  eventType: string;
+  title: string;
+  description?: string;
+  createdBy?: string;
+}) {
+  if (!matter) return;
+
+  const { error } = await supabase.from("matter_timeline").insert({
+    matter_id: matter.id,
+    event_type: eventType,
     title,
-    description,
-    createdBy = "System",
-  }: {
-    eventType: string;
-    title: string;
-    description?: string;
-    createdBy?: string;
-  }) {
-    if (!matter) return;
+    description: description || null,
+    created_by: createdBy,
+  });
 
-    const { error } = await supabase.from("matter_timeline").insert({
-      matter_id: matter.id,
-      event_type: eventType,
-      title,
-      description: description || null,
-      created_by: createdBy,
-    });
-
-    if (error) {
-      console.error("Error saving timeline event:", error);
-      return;
-    }
-
-    await loadTimeline();
+  if (error) {
+    console.error("Error saving timeline event:", error);
+    return;
   }
+
+  await loadTimeline();
+}
 
   async function ensureMatterCreatedTimelineEvent() {
     if (!matter) return;

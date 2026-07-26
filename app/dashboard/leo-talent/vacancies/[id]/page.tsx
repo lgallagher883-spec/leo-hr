@@ -406,67 +406,6 @@ export default function VacancyWorkspacePage() {
   const canAdminister = roleRank[userContext.role] >= roleRank.Senior;
   const isOwner = userContext.role === "Owner";
 
-  const loadUserContext = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      let profile: Record<string, unknown> | null = null;
-
-      for (const column of ["user_id", "auth_user_id", "id"]) {
-        const result = await (supabase as any)
-          .from("user_profiles")
-          .select("*")
-          .eq(column, user.id)
-          .limit(1);
-
-        if (!result.error && result.data?.length) {
-          profile = result.data[0] as Record<string, unknown>;
-          break;
-        }
-      }
-
-      setUserContext({
-        userId: user.id,
-        organisationId:
-          (profile?.organisation_id as string | number | null) ?? null,
-        role: normaliseRole(
-          profile?.platform_role ?? profile?.role ?? profile?.access_level,
-        ),
-      });
-    } catch (error) {
-      console.warn("Talent user context could not be loaded:", error);
-    }
-  }, []);
-
-  const safeLoad = useCallback(
-    async <T,>(
-      tableName: string,
-      filterColumn: string,
-      key: keyof TableAvailability,
-      orderColumn = "created_at",
-    ): Promise<T[]> => {
-      const result = await (supabase as any)
-  .from(tableName)
-  .select("*")
-  .eq(filterColumn, vacancyId)
-        .order(orderColumn, { ascending: false });
-
-      if (result.error) {
-        console.warn(`${tableName} could not be loaded:`, result.error.message);
-        setAvailability((current) => ({ ...current, [key]: false }));
-        return [];
-      }
-
-      setAvailability((current) => ({ ...current, [key]: true }));
-      return (result.data ?? []) as T[];
-    },
-    [vacancyId],
-  );
-
   const loadWorkspace = useCallback(
     async (refresh = false) => {
       if (!vacancyId) {
@@ -479,185 +418,90 @@ export default function VacancyWorkspacePage() {
       setErrorMessage("");
       setActionMessage("");
 
-      const vacancyResult = await supabase
-        .from("leo_talent_vacancies")
-        .select("*")
-        .eq("id", vacancyId)
-        .single();
+      try {
+        const response = await fetch(
+          `/api/talent/vacancies/${encodeURIComponent(vacancyId)}/workspace`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          },
+        );
 
-      if (vacancyResult.error || !vacancyResult.data) {
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              error?: string;
+              workspace?: {
+                vacancy: Vacancy;
+                publicationChannels: PublicationChannel[];
+                vacancyQuestions: VacancyQuestion[];
+                applications: Application[];
+                candidates: Candidate[];
+                interviews: Interview[];
+                dueDiligence: DueDiligenceRecord[];
+                offers: Offer[];
+                documents: TalentDocument[];
+                activity: ActivityEvent[];
+                availability: TableAvailability;
+                userContext: UserContext;
+              };
+            }
+          | null;
+
+        if (!response.ok || !payload?.success || !payload.workspace) {
+          setVacancy(null);
+          setErrorMessage(
+            payload?.error || "The vacancy workspace could not be loaded.",
+          );
+          return;
+        }
+
+        const workspace = payload.workspace;
+
+        setVacancy(workspace.vacancy);
+        setPublicationChannels(workspace.publicationChannels ?? []);
+        setVacancyQuestions(
+          [...(workspace.vacancyQuestions ?? [])].sort(
+            (a, b) => a.display_order - b.display_order,
+          ),
+        );
+        setApplications(workspace.applications ?? []);
+        setCandidates(workspace.candidates ?? []);
+        setInterviews(workspace.interviews ?? []);
+        setDueDiligence(workspace.dueDiligence ?? []);
+        setOffers(workspace.offers ?? []);
+        setDocuments(workspace.documents ?? []);
+        setActivity(workspace.activity ?? []);
+        setAvailability(workspace.availability ?? emptyAvailability);
+        setUserContext(
+          workspace.userContext ?? {
+            userId: null,
+            organisationId: null,
+            role: "Employee",
+          },
+        );
+      } catch (error) {
+        console.error("Talent vacancy workspace could not be loaded:", error);
         setVacancy(null);
         setErrorMessage(
-          `The vacancy could not be loaded. ${vacancyResult.error?.message ?? ""}`,
+          error instanceof Error
+            ? error.message
+            : "The vacancy workspace could not be loaded.",
         );
+      } finally {
         setLoading(false);
         setRefreshing(false);
-        return;
       }
-
-      setVacancy(vacancyResult.data as Vacancy);
-
-      const applicationsResult = await supabase
-        .from("leo_talent_applications")
-        .select(
-          `
-            id,
-            candidate_id,
-            vacancy_id,
-            application_reference,
-            status,
-            current_stage_key,
-            source,
-            submitted_at,
-            created_at,
-            updated_at,
-            candidate:leo_talent_candidates (
-              id,
-              candidate_reference,
-              first_name,
-              middle_names,
-              last_name,
-              preferred_name,
-              email,
-              phone,
-              archived_at
-            )
-          `,
-        )
-        .eq("vacancy_id", vacancyId)
-        .order("updated_at", { ascending: false });
-
-      if (applicationsResult.error) {
-        console.warn(
-          "leo_talent_applications could not be loaded:",
-          applicationsResult.error.message,
-        );
-        setAvailability((current) => ({
-          ...current,
-          applications: false,
-          candidates: false,
-        }));
-      } else {
-        setAvailability((current) => ({
-          ...current,
-          applications: true,
-          candidates: true,
-        }));
-      }
-
-      const applicationRows = ((applicationsResult.data ?? []) as Application[]).map(
-        (application) => {
-          const candidate = firstRelatedRecord(application.candidate);
-          return {
-            ...application,
-            stage: application.current_stage_key ?? application.stage ?? null,
-            candidate,
-            candidate_name: candidate ? candidateDisplayName(candidate) : null,
-            candidate_email: candidate?.email ?? null,
-          };
-        },
-      );
-
-      const candidateMap = new Map<string, Candidate>();
-      for (const application of applicationRows) {
-        const candidate = firstRelatedRecord(application.candidate);
-        if (candidate && !candidate.archived_at) {
-          candidateMap.set(candidate.id, {
-            ...candidate,
-            current_stage: application.current_stage_key ?? application.stage ?? null,
-            status: application.status ?? null,
-          });
-        }
-      }
-      const candidateRows = Array.from(candidateMap.values());
-
-      const [
-        publicationChannelRows,
-        vacancyQuestionRows,
-        interviewRows,
-        saferProfileRows,
-        offerRows,
-        documentRows,
-        activityRows,
-      ] = await Promise.all([
-        safeLoad<PublicationChannel>(
-          "leo_talent_vacancy_publication_channels",
-          "vacancy_id",
-          "publicationChannels",
-          "created_at",
-        ),
-        safeLoad<VacancyQuestion>(
-          "leo_talent_vacancy_questions",
-          "vacancy_id",
-          "vacancyQuestions",
-          "display_order",
-        ),
-        safeLoad<Interview>(
-          "leo_talent_interviews",
-          "vacancy_id",
-          "interviews",
-        ),
-        safeLoad<DueDiligenceRecord>(
-          "leo_talent_safer_recruitment_profiles",
-          "vacancy_id",
-          "dueDiligence",
-          "updated_at",
-        ),
-        safeLoad<Offer>("leo_talent_offers", "vacancy_id", "offers"),
-        safeLoad<TalentDocument>(
-          "leo_talent_vacancy_documents",
-          "vacancy_id",
-          "documents",
-        ),
-        safeLoad<ActivityEvent>(
-          "talent_analytics_events",
-          "entity_id",
-          "activity",
-        ),
-      ]);
-
-      const applicationMap = new Map(
-        applicationRows.map((application) => [application.id, application]),
-      );
-
-      const dueDiligenceRows = saferProfileRows.map((profile) => {
-        const application = applicationMap.get(profile.application_id);
-        const candidate =
-          (application ? firstRelatedRecord(application.candidate) : null) ??
-          candidateMap.get(profile.candidate_id) ??
-          null;
-
-        return {
-          ...profile,
-          candidate,
-          application_reference: application?.application_reference ?? null,
-        };
-      });
-
-      setPublicationChannels(publicationChannelRows);
-      setVacancyQuestions(
-        [...vacancyQuestionRows].sort(
-          (a, b) => a.display_order - b.display_order,
-        ),
-      );
-      setApplications(applicationRows);
-      setCandidates(candidateRows);
-      setInterviews(interviewRows);
-      setDueDiligence(dueDiligenceRows);
-      setOffers(offerRows);
-      setDocuments(documentRows);
-      setActivity(activityRows);
-
-      setLoading(false);
-      setRefreshing(false);
     },
-    [safeLoad, vacancyId],
+    [vacancyId],
   );
 
   useEffect(() => {
-    void loadUserContext();
     void loadWorkspace();
-  }, [loadUserContext, loadWorkspace]);
+  }, [loadWorkspace]);
 
   const metrics = useMemo(() => {
     const activeApplications = applications.filter(

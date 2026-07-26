@@ -7,10 +7,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { supabase } from "@/lib/supabase";
-
-const talentSupabase = supabase as any;
-
 import CandidateEmployeeDetails from "./shared/CandidateEmployeeDetails";
 import IdentityVerificationDetails from "./shared/IdentityVerificationDetails";
 import RightToWorkDetails from "./shared/RightToWorkDetails";
@@ -301,40 +297,19 @@ export default function DueDiligenceWorkspace() {
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
     setNotice(null);
-    try {
-      const { data: profiles, error } = await talentSupabase
-        .from("leo_talent_safer_recruitment_profiles")
-        .select("*")
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
 
-      const profileRows = (profiles ?? []) as Profile[];
-      if (!profileRows.length) {
-        setRecords([]);
-        setSelectedProfileId(null);
-        return;
+    try {
+      const response = await fetch("/api/talent/due-diligence", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Due diligence could not be loaded.");
       }
 
-      const [candidateResult, vacancyResult, applicationResult] = await Promise.all([
-        talentSupabase.from("leo_talent_candidates").select("id,candidate_reference,first_name,middle_names,last_name,preferred_name,email,phone,country").in("id", [...new Set(profileRows.map((p) => p.candidate_id))]),
-        talentSupabase.from("leo_talent_vacancies").select("id,vacancy_reference,title,department,location_name,safer_recruitment_required,requires_dbs,dbs_level,requires_driving,requires_qualification_checks,required_reference_count,overseas_check_required_if_applicable").in("id", [...new Set(profileRows.map((p) => p.vacancy_id))]),
-        talentSupabase.from("leo_talent_applications").select("id,application_reference,vacancy_id,candidate_id,current_stage_key,status").in("id", [...new Set(profileRows.map((p) => p.application_id))]),
-      ]);
-      if (candidateResult.error) throw candidateResult.error;
-      if (vacancyResult.error) throw vacancyResult.error;
-      if (applicationResult.error) throw applicationResult.error;
-
-      const candidates = new Map(((candidateResult.data ?? []) as Candidate[]).map((item) => [item.id, item]));
-      const vacancies = new Map(((vacancyResult.data ?? []) as Vacancy[]).map((item) => [item.id, item]));
-      const applications = new Map(((applicationResult.data ?? []) as Application[]).map((item) => [item.id, item]));
-
-      const assembled = profileRows.map((profile) => ({
-        profile,
-        candidate: candidates.get(profile.candidate_id) ?? null,
-        vacancy: vacancies.get(profile.vacancy_id) ?? null,
-        application: applications.get(profile.application_id) ?? null,
-      }));
-
+      const assembled = (result.records ?? []) as WorkspaceRecord[];
       setRecords(assembled);
       setSelectedProfileId((current) =>
         assembled.some((item) => item.profile.id === current)
@@ -343,7 +318,11 @@ export default function DueDiligenceWorkspace() {
       );
     } catch (error) {
       console.error(error);
-      setError(error instanceof Error ? error.message : "Due diligence could not be loaded.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Due diligence could not be loaded.",
+      );
     } finally {
       setLoading(false);
     }
@@ -352,22 +331,23 @@ export default function DueDiligenceWorkspace() {
   const loadDetails = useCallback(async (record: WorkspaceRecord) => {
     setDetailLoading(true);
     setNotice(null);
+
     try {
-      const [sharedResult, documentsResult] = await Promise.all([
-        talentSupabase
-          .from("leo_talent_candidate_shared_records")
-          .select("id,component_key,payload,status,updated_at")
-          .eq("organisation_id", record.profile.organisation_id)
-          .eq("candidate_id", record.profile.candidate_id)
-          .eq("application_id", record.profile.application_id),
-        talentSupabase
-          .from("leo_talent_candidate_documents")
-          .select("id,title,document_type,file_name,created_at,verified_by,verification_notes")
-          .eq("candidate_id", record.profile.candidate_id)
-          .order("created_at", { ascending: false }),
-      ]);
-      if (sharedResult.error) throw sharedResult.error;
-      if (documentsResult.error) throw documentsResult.error;
+      const response = await fetch(
+        `/api/talent/due-diligence/${record.profile.id}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Candidate due diligence details could not be loaded.",
+        );
+      }
 
       const next: Record<SharedKey, SharedRecord | null> = {
         identity_verification: null,
@@ -381,14 +361,20 @@ export default function DueDiligenceWorkspace() {
         vehicle: null,
         appointment_decision: null,
       };
-      ((sharedResult.data ?? []) as SharedRecord[]).forEach((item) => {
+
+      ((result.sharedRecords ?? []) as SharedRecord[]).forEach((item) => {
         next[item.component_key] = item;
       });
+
       setShared(next);
-      setDocuments((documentsResult.data ?? []) as CandidateDocument[]);
+      setDocuments((result.documents ?? []) as CandidateDocument[]);
     } catch (error) {
       console.error(error);
-      setError(error instanceof Error ? error.message : "Candidate due diligence details could not be loaded.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Candidate due diligence details could not be loaded.",
+      );
     } finally {
       setDetailLoading(false);
     }
@@ -399,47 +385,61 @@ export default function DueDiligenceWorkspace() {
     if (selected) void loadDetails(selected);
   }, [selected, loadDetails]);
 
-  async function saveShared(key: SharedKey, payload: any, message: string) {
+  async function saveShared(
+    key: SharedKey,
+    payload: any,
+    message: string,
+  ) {
     if (!selected) return;
+
     setSavingKey(key);
     setNotice(null);
+
     try {
-      const now = new Date().toISOString();
-      const status = extractStatus(key, payload.value ?? payload);
-      const row = {
-        organisation_id: selected.profile.organisation_id,
-        candidate_id: selected.profile.candidate_id,
-        application_id: selected.profile.application_id,
-        vacancy_id: selected.profile.vacancy_id,
-        safer_recruitment_profile_id: selected.profile.id,
-        component_key: key,
-        payload: payload.value ?? payload,
-        status,
-        completed_at: isComplete(key, payload.value ?? payload, selected.vacancy) ? now : null,
-        updated_at: now,
-      };
+      const response = await fetch(
+        `/api/talent/due-diligence/${selected.profile.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save_shared",
+            key,
+            value: payload.value ?? payload,
+          }),
+        },
+      );
+      const result = await response.json();
 
-      const { data, error } = await talentSupabase
-        .from("leo_talent_candidate_shared_records")
-        .upsert(row, {
-          onConflict: "organisation_id,candidate_id,application_id,component_key",
-        })
-        .select("id,component_key,payload,status,updated_at")
-        .single();
-      if (error) throw error;
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "The record could not be saved.");
+      }
 
-      setShared((current) => ({ ...current, [key]: data as SharedRecord }));
-      await talentSupabase
-        .from("leo_talent_safer_recruitment_profiles")
-        .update({
-          status: "in_progress",
-          updated_at: now,
-        })
-        .eq("id", selected.profile.id);
+      setShared((current) => ({
+        ...current,
+        [key]: result.sharedRecord as SharedRecord,
+      }));
+      setRecords((current) =>
+        current.map((item) =>
+          item.profile.id === selected.profile.id
+            ? {
+                ...item,
+                profile: {
+                  ...item.profile,
+                  status: "in_progress",
+                  updated_at: new Date().toISOString(),
+                },
+              }
+            : item,
+        ),
+      );
       setSuccess(message);
     } catch (error) {
       console.error(error);
-      setError(error instanceof Error ? error.message : "The record could not be saved.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "The record could not be saved.",
+      );
       throw error;
     } finally {
       setSavingKey(null);
@@ -448,47 +448,46 @@ export default function DueDiligenceWorkspace() {
 
   async function savePersonal(value: any) {
     if (!selected?.candidate) return;
+
     setSavingKey("personal");
+    setNotice(null);
+
     try {
-      const { error } = await talentSupabase
-        .from("leo_talent_candidates")
-        .update({
-          first_name: value.firstName,
-          middle_names: value.middleNames || null,
-          last_name: value.lastName,
-          preferred_name: value.preferredName || null,
-          email: value.personalEmail || null,
-          phone: value.personalTelephone || null,
-          country: value.country || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", selected.candidate.id);
-      if (error) throw error;
+      const response = await fetch(
+        `/api/talent/due-diligence/${selected.profile.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save_personal",
+            value,
+          }),
+        },
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Personal details could not be saved.",
+        );
+      }
+
+      const candidate = result.candidate as Candidate;
       setRecords((current) =>
         current.map((item) =>
           item.profile.id === selected.profile.id
-            ? {
-                ...item,
-                candidate: item.candidate
-                  ? {
-                      ...item.candidate,
-                      first_name: value.firstName,
-                      middle_names: value.middleNames || null,
-                      last_name: value.lastName,
-                      preferred_name: value.preferredName || null,
-                      email: value.personalEmail || null,
-                      phone: value.personalTelephone || null,
-                      country: value.country || null,
-                    }
-                  : null,
-              }
+            ? { ...item, candidate }
             : item,
         ),
       );
       setSuccess("Personal details saved.");
     } catch (error) {
       console.error(error);
-      setError(error instanceof Error ? error.message : "Personal details could not be saved.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Personal details could not be saved.",
+      );
       throw error;
     } finally {
       setSavingKey(null);

@@ -318,25 +318,24 @@ export default function EmployeesPage() {
 
       const result = (await response.json()) as {
         success?: boolean;
-        employees?: Employee[];
+        employees?: EmployeeWithDetails[];
         error?: string;
       };
 
       if (!response.ok || !result.success) {
+        if (response.status === 401 || response.status === 403) {
+          router.replace("/dashboard");
+          return;
+        }
+
         throw new Error(
           result.error || "Employee records could not be loaded."
         );
       }
 
-      const combinedEmployees = (result.employees || [])
-        .map(
-          (employee) =>
-            ({
-              ...employee,
-              employmentDetails: null,
-            }) as EmployeeWithDetails
-        )
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const combinedEmployees = (result.employees || []).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
 
       setEmployees(combinedEmployees);
     } catch (error) {
@@ -796,298 +795,65 @@ export default function EmployeesPage() {
 
     setRunningImport(true);
     setImportStep("importing");
-    setImportProgress(0);
+    setImportProgress(15);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const importRecordResult = await supabase
-      .from("employee_imports")
-      .insert({
-        organisation_id: null,
-        file_name: selectedFile?.name || "Employee import",
-        file_type: selectedFile
-          ? getFileExtension(selectedFile.name)
-          : null,
-        import_mode: importMode,
-        status: "processing",
-        total_rows: validatedRows.length,
-        created_rows: 0,
-        updated_rows: 0,
-        skipped_rows: 0,
-        error_rows: 0,
-        column_mapping: columnMapping,
-        import_options: {
-          preserve_existing_values: true,
-          source: "Employee Import Wizard",
+    try {
+      const response = await fetch("/api/employees/import", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
         },
-        created_by: user?.id || null,
-      })
-      .select("id")
-      .single();
+        body: JSON.stringify({
+          fileName: selectedFile?.name || "Employee import",
+          fileType: selectedFile
+            ? getFileExtension(selectedFile.name)
+            : null,
+          importMode,
+          columnMapping,
+          rows: validatedRows,
+        }),
+      });
 
-    const importId = importRecordResult.data?.id || null;
+      setImportProgress(85);
 
-    const result: ImportResult = {
-      created: 0,
-      updated: 0,
-      skipped: 0,
-      errors: 0,
-      rowResults: [],
-    };
+      const payload = (await response.json()) as {
+        success?: boolean;
+        result?: ImportResult;
+        error?: string;
+      };
 
-    for (let index = 0; index < validatedRows.length; index += 1) {
-      const row = validatedRows[index];
-
-      try {
-        if (row.status === "error" || row.status === "skip") {
-          result.skipped += 1;
-
-          result.rowResults.push({
-            rowNumber: row.rowNumber,
-            name: row.mappedData.name,
-            result: "Skipped",
-            employeeId: row.matchingEmployee?.id || null,
-            message:
-              row.errors.join("; ") ||
-              row.warnings.join("; ") ||
-              "The row was not eligible for import.",
-          });
-
-          await saveImportRowResult({
-            importId,
-            row,
-            resultStatus: "skipped",
-            employeeId: row.matchingEmployee?.id || null,
-          });
-
-          setImportProgress(
-            Math.round(((index + 1) / validatedRows.length) * 100)
-          );
-
-          continue;
-        }
-
-        const shouldUpdate =
-          Boolean(row.matchingEmployee) &&
-          (importMode === "update_existing" ||
-            importMode === "create_and_update");
-
-        const shouldCreate =
-          !row.matchingEmployee &&
-          (importMode === "create_new" ||
-            importMode === "create_and_update");
-
-        if (!shouldUpdate && !shouldCreate) {
-          result.skipped += 1;
-
-          result.rowResults.push({
-            rowNumber: row.rowNumber,
-            name: row.mappedData.name,
-            result: "Skipped",
-            employeeId: row.matchingEmployee?.id || null,
-            message: row.matchingEmployee
-              ? "A matching employee already exists."
-              : "The selected import mode does not create new employees.",
-          });
-
-          await saveImportRowResult({
-            importId,
-            row,
-            resultStatus: "skipped",
-            employeeId: row.matchingEmployee?.id || null,
-          });
-
-          setImportProgress(
-            Math.round(((index + 1) / validatedRows.length) * 100)
-          );
-
-          continue;
-        }
-
-        if (shouldUpdate && row.matchingEmployee) {
-          const employeeId = row.matchingEmployee.id;
-
-          const employeeUpdate = buildEmployeeUpdatePayload(
-            row.mappedData,
-            row.matchingEmployee
-          );
-
-          const { error: employeeUpdateError } = await supabase
-            .from("employees")
-            .update(employeeUpdate)
-            .eq("id", employeeId);
-
-          if (employeeUpdateError) {
-            throw employeeUpdateError;
-          }
-
-          await upsertEmploymentDetails(
-            employeeId,
-            row.mappedData,
-            row.matchingEmployee.employmentDetails
-          );
-
-          await writeEmployeeImportTimelineEvent({
-            employeeId,
-            title: "Employee record updated by import",
-            description: `${row.mappedData.name} was updated through the Employee Import Wizard.`,
-            sourceRecordId: importId ? String(importId) : null,
-            status: "Updated",
-            createdBy: user?.id || null,
-          });
-
-          result.updated += 1;
-
-          result.rowResults.push({
-            rowNumber: row.rowNumber,
-            name: row.mappedData.name,
-            result: "Updated",
-            employeeId,
-            message: "The existing employee record was updated.",
-          });
-
-          await saveImportRowResult({
-            importId,
-            row,
-            resultStatus: "updated",
-            employeeId,
-          });
-        }
-
-        if (shouldCreate) {
-          const { data: createdEmployee, error: createError } =
-            await supabase
-              .from("employees")
-              .insert({
-                name: row.mappedData.name,
-                role: emptyToNull(row.mappedData.role),
-                email: emptyToNull(row.mappedData.email),
-                start_date: emptyToNull(row.mappedData.start_date),
-                status:
-                  normaliseEmployeeStatus(row.mappedData.status) || "Active",
-              })
-              .select("id")
-              .single();
-
-          if (createError || !createdEmployee) {
-            throw createError || new Error("Employee creation failed.");
-          }
-
-          const employeeId = createdEmployee.id;
-
-          await upsertEmploymentDetails(
-            employeeId,
-            row.mappedData,
-            null
-          );
-
-          await writeEmployeeImportTimelineEvent({
-            employeeId,
-            title: "Employee created by import",
-            description: `${row.mappedData.name} was added through the Employee Import Wizard.`,
-            sourceRecordId: importId ? String(importId) : null,
-            status: "Created",
-            createdBy: user?.id || null,
-          });
-
-          result.created += 1;
-
-          result.rowResults.push({
-            rowNumber: row.rowNumber,
-            name: row.mappedData.name,
-            result: "Created",
-            employeeId,
-            message: "A new employee record was created.",
-          });
-
-          await saveImportRowResult({
-            importId,
-            row,
-            resultStatus: "created",
-            employeeId,
-          });
-        }
-      } catch (error) {
-        console.error(
-          `Employee import failed for row ${row.rowNumber}:`,
-          error
+      if (!response.ok || !payload.success || !payload.result) {
+        throw new Error(
+          payload.error || "The employee import could not be completed."
         );
-
-        result.errors += 1;
-
-        result.rowResults.push({
-          rowNumber: row.rowNumber,
-          name: row.mappedData.name,
-          result: "Error",
-          employeeId: row.matchingEmployee?.id || null,
-          message:
-            error instanceof Error
-              ? error.message
-              : "The employee row could not be imported.",
-        });
-
-        await saveImportRowResult({
-          importId,
-          row,
-          resultStatus: "error",
-          employeeId: row.matchingEmployee?.id || null,
-          additionalError:
-            error instanceof Error
-              ? error.message
-              : "The employee row could not be imported.",
-        });
       }
 
-      setImportProgress(
-        Math.round(((index + 1) / validatedRows.length) * 100)
+      setImportResult(payload.result);
+      setImportProgress(100);
+      setImportStep("complete");
+
+      showMessage(
+        payload.result.errors > 0
+          ? "The import completed with some errors. Review the result report below."
+          : "The employee import completed successfully.",
+        payload.result.errors > 0 ? "error" : "success"
       );
+
+      await Promise.all([loadEmployees(), loadImportHistory()]);
+    } catch (error) {
+      console.error("EMPLOYEE IMPORT ERROR:", error);
+      setImportProgress(0);
+      setImportStep("validation");
+      showMessage(
+        error instanceof Error
+          ? error.message
+          : "The employee import could not be completed.",
+        "error"
+      );
+    } finally {
+      setRunningImport(false);
     }
-
-    if (importId) {
-      await supabase
-        .from("employee_imports")
-        .update({
-          status: result.errors > 0 ? "completed_with_errors" : "completed",
-          created_rows: result.created,
-          updated_rows: result.updated,
-          skipped_rows: result.skipped,
-          error_rows: result.errors,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", importId);
-    }
-
-    await writeAuditEvent({
-      action: "Employee import completed",
-      description: `${result.created} employee records were created, ${result.updated} were updated, ${result.skipped} were skipped and ${result.errors} contained errors.`,
-      entityType: "Employee Import",
-      entityId: importId ? String(importId) : null,
-      entityName: selectedFile?.name || "Employee import",
-      metadata: {
-        import_mode: importMode,
-        total_rows: validatedRows.length,
-        created_rows: result.created,
-        updated_rows: result.updated,
-        skipped_rows: result.skipped,
-        error_rows: result.errors,
-      },
-    });
-
-    setImportResult(result);
-    setImportProgress(100);
-    setRunningImport(false);
-    setImportStep("complete");
-
-    showMessage(
-      result.errors > 0
-        ? "The import completed with some errors. Review the result report below."
-        : "The employee import completed successfully.",
-      result.errors > 0 ? "error" : "success"
-    );
-
-    await Promise.all([loadEmployees(), loadImportHistory()]);
   }
 
   function downloadLeoTemplate() {

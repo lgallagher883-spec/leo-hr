@@ -7,13 +7,6 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type TimePeriod =
   | "30_days"
   | "quarter"
@@ -129,119 +122,80 @@ export default function InsightsPage() {
   async function loadInsightsData() {
     setLoading(true);
 
-    const [
-      employeeResult,
-      matterResult,
-      sarResult,
-      resourceResult,
-      knowledgeResult,
-    ] = await Promise.all([
-      supabase
-        .from("employees")
-        .select(
-          "id,name,status,start_date"
-        )
-        .order("name", {
-          ascending: true,
-        }),
-
-      supabase
-        .from("matters")
-        .select(
-          "id,title,subject,status,matter_type,created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        }),
-
-      supabase
-        .from("employee_sars")
-        .select(
-          "id,request_title,employee_id,matter_id,status,response_due_date,extended_due_date,created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        }),
-
-      supabase
-        .from("policy_register")
-        .select(
-          "id,name,register_type"
-        )
-        .order("name", {
-          ascending: true,
-        }),
-
-      supabase
-        .from("knowledge_chunks")
-        .select("*", {
-          count: "exact",
-          head: true,
-        })
-        .eq("is_active", true),
-    ]);
-
-    if (employeeResult.error) {
-      console.error(
-        "Error loading employees:",
-        employeeResult.error
+    try {
+      const response = await fetch(
+        "/api/insights",
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        }
       );
-    }
 
-    if (matterResult.error) {
-      console.error(
-        "Error loading Matters:",
-        matterResult.error
+      const result = await response
+        .json()
+        .catch(() => null);
+
+      if (
+        !response.ok ||
+        !result?.success
+      ) {
+        throw new Error(
+          result?.error ||
+            "Insights data could not be loaded."
+        );
+      }
+
+      setEmployees(
+        Array.isArray(result.employees)
+          ? (result.employees as EmployeeRecord[])
+          : []
       );
-    }
 
-    if (sarResult.error) {
-      console.error(
-        "Error loading SARs:",
-        sarResult.error
+      setMatters(
+        Array.isArray(result.matters)
+          ? (result.matters as MatterRecord[])
+          : []
       );
-    }
 
-    if (resourceResult.error) {
-      console.error(
-        "Error loading HR Resources:",
-        resourceResult.error
+      setSars(
+        Array.isArray(result.sars)
+          ? (result.sars as SarRecord[])
+          : []
       );
-    }
 
-    if (knowledgeResult.error) {
-      console.error(
-        "Error loading knowledge:",
-        knowledgeResult.error
+      setResources(
+        Array.isArray(result.resources)
+          ? (result.resources as ResourceRecord[])
+          : []
       );
+
+      setKnowledgeSectionCount(
+        typeof result.knowledgeSectionCount ===
+          "number"
+          ? result.knowledgeSectionCount
+          : 0
+      );
+
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error(
+        "Error loading Insights:",
+        error
+      );
+
+      setEmployees([]);
+      setMatters([]);
+      setSars([]);
+      setResources([]);
+      setKnowledgeSectionCount(0);
+      setLastUpdated(new Date());
+    } finally {
+      setLoading(false);
     }
-
-    setEmployees(
-      (employeeResult.data ||
-        []) as EmployeeRecord[]
-    );
-
-    setMatters(
-      (matterResult.data ||
-        []) as MatterRecord[]
-    );
-
-    setSars(
-      (sarResult.data ||
-        []) as SarRecord[]
-    );
-
-    setResources(
-      (resourceResult.data ||
-        []) as ResourceRecord[]
-    );
-
-    setKnowledgeSectionCount(
-      knowledgeResult.count || 0
-    );
-
-    setLastUpdated(new Date());
-    setLoading(false);
   }
 
   const periodStart = useMemo(

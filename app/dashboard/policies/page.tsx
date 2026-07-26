@@ -228,56 +228,56 @@ export default function PoliciesPage() {
     setLoading(true);
 
     try {
-      const [
-        registerResult,
-        documentsResult,
-        knowledgeResponse,
-      ] = await Promise.all([
-        supabase
-          .from("policy_register")
-          .select("*")
-          .order("next_review_date", {
-            ascending: true,
-          }),
-
-        supabase
-          .from("company_documents")
-          .select("*")
-          .order("created_at", {
-            ascending: false,
-          }),
-
-        fetch(
-          `/api/knowledge/resources?organisationId=${encodeURIComponent(
-            ORGANISATION_ID
-          )}`,
-          {
+      const [resourcesResponse, knowledgeResponse] =
+        await Promise.all([
+          fetch("/api/hr-resources", {
+            method: "GET",
             cache: "no-store",
-          }
-        ),
-      ]);
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+            },
+          }),
 
-      if (registerResult.error) {
-        console.error(
-          "Could not load resource register:",
-          registerResult.error
-        );
-      }
+          fetch(
+            `/api/knowledge/resources?organisationId=${encodeURIComponent(
+              ORGANISATION_ID
+            )}`,
+            {
+              cache: "no-store",
+            }
+          ),
+        ]);
 
-      if (documentsResult.error) {
-        console.error(
-          "Could not load company documents:",
-          documentsResult.error
+      const resourcesResult =
+        await resourcesResponse
+          .json()
+          .catch(() => null);
+
+      if (
+        !resourcesResponse.ok ||
+        !resourcesResult?.success
+      ) {
+        throw new Error(
+          resourcesResult?.error ||
+            "HR resources could not be loaded."
         );
       }
 
       setItems(
-        (registerResult.data || []) as RegisterItem[]
+        Array.isArray(
+          resourcesResult.items
+        )
+          ? (resourcesResult.items as RegisterItem[])
+          : []
       );
 
       setDocuments(
-        (documentsResult.data ||
-          []) as CompanyDocument[]
+        Array.isArray(
+          resourcesResult.documents
+        )
+          ? (resourcesResult.documents as CompanyDocument[])
+          : []
       );
 
       if (knowledgeResponse.ok) {
@@ -304,8 +304,8 @@ export default function PoliciesPage() {
 
         setKnowledgeStatuses(statuses);
       } else {
-        console.error(
-          "Could not load resource knowledge status."
+        console.warn(
+          "Resource knowledge status could not be loaded."
         );
 
         setKnowledgeStatuses({});
@@ -315,6 +315,10 @@ export default function PoliciesPage() {
         "Could not load HR Resources:",
         error
       );
+
+      setItems([]);
+      setDocuments([]);
+      setKnowledgeStatuses({});
     } finally {
       setLoading(false);
     }

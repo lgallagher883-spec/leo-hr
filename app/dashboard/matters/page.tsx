@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/client";
-
 type Matter = {
   id: number;
   title: string;
@@ -22,12 +20,26 @@ type Employee = {
   name: string;
 };
 
+type MattersResponse = {
+  success: boolean;
+  matters?: Matter[];
+  employees?: Employee[];
+  error?: string;
+};
+
+type DeleteMatterResponse = {
+  success: boolean;
+  deletedMatterId?: number;
+  error?: string;
+};
+
 export default function MattersPage() {
   const router = useRouter();
 
   const [matters, setMatters] = useState<Matter[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingMatterId, setDeletingMatterId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,75 +50,38 @@ export default function MattersPage() {
     setLoading(true);
     setLoadError(null);
 
-    const supabase = createClient();
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error("LEO could not validate the current user session:", {
-        message: userError?.message ?? "No authenticated user was returned.",
-        code: userError?.code ?? null,
+    try {
+      const response = await fetch("/api/matters", {
+        method: "GET",
+        cache: "no-store",
       });
 
-      setLoadError(
-        "Your session could not be validated. Please sign in again.",
-      );
-      setLoading(false);
-      return;
-    }
+      const result = (await response.json()) as MattersResponse;
 
-    const [mattersResult, employeesResult] = await Promise.all([
-      supabase
-        .from("matters")
-        .select(
-          "id, title, status, description, created_at, employee_id, matter_type, subject, matter_lead",
-        )
-        .order("created_at", { ascending: false }),
+      if (!response.ok || !result.success) {
+        if (response.status === 401 || response.status === 403) {
+          router.replace("/dashboard");
+          return;
+        }
 
-      supabase
-        .from("employees")
-        .select("id, name")
-        .order("name", { ascending: true }),
-    ]);
+        throw new Error(
+          result.error || "LEO could not load the organisation's matters.",
+        );
+      }
 
-    if (mattersResult.error) {
-      console.error("Error loading matters:", {
-        message: mattersResult.error.message,
-        details: mattersResult.error.details,
-        hint: mattersResult.error.hint,
-        code: mattersResult.error.code,
-      });
+      setMatters(result.matters ?? []);
+      setEmployees(result.employees ?? []);
+    } catch (error) {
+      console.error("Error loading Matters:", error);
 
       setLoadError(
-        mattersResult.error.message ||
-          "LEO could not load the organisation's matters.",
+        error instanceof Error
+          ? error.message
+          : "LEO could not load the organisation's matters.",
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (employeesResult.error) {
-      console.error("Error loading employees for matters:", {
-        message: employeesResult.error.message,
-        details: employeesResult.error.details,
-        hint: employeesResult.error.hint,
-        code: employeesResult.error.code,
-      });
-
-      setLoadError(
-        employeesResult.error.message ||
-          "LEO could not load the employee list used by Matters.",
-      );
-      setLoading(false);
-      return;
-    }
-
-    setMatters((mattersResult.data ?? []) as Matter[]);
-    setEmployees((employeesResult.data ?? []) as Employee[]);
-    setLoading(false);
   }
 
   async function deleteMatter(matterId: number) {
@@ -118,30 +93,35 @@ export default function MattersPage() {
       return;
     }
 
-    const supabase = createClient();
+    setDeletingMatterId(matterId);
 
-    const { error } = await supabase
-      .from("matters")
-      .delete()
-      .eq("id", matterId);
-
-    if (error) {
-      console.error("Error deleting matter:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
+    try {
+      const response = await fetch(`/api/matters/${matterId}`, {
+        method: "DELETE",
       });
 
-      window.alert(
-        error.message || "The matter could not be deleted.",
-      );
-      return;
-    }
+      const result = (await response.json()) as DeleteMatterResponse;
 
-    setMatters((current) =>
-      current.filter((matter) => matter.id !== matterId),
-    );
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "The matter could not be deleted.",
+        );
+      }
+
+      setMatters((current) =>
+        current.filter((matter) => matter.id !== matterId),
+      );
+    } catch (error) {
+      console.error("Error deleting matter:", error);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "The matter could not be deleted.",
+      );
+    } finally {
+      setDeletingMatterId(null);
+    }
   }
 
   function getEmployeeName(employeeId: number | null) {
@@ -233,6 +213,7 @@ export default function MattersPage() {
             <tbody>
               {matters.map((matter) => {
                 const statusStyle = getStatusStyle(matter.status || "Open");
+                const isDeleting = deletingMatterId === matter.id;
 
                 return (
                   <tr key={matter.id} style={rowStyle}>
@@ -282,13 +263,18 @@ export default function MattersPage() {
                     <Td>
                       <button
                         type="button"
+                        disabled={isDeleting}
                         onClick={(event) => {
                           event.stopPropagation();
                           void deleteMatter(matter.id);
                         }}
-                        style={deleteButtonStyle}
+                        style={{
+                          ...deleteButtonStyle,
+                          opacity: isDeleting ? 0.6 : 1,
+                          cursor: isDeleting ? "not-allowed" : "pointer",
+                        }}
                       >
-                        Delete
+                        {isDeleting ? "Deleting..." : "Delete"}
                       </button>
                     </Td>
                   </tr>
@@ -431,7 +417,6 @@ const deleteButtonStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
   borderRadius: "8px",
   padding: "6px 10px",
-  cursor: "pointer",
   fontSize: "12px",
   fontWeight: 600,
 };

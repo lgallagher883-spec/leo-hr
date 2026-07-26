@@ -628,11 +628,6 @@ export default function AIStudioWorkspace() {
       projectsResult,
       templatesResult,
       intelligenceResult,
-      providersResult,
-      connectionsResult,
-      modulesResult,
-      capabilitiesResult,
-      providerCapabilitiesResult,
       learningModulesResult,
       pathwaysResult,
     ] = await Promise.all([
@@ -657,35 +652,6 @@ export default function AIStudioWorkspace() {
         .order("created_at", { ascending: false }),
 
       supabase
-        .from("connection_providers")
-        .select("id, provider_key, name, category, description, setup_status")
-        .eq("is_active", true)
-        .eq("is_archived", false)
-        .order("display_order"),
-
-      supabase
-        .from("organisation_connections")
-        .select("id, provider_id, status, health_status, account_display_name")
-        .eq("is_archived", false),
-
-      supabase
-        .from("organisation_connection_modules")
-        .select("*")
-        .eq("module_key", "AI Studio")
-        .eq("is_enabled", true),
-
-      supabase
-        .from("organisation_connection_capabilities")
-        .select("*")
-        .eq("is_enabled", true)
-        .eq("approval_status", "Approved"),
-
-      supabase
-        .from("connection_provider_capabilities")
-        .select("*")
-        .eq("is_active", true),
-
-      supabase
         .from("learning_modules")
         .select("id, title, status")
         .eq("is_archived", false)
@@ -698,49 +664,69 @@ export default function AIStudioWorkspace() {
         .order("title"),
     ]);
 
-    const firstError =
-      projectsResult.error ||
-      templatesResult.error ||
-      intelligenceResult.error ||
-      providersResult.error ||
-      connectionsResult.error ||
-      modulesResult.error ||
-      capabilitiesResult.error ||
-      providerCapabilitiesResult.error ||
-      learningModulesResult.error ||
-      pathwaysResult.error;
+    const namedErrors = [
+      ["learning_ai_projects", projectsResult.error],
+      ["learning_ai_templates", templatesResult.error],
+      ["learning_ai_intelligence", intelligenceResult.error],
+      ["learning_modules", learningModulesResult.error],
+      ["development_pathways", pathwaysResult.error],
+    ].filter((entry) => Boolean(entry[1]));
 
-    if (firstError) {
-      console.error("Error loading AI Studio:", firstError);
-      setErrorMessage("AI Studio could not be loaded.");
-      setLoading(false);
-      return;
+    if (namedErrors.length > 0) {
+      console.warn(
+        "Some AI Studio data could not be loaded:",
+        namedErrors.map(([source, error]) => ({
+          source,
+          error,
+        })),
+      );
     }
 
-    setProjects((projectsResult.data || []) as AIProject[]);
-    setTemplates((templatesResult.data || []) as AITemplate[]);
+    setProjects(
+      projectsResult.error
+        ? []
+        : ((projectsResult.data || []) as AIProject[]),
+    );
+
+    setTemplates(
+      templatesResult.error
+        ? []
+        : ((templatesResult.data || []) as AITemplate[]),
+    );
+
     setIntelligence(
-      (intelligenceResult.data || []) as IntelligenceFinding[]
+      intelligenceResult.error
+        ? []
+        : ((intelligenceResult.data || []) as IntelligenceFinding[]),
     );
-    setProviders((providersResult.data || []) as Provider[]);
-    setConnections(
-      (connectionsResult.data || []) as OrganisationConnection[]
-    );
-    setConnectionModules(
-      (modulesResult.data || []) as ConnectionModule[]
-    );
-    setConnectionCapabilities(
-      (capabilitiesResult.data || []) as ConnectionCapability[]
-    );
-    setProviderCapabilities(
-      (providerCapabilitiesResult.data || []) as ProviderCapability[]
-    );
+
     setLearningModules(
-      (learningModulesResult.data || []) as LearningModule[]
+      learningModulesResult.error
+        ? []
+        : ((learningModulesResult.data || []) as LearningModule[]),
     );
+
     setDevelopmentPathways(
-      (pathwaysResult.data || []) as DevelopmentPathway[]
+      pathwaysResult.error
+        ? []
+        : ((pathwaysResult.data || []) as DevelopmentPathway[]),
     );
+
+    /*
+     * Connections are intentionally left empty here.
+     *
+     * This workspace previously queried the obsolete pre-hardening tables
+     * connection_providers, organisation_connections and related capability
+     * tables. The production Connections foundation now uses the protected
+     * leo_* connection model, which must be exposed through its authorised
+     * server-side integration rather than queried directly by this browser
+     * workspace.
+     */
+    setProviders([]);
+    setConnections([]);
+    setConnectionModules([]);
+    setConnectionCapabilities([]);
+    setProviderCapabilities([]);
 
     setLoading(false);
   }

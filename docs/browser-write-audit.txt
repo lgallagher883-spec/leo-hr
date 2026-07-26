@@ -1,0 +1,291 @@
+C:\Users\liver\leo\app\dashboard\billing\page.tsx:428:.update({ metadata: nextMetadata })
+C:\Users\liver\leo\app\dashboard\compliance\page.tsx:3621:.insert({
+C:\Users\liver\leo\app\dashboard\documents\page.tsx:82:const { error } = await supabase.from("company_documents").insert({
+C:\Users\liver\leo\app\dashboard\employees\new\page.tsx:76:const { error } = await supabase.from("employees").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationDocuments.tsx:215:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationDocuments.tsx:259:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationDocuments.tsx:275:.delete()
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationDocuments.tsx:314:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationDocuments.tsx:372:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:181:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:242:.insert(reviewRecords);
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:252:.delete()
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:605:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:913:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:953:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:987:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:1019:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:1052:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\probation\ProbationWorkspace.tsx:1098:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\shared\DevelopmentRecordsWorkspace.tsx:225:.update(recordData)
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\shared\DevelopmentRecordsWorkspace.tsx:244:.insert(recordData);
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\development\shared\DevelopmentRecordsWorkspace.tsx:276:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\DBSSafeguarding.tsx:118:const { error } = await supabase.from("employee_dbs_checks").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\DrivingChecks.tsx:195:const { error } = await supabase.from("employee_driving_checks").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmergencyContacts.tsx:127:.upsert(rows, { onConflict: "employee_id,contact_number" });
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeDocuments.tsx:111:const { error } = await supabase.from("employee_documents").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeMedical.tsx:77:const { error } = await supabase.from("employee_medical").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeMedical.tsx:132:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeNotes.tsx:63:const { error } = await supabase.from("employee_notes").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeNotes.tsx:105:.update({ note: editingText.trim() })
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeWarnings.tsx:83:const { error } = await supabase.from("employee_warnings").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmployeeWarnings.tsx:142:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmploymentDetails.tsx:85:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\EmploymentDetails.tsx:103:.upsert(
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:759:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:903:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:1027:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:1142:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:1216:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:2747:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\LeaveAbsence.tsx:2785:.insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\RightToWork.tsx:105:const { error } = await supabase.from("employee_right_to_work").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\TrainingLogs.tsx:77:const { error } = await supabase.from("employee_training_logs").insert([
+C:\Users\liver\leo\app\dashboard\employees\[id]\components\TrainingLogs.tsx:132:.update({
+C:\Users\liver\leo\app\dashboard\employees\[id]\page.tsx:496:const { error } = await supabase.from("audit_logs").insert({
+C:\Users\liver\leo\app\dashboard\employees\[id]\page.tsx:529:.update({ status: "Archived" })
+C:\Users\liver\leo\app\dashboard\employees\[id]\page.tsx:574:.update({ status: "Active" })
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:807:.insert({
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:919:.update(employeeUpdate)
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:963:.insert({
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:1051:.update({
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:2746:.upsert(payload, {
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:2774:const { error } = await supabase.from("employee_import_rows").insert({
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:2805:const { error } = await supabase.from("employee_timeline").insert({
+C:\Users\liver\leo\app\dashboard\employees\page.tsx:2853:const { error } = await supabase.from("audit_logs").insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:583:.insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:664:.upsert(
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:682:.upsert(
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:701:.upsert(
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:756:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:816:.insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:837:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:867:.insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:899:await supabase.from("connection_health_checks").insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:912:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:926:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:965:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:992:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1027:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1073:.update(payload)
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1077:.insert(payload);
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1124:.update(payload)
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1128:.insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1207:.update(payload)
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1211:.insert(payload);
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1249:.insert({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1301:.update({
+C:\Users\liver\leo\app\dashboard\foundations\connections\page.tsx:1367:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:944:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:982:await supabase.from("learning_ai_messages").insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1024:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1092:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1136:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1155:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1200:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1286:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1303:await supabase.from("learning_ai_messages").insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1318:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1384:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1432:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1497:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1517:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1554:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1613:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1679:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1717:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1776:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1816:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1868:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1904:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1935:await supabase.from("learning_module_sections").insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1949:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:1960:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2000:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2022:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2033:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2078:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2107:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2119:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\ai-studio\AIStudioWorkspace.tsx:2164:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:329:.update(settingsData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:335:.insert(settingsData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:466:.update(questionData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:501:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:569:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:587:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:598:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:615:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssessment.tsx:644:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssignments.tsx:211:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssignments.tsx:288:.update(updateData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssignments.tsx:325:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssignments.tsx:365:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningAssignments.tsx:407:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningCertificates.tsx:272:.update(settingsData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningCertificates.tsx:280:.insert(settingsData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:218:.update(sectionData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:249:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:318:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:339:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:353:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:368:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningContent.tsx:403:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningMedia.tsx:247:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningMedia.tsx:335:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningMedia.tsx:462:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningOverview.tsx:300:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningOverview.tsx:367:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningVersionHistory.tsx:158:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\builder\LearningVersionHistory.tsx:190:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:500:.insert(
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:571:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:612:await supabase.from("learning_section_progress").insert(
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:668:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:732:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:799:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:918:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:976:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1031:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1124:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1203:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1281:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1305:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1345:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1362:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1427:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1459:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1538:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\learning\LearningWorkspace.tsx:1583:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:499:.update(pathwayData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:516:.insert(pathwayData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:547:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:647:.update(stepData)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:665:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:700:.update({ sequence_number: temporary })
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:707:.update({ sequence_number: step.sequence_number })
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:714:.update({ sequence_number: target.sequence_number })
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:728:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:747:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:775:await supabase.from("pathway_progress").insert(
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:809:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:826:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:843:const { error } = await supabase.from("pathway_reviews").insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:859:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:893:const { error } = await supabase.from("pathway_versions").insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\pathways\DevelopmentPathways.tsx:911:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:749:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:850:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:929:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1017:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1132:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1173:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1210:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1285:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1352:.update(qualificationUpdates)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1410:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1469:.insert(
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1507:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1557:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\qualifications\QualificationsWorkspace.tsx:1620:.insert({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:956:.update(payload)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:958:: await supabase.from(tableName).insert(payload);
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1113:.update(payload)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1117:.insert(payload);
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1158:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1186:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1231:.update(payload)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1235:.insert(payload);
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1288:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1316:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1342:.update({
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1512:.update(payload)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1646:.update(payload)
+C:\Users\liver\leo\app\dashboard\leo-learn\components\settings\LearningSettingsWorkspace.tsx:1658:.insert(payload);
+C:\Users\liver\leo\app\dashboard\leo-learn\components\LearningLibrary.tsx:403:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\applications\page.tsx:515:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\applications\page.tsx:553:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1276:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1350:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1420:.insert(missingReferences as any);
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1513:.update(updatePayload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1580:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1627:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1682:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1775:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1816:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\ApplicationsWorkspace.tsx:1853:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\CandidateWorkspace.tsx:849:.update(payload)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\CandidateWorkspace.tsx:877:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\CandidateWorkspace.tsx:969:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\CandidateWorkspace.tsx:1009:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\CandidateWorkspace.tsx:3089:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\DueDiligenceWorkspace.tsx:424:.upsert(row, {
+C:\Users\liver\leo\app\dashboard\leo-talent\components\DueDiligenceWorkspace.tsx:434:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\DueDiligenceWorkspace.tsx:455:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1365:.update(payload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1385:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1464:.update(applicationUpdate as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1489:.delete()
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1514:.insert(
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1582:.update(payload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1619:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\InterviewsWorkspace.tsx:1655:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:519:.insert(payload)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:581:.update(payload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:598:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:662:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:687:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:729:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:775:.update({ status: "employee_creation_pending" })
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OffersWorkspace.tsx:809:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:618:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:645:.insert(
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:657:.update({ status: "onboarding", current_stage_key: "onboarding" })
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:928:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:952:.insert(generatedItems(appointment.id, createForm.agreedStartDate))
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:958:.delete()
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:969:.update({ status: "onboarding", current_stage_key: "onboarding" })
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:1005:.update(changes)
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:1032:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\components\OnboardingWorkspace.tsx:1067:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\create\page.tsx:510:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\create\page.tsx:654:.insert(payload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:742:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:785:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:833:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:899:.update(channelPayload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:903:.insert(channelPayload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:945:.update({ status: "paused", updated_at: now, updated_by: userContext.userId })
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:956:.update({ status: "closed", closed_at: now, updated_at: now })
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:986:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1021:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1052:.insert({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1092:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1112:.delete()
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1154:.update(payload as any)
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1189:.update({
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1241:.delete()
+C:\Users\liver\leo\app\dashboard\leo-talent\vacancies\[id]\page.tsx:1283:.insert({
+C:\Users\liver\leo\app\dashboard\matters\[id]\page.tsx:109:const { error } = await supabase.from("matter_timeline").insert({
+C:\Users\liver\leo\app\dashboard\matters\[id]\page.tsx:153:.update({ status })
+C:\Users\liver\leo\app\dashboard\matters\[id]\page.tsx:213:await supabase.from("matter_messages").insert([
+C:\Users\liver\leo\app\dashboard\matters\page.tsx:125:.delete()
+C:\Users\liver\leo\app\dashboard\organisation\components\CareersWorkspace.tsx:259:.insert({
+C:\Users\liver\leo\app\dashboard\organisation\components\CareersWorkspace.tsx:375:.update({
+C:\Users\liver\leo\app\dashboard\organisation\components\PeopleAccessWorkspace.tsx:543:.update({
+C:\Users\liver\leo\app\dashboard\organisation\components\PeopleAccessWorkspace.tsx:561:.upsert(
+C:\Users\liver\leo\app\dashboard\organisation\components\PeopleAccessWorkspace.tsx:683:.update(updates)
+C:\Users\liver\leo\app\dashboard\organisation\components\SubscriptionBillingWorkspace.tsx:368:.update({ metadata: nextMetadata })
+C:\Users\liver\leo\app\dashboard\organisation\page.tsx:227:.update({
+C:\Users\liver\leo\app\dashboard\policies\page.tsx:394:.insert({
+C:\Users\liver\leo\app\dashboard\sar-requests\new\page.tsx:137:.insert({
+C:\Users\liver\leo\app\dashboard\sar-requests\new\page.tsx:184:.update({
+C:\Users\liver\leo\app\dashboard\sar-requests\new\page.tsx:203:.insert({
+C:\Users\liver\leo\app\dashboard\sar-requests\new\page.tsx:227:.insert({
+C:\Users\liver\leo\app\dashboard\sar-requests\[id]\page.tsx:421:.insert({
+C:\Users\liver\leo\app\dashboard\sar-requests\[id]\page.tsx:521:.update(updateValues)
+C:\Users\liver\leo\app\dashboard\sar-requests\[id]\page.tsx:664:.update({
+C:\Users\liver\leo\app\dashboard\sar-requests\[id]\page.tsx:822:.insert({
+C:\Users\liver\leo\app\dashboard\sar-requests\[id]\page.tsx:986:.update({
+C:\Users\liver\leo\app\dashboard\sar-requests\[id]\page.tsx:1150:.delete()

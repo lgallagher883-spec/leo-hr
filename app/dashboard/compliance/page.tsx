@@ -358,142 +358,108 @@ export default function CompliancePage() {
     setLoadError("");
     setPageMessage("");
 
-    const [
-      employeeResult,
-      siteResult,
-      employmentResult,
-      rightToWorkResult,
-      dbsResult,
-      drivingResult,
-      trainingResult,
-    ] = await Promise.all([
-      supabase
-        .from("employees")
-        .select(
-          "id, name, role, email, status, start_date, site_id, department"
-        )
-        .order("name", {
-          ascending: true,
-        }),
+    try {
+      const response = await fetch("/api/compliance", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      });
 
-      supabase
-        .from("sites")
-        .select("id, name, manager, status")
-        .order("name", {
-          ascending: true,
-        }),
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            employees?: Record<string, unknown>[];
+            sites?: Site[];
+            employmentDetails?: EmploymentDetails[];
+            rightToWorkRecords?: RightToWorkRecord[];
+            dbsRecords?: DbsRecord[];
+            drivingRecords?: DrivingRecord[];
+            trainingRecords?: TrainingRecord[];
+            warnings?: string[];
+            error?: string;
+          }
+        | null;
 
-      supabase
-        .from("employee_employment_details")
-        .select(
-          "employee_id, manager, probation_end_date, employment_end_date"
-        ),
+      if (!response.ok || !payload?.success) {
+        throw new Error(
+          payload?.error ||
+            `Compliance records request failed with status ${response.status}.`
+        );
+      }
 
-      supabase
-        .from("employee_right_to_work")
-        .select(
-          "id, employee_id, nationality, immigration_status, visa_or_permit_type, right_to_work_expiry, check_completed_date, next_review_date, created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        }),
-
-      supabase
-        .from("employee_dbs_checks")
-        .select(
-          "id, employee_id, dbs_required, dbs_level, certificate_number, certificate_issue_date, next_check_due, update_service, update_service_id, update_service_last_check_date, update_service_next_check_due, safeguarding_training_completed, safeguarding_training_expiry, created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        }),
-
-      supabase
-        .from("employee_driving_checks")
-        .select(
-          "id, employee_id, drives_for_work, vehicle_used, vehicle_registration, vehicle_ownership, authorised_to_drive, licence_expiry_date, dvla_check_completed, dvla_check_date, next_dvla_check_due, business_insurance_confirmed, business_insurance_expiry_date, mot_required, mot_expiry_date, created_at"
-        )
-        .order("created_at", {
-          ascending: false,
-        }),
-
-      supabase
-        .from("employee_training_logs")
-        .select(
-          "id, employee_id, training_name, date_completed, refresh_or_expiry_date, notes, created_at"
-        )
-        .order("refresh_or_expiry_date", {
-          ascending: true,
-        }),
-    ]);
-
-    if (employeeResult.error) {
-      console.error(
-        "Employee records could not be loaded:",
-        employeeResult.error
+      setEmployees(
+        (payload.employees || []).map((record: Record<string, unknown>) => ({
+          id: Number(record.id),
+          name: String(
+            record.name ||
+              record.full_name ||
+              [record.first_name, record.last_name].filter(Boolean).join(" ") ||
+              "Unnamed employee"
+          ),
+          role: String(record.role || record.job_title || "Not set"),
+          email: record.email
+            ? String(record.email)
+            : record.work_email
+              ? String(record.work_email)
+              : null,
+          status: String(
+            record.status || record.employment_status || "Active"
+          ),
+          start_date: record.start_date ? String(record.start_date) : null,
+          site_id:
+            typeof record.site_id === "number"
+              ? record.site_id
+              : record.site_id
+                ? Number(record.site_id)
+                : null,
+          department: record.department
+            ? String(record.department)
+            : null,
+        }))
       );
+
+      setSites(payload.sites || []);
+      setEmploymentDetails(payload.employmentDetails || []);
+      setRightToWorkRecords(payload.rightToWorkRecords || []);
+      setDbsRecords(payload.dbsRecords || []);
+      setDrivingRecords(payload.drivingRecords || []);
+      setTrainingRecords(payload.trainingRecords || []);
+
+      if (payload.warnings && payload.warnings.length > 0) {
+        showMessage(
+          `The following connection${
+            payload.warnings.length === 1 ? "" : "s"
+          } could not be loaded: ${payload.warnings.join(
+            ", "
+          )}. Available records are still shown.`,
+          "information"
+        );
+      }
+
+      setLastUpdated(
+        new Intl.DateTimeFormat("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Europe/London",
+        }).format(new Date())
+      );
+    } catch (error) {
+      console.error("Compliance records could not be loaded:", error);
 
       setLoadError(
-        "The compliance registers could not be loaded because employee records are unavailable."
+        error instanceof Error
+          ? error.message
+          : "The compliance registers could not be loaded."
       );
-
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const optionalErrors = [
-      siteResult.error,
-      employmentResult.error,
-      rightToWorkResult.error,
-      dbsResult.error,
-      drivingResult.error,
-      trainingResult.error,
-    ].filter(Boolean);
-
-    if (optionalErrors.length > 0) {
-      console.warn(
-        "Some compliance data sources could not be loaded:",
-        optionalErrors
-      );
-
-      showMessage(
-        "Some connected compliance records could not be loaded. Available records are still shown.",
-        "information"
-      );
-    }
-
-    setEmployees((employeeResult.data || []) as Employee[]);
-    setSites((siteResult.data || []) as Site[]);
-
-    setEmploymentDetails(
-      (employmentResult.data || []) as EmploymentDetails[]
-    );
-
-    setRightToWorkRecords(
-      (rightToWorkResult.data || []) as RightToWorkRecord[]
-    );
-
-    setDbsRecords((dbsResult.data || []) as DbsRecord[]);
-
-    setDrivingRecords(
-      (drivingResult.data || []) as DrivingRecord[]
-    );
-
-    setTrainingRecords(
-      (trainingResult.data || []) as TrainingRecord[]
-    );
-
-    setLastUpdated(
-      new Intl.DateTimeFormat("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Europe/London",
-      }).format(new Date())
-    );
-
-    setLoading(false);
   }, [showMessage]);
 
   useEffect(() => {
@@ -1489,7 +1455,6 @@ export default function CompliancePage() {
         />
       </div>
 
-      <StatusLegend />
 
       {pageMessage && (
         <MessageBox tone={pageMessageTone}>
@@ -2627,83 +2592,6 @@ function ComplianceStatusBadge({
   );
 }
 
-function StatusLegend() {
-  return (
-    <section style={legendStyle}>
-      <div style={legendTitleStyle}>
-        Status key
-      </div>
-
-      <div style={legendItemsStyle}>
-        <LegendItem
-          label="Expired"
-          description="The recorded date has passed."
-          status="Expired"
-        />
-
-        <LegendItem
-          label="Due within 30 days"
-          description="Renewal or review is approaching."
-          status="Due within 30 days"
-        />
-
-        <LegendItem
-          label="Current"
-          description="No immediate action is due."
-          status="Current"
-        />
-
-        <LegendItem
-          label="Awaiting evidence"
-          description="A required record or date is missing."
-          status="Awaiting evidence"
-        />
-
-        <LegendItem
-          label="Not required"
-          description="The check does not currently apply."
-          status="Not required"
-        />
-      </div>
-    </section>
-  );
-}
-
-function LegendItem({
-  label,
-  description,
-  status,
-}: {
-  label: string;
-  description: string;
-  status: ComplianceStatus;
-}) {
-  return (
-    <div style={legendItemStyle}>
-      <div
-        style={{
-          ...legendSwatchStyle,
-          ...getComplianceCellStyle(status),
-        }}
-      />
-
-      <div>
-        <div style={legendItemLabelStyle}>
-          {label}
-        </div>
-
-        <div
-          style={
-            legendItemDescriptionStyle
-          }
-        >
-          {description}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SummaryCard({
   label,
   value,
@@ -2732,7 +2620,18 @@ function SummaryCard({
         {label}
       </div>
 
-      <div style={summaryValueStyle}>
+      <div
+        style={{
+          ...summaryValueStyle,
+          ...(tone === "expired"
+            ? { color: "#B45767" }
+            : tone === "due"
+            ? { color: "#B7791F" }
+            : tone === "missing"
+            ? { color: "#6E5084" }
+            : {}),
+        }}
+      >
         {value}
       </div>
 
@@ -3688,10 +3587,9 @@ function getComplianceCellStyle(
 ): CSSProperties {
   if (status === "Expired") {
     return {
-      background: "#F4DDE4",
-      borderColor: "#C78D9D",
-      boxShadow:
-        "inset 4px 0 0 #A86573",
+      background: "#FCECEF",
+      borderColor: "#E7B5BF",
+      boxShadow: "inset 3px 0 0 #C96D7C",
     };
   }
 
@@ -3700,19 +3598,17 @@ function getComplianceCellStyle(
     "Due within 30 days"
   ) {
     return {
-      background: "#FFF0CC",
-      borderColor: "#D5A94E",
-      boxShadow:
-        "inset 4px 0 0 #C58E2A",
+      background: "#FFF6E3",
+      borderColor: "#E8C77F",
+      boxShadow: "inset 3px 0 0 #D59A2F",
     };
   }
 
   if (status === "Current") {
     return {
-      background: "#DFF3EC",
-      borderColor: "#9FCFBE",
-      boxShadow:
-        "inset 4px 0 0 #5F9F89",
+      background: "#F3FCF8",
+      borderColor: "#C5E3D7",
+      boxShadow: "inset 3px 0 0 #68A992",
     };
   }
 
@@ -3723,18 +3619,16 @@ function getComplianceCellStyle(
       "Review required"
   ) {
     return {
-      background: "#F0EEF2",
-      borderColor: "#C9C3CD",
-      boxShadow:
-        "inset 4px 0 0 #938A99",
+      background: "#F7F4F9",
+      borderColor: "#DED7E2",
+      boxShadow: "inset 3px 0 0 #A79BAE",
     };
   }
 
   return {
-    background: "#F7F7F8",
-    borderColor: "#DBDADF",
-    boxShadow:
-      "inset 4px 0 0 #B4B0B8",
+    background: "#FFFFFF",
+    borderColor: "#E7E2E9",
+    boxShadow: "inset 3px 0 0 #D3CDD7",
   };
 }
 
@@ -3746,63 +3640,62 @@ function getComplianceBadgeStyle(
     alignItems: "center",
     width: "fit-content",
     borderRadius: "999px",
-    padding: "5px 9px",
-    fontSize: "10px",
+    padding: "4px 7px",
+    fontSize: "9px",
     fontWeight: 900,
     lineHeight: 1.2,
     whiteSpace: "nowrap",
+    textTransform: "uppercase",
+    letterSpacing: "0.02em",
   };
 
   if (status === "Expired") {
     return {
       ...shared,
-      background: "#A86573",
-      color: "#FFFFFF",
+      background: "#F5D8DE",
+      color: "#8D4250",
     };
   }
 
-  if (
-    status ===
-    "Due within 30 days"
-  ) {
+  if (status === "Due within 30 days") {
     return {
       ...shared,
-      background: "#C58E2A",
-      color: "#FFFFFF",
+      background: "#F8E7BC",
+      color: "#805D17",
     };
   }
 
   if (status === "Current") {
     return {
       ...shared,
-      background: "#5F9F89",
-      color: "#FFFFFF",
+      background: "#DDEFE8",
+      color: "#356C59",
     };
   }
 
   if (
-    status ===
-      "Awaiting evidence" ||
-    status ===
-      "Review required"
+    status === "Awaiting evidence" ||
+    status === "Review required"
   ) {
     return {
       ...shared,
-      background: "#817783",
-      color: "#FFFFFF",
+      background: "#E9E4EC",
+      color: "#625968",
     };
   }
 
   return {
     ...shared,
-    background: "#D8D6DB",
-    color: "#56515A",
+    background: "#F0EEF1",
+    color: "#68616B",
   };
 }
 
 const pageStyle: CSSProperties = {
   width: "100%",
   maxWidth: "1700px",
+  minHeight: "100vh",
+  background: "#F5FFF9",
 };
 
 const headerStyle: CSSProperties = {
@@ -3811,13 +3704,14 @@ const headerStyle: CSSProperties = {
   alignItems: "flex-start",
   flexWrap: "wrap",
   gap: "18px",
-  marginBottom: "20px",
+  marginBottom: "18px",
 };
 
 const headerActionsStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "10px",
+  paddingTop: "2px",
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -3829,9 +3723,11 @@ const eyebrowStyle: CSSProperties = {
 };
 
 const titleStyle: CSSProperties = {
-  margin: "5px 0 6px",
-  color: "#2D2433",
-  fontSize: "30px",
+  margin: "5px 0 5px",
+  color: "#241B2B",
+  fontSize: "32px",
+  lineHeight: 1.1,
+  letterSpacing: "-0.02em",
 };
 
 const subtitleStyle: CSSProperties = {
@@ -3852,22 +3748,24 @@ const primaryButtonStyle: CSSProperties = {
   border: "1px solid #6E5084",
   background: "#6E5084",
   color: "#FFFFFF",
-  padding: "10px 14px",
-  borderRadius: "10px",
+  padding: "11px 16px",
+  borderRadius: "11px",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: "13px",
+  boxShadow: "0 5px 14px rgba(110, 80, 132, 0.16)",
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  border: "1px solid #D8CCDE",
+  border: "1px solid #DDD4E2",
   background: "#FFFFFF",
   color: "#5B4568",
-  padding: "10px 14px",
-  borderRadius: "10px",
+  padding: "11px 15px",
+  borderRadius: "11px",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: "13px",
+  boxShadow: "0 2px 8px rgba(69, 47, 78, 0.05)",
 };
 
 const quietButtonStyle: CSSProperties = {
@@ -3883,117 +3781,74 @@ const quietButtonStyle: CSSProperties = {
 const summaryGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "12px",
-  marginBottom: "16px",
+    "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "14px",
+  marginBottom: "18px",
 };
 
 const summaryCardStyle: CSSProperties = {
   background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "14px",
-  padding: "16px",
+  border: "1px solid #E8E1EB",
+  borderRadius: "15px",
+  padding: "17px 18px",
+  minHeight: "108px",
+  boxShadow: "0 7px 22px rgba(73, 52, 82, 0.055)",
 };
 
 const summaryExpiredStyle: CSSProperties = {
-  background: "#F8E9ED",
-  borderColor: "#D6A7B3",
+  background: "#FFFFFF",
+  borderColor: "#E8E1EB",
 };
 
 const summaryDueStyle: CSSProperties = {
-  background: "#FFF5DF",
-  borderColor: "#E2BF78",
+  background: "#FFFFFF",
+  borderColor: "#E8E1EB",
 };
 
 const summaryMissingStyle: CSSProperties = {
-  background: "#F4F2F5",
-  borderColor: "#D5D0D8",
+  background: "#FFFFFF",
+  borderColor: "#E8E1EB",
 };
 
 const summaryLabelStyle: CSSProperties = {
-  color: "#79717E",
+  color: "#716778",
   fontSize: "12px",
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const summaryValueStyle: CSSProperties = {
   color: "#6E5084",
-  fontSize: "24px",
+  fontSize: "27px",
   fontWeight: 900,
-  marginTop: "7px",
+  lineHeight: 1,
+  marginTop: "10px",
 };
 
 const summaryDetailStyle: CSSProperties = {
   color: "#746C78",
   fontSize: "11px",
-  lineHeight: 1.5,
-  marginTop: "6px",
-};
-
-const legendStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-  gap: "16px",
-  padding: "14px 16px",
-  marginBottom: "16px",
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "14px",
-};
-
-const legendTitleStyle: CSSProperties = {
-  color: "#4F4555",
-  fontSize: "12px",
-  fontWeight: 900,
-  paddingTop: "4px",
-};
-
-const legendItemsStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: "16px",
-};
-
-const legendItemStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-};
-
-const legendSwatchStyle: CSSProperties = {
-  width: "20px",
-  height: "20px",
-  borderRadius: "6px",
-  border: "1px solid",
-};
-
-const legendItemLabelStyle: CSSProperties = {
-  color: "#4D444F",
-  fontSize: "11px",
-  fontWeight: 900,
-};
-
-const legendItemDescriptionStyle: CSSProperties = {
-  color: "#847C88",
-  fontSize: "9px",
-  marginTop: "2px",
+  lineHeight: 1.45,
+  marginTop: "9px",
 };
 
 const viewTabsStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "8px",
-  marginBottom: "14px",
+  marginBottom: 0,
+  padding: "13px 16px 0",
+  background: "#FFFFFF",
+  border: "1px solid #E7E1EA",
+  borderBottom: "none",
+  borderRadius: "16px 16px 0 0",
 };
 
 const viewTabStyle: CSSProperties = {
   border: "1px solid #DED5E3",
   background: "#FFFFFF",
   color: "#675B6D",
-  padding: "9px 13px",
-  borderRadius: "999px",
+  padding: "9px 14px",
+  borderRadius: "9px",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: "12px",
@@ -4009,9 +3864,11 @@ const activeViewTabStyle: CSSProperties = {
 const filterPanelStyle: CSSProperties = {
   background: "#FFFFFF",
   border: "1px solid #E7E1EA",
-  borderRadius: "16px",
-  padding: "16px",
+  borderTop: "none",
+  borderRadius: "0 0 16px 16px",
+  padding: "14px 16px 16px",
   marginBottom: "16px",
+  boxShadow: "0 8px 24px rgba(73, 52, 82, 0.045)",
 };
 
 const filterTopRowStyle: CSSProperties = {
@@ -4030,11 +3887,11 @@ const searchContainerStyle: CSSProperties = {
 const filterGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "12px",
-  marginTop: "14px",
-  paddingTop: "14px",
-  borderTop: "1px solid #EEE8F0",
+    "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "10px",
+  marginTop: "12px",
+  paddingTop: "12px",
+  borderTop: "1px solid #F0EBF2",
 };
 
 const formFieldStyle: CSSProperties = {
@@ -4052,13 +3909,14 @@ const inputStyle: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   minHeight: "42px",
-  border: "1px solid #DCD3E0",
+  border: "1px solid #DDD4E2",
   borderRadius: "10px",
-  padding: "10px 11px",
+  padding: "10px 12px",
   background: "#FFFFFF",
   color: "#302638",
   fontFamily: "inherit",
   fontSize: "13px",
+  outline: "none",
 };
 
 const bulkActionBarStyle: CSSProperties = {
@@ -4097,16 +3955,17 @@ const registerPanelStyle: CSSProperties = {
   border: "1px solid #E7E1EA",
   borderRadius: "16px",
   overflow: "hidden",
+  boxShadow: "0 8px 26px rgba(73, 52, 82, 0.045)",
 };
 
 const registerHeadingStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "flex-start",
+  alignItems: "center",
   flexWrap: "wrap",
   gap: "12px",
-  padding: "18px",
-  borderBottom: "1px solid #E7E1EA",
+  padding: "15px 18px",
+  borderBottom: "1px solid #E9E3EB",
 };
 
 const registerTitleStyle: CSSProperties = {
@@ -4134,18 +3993,20 @@ const registerTableWrapperStyle: CSSProperties = {
   width: "100%",
   overflowX: "auto",
   overflowY: "visible",
+  WebkitOverflowScrolling: "touch",
+  scrollbarGutter: "stable",
 };
 
 const registerTableStyle: CSSProperties = {
   width: "100%",
-  minWidth: "2520px",
+  minWidth: "2180px",
   borderCollapse: "separate",
   borderSpacing: 0,
 };
 
 const trainingTableStyle: CSSProperties = {
   width: "100%",
-  minWidth: "1560px",
+  minWidth: "1420px",
   borderCollapse: "separate",
   borderSpacing: 0,
 };
@@ -4174,23 +4035,23 @@ const stickyEmployeeHeaderStyle: CSSProperties = {
   ...baseHeaderStyle,
   left: "44px",
   zIndex: 7,
-  width: "205px",
-  minWidth: "205px",
-  maxWidth: "205px",
+  width: "182px",
+  minWidth: "182px",
+  maxWidth: "182px",
 };
 
 const narrowHeaderStyle: CSSProperties = {
   ...baseHeaderStyle,
-  width: "105px",
-  minWidth: "105px",
-  maxWidth: "105px",
+  width: "92px",
+  minWidth: "92px",
+  maxWidth: "92px",
 };
 
 const roleHeaderStyle: CSSProperties = {
   ...baseHeaderStyle,
-  width: "135px",
-  minWidth: "135px",
-  maxWidth: "135px",
+  width: "112px",
+  minWidth: "112px",
+  maxWidth: "112px",
 };
 
 const reviewHeaderStyle: CSSProperties = {
@@ -4216,9 +4077,9 @@ const complianceColumnHeaderStyle: CSSProperties = {
   ...baseHeaderStyle,
   top: "38px",
   zIndex: 3,
-  width: "178px",
-  minWidth: "178px",
-  maxWidth: "178px",
+  width: "150px",
+  minWidth: "150px",
+  maxWidth: "150px",
 };
 
 const trainingNarrowHeaderStyle: CSSProperties = {
@@ -4294,8 +4155,8 @@ const sortIndicatorStyle: CSSProperties = {
 
 const registerCellStyle: CSSProperties = {
   borderBottom: "1px solid #EEE8F0",
-  borderRight: "1px solid #F1EDF2",
-  padding: "9px",
+  borderRight: "1px solid #F2EEF3",
+  padding: "8px",
   color: "#514958",
   fontSize: "11px",
   verticalAlign: "top",
@@ -4304,16 +4165,16 @@ const registerCellStyle: CSSProperties = {
 
 const narrowRegisterCellStyle: CSSProperties = {
   ...registerCellStyle,
-  width: "105px",
-  minWidth: "105px",
-  maxWidth: "105px",
+  width: "92px",
+  minWidth: "92px",
+  maxWidth: "92px",
 };
 
 const roleRegisterCellStyle: CSSProperties = {
   ...registerCellStyle,
-  width: "135px",
-  minWidth: "135px",
-  maxWidth: "135px",
+  width: "112px",
+  minWidth: "112px",
+  maxWidth: "112px",
 };
 
 const plainCellValueStyle: CSSProperties = {
@@ -4341,10 +4202,11 @@ const stickyEmployeeCellStyle: CSSProperties = {
   position: "sticky",
   left: "44px",
   zIndex: 5,
-  width: "205px",
-  minWidth: "205px",
-  maxWidth: "205px",
+  width: "182px",
+  minWidth: "182px",
+  maxWidth: "182px",
   background: "#FFFFFF",
+  boxShadow: "8px 0 14px -14px rgba(64, 45, 72, 0.45)",
 };
 
 const employeeLinkButtonStyle: CSSProperties = {
@@ -4373,20 +4235,21 @@ const employeeReferenceCellStyle: CSSProperties = {
 
 const complianceTableCellStyle: CSSProperties = {
   ...registerCellStyle,
-  width: "178px",
-  minWidth: "178px",
-  maxWidth: "178px",
+  width: "150px",
+  minWidth: "150px",
+  maxWidth: "150px",
+  padding: 0,
 };
 
 const complianceCellButtonStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
-  gap: "7px",
+  gap: "6px",
   width: "100%",
-  minHeight: "122px",
-  border: "1px solid",
-  borderRadius: "12px",
-  padding: "11px 11px 11px 14px",
+  minHeight: "94px",
+  border: "none",
+  borderRadius: 0,
+  padding: "11px 11px 10px 13px",
   cursor: "pointer",
   textAlign: "left",
   fontFamily: "inherit",
@@ -4394,15 +4257,20 @@ const complianceCellButtonStyle: CSSProperties = {
 
 const complianceCellLabelStyle: CSSProperties = {
   color: "#3D333F",
-  fontSize: "12px",
+  fontSize: "11px",
   fontWeight: 900,
+  lineHeight: 1.25,
 };
 
 const complianceCellDateStyle: CSSProperties = {
   color: "#645A68",
   fontSize: "10px",
-  lineHeight: 1.45,
+  lineHeight: 1.35,
   overflowWrap: "anywhere",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
 };
 
 const complianceCellDaysStyle: CSSProperties = {

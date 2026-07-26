@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -21,6 +22,17 @@ type IdentityProfile = {
   job_title: string | null;
   is_active: boolean;
   last_seen_at: string | null;
+};
+
+type Employee = {
+  id: number;
+  name: string | null;
+  role: string | null;
+  email: string | null;
+  status: string | null;
+  department: string | null;
+  organisation_id: string;
+  archived_at: string | null;
 };
 
 type Role = {
@@ -70,6 +82,11 @@ type Membership = MembershipRecord & {
 
 type Invitation = {
   id: string;
+  employee_id: number | null;
+  employee_name: string | null;
+  employee_job_title: string | null;
+  employee_department: string | null;
+  employee_status: string | null;
   email: string;
   role_id: string | null;
   role_name: string | null;
@@ -135,19 +152,19 @@ function isOwner(membership: Membership) {
   );
 }
 
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
 export default function PeopleAccessWorkspace({ organisationId }: Props) {
   const supabase = useMemo(() => createClient(), []);
 
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmployeeId, setInviteEmployeeId] = useState("");
+  const [inviteEmployeeSearch, setInviteEmployeeSearch] = useState("");
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
+  const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const [inviteRoleId, setInviteRoleId] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -216,7 +233,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
 
     setCurrentUserId(user.id);
 
-    const [membershipResult, roleResult] = await Promise.all([
+    const [membershipResult, roleResult, employeeResult] = await Promise.all([
       supabase
         .from("organisation_memberships")
         .select(
@@ -248,6 +265,14 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
         .eq("is_archived", false)
         .or(`organisation_id.is.null,organisation_id.eq.${organisationId}`)
         .order("role_level", { ascending: false }),
+      supabase
+        .from("employees")
+        .select(
+          "id, name, role, email, status, department, organisation_id, archived_at",
+        )
+        .eq("organisation_id", organisationId)
+        .is("archived_at", null)
+        .order("name", { ascending: true }),
     ]);
 
     if (membershipResult.error) {
@@ -258,6 +283,12 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
 
     if (roleResult.error) {
       setPageError(roleResult.error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (employeeResult.error) {
+      setPageError(employeeResult.error.message);
       setLoading(false);
       return;
     }
@@ -322,6 +353,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
     }, new Map());
 
     setAvailableRoles(roles);
+    setEmployees((employeeResult.data as Employee[] | null) ?? []);
     setInviteRoleId((current) => current || roles[0]?.id || "");
     setMemberships(
       baseMemberships.map((membership) => ({
@@ -354,6 +386,104 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
     [invitations, memberships],
   );
 
+  const pendingEmployeeIds = useMemo(
+    () =>
+      new Set(
+        invitations
+          .filter(
+            (invitation) =>
+              invitation.status === "pending" &&
+              invitation.employee_id !== null,
+          )
+          .map((invitation) => invitation.employee_id as number),
+      ),
+    [invitations],
+  );
+
+  const eligibleEmployees = useMemo(
+    () =>
+      employees.filter((employee) => {
+        const email = employee.email?.trim() ?? "";
+        const status = employee.status?.trim().toLowerCase() ?? "";
+
+        return (
+          !employee.archived_at &&
+          Boolean(email) &&
+          !pendingEmployeeIds.has(employee.id) &&
+          ![
+            "archived",
+            "ended",
+            "inactive",
+            "left",
+            "leaver",
+            "terminated",
+            "dismissed",
+          ].includes(status)
+        );
+      }),
+    [employees, pendingEmployeeIds],
+  );
+
+  const filteredEligibleEmployees = useMemo(() => {
+    const query = inviteEmployeeSearch.trim().toLowerCase();
+
+    if (!query) {
+      return eligibleEmployees;
+    }
+
+    return eligibleEmployees.filter((employee) =>
+      [
+        employee.name,
+        employee.email,
+        employee.role,
+        employee.department,
+        employee.status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [eligibleEmployees, inviteEmployeeSearch]);
+
+  useEffect(() => {
+    function closeEmployeePicker(event: MouseEvent | TouchEvent) {
+      const target = event.target;
+
+      if (
+        employeePickerRef.current &&
+        target instanceof Node &&
+        !employeePickerRef.current.contains(target)
+      ) {
+        setEmployeePickerOpen(false);
+      }
+    }
+
+    function closeEmployeePickerWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setEmployeePickerOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeEmployeePicker);
+    document.addEventListener("touchstart", closeEmployeePicker);
+    document.addEventListener("keydown", closeEmployeePickerWithEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeEmployeePicker);
+      document.removeEventListener("touchstart", closeEmployeePicker);
+      document.removeEventListener("keydown", closeEmployeePickerWithEscape);
+    };
+  }, []);
+
+  const selectedEmployee = useMemo(
+    () =>
+      employees.find(
+        (employee) => String(employee.id) === inviteEmployeeId,
+      ) ?? null,
+    [employees, inviteEmployeeId],
+  );
+
   const filteredMemberships = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -382,12 +512,18 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
   async function submitInvitation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const email = inviteEmail.trim().toLowerCase();
-
-    if (!isValidEmail(email)) {
+    if (!selectedEmployee) {
       setNotice({
         type: "error",
-        message: "Enter a valid email address.",
+        message: "Choose an employee to invite.",
+      });
+      return;
+    }
+
+    if (!selectedEmployee.email?.trim()) {
+      setNotice({
+        type: "error",
+        message: "Add a work email to the employee record before inviting them.",
       });
       return;
     }
@@ -395,7 +531,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
     if (!inviteRoleId) {
       setNotice({
         type: "error",
-        message: "Choose the access role for this person.",
+        message: "Choose the permission for this employee.",
       });
       return;
     }
@@ -412,7 +548,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
         },
         body: JSON.stringify({
           organisationId,
-          email,
+          employeeId: selectedEmployee.id,
           roleId: inviteRoleId,
         }),
       });
@@ -423,11 +559,13 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
         throw new Error(payload.error || "The invitation could not be sent.");
       }
 
-      setInviteEmail("");
+      setInviteEmployeeId("");
+      setInviteEmployeeSearch("");
+      setEmployeePickerOpen(false);
       setInviteOpen(false);
       setNotice({
         type: "success",
-        message: `Invitation sent to ${email}.`,
+        message: `Invitation sent to ${selectedEmployee.name || selectedEmployee.email}.`,
       });
       await loadInvitations();
     } catch (error) {
@@ -510,7 +648,10 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
 
   async function changeRole(membership: Membership, nextRoleId: string) {
     const currentRole = primaryRole(membership);
-    if (!nextRoleId || currentRole?.id === nextRoleId) return;
+
+    if (!nextRoleId || currentRole?.id === nextRoleId) {
+      return;
+    }
 
     if (isOwner(membership) && counts.owners <= 1) {
       setNotice({
@@ -535,61 +676,54 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
     setBusyMembershipId(membership.id);
     setNotice(null);
 
-    const activeAssignments = membership.roles.filter((item) => item.is_active);
-
-    for (const assignment of activeAssignments) {
-      const { error } = await supabase
-        .from("membership_roles")
-        .update({
-          is_active: false,
-          is_primary: false,
-          revoked_by: currentUserId,
-          revoked_at: new Date().toISOString(),
-          revocation_reason: `Replaced with ${nextRole.name} through Organisation access management.`,
-        })
-        .eq("id", assignment.id);
-
-      if (error) {
-        setNotice({ type: "error", message: error.message });
-        setBusyMembershipId(null);
-        return;
-      }
-    }
-
-    const { error: assignmentError } = await supabase
-      .from("membership_roles")
-      .upsert(
+    try {
+      const response = await fetch(
+        `/api/organisation/memberships/${encodeURIComponent(
+          membership.id,
+        )}/role`,
         {
-          membership_id: membership.id,
-          role_id: nextRole.id,
-          is_primary: true,
-          is_active: true,
-          starts_at: new Date().toISOString(),
-          expires_at: null,
-          assigned_by: currentUserId,
-          assigned_at: new Date().toISOString(),
-          assignment_reason:
-            "Assigned through Organisation access management.",
-          revoked_by: null,
-          revoked_at: null,
-          revocation_reason: null,
-          updated_at: new Date().toISOString(),
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organisationId,
+            roleId: nextRole.id,
+          }),
         },
-        { onConflict: "membership_id,role_id" },
       );
 
-    if (assignmentError) {
-      setNotice({ type: "error", message: assignmentError.message });
-      setBusyMembershipId(null);
-      return;
-    }
+      const payload = (await response.json()) as {
+        message?: string;
+        error?: string;
+      };
 
-    setNotice({
-      type: "success",
-      message: `${displayName(membership)} now has the ${nextRole.name} role.`,
-    });
-    setBusyMembershipId(null);
-    await loadWorkspace();
+      if (!response.ok) {
+        throw new Error(
+          payload.error || "The permission could not be changed.",
+        );
+      }
+
+      setNotice({
+        type: "success",
+        message:
+          payload.message ||
+          `${displayName(membership)} now has the ${nextRole.name} role.`,
+      });
+
+      await loadWorkspace();
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The permission could not be changed.",
+      });
+    } finally {
+      setBusyMembershipId(null);
+    }
   }
 
   async function changeMembershipStatus(
@@ -615,7 +749,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
 
     const action =
       nextStatus === "active"
-        ? "reactivate"
+        ? "reinstate"
         : nextStatus === "suspended"
           ? "suspend"
           : "end access for";
@@ -639,69 +773,74 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
 
       reason = enteredReason?.trim() ?? "";
 
-      if (!reason) return;
+      if (!reason) {
+        setNotice({
+          type: "error",
+          message:
+            nextStatus === "suspended"
+              ? "A suspension reason is required."
+              : "An end-access reason is required.",
+        });
+        return;
+      }
     }
 
     setBusyMembershipId(membership.id);
     setNotice(null);
 
-    const now = new Date().toISOString();
-    const updates =
-      nextStatus === "active"
-        ? {
-            membership_status: "active",
-            accepted_at: membership.accepted_at ?? now,
-            activated_at: membership.activated_at ?? now,
-            suspended_at: null,
-            suspended_by: null,
-            suspension_reason: null,
-            ended_at: null,
-            ended_by: null,
-            end_reason: null,
-            updated_by: currentUserId,
-          }
-        : nextStatus === "suspended"
-          ? {
-              membership_status: "suspended",
-              suspended_at: now,
-              suspended_by: currentUserId,
-              suspension_reason: reason,
-              is_default_organisation: false,
-              updated_by: currentUserId,
-            }
-          : {
-              membership_status: "ended",
-              ended_at: now,
-              ended_by: currentUserId,
-              end_reason: reason,
-              is_default_organisation: false,
-              updated_by: currentUserId,
-            };
+    try {
+      const response = await fetch(
+        `/api/organisation/memberships/${encodeURIComponent(
+          membership.id,
+        )}/status`,
+        {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            organisationId,
+            status: nextStatus,
+            reason: nextStatus === "active" ? null : reason,
+          }),
+        },
+      );
 
-    const { error } = await supabase
-      .from("organisation_memberships")
-      .update(updates)
-      .eq("id", membership.id)
-      .eq("organisation_id", organisationId);
+      const payload = (await response.json()) as {
+        message?: string;
+        error?: string;
+      };
 
-    if (error) {
-      setNotice({ type: "error", message: error.message });
+      if (!response.ok) {
+        throw new Error(
+          payload.error || "The access status could not be changed.",
+        );
+      }
+
+      setNotice({
+        type: "success",
+        message:
+          payload.message ||
+          (nextStatus === "active"
+            ? `${displayName(membership)} has been reinstated.`
+            : nextStatus === "suspended"
+              ? `${displayName(membership)} has been suspended.`
+              : `${displayName(membership)} no longer has organisation access.`),
+      });
+
+      await loadWorkspace();
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The access status could not be changed.",
+      });
+    } finally {
       setBusyMembershipId(null);
-      return;
     }
-
-    setNotice({
-      type: "success",
-      message:
-        nextStatus === "active"
-          ? `${displayName(membership)} has been reactivated.`
-          : nextStatus === "suspended"
-            ? `${displayName(membership)} has been suspended.`
-            : `${displayName(membership)} no longer has organisation access.`,
-    });
-
-    setBusyMembershipId(null);
-    await loadWorkspace();
   }
 
   if (loading) {
@@ -771,35 +910,118 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
               <p className="eyebrow">New invitation</p>
               <h3>Invite someone to LEO</h3>
               <p>
-                Enter their work email and choose the role they should receive
-                when the invitation is accepted.
+                Select an existing employee and choose the permission they
+                should receive when the invitation is accepted.
               </p>
             </div>
           </div>
 
-          <div className="invite-fields">
-            <label>
-              <span>Email address</span>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                placeholder="name@company.co.uk"
-                autoComplete="email"
-                disabled={inviting}
-                required
-              />
-            </label>
+          <div className="invite-fields employee-invite-fields">
+            <div className="employee-picker" ref={employeePickerRef}>
+              <span className="field-label">Employee</span>
+
+              <div className="employee-picker-control">
+                <input
+                  type="search"
+                  value={inviteEmployeeSearch}
+                  onChange={(event) => {
+                    setInviteEmployeeSearch(event.target.value);
+                    setInviteEmployeeId("");
+                    setEmployeePickerOpen(true);
+                  }}
+                  onFocus={() => setEmployeePickerOpen(true)}
+                  placeholder="Search by name, email, job title or department"
+                  disabled={inviting}
+                  aria-label="Search employees to invite"
+                  aria-expanded={employeePickerOpen}
+                  aria-controls="employee-invitation-options"
+                  autoComplete="off"
+                />
+
+                {selectedEmployee ? (
+                  <button
+                    type="button"
+                    className="employee-picker-clear"
+                    onClick={() => {
+                      setInviteEmployeeId("");
+                      setInviteEmployeeSearch("");
+                      setEmployeePickerOpen(true);
+                    }}
+                    disabled={inviting}
+                    aria-label="Clear selected employee"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+
+              {employeePickerOpen ? (
+                <div
+                  id="employee-invitation-options"
+                  className="employee-picker-list"
+                  role="listbox"
+                  aria-label="Employees available for invitation"
+                >
+                  {filteredEligibleEmployees.length === 0 ? (
+                    <div className="employee-picker-empty">
+                      No matching employees found.
+                    </div>
+                  ) : (
+                    filteredEligibleEmployees.map((employee) => {
+                      const selected =
+                        String(employee.id) === inviteEmployeeId;
+
+                      return (
+                        <button
+                          key={employee.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className={`employee-picker-option${
+                            selected ? " selected" : ""
+                          }`}
+                          onClick={() => {
+                            setInviteEmployeeId(String(employee.id));
+                            setInviteEmployeeSearch(
+                              employee.name ||
+                                employee.email ||
+                                `Employee ${employee.id}`,
+                            );
+                            setEmployeePickerOpen(false);
+                          }}
+                          disabled={inviting}
+                        >
+                          <strong>
+                            {employee.name ||
+                              employee.email ||
+                              `Employee ${employee.id}`}
+                          </strong>
+                          <span>
+                            {[
+                              employee.role,
+                              employee.department,
+                              employee.email,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "Employee record"}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ) : null}
+            </div>
 
             <label>
-              <span>Organisation role</span>
+              <span>Permission</span>
               <select
                 value={inviteRoleId}
                 onChange={(event) => setInviteRoleId(event.target.value)}
                 disabled={inviting}
                 required
               >
-                <option value="">Choose a role</option>
+                <option value="">Choose a permission</option>
                 {availableRoles.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.name}
@@ -808,10 +1030,55 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
               </select>
             </label>
 
-            <button className="primary send-button" type="submit" disabled={inviting}>
+            <button
+              className="primary send-button"
+              type="submit"
+              disabled={inviting || !selectedEmployee}
+            >
               {inviting ? "Sending..." : "Send invitation"}
             </button>
           </div>
+
+          {eligibleEmployees.length === 0 ? (
+            <div className="invite-guidance">
+              No employees are currently awaiting an invitation. Employees must
+              be active, have a work email, and have no existing access or
+              pending invitation.
+            </div>
+          ) : null}
+
+          {selectedEmployee ? (
+            <div className="employee-preview">
+              <div>
+                <span>Employee</span>
+                <strong>{selectedEmployee.name || "Name not recorded"}</strong>
+              </div>
+              <div>
+                <span>Job title</span>
+                <strong>{selectedEmployee.role || "Not recorded"}</strong>
+              </div>
+              <div>
+                <span>Department</span>
+                <strong>{selectedEmployee.department || "Not recorded"}</strong>
+              </div>
+              <div>
+                <span>Work email</span>
+                <strong>{selectedEmployee.email || "Not recorded"}</strong>
+              </div>
+              <div>
+                <span>Employment status</span>
+                <strong>
+                  {selectedEmployee.status
+                    ? humanise(selectedEmployee.status)
+                    : "Not recorded"}
+                </strong>
+              </div>
+              <div>
+                <span>Invitation expiry</span>
+                <strong>5 days after sending</strong>
+              </div>
+            </div>
+          ) : null}
         </form>
       ) : null}
 
@@ -875,9 +1142,12 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
                 return (
                   <article className="invitation-row" key={invitation.id}>
                     <div>
-                      <strong>{invitation.email}</strong>
+                      <strong>
+                        {invitation.employee_name || invitation.email}
+                      </strong>
                       <span>
-                        {invitation.role_name || "Role pending"} · Sent{" "}
+                        {invitation.email} ·{" "}
+                        {invitation.role_name || "Permission pending"} · Sent{" "}
                         {formatDateTime(invitation.invited_at)}
                       </span>
                     </div>
@@ -957,7 +1227,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
               <thead>
                 <tr>
                   <th>Person</th>
-                  <th>Role</th>
+                  <th>Permission</th>
                   <th>Status</th>
                   <th>Last activity</th>
                   <th>Access window</th>
@@ -985,7 +1255,7 @@ export default function PeopleAccessWorkspace({ organisationId }: Props) {
                       <td>
                         {membership.membership_status === "active" ? (
                           <select
-                            aria-label={`Role for ${displayName(membership)}`}
+                            aria-label={`Permission for ${displayName(membership)}`}
                             value={role?.id ?? ""}
                             disabled={busy}
                             onChange={(event) =>
@@ -1250,7 +1520,7 @@ const styles = `.people-access-workspace {
 
 .people-access-workspace .invite-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr) auto;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.8fr) auto;
   gap: 14px;
   align-items: end;
   margin-top: 20px;
@@ -1261,14 +1531,115 @@ const styles = `.people-access-workspace {
   gap: 8px;
 }
 
-.people-access-workspace .invite-fields label span {
+.people-access-workspace .invite-fields label span,
+.people-access-workspace .employee-picker .field-label {
   color: #4b3f50;
   font-size: 0.84rem;
   font-weight: 800;
 }
 
+.people-access-workspace .employee-picker {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  align-self: start;
+}
+
+.people-access-workspace .employee-picker-control {
+  position: relative;
+}
+
+.people-access-workspace .employee-picker-clear {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f2ebf7;
+  color: #6e5084;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.people-access-workspace .employee-picker-clear:hover:not(:disabled) {
+  background: #e8dcef;
+}
+
+.people-access-workspace .employee-picker-control input {
+  padding-right: 48px;
+}
+
+.people-access-workspace .employee-picker-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #d9cfdd;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 6px;
+  box-shadow: 0 14px 32px rgba(75, 55, 84, 0.14);
+}
+
+.people-access-workspace .employee-picker-option {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #332a37;
+  text-align: left;
+  cursor: pointer;
+}
+
+.people-access-workspace .employee-picker-option:hover:not(:disabled) {
+  background: #faf7fc;
+}
+
+.people-access-workspace .employee-picker-option.selected {
+  border-color: #bca2cd;
+  background: #f5eef9;
+}
+
+.people-access-workspace .employee-picker-option strong,
+.people-access-workspace .employee-picker-option span {
+  display: block;
+}
+
+.people-access-workspace .employee-picker-option strong {
+  color: #302635;
+  font-size: 0.9rem;
+}
+
+.people-access-workspace .employee-picker-option span {
+  color: #817584;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.people-access-workspace .employee-picker-empty {
+  padding: 18px 12px;
+  color: #746a78;
+  font-size: 0.86rem;
+  text-align: center;
+}
+
 .people-access-workspace .invite-fields input,
 .people-access-workspace .invite-fields select,
+.people-access-workspace .employee-picker input,
 .people-access-workspace .toolbar input,
 .people-access-workspace .toolbar select,
 .people-access-workspace td select {
@@ -1287,6 +1658,7 @@ const styles = `.people-access-workspace {
 
 .people-access-workspace .invite-fields input:hover,
 .people-access-workspace .invite-fields select:hover,
+.people-access-workspace .employee-picker input:hover,
 .people-access-workspace .toolbar input:hover,
 .people-access-workspace .toolbar select:hover,
 .people-access-workspace td select:hover {
@@ -1295,6 +1667,7 @@ const styles = `.people-access-workspace {
 
 .people-access-workspace .invite-fields input:focus,
 .people-access-workspace .invite-fields select:focus,
+.people-access-workspace .employee-picker input:focus,
 .people-access-workspace .toolbar input:focus,
 .people-access-workspace .toolbar select:focus,
 .people-access-workspace td select:focus {
@@ -1304,6 +1677,54 @@ const styles = `.people-access-workspace {
 
 .people-access-workspace .send-button {
   white-space: nowrap;
+}
+
+
+.people-access-workspace .invite-guidance {
+  margin-top: 14px;
+  padding: 13px 15px;
+  border: 1px dashed #d7c9df;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #746a78;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.people-access-workspace .employee-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #e3d8e8;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.people-access-workspace .employee-preview div {
+  min-width: 0;
+}
+
+.people-access-workspace .employee-preview span,
+.people-access-workspace .employee-preview strong {
+  display: block;
+}
+
+.people-access-workspace .employee-preview span {
+  margin-bottom: 5px;
+  color: #7a6f7e;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.people-access-workspace .employee-preview strong {
+  overflow-wrap: anywhere;
+  color: #34293a;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .people-access-workspace .summary-grid {
@@ -1691,6 +2112,10 @@ const styles = `.people-access-workspace {
   .people-access-workspace .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .people-access-workspace .employee-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
@@ -1738,7 +2163,8 @@ const styles = `.people-access-workspace {
     border-radius: 17px;
   }
 
-  .people-access-workspace .summary-grid {
+  .people-access-workspace .summary-grid,
+  .people-access-workspace .employee-preview {
     grid-template-columns: 1fr;
   }
 

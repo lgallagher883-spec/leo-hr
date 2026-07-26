@@ -800,9 +800,6 @@ function isClosed(
 
 
 
-function cleanFileName(fileName: string): string {
-  return fileName.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
-}
 
 function normaliseEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -859,11 +856,6 @@ function parseIndeedCsv(text: string): IndeedRow[] {
   });
 }
 
-function toIsoDateTime(value: string): string {
-  if (!value.trim()) return new Date().toISOString();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
-}
 export default function ApplicationsWorkspace() {
   const [applications, setApplications] = useState<
     TalentApplication[]
@@ -1233,220 +1225,6 @@ export default function ApplicationsWorkspace() {
     setEditingApplication(null);
   }
 
-  async function ensureDueDiligenceProfile(
-    application: TalentApplication,
-  ): Promise<"created" | "existing"> {
-    const organisationId =
-      application.organisation_id ??
-      application.vacancy?.organisation_id ??
-      null;
-
-    if (!organisationId) {
-      throw new Error(
-        "This application is not linked to an organisation, so its due diligence profile could not be created.",
-      );
-    }
-
-    if (!application.vacancy_id || !application.candidate_id) {
-      throw new Error(
-        "This application is missing its vacancy or candidate link, so its due diligence profile could not be created.",
-      );
-    }
-
-    const now = new Date().toISOString();
-
-    const { data: existingProfile, error: existingProfileError } =
-      await supabase
-        .from("leo_talent_safer_recruitment_profiles")
-        .select("id")
-        .eq("application_id", application.id)
-        .maybeSingle();
-
-    if (existingProfileError) {
-      throw existingProfileError;
-    }
-
-    let profileId = existingProfile?.id ?? null;
-    let result: "created" | "existing" = "existing";
-
-    if (!profileId) {
-      const { data: createdProfile, error: profileInsertError } =
-        await supabase
-          .from("leo_talent_safer_recruitment_profiles")
-          .insert({
-            organisation_id: organisationId,
-            application_id: application.id,
-            vacancy_id: application.vacancy_id,
-            candidate_id: application.candidate_id,
-            status: "in_progress",
-            overall_risk_level: "not_assessed",
-            review_required:
-              application.vacancy?.safer_recruitment_required ?? false,
-            updated_at: now,
-          } as any)
-          .select("id")
-          .single();
-
-      if (profileInsertError) {
-        const duplicateProfile =
-          profileInsertError.code === "23505" ||
-          profileInsertError.message.toLowerCase().includes("duplicate") ||
-          profileInsertError.message.toLowerCase().includes("unique");
-
-        if (!duplicateProfile) {
-          throw profileInsertError;
-        }
-
-        const { data: recoveredProfile, error: recoveryError } =
-          await supabase
-            .from("leo_talent_safer_recruitment_profiles")
-            .select("id")
-            .eq("application_id", application.id)
-            .single();
-
-        if (recoveryError || !recoveredProfile?.id) {
-          throw recoveryError ?? profileInsertError;
-        }
-
-        profileId = recoveredProfile.id;
-      } else {
-        profileId = createdProfile?.id ?? null;
-        result = "created";
-      }
-    }
-
-    if (!profileId) {
-      throw new Error(
-        "Leo created the due diligence profile but could not retrieve its identifier.",
-      );
-    }
-
-    async function ensureSingleCheck(
-      tableName:
-        | "leo_talent_identity_checks"
-        | "leo_talent_right_to_work_checks"
-        | "leo_talent_dbs_checks"
-        | "leo_talent_overseas_checks",
-      payload: Record<string, unknown>,
-    ) {
-      const { data: existingCheck, error: checkLookupError } =
-        await (supabase as any)
-          .from(tableName)
-          .select("id")
-          .eq("safer_recruitment_profile_id", profileId)
-          .limit(1)
-          .maybeSingle();
-
-      if (checkLookupError) {
-        throw checkLookupError;
-      }
-
-      if (existingCheck?.id) {
-        return;
-      }
-
-      const { error: checkInsertError } = await (supabase as any)
-        .from(tableName)
-        .insert({
-          organisation_id: organisationId,
-          safer_recruitment_profile_id: profileId,
-          ...payload,
-        });
-
-      if (
-        checkInsertError &&
-        checkInsertError.code !== "23505"
-      ) {
-        throw checkInsertError;
-      }
-    }
-
-    await ensureSingleCheck("leo_talent_identity_checks", {
-      document_type: "Passport",
-      status: "pending",
-    });
-
-    await ensureSingleCheck("leo_talent_right_to_work_checks", {
-      check_type: "manual",
-      right_to_work_status: "pending",
-    });
-
-    const requiredReferenceCount = Math.max(
-      1,
-      Math.min(
-        application.vacancy?.required_reference_count ?? 2,
-        5,
-      ),
-    );
-
-    const { data: existingReferences, error: referencesLookupError } =
-      await supabase
-        .from("leo_talent_references")
-        .select("reference_number")
-        .eq("safer_recruitment_profile_id", profileId);
-
-    if (referencesLookupError) {
-      throw referencesLookupError;
-    }
-
-    const existingReferenceNumbers = new Set(
-      (existingReferences ?? []).map(
-        (reference) => reference.reference_number,
-      ),
-    );
-
-    const missingReferences = Array.from(
-      { length: requiredReferenceCount },
-      (_, index) => index + 1,
-    )
-      .filter(
-        (referenceNumber) =>
-          !existingReferenceNumbers.has(referenceNumber),
-      )
-      .map((referenceNumber) => ({
-        organisation_id: organisationId,
-        safer_recruitment_profile_id: profileId,
-        reference_number: referenceNumber,
-        referee_name: `Referee ${referenceNumber}`,
-        request_status: "not_requested",
-        phone_verification_required: true,
-        phone_verification_status: "not_started",
-        outcome: "pending",
-      }));
-
-    if (missingReferences.length > 0) {
-      const { error: referencesInsertError } = await supabase
-        .from("leo_talent_references")
-        .insert(missingReferences as any);
-
-      if (
-        referencesInsertError &&
-        referencesInsertError.code !== "23505"
-      ) {
-        throw referencesInsertError;
-      }
-    }
-
-    await ensureSingleCheck("leo_talent_dbs_checks", {
-      dbs_level: application.vacancy?.dbs_level || "enhanced",
-      status: application.vacancy?.requires_dbs
-        ? "application_required"
-        : "not_required",
-    });
-
-    if (
-      application.vacancy
-        ?.overseas_check_required_if_applicable
-    ) {
-      await ensureSingleCheck("leo_talent_overseas_checks", {
-        country: "Not recorded",
-        status: "not_started",
-      });
-    }
-
-    return result;
-  }
-
   async function saveApplicationChanges(
     application: TalentApplication,
   ) {
@@ -1474,96 +1252,54 @@ export default function ApplicationsWorkspace() {
       return;
     }
 
-    const now = new Date().toISOString();
+    try {
+      const response = await fetch(
+        `/api/talent/applications/${application.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            currentStageKey: editingApplication.stage,
+            status: editingApplication.status,
+          }),
+        },
+      );
 
-    const updatePayload: Record<string, unknown> = {
-      current_stage_key: editingApplication.stage,
-      status: editingApplication.status,
-      last_reviewed_at: now,
-      updated_at: now,
-    };
+      const result = (await response.json().catch(() => null)) as
+        | { message?: string; error?: string }
+        | null;
 
-    if (editingApplication.status === "withdrawn") {
-  updatePayload.withdrawn_at =
-    application.withdrawn_at ?? now;
-} else if (application.status === "withdrawn") {
-  updatePayload.withdrawn_at = null;
-  updatePayload.withdrawal_reason = null;
-}
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            "Leo could not save the application changes.",
+        );
+      }
 
-    if (
-      ["rejected", "unsuccessful", "appointed"].includes(
-        editingApplication.status,
-      )
-    ) {
-      updatePayload.closed_at =
-             application.closed_at ?? now;
-    } else if (
-      closedStatuses.includes(application.status) &&
-      !closedStatuses.includes(
-        editingApplication.status,
-      )
-    ) {
-      updatePayload.closed_at = null;
-      updatePayload.closed_reason = null;
-    }
+      setEditingApplication(null);
+      setActionMessage(
+        result?.message ||
+          `${application.application_reference} was updated successfully.`,
+      );
 
-    const { error: updateError } = await supabase
-      .from("leo_talent_applications")
-      .update(updatePayload as any)
-      .eq("id", application.id);
-
-    if (updateError) {
+      await loadApplications(true);
+    } catch (updateError) {
       console.error(
         "Unable to update application:",
         updateError,
       );
 
       setError(
-        "Leo could not save the application changes. No further records were changed.",
+        updateError instanceof Error
+          ? updateError.message
+          : "Leo could not save the application changes. No further records were changed.",
       );
-
+    } finally {
       setSavingApplicationId(null);
-      return;
     }
-
-    let dueDiligenceProfileResult:
-      | "created"
-      | "existing"
-      | null = null;
-
-    if (stageChanged && editingApplication.stage === "checks") {
-      try {
-        dueDiligenceProfileResult =
-          await ensureDueDiligenceProfile(application);
-      } catch (profileError) {
-        console.error(
-          "Application updated, but the due diligence profile could not be created:",
-          profileError,
-        );
-
-        setEditingApplication(null);
-        setSavingApplicationId(null);
-        setError(
-          `${application.application_reference} was moved to Pre-emp Checks, but Leo could not create its due diligence profile. The application change was saved. Try saving the stage again or refresh and retry.`,
-        );
-
-        await loadApplications(true);
-        return;
-      }
-    }
-
-    setEditingApplication(null);
-    setSavingApplicationId(null);
-    setActionMessage(
-      dueDiligenceProfileResult === "created"
-        ? `${application.application_reference} was moved to Pre-emp Checks and its due diligence profile was created.`
-        : dueDiligenceProfileResult === "existing"
-          ? `${application.application_reference} was updated and its existing due diligence profile was retained.`
-          : `${application.application_reference} was updated successfully.`,
-    );
-
-    await loadApplications(true);
   }
 
   async function markReviewed(
@@ -1573,36 +1309,44 @@ export default function ApplicationsWorkspace() {
     setError(null);
     setActionMessage(null);
 
-    const now = new Date().toISOString();
+    try {
+      const response = await fetch(
+        `/api/talent/applications/${application.id}/review`,
+        { method: "POST" },
+      );
 
-    const { error: updateError } = await supabase
-      .from("leo_talent_applications")
-      .update({
-        last_reviewed_at: now,
-        updated_at: now,
-      })
-      .eq("id", application.id);
+      const result = (await response.json().catch(() => null)) as
+        | { message?: string; error?: string }
+        | null;
 
-    if (updateError) {
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            "Leo could not record the application review.",
+        );
+      }
+
+      setActionMessage(
+        result?.message ||
+          `${application.application_reference} was marked as reviewed.`,
+      );
+
+      await loadApplications(true);
+    } catch (reviewError) {
       console.error(
         "Unable to mark application reviewed:",
-        updateError,
+        reviewError,
       );
 
       setError(
-        "Leo could not record the application review.",
+        reviewError instanceof Error
+          ? reviewError.message
+          : "Leo could not record the application review.",
       );
-
+    } finally {
       setActionApplicationId(null);
-      return;
     }
-
-    setActionMessage(
-      `${application.application_reference} was marked as reviewed.`,
-    );
-
-    await loadApplications(true);
-    setActionApplicationId(null);
   }
 
   async function archiveApplication(
@@ -1620,41 +1364,51 @@ export default function ApplicationsWorkspace() {
     setError(null);
     setActionMessage(null);
 
-    const now = new Date().toISOString();
+    try {
+      const response = await fetch(
+        `/api/talent/applications/${application.id}/archive`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason: "Archived from the application register",
+          }),
+        },
+      );
 
-    const { error: archiveError } = await supabase
-      .from("leo_talent_applications")
-      .update({
-        status: "archived",
-        archived_at: now,
-        archive_reason:
-          application.archive_reason ??
-          "Archived from the Applications workspace.",
-        updated_at: now,
-      })
-      .eq("id", application.id);
+      const result = (await response.json().catch(() => null)) as
+        | { message?: string; error?: string }
+        | null;
 
-    if (archiveError) {
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            "Leo could not archive this application.",
+        );
+      }
+
+      setEditingApplication(null);
+      setActionMessage(
+        result?.message ||
+          `${application.application_reference} was archived.`,
+      );
+
+      await loadApplications(true);
+    } catch (archiveError) {
       console.error(
         "Unable to archive application:",
         archiveError,
       );
 
       setError(
-        "Leo could not archive this application. No changes were made.",
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Leo could not archive this application. No changes were made.",
       );
-
+    } finally {
       setActionApplicationId(null);
-      return;
     }
-
-    setEditingApplication(null);
-    setActionMessage(
-      `${application.application_reference} was archived.`,
-    );
-
-    await loadApplications(true);
-    setActionApplicationId(null);
   }
 
   async function restoreApplication(
@@ -1664,49 +1418,48 @@ export default function ApplicationsWorkspace() {
     setError(null);
     setActionMessage(null);
 
-    const restoredStatus: ApplicationStatus =
-      application.current_stage_key === "appointed"
-        ? "appointed"
-        : application.current_stage_key ===
-            "withdrawn"
-          ? "withdrawn"
-          : application.current_stage_key ===
-              "unsuccessful"
-            ? "unsuccessful"
-            : application.current_stage_key === "offer"
-              ? "offered"
-              : "active";
+    try {
+      const response = await fetch(
+        `/api/talent/applications/${application.id}/restore`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "active" }),
+        },
+      );
 
-    const { error: restoreError } = await supabase
-      .from("leo_talent_applications")
-      .update({
-        status: restoredStatus,
-        archived_at: null,
-        archive_reason: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", application.id);
+      const result = (await response.json().catch(() => null)) as
+        | { message?: string; error?: string }
+        | null;
 
-    if (restoreError) {
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            "Leo could not restore this application.",
+        );
+      }
+
+      setActionMessage(
+        result?.message ||
+          `${application.application_reference} was restored.`,
+      );
+
+      await loadApplications(true);
+    } catch (restoreError) {
       console.error(
         "Unable to restore application:",
         restoreError,
       );
 
       setError(
-        "Leo could not restore this application. No changes were made.",
+        restoreError instanceof Error
+          ? restoreError.message
+          : "Leo could not restore this application. No changes were made.",
       );
-
+    } finally {
       setActionApplicationId(null);
-      return;
     }
-
-    setActionMessage(
-      `${application.application_reference} was restored.`,
-    );
-
-    await loadApplications(true);
-    setActionApplicationId(null);
   }
 
 
@@ -1738,189 +1491,123 @@ export default function ApplicationsWorkspace() {
     setIntakeError(null);
   }
 
-  async function getActorUserId(): Promise<string | null> {
-    const { data } = await supabase.auth.getUser();
-    return data.user?.id ?? null;
-  }
-
-  async function findOrCreateCandidate(args: {
-    organisationId: string;
-    firstName: string;
-    middleNames?: string;
-    lastName: string;
-    preferredName?: string;
-    email?: string;
-    phone?: string;
-    source: string;
-    sourceDetail?: string;
-    isInternalCandidate?: boolean;
-    actorUserId: string | null;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ id: string; created: boolean }> {
-    const email = normaliseEmail(args.email ?? "");
-    if (email) {
-      const { data: existing, error: existingError } = await supabase
-        .from("leo_talent_candidates")
-        .select("id")
-        .eq("organisation_id", args.organisationId)
-        .ilike("email", email)
-        .is("archived_at", null)
-        .maybeSingle();
-      if (existingError) throw existingError;
-      if (existing?.id) return { id: existing.id, created: false };
-    }
-
-    const { data: created, error: createError } = await supabase
-      .from("leo_talent_candidates")
-      .insert({
-        organisation_id: args.organisationId,
-        first_name: args.firstName.trim(),
-        middle_names: args.middleNames?.trim() || null,
-        last_name: args.lastName.trim(),
-        preferred_name: args.preferredName?.trim() || null,
-        email: email || null,
-        phone: args.phone?.trim() || null,
-        is_internal_candidate: Boolean(args.isInternalCandidate),
-        source: args.source,
-        source_detail: args.sourceDetail?.trim() || null,
-        metadata: args.metadata ?? {},
-        created_by: args.actorUserId,
-        updated_by: args.actorUserId,
-      } as any)
-      .select("id")
-      .single();
-    if (createError || !created?.id) throw createError ?? new Error("Candidate record was not returned.");
-    return { id: created.id, created: true };
-  }
-
-  async function createApplication(args: {
-    organisationId: string;
-    vacancy: VacancyOption;
-    candidateId: string;
-    source: string;
-    submittedAt: string;
-    actorUserId: string | null;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ id: string; reference: string }> {
-    const { data: duplicate, error: duplicateError } = await supabase
-      .from("leo_talent_applications")
-      .select("id, application_reference")
-      .eq("vacancy_id", args.vacancy.id)
-      .eq("candidate_id", args.candidateId)
-      .maybeSingle();
-    if (duplicateError) throw duplicateError;
-    if (duplicate?.id) throw new Error(`This candidate already has application ${duplicate.application_reference} for the selected vacancy.`);
-
-    const { data: created, error: createError } = await supabase
-      .from("leo_talent_applications")
-      .insert({
-        organisation_id: args.organisationId,
-        vacancy_id: args.vacancy.id,
-        candidate_id: args.candidateId,
-        current_stage_key: "new",
-        status: "active",
-        source: args.source,
-        submitted_at: args.submittedAt,
-        blind_review_enabled: args.vacancy.blind_review_enabled,
-        ai_screening_enabled: args.vacancy.ai_screening_enabled,
-        metadata: args.metadata ?? {},
-        created_by: args.actorUserId,
-        updated_by: args.actorUserId,
-      } as any)
-      .select("id, application_reference")
-      .single();
-    if (createError || !created?.id) throw createError ?? new Error("Application record was not returned.");
-    return { id: created.id, reference: created.application_reference };
-  }
-
-  async function uploadCandidateDocument(args: {
-    file: File;
-    type: UploadDocument["type"];
-    organisationId: string;
-    candidateId: string;
-    vacancyId: string;
-    applicationId: string;
-    actorUserId: string | null;
-  }) {
-    const filePath = `${args.organisationId}/${args.candidateId}/${args.applicationId}/${crypto.randomUUID()}-${cleanFileName(args.file.name)}`;
-    const { error: storageError } = await supabase.storage
-      .from("leo-talent-candidate-documents")
-      .upload(filePath, args.file, { cacheControl: "3600", upsert: false, contentType: args.file.type || undefined });
-    if (storageError) throw storageError;
-
-    const { error: documentError } = await supabase
-      .from("leo_talent_candidate_documents")
-      .insert({
-        organisation_id: args.organisationId,
-        candidate_id: args.candidateId,
-        vacancy_id: args.vacancyId,
-        application_id: args.applicationId,
-        document_type: args.type,
-        title: args.type === "cv" ? "Curriculum vitae" : formatValue(args.type),
-        file_name: args.file.name,
-        file_path: filePath,
-        mime_type: args.file.type || null,
-        file_size_bytes: args.file.size,
-        is_sensitive: false,
-        visible_to_candidate: false,
-        metadata: { intake_route: "applications_workspace" },
-        uploaded_by: args.actorUserId,
-      } as any);
-    if (documentError) {
-      await supabase.storage.from("leo-talent-candidate-documents").remove([filePath]);
-      throw documentError;
-    }
-  }
-
   async function submitUploadApplication() {
     setIntakeError(null);
     setActionMessage(null);
-    const vacancy = vacancies.find((item) => item.id === uploadForm.vacancyId);
-    const cv = uploadDocuments.find((document) => document.type === "cv")?.file;
-    if (!vacancy) { setIntakeError("Select the vacancy this application relates to."); return; }
-    if (!uploadForm.firstName.trim() || !uploadForm.lastName.trim()) { setIntakeError("Enter the candidate's first and last name."); return; }
-    if (!cv) { setIntakeError("Upload the candidate's CV before saving the application."); return; }
-    if (cv.size > 15 * 1024 * 1024) { setIntakeError("The CV must be 15 MB or smaller."); return; }
+
+    const vacancy = vacancies.find(
+      (item) => item.id === uploadForm.vacancyId,
+    );
+
+    const cv = uploadDocuments.find(
+      (document) => document.type === "cv",
+    )?.file;
+
+    if (!vacancy) {
+      setIntakeError(
+        "Select the vacancy this application relates to.",
+      );
+      return;
+    }
+
+    if (
+      !uploadForm.firstName.trim() ||
+      !uploadForm.lastName.trim()
+    ) {
+      setIntakeError(
+        "Enter the candidate's first and last name.",
+      );
+      return;
+    }
+
+    if (!cv) {
+      setIntakeError(
+        "Upload the candidate's CV before saving the application.",
+      );
+      return;
+    }
+
+    const oversizedDocument = uploadDocuments.find(
+      (document) =>
+        document.file &&
+        document.file.size > 15 * 1024 * 1024,
+    );
+
+    if (oversizedDocument?.file) {
+      setIntakeError(
+        `${oversizedDocument.file.name} is larger than the 15 MB upload limit.`,
+      );
+      return;
+    }
 
     setSavingIntake(true);
+
     try {
-      const actorUserId = await getActorUserId();
-      if (!vacancy.organisation_id) throw new Error("The selected vacancy is not linked to an organisation.");
-      const candidate = await findOrCreateCandidate({
-        organisationId: vacancy.organisation_id,
-        firstName: uploadForm.firstName,
-        middleNames: uploadForm.middleNames,
-        lastName: uploadForm.lastName,
-        preferredName: uploadForm.preferredName,
-        email: uploadForm.email,
-        phone: uploadForm.phone,
-        source: uploadForm.source,
-        sourceDetail: uploadForm.sourceDetail,
-        isInternalCandidate: uploadForm.isInternalCandidate,
-        actorUserId,
-        metadata: { intake_route: "cv_upload" },
-      });
-      const application = await createApplication({
-        organisationId: vacancy.organisation_id,
-        vacancy,
-        candidateId: candidate.id,
-        source: uploadForm.source,
-        submittedAt: new Date().toISOString(),
-        actorUserId,
-        metadata: { intake_route: "cv_upload", source_detail: uploadForm.sourceDetail || null },
-      });
+      const formData = new FormData();
+
+      formData.set("vacancyId", uploadForm.vacancyId);
+      formData.set("source", uploadForm.source);
+      formData.set("sourceDetail", uploadForm.sourceDetail);
+      formData.set("firstName", uploadForm.firstName);
+      formData.set("middleNames", uploadForm.middleNames);
+      formData.set("lastName", uploadForm.lastName);
+      formData.set("preferredName", uploadForm.preferredName);
+      formData.set("email", uploadForm.email);
+      formData.set("phone", uploadForm.phone);
+      formData.set(
+        "isInternalCandidate",
+        String(uploadForm.isInternalCandidate),
+      );
+
       for (const document of uploadDocuments) {
-        if (!document.file) continue;
-        if (document.file.size > 15 * 1024 * 1024) throw new Error(`${document.file.name} is larger than the 15 MB upload limit.`);
-        await uploadCandidateDocument({ file: document.file, type: document.type, organisationId: vacancy.organisation_id, candidateId: candidate.id, vacancyId: vacancy.id, applicationId: application.id, actorUserId });
+        if (document.file) {
+          formData.set(document.type, document.file);
+        }
       }
+
+      const response = await fetch(
+        "/api/talent/applications/upload",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | {
+            applicationReference?: string;
+            message?: string;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            "Leo could not create this application.",
+        );
+      }
+
       setUploadOpen(false);
       resetUploadForm();
-      setActionMessage(`${application.reference} was created and the CV was uploaded successfully.`);
+      setActionMessage(
+        result?.message ||
+          `${result?.applicationReference || "The application"} was created and the CV was uploaded successfully.`,
+      );
+
       await loadApplications(true);
     } catch (uploadError) {
-      console.error("Unable to create uploaded application:", uploadError);
-      setIntakeError(uploadError instanceof Error ? uploadError.message : "Leo could not create this application. No further applications were imported.");
+      console.error(
+        "Unable to create uploaded application:",
+        uploadError,
+      );
+
+      setIntakeError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Leo could not create this application. No further applications were imported.",
+      );
     } finally {
       setSavingIntake(false);
     }
@@ -1941,56 +1628,119 @@ export default function ApplicationsWorkspace() {
   async function importIndeedApplications() {
     setIntakeError(null);
     setIndeedImportResult(null);
-    const vacancy = vacancies.find((item) => item.id === indeedVacancyId);
-    const selectedRows = indeedRows.filter((row) => row.selected);
-    if (!vacancy) { setIntakeError("Select the vacancy these Indeed applications relate to."); return; }
-    if (!vacancy.organisation_id) { setIntakeError("The selected vacancy is not linked to an organisation."); return; }
-    if (selectedRows.length === 0) { setIntakeError("Select at least one applicant to import."); return; }
-    if (selectedRows.some((row) => !row.firstName.trim() || !row.lastName.trim())) { setIntakeError("Every selected row must include a candidate name."); return; }
+
+    const vacancy = vacancies.find(
+      (item) => item.id === indeedVacancyId,
+    );
+
+    const selectedRows = indeedRows.filter(
+      (row) => row.selected,
+    );
+
+    if (!vacancy) {
+      setIntakeError(
+        "Select the vacancy these Indeed applications relate to.",
+      );
+      return;
+    }
+
+    if (selectedRows.length === 0) {
+      setIntakeError(
+        "Select at least one applicant to import.",
+      );
+      return;
+    }
+
+    if (
+      selectedRows.some(
+        (row) =>
+          !row.firstName.trim() ||
+          !row.lastName.trim(),
+      )
+    ) {
+      setIntakeError(
+        "Every selected row must include a candidate name.",
+      );
+      return;
+    }
 
     setSavingIntake(true);
-    let imported = 0;
-    let skipped = 0;
-    const failures: string[] = [];
+
     try {
-      const actorUserId = await getActorUserId();
-      for (const row of selectedRows) {
-        try {
-          const candidate = await findOrCreateCandidate({
-            organisationId: vacancy.organisation_id,
-            firstName: row.firstName,
-            lastName: row.lastName,
-            email: row.email,
-            phone: row.phone,
-            source: "indeed",
-            sourceDetail: indeedFileName,
-            actorUserId,
-            metadata: { intake_route: "indeed_csv", indeed_row: row.raw },
-          });
-          await createApplication({
-            organisationId: vacancy.organisation_id,
-            vacancy,
-            candidateId: candidate.id,
-            source: "indeed",
-            submittedAt: toIsoDateTime(row.appliedAt),
-            actorUserId,
-            metadata: { intake_route: "indeed_csv", import_file: indeedFileName, indeed_row_number: row.rowNumber, original_data: row.raw },
-          });
-          imported += 1;
-        } catch (rowError) {
-          const message = rowError instanceof Error ? rowError.message : "Unknown import error.";
-          if (message.includes("already has application")) skipped += 1;
-          else failures.push(`Row ${row.rowNumber}: ${message}`);
-        }
+      const response = await fetch(
+        "/api/talent/applications/import/indeed",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            vacancyId: indeedVacancyId,
+            importFileName: indeedFileName,
+            rows: selectedRows.map((row) => ({
+              rowNumber: row.rowNumber,
+              firstName: row.firstName,
+              lastName: row.lastName,
+              email: row.email,
+              phone: row.phone,
+              appliedAt: row.appliedAt,
+              raw: row.raw,
+            })),
+          }),
+        },
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | {
+            imported?: number;
+            skipped?: number;
+            failures?: string[];
+            message?: string;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            "Leo could not complete the Indeed import.",
+        );
       }
-      const result = `${imported} imported, ${skipped} duplicate${skipped === 1 ? "" : "s"} skipped${failures.length ? `, ${failures.length} failed` : ""}.`;
-      setIndeedImportResult(result);
-      setActionMessage(`Indeed import completed: ${result}`);
+
+      const imported = result?.imported ?? 0;
+      const skipped = result?.skipped ?? 0;
+      const failures = result?.failures ?? [];
+
+      const summary =
+        result?.message ||
+        `${imported} imported, ${skipped} duplicate${
+          skipped === 1 ? "" : "s"
+        } skipped${
+          failures.length
+            ? `, ${failures.length} failed`
+            : ""
+        }.`;
+
+      setIndeedImportResult(summary);
+      setActionMessage(`Indeed import completed: ${summary}`);
+
+      if (failures.length > 0) {
+        setIntakeError(failures.slice(0, 5).join(" "));
+      }
+
       await loadApplications(true);
-      if (failures.length) setIntakeError(failures.slice(0, 5).join(" "));
     } catch (importError) {
-      console.error("Unable to import Indeed applications:", importError);
-      setIntakeError(importError instanceof Error ? importError.message : "Leo could not complete the Indeed import.");
+      console.error(
+        "Unable to import Indeed applications:",
+        importError,
+      );
+
+      setIntakeError(
+        importError instanceof Error
+          ? importError.message
+          : "Leo could not complete the Indeed import.",
+      );
     } finally {
       setSavingIntake(false);
     }
@@ -2100,17 +1850,17 @@ export default function ApplicationsWorkspace() {
   }
 
   function openCandidate(
-    application: TalentApplication,
-  ) {
-    if (!application.candidate_id) {
-      setError(
-        "This application is not connected to a candidate record.",
-      );
-      return;
-    }
-
-    window.location.href = `/dashboard/leo-talent/vacancies/${application.vacancy_id}`;
+  application: TalentApplication,
+) {
+  if (!application.candidate_id) {
+    setError(
+      "This application is not connected to a candidate record.",
+    );
+    return;
   }
+
+  window.location.href = `/dashboard/leo-talent?section=candidates&candidateId=${application.candidate_id}`;
+}
 
   function openVacancy(
     application: TalentApplication,

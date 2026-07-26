@@ -220,6 +220,38 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const origin = new URL(request.url).origin;
+    const redirectTo =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      origin;
+
+    const { error: inviteEmailError } =
+      await admin.auth.admin.inviteUserByEmail(invitation.email, {
+        redirectTo: `${redirectTo}/auth/callback`,
+        data: {
+          organisation_invitation_id: invitation.id,
+          organisation_id: invitation.organisation_id,
+          organisation_role: invitation.role,
+          invited_by: user.id,
+        },
+      });
+
+    if (inviteEmailError) {
+      console.error(
+        "Supabase invitation resend email failed:",
+        inviteEmailError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            inviteEmailError.message ||
+            "The invitation email could not be resent.",
+        },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(
       {
         invitation: {

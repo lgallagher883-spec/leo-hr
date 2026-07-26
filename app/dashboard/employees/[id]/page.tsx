@@ -15,7 +15,6 @@ import LeaveAbsence from "./components/LeaveAbsence";
 import RightToWork from "./components/RightToWork";
 import TrainingLogs from "./components/TrainingLogs";
 
-import { createClient } from "@supabase/supabase-js";
 import { useParams, useRouter } from "next/navigation";
 import {
   type CSSProperties,
@@ -25,11 +24,6 @@ import {
   useMemo,
   useState,
 } from "react";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
@@ -285,29 +279,38 @@ export default function EmployeeProfilePage() {
     setLoading(true);
     setLoadError("");
 
-    /*
-      The first query uses only the employee columns already confirmed in the
-      current live build. This prevents the upgraded page from depending on
-      future columns before their coordinated database migration is applied.
-    */
-    const { data, error } = await supabase
-      .from("employees")
-      .select("id, name, role, email, status, start_date")
-      .eq("id", employeeId)
-      .single();
+    try {
+      const response = await fetch(`/api/employees/${employeeId}`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
 
-    if (error) {
+      const result = (await response.json()) as {
+        success?: boolean;
+        employee?: Employee;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success || !result.employee) {
+        throw new Error(
+          result.error ||
+            "This employee record could not be loaded. Please return to Employees and try again."
+        );
+      }
+
+      setEmployee(result.employee);
+    } catch (error) {
       console.error("Error loading employee:", error);
       setLoadError(
-        "This employee record could not be loaded. Please return to Employees and try again."
+        error instanceof Error
+          ? error.message
+          : "This employee record could not be loaded. Please return to Employees and try again."
       );
       setEmployee(null);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setEmployee(data as Employee);
-    setLoading(false);
   }, [employeeId]);
 
   useEffect(() => {
@@ -339,144 +342,40 @@ export default function EmployeeProfilePage() {
     setTimelineLoading(true);
     setTimelineError("");
 
-    const coreEvents: TimelineEvent[] = [];
-
-    if (employee.start_date) {
-      coreEvents.push({
-        id: `employment-start-${employee.id}`,
-        date: employee.start_date,
-        title: "Employment started",
-        description: `${employee.name} started employment${
-          employee.role ? ` as ${employee.role}` : ""
-        }.`,
-        category: "Employment",
-        source: "Employees",
-      });
-    }
-
     try {
-      const { data: employeeTimelineData, error: employeeTimelineError } =
-        await supabase
-          .from("employee_timeline")
-          .select(
-            "id, event_type, title, description, status, source_module, source_record_id, metadata, event_date, created_at"
-          )
-          .eq("employee_id", employee.id)
-          .order("event_date", { ascending: false })
-          .limit(200);
-
-      if (employeeTimelineError) {
-        console.warn(
-          "Employee timeline records could not be loaded:",
-          employeeTimelineError
-        );
-      } else if (employeeTimelineData) {
-        const employeeTimelineEvents: TimelineEvent[] =
-          employeeTimelineData.map(
-            (
-              record: {
-                id: number;
-                event_type: string | null;
-                title: string | null;
-                description: string | null;
-                status: string | null;
-                source_module: string | null;
-                source_record_id: string | null;
-                metadata: Record<string, unknown> | null;
-                event_date: string | null;
-                created_at: string | null;
-              },
-              index: number
-            ) => ({
-              id: `employee-timeline-${record.id || index}`,
-              date: record.event_date || record.created_at,
-              title:
-                record.title ||
-                record.event_type ||
-                "Employee activity",
-              description:
-                record.description ||
-                "An event was recorded against this employee.",
-              category: inferTimelineCategory({
-                category: record.event_type || "",
-                source_module: record.source_module || "",
-                action_title: record.title || "",
-                status: record.status || "",
-              }),
-              source:
-                record.source_module ||
-                record.event_type ||
-                "Employees",
-            })
-          );
-
-        coreEvents.push(...employeeTimelineEvents);
-      }
-    } catch (error) {
-      console.warn(
-        "Employee timeline records could not be loaded:",
-        error
+      const response = await fetch(
+        `/api/employees/${employee.id}?include=timeline`,
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        }
       );
-    }
 
-    try {
-      const { data: auditData, error: auditError } = await supabase
-        .from("audit_logs")
-        .select(
-          "id, action, action_category, entity_type, entity_id, entity_name, description, metadata, source_page, created_at"
-        )
-        .eq("entity_type", "Employee")
-        .eq("entity_id", String(employee.id))
-        .order("created_at", { ascending: false })
-        .limit(100);
+      const result = (await response.json()) as {
+        success?: boolean;
+        timeline?: TimelineEvent[];
+        error?: string;
+      };
 
-      if (auditError) {
-        console.warn("Audit timeline could not be loaded:", auditError);
-      } else if (auditData) {
-        const auditEvents: TimelineEvent[] = auditData.map(
-          (
-            record: {
-              id: number;
-              action: string | null;
-              action_category: string | null;
-              entity_type: string | null;
-              entity_id: string | null;
-              entity_name: string | null;
-              description: string | null;
-              metadata: Record<string, unknown> | null;
-              source_page: string | null;
-              created_at: string | null;
-            },
-            index: number
-          ) => ({
-            id: `audit-${record.id || index}`,
-            date: record.created_at,
-            title: record.action || "Employee record updated",
-            description:
-              record.description ||
-              "A recorded action affected this employee.",
-            category: inferTimelineCategory({
-              category: record.action_category || "",
-              action_title: record.action || "",
-              entity_type: record.entity_type || "",
-              source_page: record.source_page || "",
-            }),
-            source: "Audit Logs",
-          })
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "The employee timeline could not be loaded."
         );
-
-        coreEvents.push(...auditEvents);
       }
+
+      setTimelineEvents(result.timeline || []);
     } catch (error) {
-      console.warn("Audit timeline could not be loaded:", error);
+      console.error("Employee timeline could not be loaded:", error);
+      setTimelineEvents([]);
+      setTimelineError(
+        error instanceof Error
+          ? error.message
+          : "The employee timeline could not be loaded."
+      );
+    } finally {
+      setTimelineLoading(false);
     }
-
-    const uniqueEvents = removeDuplicateTimelineEvents(coreEvents).sort(
-      (a, b) => dateValue(b.date) - dateValue(a.date)
-    );
-
-    setTimelineEvents(uniqueEvents);
-    setTimelineLoading(false);
   }, [employee]);
 
   useEffect(() => {
@@ -485,31 +384,6 @@ export default function EmployeeProfilePage() {
     }
   }, [activeSection, employee, buildTimeline]);
 
-  async function writeEmployeeAuditEvent(
-    actionTitle: string,
-    description: string,
-    metadata?: Record<string, unknown>
-  ) {
-    if (!employee) return;
-
-    try {
-      const { error } = await supabase.from("audit_logs").insert({
-        employee_id: employee.id,
-        action_title: actionTitle,
-        description,
-        category: "Employee",
-        source_module: "Employees",
-        metadata: metadata || {},
-        created_at: new Date().toISOString(),
-      });
-
-      if (error) {
-        console.warn("Employee audit event was not written:", error);
-      }
-    } catch (error) {
-      console.warn("Employee audit event was not written:", error);
-    }
-  }
 
   async function archiveEmployee() {
     if (!employee || archiving) return;
@@ -524,36 +398,41 @@ export default function EmployeeProfilePage() {
     setArchiveError("");
     setArchiveSuccess("");
 
-    const { error } = await supabase
-      .from("employees")
-      .update({ status: "Archived" })
-      .eq("id", employee.id);
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
 
-    if (error) {
+      const result = (await response.json()) as {
+        success?: boolean;
+        employee?: Employee;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success || !result.employee) {
+        throw new Error(
+          result.error || "The employee could not be archived. No changes were made."
+        );
+      }
+
+      setEmployee(result.employee);
+      setArchiveSuccess(
+        `${employee.name} has been archived. Their employment record remains preserved.`
+      );
+    } catch (error) {
       console.error("Error archiving employee:", error);
       setArchiveError(
-        "The employee could not be archived. No changes were made."
+        error instanceof Error
+          ? error.message
+          : "The employee could not be archived. No changes were made."
       );
+    } finally {
       setArchiving(false);
-      return;
     }
-
-    await writeEmployeeAuditEvent(
-      "Employee archived",
-      `${employee.name} was archived and removed from active use.`,
-      {
-        previous_status: employee.status || "Active",
-        new_status: "Archived",
-      }
-    );
-
-    setEmployee((current) =>
-      current ? { ...current, status: "Archived" } : current
-    );
-    setArchiveSuccess(
-      `${employee.name} has been archived. Their employment record remains preserved.`
-    );
-    setArchiving(false);
   }
 
   async function restoreEmployee() {
@@ -569,36 +448,41 @@ export default function EmployeeProfilePage() {
     setArchiveError("");
     setArchiveSuccess("");
 
-    const { error } = await supabase
-      .from("employees")
-      .update({ status: "Active" })
-      .eq("id", employee.id);
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      });
 
-    if (error) {
+      const result = (await response.json()) as {
+        success?: boolean;
+        employee?: Employee;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success || !result.employee) {
+        throw new Error(
+          result.error || "The employee could not be restored. No changes were made."
+        );
+      }
+
+      setEmployee(result.employee);
+      setArchiveSuccess(
+        `${employee.name} has been restored to the active employee register.`
+      );
+    } catch (error) {
       console.error("Error restoring employee:", error);
       setArchiveError(
-        "The employee could not be restored. No changes were made."
+        error instanceof Error
+          ? error.message
+          : "The employee could not be restored. No changes were made."
       );
+    } finally {
       setRestoring(false);
-      return;
     }
-
-    await writeEmployeeAuditEvent(
-      "Employee restored",
-      `${employee.name} was restored to active use.`,
-      {
-        previous_status: "Archived",
-        new_status: "Active",
-      }
-    );
-
-    setEmployee((current) =>
-      current ? { ...current, status: "Active" } : current
-    );
-    setArchiveSuccess(
-      `${employee.name} has been restored to the active employee register.`
-    );
-    setRestoring(false);
   }
 
   function openSection(section: ProfileSection) {

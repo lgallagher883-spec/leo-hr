@@ -2,12 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type FoundationFact = {
   id: number;
@@ -24,17 +18,46 @@ export default function FoundationsPage() {
 
   useEffect(() => {
     async function loadFacts() {
-      const { data, error } = await supabase
-        .from("organisation_foundations")
-        .select("id, section, key, value, source")
-        .order("created_at", { ascending: true });
+      try {
+        const response = await fetch(
+          "/api/foundations",
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
 
-      if (error) {
-        console.error("Error loading foundation facts:", error);
-        return;
+        const result = await response
+          .json()
+          .catch(() => null);
+
+        if (
+          !response.ok ||
+          !result?.success
+        ) {
+          throw new Error(
+            result?.error ||
+              "Foundation facts could not be loaded."
+          );
+        }
+
+        setFacts(
+          Array.isArray(result.facts)
+            ? (result.facts as FoundationFact[])
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Error loading foundation facts:",
+          error
+        );
+
+        setFacts([]);
       }
-
-      setFacts(data || []);
     }
 
     loadFacts();

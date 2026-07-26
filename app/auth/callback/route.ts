@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
   if (!code) {
     return NextResponse.redirect(
-      new URL("/login?error=missing_verification_code", requestUrl.origin)
+      new URL("/login?error=missing_verification_code", requestUrl.origin),
     );
   }
 
@@ -20,8 +20,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(
       new URL(
         `/login?error=${encodeURIComponent(exchangeError.message)}`,
-        requestUrl.origin
-      )
+        requestUrl.origin,
+      ),
     );
   }
 
@@ -32,7 +32,18 @@ export async function GET(request: Request) {
 
   if (userError || !user) {
     return NextResponse.redirect(
-      new URL("/login?error=unable_to_load_user", requestUrl.origin)
+      new URL("/login?error=unable_to_load_user", requestUrl.origin),
+    );
+  }
+
+  const invitationId =
+    typeof user.user_metadata?.organisation_invitation_id === "string"
+      ? user.user_metadata.organisation_invitation_id
+      : null;
+
+  if (invitationId) {
+    return NextResponse.redirect(
+      new URL("/auth/accept-invitation", requestUrl.origin),
     );
   }
 
@@ -44,7 +55,7 @@ export async function GET(request: Request) {
 
   if (profileError || !profile?.organisation_id) {
     return NextResponse.redirect(
-      new URL("/login?error=registration_profile_missing", requestUrl.origin)
+      new URL("/login?error=registration_profile_missing", requestUrl.origin),
     );
   }
 
@@ -58,7 +69,7 @@ export async function GET(request: Request) {
         subscription_plans (
           plan_code
         )
-      `
+      `,
     )
     .eq("organisation_id", profile.organisation_id)
     .in("subscription_status", [
@@ -74,17 +85,18 @@ export async function GET(request: Request) {
 
   if (subscriptionError || !subscription) {
     return NextResponse.redirect(
-      new URL("/login?error=subscription_missing", requestUrl.origin)
+      new URL("/login?error=subscription_missing", requestUrl.origin),
     );
   }
 
-  if (subscription.subscription_status === "trialing") {
+  if (
+    subscription.subscription_status === "trialing" ||
+    subscription.subscription_status === "active"
+  ) {
     return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
   }
 
-  if (subscription.subscription_status === "active") {
-    return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
-  }
-
-  return NextResponse.redirect(new URL("/dashboard/billing", requestUrl.origin));
+  return NextResponse.redirect(
+    new URL("/dashboard/billing", requestUrl.origin),
+  );
 }

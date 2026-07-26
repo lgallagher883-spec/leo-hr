@@ -21,12 +21,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { supabase } from "@/lib/supabase";
 
 type AppointmentStatus =
   | "pre_employment"
@@ -512,64 +510,40 @@ export default function OnboardingWorkspace() {
   const [createForm, setCreateForm] = useState<CreateForm>(initialCreateForm);
   const [taskForm, setTaskForm] = useState<TaskForm>(initialTaskForm);
   const [activeSection, setActiveSection] = useState<OnboardingSection>("overview");
-  const acceptedOfferSyncRef = useRef(false);
 
   const loadData = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true);
     setError(null);
 
     try {
-      const [
-        appointmentsResult,
-        itemsResult,
-        offersResult,
-        applicationsResult,
-        candidatesResult,
-        vacanciesResult,
-      ] = await Promise.all([
-        supabase
-          .from("leo_talent_appointments")
-          .select("*")
-          .order("updated_at", { ascending: false }),
-        supabase
-          .from("leo_talent_onboarding_items")
-          .select("*")
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("leo_talent_offers")
-          .select(
-            "id, organisation_id, application_id, vacancy_id, candidate_id, status, job_title, department, location_name, manager_name, manager_user_id, proposed_start_date, accepted_at, archived_at",
-          )
-          .is("archived_at", null),
-        supabase
-          .from("leo_talent_applications")
-          .select("id, status, current_stage_key")
-          .is("archived_at", null),
-        supabase
-          .from("leo_talent_candidates")
-          .select("id, first_name, last_name, preferred_name, email, phone")
-          .is("archived_at", null),
-        supabase
-          .from("leo_talent_vacancies")
-          .select(
-            "id, title, department, location_name, hiring_manager_name, hiring_manager_user_id",
-          )
-          .is("archived_at", null),
-      ]);
+      const response = await fetch("/api/talent/onboarding", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
 
-      if (appointmentsResult.error) throw appointmentsResult.error;
-      if (itemsResult.error) throw itemsResult.error;
-      if (offersResult.error) throw offersResult.error;
-      if (applicationsResult.error) throw applicationsResult.error;
-      if (candidatesResult.error) throw candidatesResult.error;
-      if (vacanciesResult.error) throw vacanciesResult.error;
+      if (!response.ok || payload.success !== true) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "Leo Talent could not load the onboarding workspace.",
+        );
+      }
 
-      setAppointments((appointmentsResult.data ?? []) as Appointment[]);
-      setItems((itemsResult.data ?? []) as OnboardingItem[]);
-      setOffers((offersResult.data ?? []) as Offer[]);
-      setApplications((applicationsResult.data ?? []) as Application[]);
-      setCandidates((candidatesResult.data ?? []) as Candidate[]);
-      setVacancies((vacanciesResult.data ?? []) as Vacancy[]);
+      setAppointments((payload.appointments ?? []) as Appointment[]);
+      setItems((payload.items ?? []) as OnboardingItem[]);
+      setOffers((payload.offers ?? []) as Offer[]);
+      setApplications((payload.applications ?? []) as Application[]);
+      setCandidates((payload.candidates ?? []) as Candidate[]);
+      setVacancies((payload.vacancies ?? []) as Vacancy[]);
+
+      if (payload.syncedCount > 0) {
+        setNotice(
+          payload.syncedCount === 1
+            ? "An accepted offer has been added to onboarding automatically."
+            : `${payload.syncedCount} accepted offers have been added to onboarding automatically.`,
+        );
+      }
     } catch (loadError) {
       setError(
         errorMessage(
@@ -592,89 +566,6 @@ export default function OnboardingWorkspace() {
     const timer = window.setTimeout(() => setNotice(null), 4000);
     return () => window.clearTimeout(timer);
   }, [notice]);
-
-
-  useEffect(() => {
-    if (loading || acceptedOfferSyncRef.current) return;
-
-    const usedOfferIds = new Set(appointments.map((item) => item.offer_id));
-    const missingAcceptedOffers = offers.filter(
-      (offer) =>
-        (offer.status === "accepted" || Boolean(offer.accepted_at)) &&
-        !offer.archived_at &&
-        !usedOfferIds.has(offer.id),
-    );
-
-    if (missingAcceptedOffers.length === 0) return;
-
-    acceptedOfferSyncRef.current = true;
-
-    async function synchroniseAcceptedOffers() {
-      try {
-        for (const offer of missingAcceptedOffers) {
-          const vacancy = vacancies.find((item) => item.id === offer.vacancy_id);
-          const { data, error: appointmentError } = await supabase
-            .from("leo_talent_appointments")
-            .insert({
-              organisation_id: offer.organisation_id,
-              offer_id: offer.id,
-              application_id: offer.application_id,
-              vacancy_id: offer.vacancy_id,
-              candidate_id: offer.candidate_id,
-              status: "pre_employment",
-              agreed_start_date: offer.proposed_start_date,
-              manager_name:
-                offer.manager_name ?? vacancy?.hiring_manager_name ?? null,
-              manager_user_id:
-                offer.manager_user_id ?? vacancy?.hiring_manager_user_id ?? null,
-              department: offer.department ?? vacancy?.department ?? null,
-              location_name: offer.location_name ?? vacancy?.location_name ?? null,
-            })
-            .select("*")
-            .single();
-
-          if (appointmentError) {
-            if (appointmentError.code === "23505") continue;
-            throw appointmentError;
-          }
-
-          const appointment = data as Appointment;
-          if (offer.proposed_start_date) {
-            const { error: itemsError } = await supabase
-              .from("leo_talent_onboarding_items")
-              .insert(
-                generatedAutomaticItems(
-                  appointment.id,
-                  offer.proposed_start_date,
-                  offer.organisation_id,
-                ),
-              );
-            if (itemsError) throw itemsError;
-          }
-
-          const { error: applicationError } = await supabase
-            .from("leo_talent_applications")
-            .update({ status: "onboarding", current_stage_key: "onboarding" })
-            .eq("id", offer.application_id);
-          if (applicationError) throw applicationError;
-        }
-
-        setNotice("Accepted offers have been added to onboarding automatically.");
-        await loadData(true);
-      } catch (syncError) {
-        setError(
-          errorMessage(
-            syncError,
-            "Accepted offers could not be connected to onboarding.",
-          ),
-        );
-      } finally {
-        acceptedOfferSyncRef.current = false;
-      }
-    }
-
-    void synchroniseAcceptedOffers();
-  }, [appointments, loading, loadData, offers, vacancies]);
 
   const candidateMap = useMemo(
     () => new Map(candidates.map((item) => [item.id, item])),
@@ -861,125 +752,36 @@ export default function OnboardingWorkspace() {
     });
   }
 
-  function generatedItems(appointmentId: string, startDate: string) {
-    return itemTemplates
-      .filter((template) => {
-        if (template.conditional === "dbs") return createForm.includeDbs;
-        if (template.conditional === "equipment")
-          return createForm.includeEquipment;
-        if (template.conditional === "learning")
-          return createForm.includeLearning;
-        return true;
-      })
-      .map((template) => ({
-        organisation_id: null,
-        appointment_id: appointmentId,
-        item_key: template.key,
-        item_name: template.name,
-        item_category: template.category,
-        description: template.description,
-        owner_type: template.ownerType,
-        due_date: addDays(startDate, template.dueOffsetDays),
-        status: "not_started" as ItemStatus,
-        candidate_visible: template.candidateVisible,
-        candidate_editable: template.candidateEditable,
-        metadata: { mandatory: template.mandatory },
-      }));
-  }
-
-  function generatedAutomaticItems(
-    appointmentId: string,
-    startDate: string,
-    organisationId: string | null,
-  ) {
-    return itemTemplates
-      .filter((template) => template.conditional !== "dbs")
-      .map((template) => ({
-        organisation_id: organisationId,
-        appointment_id: appointmentId,
-        item_key: template.key,
-        item_name: template.name,
-        item_category: template.category,
-        description: template.description,
-        owner_type: template.ownerType,
-        due_date: addDays(startDate, template.dueOffsetDays),
-        status: "not_started" as ItemStatus,
-        candidate_visible: template.candidateVisible,
-        candidate_editable: template.candidateEditable,
-        metadata: { mandatory: template.mandatory, generated_automatically: true },
-      }));
-  }
-
   async function createAppointment() {
     if (!createForm.offerId) return setError("Select an accepted offer.");
     if (!createForm.agreedStartDate)
       return setError("Enter the agreed start date.");
 
-    const option = availableOffers.find(
-      (item) => item.offer.id === createForm.offerId,
-    );
-    if (!option) return setError("The accepted offer is no longer available.");
-
     setSaving(true);
     setError(null);
     try {
-      const { data, error: insertError } = await supabase
-        .from("leo_talent_appointments")
-        .insert({
-          organisation_id: null,
-          offer_id: option.offer.id,
-          application_id: option.offer.application_id,
-          vacancy_id: option.offer.vacancy_id,
-          candidate_id: option.offer.candidate_id,
-          status: "pre_employment",
-          agreed_start_date: createForm.agreedStartDate,
-          manager_name: createForm.managerName.trim() || null,
-          manager_user_id:
-            option.offer.manager_user_id ??
-            option.vacancy?.hiring_manager_user_id ??
-            null,
-          department: createForm.department.trim() || null,
-          location_name: createForm.locationName.trim() || null,
-        })
-        .select("*")
-        .single();
-
-      if (insertError) throw insertError;
-      const appointment = data as Appointment;
-
-      const { data: createdItems, error: itemsError } = await supabase
-        .from("leo_talent_onboarding_items")
-        .insert(generatedItems(appointment.id, createForm.agreedStartDate))
-        .select("*");
-
-      if (itemsError) {
-        await supabase
-          .from("leo_talent_appointments")
-          .delete()
-          .eq("id", appointment.id);
-        throw itemsError;
+      const response = await fetch("/api/talent/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_appointment",
+          ...createForm,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "The onboarding appointment could not be created.",
+        );
       }
 
-      const application = applications.find(
-        (item) => item.id === option.offer.application_id,
-      );
-      if (application) {
-        const { error: applicationError } = await supabase
-          .from("leo_talent_applications")
-          .update({ status: "onboarding", current_stage_key: "onboarding" })
-          .eq("id", application.id);
-        if (applicationError) throw applicationError;
-      }
-
-      setAppointments((current) => [appointment, ...current]);
-      setItems((current) => [
-        ...current,
-        ...((createdItems ?? []) as OnboardingItem[]),
-      ]);
       setCreateForm(initialCreateForm);
       setShowCreate(false);
-      setSelectedId(appointment.id);
+      setSelectedId(String(payload.appointment.id));
       setNotice("Onboarding created and checklist generated.");
+      await loadData(true);
     } catch (createError) {
       setError(
         errorMessage(
@@ -1000,16 +802,22 @@ export default function OnboardingWorkspace() {
     setActionId(selected.id);
     setError(null);
     try {
-      const { data, error: updateError } = await supabase
-        .from("leo_talent_appointments")
-        .update(changes)
-        .eq("id", selected.id)
-        .select("*")
-        .single();
-      if (updateError) throw updateError;
+      const response = await fetch(`/api/talent/onboarding/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_appointment", changes }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "The appointment could not be updated.",
+        );
+      }
       setAppointments((current) =>
         current.map((item) =>
-          item.id === selected.id ? (data as Appointment) : item,
+          item.id === selected.id ? (payload.appointment as Appointment) : item,
         ),
       );
       setNotice(message);
@@ -1026,25 +834,32 @@ export default function OnboardingWorkspace() {
     setActionId(item.id);
     setError(null);
     try {
-      const complete = status === "complete";
-      const { data, error: updateError } = await supabase
-        .from("leo_talent_onboarding_items")
-        .update({
+      const response = await fetch(`/api/talent/onboarding/${item.appointment_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_item",
+          itemId: item.id,
           status,
-          completed_at: complete ? new Date().toISOString() : null,
-          completed_by: complete ? ownerLabels[item.owner_type] : null,
-        })
-        .eq("id", item.id)
-        .select("*")
-        .single();
-      if (updateError) throw updateError;
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "The onboarding item could not be updated.",
+        );
+      }
       setItems((current) =>
         current.map((entry) =>
-          entry.id === item.id ? (data as OnboardingItem) : entry,
+          entry.id === item.id ? (payload.item as OnboardingItem) : entry,
         ),
       );
       setNotice(
-        complete ? "Onboarding item completed." : "Onboarding item updated.",
+        status === "complete"
+          ? "Onboarding item completed."
+          : "Onboarding item updated.",
       );
     } catch (updateError) {
       setError(
@@ -1061,27 +876,20 @@ export default function OnboardingWorkspace() {
     setSaving(true);
     setError(null);
     try {
-      const key = `custom_${Date.now()}`;
-      const { data, error: insertError } = await supabase
-        .from("leo_talent_onboarding_items")
-        .insert({
-          organisation_id: selected.organisation_id,
-          appointment_id: selected.id,
-          item_key: key,
-          item_name: taskForm.itemName.trim(),
-          item_category: taskForm.category,
-          description: taskForm.description.trim() || null,
-          owner_type: taskForm.ownerType,
-          due_date: taskForm.dueDate || null,
-          status: "not_started",
-          candidate_visible: taskForm.candidateVisible,
-          candidate_editable: taskForm.candidateEditable,
-          metadata: { mandatory: true, custom: true },
-        })
-        .select("*")
-        .single();
-      if (insertError) throw insertError;
-      setItems((current) => [...current, data as OnboardingItem]);
+      const response = await fetch(`/api/talent/onboarding/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_item", item: taskForm }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "The onboarding item could not be added.",
+        );
+      }
+      setItems((current) => [...current, payload.item as OnboardingItem]);
       setTaskForm(initialTaskForm);
       setShowTask(false);
       setNotice("Onboarding item added.");

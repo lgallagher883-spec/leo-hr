@@ -71,6 +71,11 @@ export function MatterProvider({
         if (!active) return;
 
         if (!response.ok || !result.success) {
+          if (response.status === 401 || response.status === 403) {
+            setMatters([]);
+            return;
+          }
+
           console.error(
             "Error loading matters:",
             result.error || `Request failed with status ${response.status}`,

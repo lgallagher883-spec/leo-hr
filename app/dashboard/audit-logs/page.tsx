@@ -7,12 +7,6 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type JsonRecord =
   Record<string, unknown>;
@@ -183,91 +177,69 @@ export default function AuditLogsPage() {
   async function loadAuditData() {
     setLoading(true);
 
-    const [
-      auditResult,
-      employeeResult,
-      matterResult,
-      sarResult,
-    ] = await Promise.all([
-      supabase
-        .from("audit_logs")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        })
-        .limit(5000),
+    try {
+      const response = await fetch(
+        "/api/audit-logs",
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
 
-      supabase
-        .from("employees")
-        .select("id,name")
-        .order("name", {
-          ascending: true,
-        }),
+      const result = await response
+        .json()
+        .catch(() => null);
 
-      supabase
-        .from("matters")
-        .select(
-          "id,title,subject,employee_id"
-        ),
+      if (
+        !response.ok ||
+        !result?.success
+      ) {
+        throw new Error(
+          result?.error ||
+            "Audit data could not be loaded."
+        );
+      }
 
-      supabase
-        .from("employee_sars")
-        .select(
-          "id,request_title,employee_id"
-        ),
-    ]);
+      setLogs(
+        Array.isArray(result.logs)
+          ? (result.logs as AuditLog[])
+          : []
+      );
 
-    if (auditResult.error) {
+      setEmployees(
+        Array.isArray(result.employees)
+          ? (result.employees as EmployeeRecord[])
+          : []
+      );
+
+      setMatters(
+        Array.isArray(result.matters)
+          ? (result.matters as MatterRecord[])
+          : []
+      );
+
+      setSars(
+        Array.isArray(result.sars)
+          ? (result.sars as SarRecord[])
+          : []
+      );
+    } catch (error) {
       console.error(
-        "Error loading audit logs:",
-        auditResult.error
+        "Error loading audit data:",
+        error
       );
 
       setLogs([]);
-    } else {
-      setLogs(
-        (auditResult.data ||
-          []) as AuditLog[]
-      );
+      setEmployees([]);
+      setMatters([]);
+      setSars([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (employeeResult.error) {
-      console.error(
-        "Error loading employees for audit logs:",
-        employeeResult.error
-      );
-    } else {
-      setEmployees(
-        (employeeResult.data ||
-          []) as EmployeeRecord[]
-      );
-    }
-
-    if (matterResult.error) {
-      console.error(
-        "Error loading Matters for audit logs:",
-        matterResult.error
-      );
-    } else {
-      setMatters(
-        (matterResult.data ||
-          []) as MatterRecord[]
-      );
-    }
-
-    if (sarResult.error) {
-      console.error(
-        "Error loading SARs for audit logs:",
-        sarResult.error
-      );
-    } else {
-      setSars(
-        (sarResult.data ||
-          []) as SarRecord[]
-      );
-    }
-
-    setLoading(false);
   }
 
   const employeeMap = useMemo(

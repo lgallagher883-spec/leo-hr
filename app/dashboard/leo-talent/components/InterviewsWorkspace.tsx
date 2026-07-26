@@ -8,7 +8,6 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 type InterviewType =
   | "telephone"
@@ -364,9 +363,6 @@ function isActiveScheduledInterview(
 }
 
 export default function InterviewsWorkspace() {
-  const supabase = useMemo(() => createClient(), []);
-
-  const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [interviews, setInterviews] = useState<
     TalentInterview[]
   >([]);
@@ -415,290 +411,38 @@ export default function InterviewsWorkspace() {
       setError(null);
 
       try {
-        let resolvedOrganisationId = organisationId;
+        const response = await fetch(
+          "/api/talent/interviews",
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
 
-        if (!resolvedOrganisationId) {
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
+        const result = (await response.json()) as {
+          success?: boolean;
+          interviews?: unknown[];
+          applications?: unknown[];
+          templates?: InterviewTemplate[];
+          error?: string;
+        };
 
-          if (userError) {
-            throw new Error(userError.message);
-          }
-
-          if (!user) {
-            throw new Error(
-              "You must be signed in to manage interviews.",
-            );
-          }
-
-          const membershipResult = await supabase
-            .from("organisation_memberships")
-            .select("organisation_id")
-            .eq("user_id", user.id)
-            .eq("membership_status", "active")
-            .order("is_default_organisation", {
-              ascending: false,
-            })
-            .order("created_at", {
-              ascending: true,
-            })
-            .limit(1)
-            .maybeSingle();
-
-          if (membershipResult.error) {
-            throw new Error(
-              membershipResult.error.message,
-            );
-          }
-
-          resolvedOrganisationId =
-            membershipResult.data?.organisation_id ??
-            null;
-
-          if (!resolvedOrganisationId) {
-            throw new Error(
-              "Leo could not find an active organisation for your account.",
-            );
-          }
-
-          setOrganisationId(resolvedOrganisationId);
-        }
-
-        const [
-          interviewsResult,
-          applicationsResult,
-          templatesResult,
-        ] = await Promise.all([
-          supabase
-            .from("leo_talent_interviews")
-            .select(
-              `
-                id,
-                organisation_id,
-                interview_reference,
-                application_id,
-                vacancy_id,
-                candidate_id,
-                template_id,
-                stage_number,
-                stage_name,
-                interview_type,
-                status,
-                scheduled_start,
-                scheduled_end,
-                timezone_name,
-                location,
-                meeting_url,
-                candidate_instructions,
-                internal_instructions,
-                invitation_sent_at,
-                candidate_confirmed_at,
-                completed_at,
-                overall_score,
-                outcome,
-                outcome_reason,
-                ai_recommendation,
-                ai_recommendation_reason,
-                calendar_provider,
-                calendar_event_id,
-                calendar_sync_status,
-                created_at,
-                updated_at,
-                archived_at,
-                candidate:leo_talent_candidates (
-                  id,
-                  candidate_reference,
-                  first_name,
-                  last_name,
-                  preferred_name,
-                  email,
-                  phone
-                ),
-                vacancy:leo_talent_vacancies (
-                  id,
-                  vacancy_reference,
-                  title,
-                  department,
-                  location_name
-                ),
-                application:leo_talent_applications (
-                  id,
-                  application_reference,
-                  current_stage_key,
-                  status
-                ),
-                template:leo_talent_interview_templates (
-                  id,
-                  name,
-                  description,
-                  stage_name,
-                  interview_type,
-                  instructions,
-                  total_score_available,
-                  pass_score,
-                  is_default,
-                  is_active,
-                  archived_at
-                ),
-                panel_members:leo_talent_interview_panel_members (
-                  id,
-                  interview_id,
-                  user_id,
-                  employee_id,
-                  member_name,
-                  member_email,
-                  panel_role,
-                  attendance_status,
-                  can_score,
-                  display_order,
-                  created_at,
-                  updated_at
-                ),
-                scorecards:leo_talent_interview_scorecards (
-                  id,
-                  interview_id,
-                  reviewer_name,
-                  status,
-                  total_score,
-                  maximum_score,
-                  recommendation,
-                  strengths,
-                  concerns,
-                  overall_notes,
-                  submitted_at
-                )
-              `,
-            )
-            .eq(
-              "organisation_id",
-              resolvedOrganisationId,
-            )
-            .order("scheduled_start", {
-              ascending: true,
-              nullsFirst: false,
-            }),
-
-          supabase
-            .from("leo_talent_applications")
-            .select(
-              `
-                id,
-                application_reference,
-                candidate_id,
-                vacancy_id,
-                current_stage_key,
-                status,
-                archived_at,
-                candidate:leo_talent_candidates (
-                  id,
-                  candidate_reference,
-                  first_name,
-                  last_name,
-                  preferred_name,
-                  email,
-                  phone
-                ),
-                vacancy:leo_talent_vacancies (
-                  id,
-                  vacancy_reference,
-                  title,
-                  department,
-                  location_name
-                )
-              `,
-            )
-            .eq(
-              "organisation_id",
-              resolvedOrganisationId,
-            )
-            .is("archived_at", null)
-            .order("updated_at", {
-              ascending: false,
-            }),
-
-          supabase
-            .from("leo_talent_interview_templates")
-            .select(
-              `
-                id,
-                name,
-                description,
-                stage_name,
-                interview_type,
-                instructions,
-                total_score_available,
-                pass_score,
-                is_default,
-                is_active,
-                archived_at
-              `,
-            )
-            .eq(
-              "organisation_id",
-              resolvedOrganisationId,
-            )
-            .eq("is_active", true)
-            .is("archived_at", null)
-            .order("is_default", {
-              ascending: false,
-            })
-            .order("name", {
-              ascending: true,
-            }),
-        ]);
-
-        if (interviewsResult.error) {
-          console.error(
-            "Unable to load interviews:",
-            interviewsResult.error,
-          );
-
-          setInterviews([]);
-          setError(
-            "Leo could not load the interview register.",
-          );
-        } else {
-          setInterviews(
-            normaliseInterviews(
-              interviewsResult.data ?? [],
-            ),
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error ||
+              "Leo could not load the interview workspace.",
           );
         }
 
-        if (applicationsResult.error) {
-          console.error(
-            "Unable to load interview applications:",
-            applicationsResult.error,
-          );
-
-          setApplications([]);
-          setError((current) =>
-            current ??
-            "Leo could not load the applications available for interview.",
-          );
-        } else {
-          setApplications(
-            normaliseApplications(
-              applicationsResult.data ?? [],
-            ),
-          );
-        }
-
-        if (templatesResult.error) {
-          console.error(
-            "Unable to load interview templates:",
-            templatesResult.error,
-          );
-
-          setTemplates([]);
-        } else {
-          setTemplates(
-            (templatesResult.data ??
-              []) as InterviewTemplate[],
-          );
-        }
+        setInterviews(
+          normaliseInterviews(result.interviews ?? []),
+        );
+        setApplications(
+          normaliseApplications(
+            result.applications ?? [],
+          ),
+        );
+        setTemplates(result.templates ?? []);
       } catch (loadError) {
         console.error(
           "Unable to load the interview workspace:",
@@ -718,7 +462,7 @@ export default function InterviewsWorkspace() {
         setRefreshing(false);
       }
     },
-    [organisationId, supabase],
+    [],
   );
 
   useEffect(() => {
@@ -1160,10 +904,7 @@ export default function InterviewsWorkspace() {
       form.status !== "draft" &&
       form.status !== "cancelled";
 
-    if (
-      requiresSchedule &&
-      !form.scheduledDate
-    ) {
+    if (requiresSchedule && !form.scheduledDate) {
       setFormError(
         "Select the interview date before using this status.",
       );
@@ -1253,10 +994,7 @@ export default function InterviewsWorkspace() {
       }
     }
 
-    if (
-      form.outcome &&
-      !form.outcomeReason.trim()
-    ) {
+    if (form.outcome && !form.outcomeReason.trim()) {
       setFormError(
         "Add a brief factual reason for the interview outcome.",
       );
@@ -1265,9 +1003,7 @@ export default function InterviewsWorkspace() {
 
     if (
       form.overallScore.trim() &&
-      !isValidNonNegativeNumber(
-        form.overallScore,
-      )
+      !isValidNonNegativeNumber(form.overallScore)
     ) {
       setFormError(
         "The overall score must be zero or a positive number.",
@@ -1275,275 +1011,98 @@ export default function InterviewsWorkspace() {
       return;
     }
 
-    if (!organisationId) {
-      setFormError(
-        "Leo could not identify your organisation. Refresh the workspace and try again.",
-      );
-      return;
-    }
-
     setSaving(true);
 
-    const now = new Date().toISOString();
-
-    const previousInterview =
-      editingInterviewId !== null
-        ? interviews.find(
-            (interview) =>
-              interview.id === editingInterviewId,
-          )
-        : null;
-
-    const payload = {
-      organisation_id: organisationId,
-      application_id: application.id,
-      candidate_id: application.candidate_id,
-      vacancy_id: application.vacancy_id,
-      template_id:
-        normaliseOptionalText(form.templateId),
-      stage_number: stageNumber,
-      stage_name: form.stageName.trim(),
-      interview_type: form.interviewType,
-      status: form.status,
-      scheduled_start: scheduledStart,
-      scheduled_end: scheduledEnd,
-      timezone_name:
-        form.timezoneName.trim() ||
-        "Europe/London",
-      location: normaliseOptionalText(
-        form.location,
-      ),
-      meeting_url: normaliseOptionalText(
-        form.meetingUrl,
-      ),
-      candidate_instructions:
-        normaliseOptionalText(
-          form.candidateInstructions,
-        ),
-      internal_instructions:
-        normaliseOptionalText(
-          form.internalInstructions,
-        ),
-      invitation_sent_at:
-        ["invited", "confirmed"].includes(
-          form.status,
-        )
-          ? previousInterview?.invitation_sent_at ??
-            now
-          : previousInterview?.invitation_sent_at ??
-            null,
-      candidate_confirmed_at:
-        form.status === "confirmed"
-          ? previousInterview
-              ?.candidate_confirmed_at ?? now
-          : form.status === "draft" ||
-              form.status === "scheduled" ||
-              form.status ===
-                "reschedule_requested"
-            ? null
-            : previousInterview
-                ?.candidate_confirmed_at ?? null,
-      completed_at:
-        form.status === "completed"
-          ? previousInterview?.completed_at ?? now
-          : null,
-      overall_score: form.overallScore.trim()
-        ? Number(form.overallScore)
-        : null,
-      outcome: form.outcome || null,
-      outcome_reason: form.outcome
-        ? form.outcomeReason.trim()
-        : null,
-      updated_at: now,
-    };
-
-    let interviewId = editingInterviewId;
-
-    if (editingInterviewId) {
-      const { error: updateError } = await supabase
-        .from("leo_talent_interviews")
-        .update(payload as any)
-        .eq("id", editingInterviewId);
-
-      if (updateError) {
-        console.error(
-          "Unable to update interview:",
-          updateError,
-        );
-
-        setFormError(
-          "Leo could not save the interview changes. No panel changes were made.",
-        );
-
-        setSaving(false);
-        return;
-      }
-    } else {
-      const { data, error: insertError } =
-        await supabase
-          .from("leo_talent_interviews")
-          .insert({
-            ...payload,
-            created_at: now,
-          })
-          .select("id")
-          .single();
-
-      if (insertError || !data) {
-        console.error(
-          "Unable to create interview:",
-          insertError,
-        );
-
-        setFormError(
-          "Leo could not create the interview.",
-        );
-
-        setSaving(false);
-        return;
-      }
-
-      interviewId = data.id as string;
-    }
-
-    if (!interviewId) {
-      setFormError(
-        "Leo could not identify the interview record.",
-      );
-      setSaving(false);
-      return;
-    }
-
-    const panelSaved =
-      await replacePanelMembers(
-        interviewId,
-        form.panelMembers,
-      );
-
-    if (!panelSaved.success) {
-      setFormError(panelSaved.message);
-      setSaving(false);
-      return;
-    }
-
-    const nextApplicationStage =
-      getApplicationStageForInterview(
-        form.status,
-        form.outcome,
-        stageNumber,
-      );
-
-    const nextApplicationStatus =
-      getApplicationStatusForOutcome(
-        form.outcome,
-      );
-
-    const applicationUpdate: Record<
-      string,
-      unknown
-    > = {
-      updated_at: now,
-    };
-
-    if (nextApplicationStage) {
-      applicationUpdate.current_stage_key =
-        nextApplicationStage;
-    }
-
-    if (nextApplicationStatus) {
-      applicationUpdate.status =
-        nextApplicationStatus;
-    }
-
-    if (
-      Object.keys(applicationUpdate).length > 1
-    ) {
-      const { error: applicationUpdateError } =
-        await supabase
-          .from("leo_talent_applications")
-          .update(applicationUpdate as any)
-          .eq("id", application.id);
-
-      if (applicationUpdateError) {
-        console.error(
-          "Interview saved but application progression could not be updated:",
-          applicationUpdateError,
-        );
-      }
-    }
-
-    setSaving(false);
-    closeForm();
-    await loadWorkspace(true);
-  }
-
-  async function replacePanelMembers(
-    interviewId: string,
-    panelMembers: PanelMemberForm[],
-  ): Promise<{
-    success: boolean;
-    message: string;
-  }> {
-    const { error: deleteError } = await supabase
-      .from("leo_talent_interview_panel_members")
-      .delete()
-      .eq("interview_id", interviewId);
-
-    if (deleteError) {
-      console.error(
-        "Unable to replace panel members:",
-        deleteError,
-      );
-
-      return {
-        success: false,
-        message:
-          "The interview was saved, but Leo could not update the interview panel.",
-      };
-    }
-
-    if (panelMembers.length === 0) {
-      return {
-        success: true,
-        message: "",
-      };
-    }
-
-    const { error: insertError } = await supabase
-      .from("leo_talent_interview_panel_members")
-      .insert(
-        panelMembers.map((member, index) => ({
-          interview_id: interviewId,
-          member_name: member.memberName.trim(),
-          member_email:
-            normaliseOptionalText(
-              member.memberEmail,
+    try {
+      const response = await fetch(
+        editingInterviewId
+          ? `/api/talent/interviews/${editingInterviewId}`
+          : "/api/talent/interviews",
+        {
+          method: editingInterviewId ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            applicationId: application.id,
+            templateId:
+              normaliseOptionalText(form.templateId),
+            stageNumber,
+            stageName: form.stageName.trim(),
+            interviewType: form.interviewType,
+            status: form.status,
+            scheduledStart,
+            scheduledEnd,
+            timezoneName:
+              form.timezoneName.trim() ||
+              "Europe/London",
+            location:
+              normaliseOptionalText(form.location),
+            meetingUrl:
+              normaliseOptionalText(form.meetingUrl),
+            candidateInstructions:
+              normaliseOptionalText(
+                form.candidateInstructions,
+              ),
+            internalInstructions:
+              normaliseOptionalText(
+                form.internalInstructions,
+              ),
+            overallScore: form.overallScore.trim()
+              ? Number(form.overallScore)
+              : null,
+            outcome: form.outcome || null,
+            outcomeReason: form.outcome
+              ? form.outcomeReason.trim()
+              : null,
+            panelMembers: form.panelMembers.map(
+              (member, index) => ({
+                memberName: member.memberName.trim(),
+                memberEmail: normaliseOptionalText(
+                  member.memberEmail,
+                ),
+                panelRole: member.panelRole,
+                attendanceStatus:
+                  member.attendanceStatus,
+                canScore: member.canScore,
+                displayOrder: index,
+              }),
             ),
-          panel_role: member.panelRole,
-          attendance_status:
-            member.attendanceStatus,
-          can_score: member.canScore,
-          display_order: index,
-        })),
+          }),
+        },
       );
 
-    if (insertError) {
-      console.error(
-        "Unable to insert panel members:",
-        insertError,
-      );
-
-      return {
-        success: false,
-        message:
-          "The interview was saved, but Leo could not recreate the interview panel.",
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
       };
-    }
 
-    return {
-      success: true,
-      message: "",
-    };
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Leo could not save the interview.",
+        );
+      }
+
+      setShowForm(false);
+      setEditingInterviewId(null);
+      setForm(emptyForm);
+      setFormError(null);
+      await loadWorkspace(true);
+    } catch (saveError) {
+      console.error(
+        "Unable to save interview:",
+        saveError,
+      );
+
+      setFormError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Leo could not save the interview.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function updateInterviewStatus(
@@ -1553,51 +1112,48 @@ export default function InterviewsWorkspace() {
     setActionInterviewId(interview.id);
     setError(null);
 
-    const now = new Date().toISOString();
+    try {
+      const response = await fetch(
+        `/api/talent/interviews/${interview.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "status",
+            status,
+          }),
+        },
+      );
 
-    const payload: Record<string, unknown> = {
-      status,
-      updated_at: now,
-    };
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
 
-    if (status === "invited") {
-      payload.invitation_sent_at =
-        interview.invitation_sent_at ?? now;
-    }
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Leo could not update the interview status.",
+        );
+      }
 
-    if (status === "confirmed") {
-      payload.invitation_sent_at =
-        interview.invitation_sent_at ?? now;
-      payload.candidate_confirmed_at =
-        interview.candidate_confirmed_at ?? now;
-    }
-
-    if (status === "completed") {
-      payload.completed_at =
-        interview.completed_at ?? now;
-    }
-
-    const { error: updateError } = await supabase
-      .from("leo_talent_interviews")
-      .update(payload as any)
-      .eq("id", interview.id);
-
-    if (updateError) {
+      await loadWorkspace(true);
+    } catch (updateError) {
       console.error(
         "Unable to update interview status:",
         updateError,
       );
 
       setError(
-        "Leo could not update the interview status.",
+        updateError instanceof Error
+          ? updateError.message
+          : "Leo could not update the interview status.",
       );
-
+    } finally {
       setActionInterviewId(null);
-      return;
     }
-
-    await loadWorkspace(true);
-    setActionInterviewId(null);
   }
 
   async function archiveInterview(
@@ -1614,34 +1170,51 @@ export default function InterviewsWorkspace() {
     setActionInterviewId(interview.id);
     setError(null);
 
-    const { error: archiveError } = await supabase
-      .from("leo_talent_interviews")
-      .update({
-        archived_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", interview.id);
+    try {
+      const response = await fetch(
+        `/api/talent/interviews/${interview.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "archive",
+          }),
+        },
+      );
 
-    if (archiveError) {
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Leo could not archive this interview.",
+        );
+      }
+
+      if (expandedInterviewId === interview.id) {
+        setExpandedInterviewId(null);
+      }
+
+      await loadWorkspace(true);
+    } catch (archiveError) {
       console.error(
         "Unable to archive interview:",
         archiveError,
       );
 
       setError(
-        "Leo could not archive this interview.",
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Leo could not archive this interview.",
       );
-
+    } finally {
       setActionInterviewId(null);
-      return;
     }
-
-    if (expandedInterviewId === interview.id) {
-      setExpandedInterviewId(null);
-    }
-
-    await loadWorkspace(true);
-    setActionInterviewId(null);
   }
 
   async function restoreInterview(
@@ -1650,30 +1223,47 @@ export default function InterviewsWorkspace() {
     setActionInterviewId(interview.id);
     setError(null);
 
-    const { error: restoreError } = await supabase
-      .from("leo_talent_interviews")
-      .update({
-        archived_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", interview.id);
+    try {
+      const response = await fetch(
+        `/api/talent/interviews/${interview.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "restore",
+          }),
+        },
+      );
 
-    if (restoreError) {
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Leo could not restore this interview.",
+        );
+      }
+
+      await loadWorkspace(true);
+    } catch (restoreError) {
       console.error(
         "Unable to restore interview:",
         restoreError,
       );
 
       setError(
-        "Leo could not restore this interview.",
+        restoreError instanceof Error
+          ? restoreError.message
+          : "Leo could not restore this interview.",
       );
-
+    } finally {
       setActionInterviewId(null);
-      return;
     }
-
-    await loadWorkspace(true);
-    setActionInterviewId(null);
   }
 
   function exportCurrentView() {

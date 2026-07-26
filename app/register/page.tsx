@@ -40,6 +40,7 @@ const plans: Plan[] = [
     id: "up_to_50",
     number: 2,
     title: "Up to 50 Employees",
+    priceLabel: "£75 per month",
     description: "Complete Leo HR platform for organisations of this size.",
     actionLabel: "Continue",
     icon: <PeopleIcon />,
@@ -48,6 +49,7 @@ const plans: Plan[] = [
     id: "up_to_150",
     number: 3,
     title: "Up to 150 Employees",
+    priceLabel: "£125 per month",
     description: "Complete Leo HR platform for organisations of this size.",
     actionLabel: "Continue",
     icon: <GroupIcon />,
@@ -56,6 +58,7 @@ const plans: Plan[] = [
     id: "up_to_250",
     number: 4,
     title: "Up to 250 Employees",
+    priceLabel: "£175 per month",
     description: "Complete Leo HR platform for organisations of this size.",
     actionLabel: "Continue",
     icon: <GroupIcon />,
@@ -64,12 +67,15 @@ const plans: Plan[] = [
     id: "over_250",
     number: 5,
     title: "Over 250 Employees",
+    priceLabel: "Contact us",
     description: "Large organisations receive tailored implementation and pricing.",
     actionLabel: "Contact us",
     icon: <BuildingIcon />,
     contactOnly: true,
   },
 ];
+
+const PILOT_ACCESS_CODE = "LEOPILOT2026!";
 
 function getPasswordChecks(password: string) {
   return {
@@ -102,6 +108,7 @@ export default function RegisterPage() {
   const [website, setWebsite] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pilotCode, setPilotCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -113,6 +120,8 @@ export default function RegisterPage() {
   const selectedPlanDetails = plans.find((plan) => plan.id === selectedPlan) ?? plans[0];
   const passwordChecks = getPasswordChecks(password);
   const passwordIsValid = Object.values(passwordChecks).every(Boolean);
+  const trimmedPilotCode = pilotCode.trim();
+  const isPilotRegistration = trimmedPilotCode === PILOT_ACCESS_CODE;
 
   function selectPlan(plan: Plan) {
     if (plan.contactOnly) {
@@ -156,6 +165,11 @@ export default function RegisterPage() {
         "Use at least 8 characters, including uppercase, lowercase and a number.";
     }
 
+    if (trimmedPilotCode && !isPilotRegistration) {
+      errors.pilotCode =
+        "That pilot code is not recognised. Check the code and try again.";
+    }
+
     if (!acceptedTerms) {
       errors.acceptedTerms = "You must accept the terms and policies.";
     }
@@ -181,8 +195,9 @@ export default function RegisterPage() {
     try {
       const normalizedWebsite = website.trim() ? website.trim() : null;
 
-      const planCode =
-        selectedPlan === "trial"
+      const planCode = isPilotRegistration
+        ? "pilot_6_month"
+        : selectedPlan === "trial"
           ? "free_trial_7_day"
           : selectedPlan === "up_to_50"
             ? "organisation_50"
@@ -202,6 +217,9 @@ export default function RegisterPage() {
             organisation_name: organisationName.trim(),
             website_url: normalizedWebsite,
             plan_code: planCode,
+            pilot_access_code: isPilotRegistration
+              ? trimmedPilotCode
+              : null,
           },
         },
       });
@@ -345,7 +363,9 @@ export default function RegisterPage() {
               <p>Enter your details to start using Leo HR.</p>
             </div>
             <span className="plan-pill" aria-live="polite">
-              {selectedPlanDetails.title}
+              {isPilotRegistration
+                ? "Pilot Programme · 6 months free"
+                : selectedPlanDetails.title}
             </span>
           </div>
 
@@ -506,6 +526,50 @@ export default function RegisterPage() {
                 </p>
               </Field>
 
+              <Field
+                id="pilotCode"
+                label="Pilot Code? (if you have one)"
+                error={fieldErrors.pilotCode}
+              >
+                <input
+                  id="pilotCode"
+                  name="pilotCode"
+                  type="text"
+                  autoComplete="off"
+                  value={pilotCode}
+                  onChange={(event) => {
+                    setPilotCode(event.target.value);
+                    if (fieldErrors.pilotCode) {
+                      setFieldErrors((current) => {
+                        const next = { ...current };
+                        delete next.pilotCode;
+                        return next;
+                      });
+                    }
+                  }}
+                  placeholder="Enter your pilot access code"
+                  aria-invalid={Boolean(fieldErrors.pilotCode)}
+                  aria-describedby={
+                    fieldErrors.pilotCode
+                      ? "pilotCode-error pilotCode-help"
+                      : "pilotCode-help"
+                  }
+                />
+                <p className="pilot-help" id="pilotCode-help">
+                  A valid pilot code gives your organisation full access to Leo
+                  HR free for six months.
+                </p>
+                {isPilotRegistration ? (
+                  <div className="pilot-confirmation" role="status">
+                    <SmallCheckIcon />
+                    <span>
+                      Pilot code accepted — your six-month free pilot will be
+                      applied when the account is created.
+                    </span>
+                  </div>
+                ) : null}
+              </Field>
+
               <div className="terms-row">
                 <input
                   id="acceptedTerms"
@@ -555,9 +619,11 @@ export default function RegisterPage() {
               >
                 {loading
                   ? "Creating account…"
-                  : selectedPlan === "trial"
-                    ? "Create account and start free trial"
-                    : "Create account"}
+                  : isPilotRegistration
+                    ? "Create account and start 6-month pilot"
+                    : selectedPlan === "trial"
+                      ? "Create account and start free trial"
+                      : "Create account"}
               </button>
 
               <div className="security-note">
@@ -606,7 +672,7 @@ export default function RegisterPage() {
           height: 100dvh;
           min-height: 720px;
           padding: 14px 38px 12px;
-          overflow: hidden;
+          overflow: auto;
           font-family:
             Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
             "Segoe UI", sans-serif;
@@ -635,8 +701,8 @@ export default function RegisterPage() {
 
         .register-shell {
           display: grid;
-          height: calc(100dvh - 76px);
-          max-height: 900px;
+          min-height: calc(100dvh - 76px);
+          max-height: none;
           grid-template-columns: minmax(0, 1.08fr) 1px minmax(420px, 0.92fr);
           gap: 0;
           max-width: 1440px;
@@ -797,9 +863,15 @@ export default function RegisterPage() {
 
         .price-label {
           display: block;
-          margin-top: -4px;
+          margin-top: -3px;
+          color: #6e5084;
+          font-size: 11.5px;
+          font-weight: 600;
+          line-height: 1.35;
+        }
+
+        .plan-card:first-child .price-label {
           color: #08a94f;
-          font-size: 11px;
         }
 
         .plan-description {
@@ -1061,6 +1133,34 @@ export default function RegisterPage() {
           color: #747b89;
           font-size: 10.5px;
           line-height: 1.35;
+        }
+
+        :global(.pilot-help) {
+          margin: 5px 0 0;
+          color: #747b89;
+          font-size: 10.5px;
+          line-height: 1.4;
+        }
+
+        :global(.pilot-confirmation) {
+          display: flex;
+          align-items: flex-start;
+          gap: 7px;
+          margin-top: 7px;
+          padding: 8px 10px;
+          border: 1px solid #bfe4cf;
+          border-radius: 8px;
+          background: #f3fcf7;
+          color: #17623a;
+          font-size: 10.5px;
+          line-height: 1.4;
+        }
+
+        :global(.pilot-confirmation svg) {
+          width: 15px;
+          height: 15px;
+          flex: 0 0 auto;
+          margin-top: 1px;
         }
 
         :global(.field-error) {

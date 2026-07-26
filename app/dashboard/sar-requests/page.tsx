@@ -2,13 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type SarRequest = {
   id: number;
   employee_id: number;
@@ -63,70 +56,62 @@ export default function SarRequestsPage() {
   async function loadData() {
     setLoading(true);
 
-    const [sarResult, employeeResult, matterResult] =
-      await Promise.all([
-        supabase
-          .from("employee_sars")
-          .select(
-            `
-              id,
-              employee_id,
-              matter_id,
-              request_title,
-              request_received_date,
-              response_due_date,
-              extended_due_date,
-              status,
-              assigned_to,
-              identity_verified,
-              collection_complete,
-              review_complete,
-              redaction_complete,
-              disclosure_sent,
-              created_at
-            `
-          )
-          .order("created_at", {
-            ascending: false,
-          }),
+    try {
+      const response = await fetch(
+        "/api/sar-requests",
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
 
-        supabase
-          .from("employees")
-          .select("id,name")
-          .order("name", {
-            ascending: true,
-          }),
+      const result = await response
+        .json()
+        .catch(() => null);
 
-        supabase
-          .from("matters")
-          .select("id,title,subject"),
-      ]);
+      if (
+        !response.ok ||
+        !result?.success
+      ) {
+        throw new Error(
+          result?.error ||
+            "SAR requests could not be loaded."
+        );
+      }
 
-    if (sarResult.error) {
+      setSarRequests(
+        Array.isArray(result.sarRequests)
+          ? (result.sarRequests as SarRequest[])
+          : []
+      );
+
+      setEmployees(
+        Array.isArray(result.employees)
+          ? (result.employees as Employee[])
+          : []
+      );
+
+      setMatters(
+        Array.isArray(result.matters)
+          ? (result.matters as Matter[])
+          : []
+      );
+    } catch (error) {
       console.error(
         "Error loading SAR requests:",
-        sarResult.error
+        error
       );
-    }
 
-    if (employeeResult.error) {
-      console.error(
-        "Error loading employees:",
-        employeeResult.error
-      );
+      setSarRequests([]);
+      setEmployees([]);
+      setMatters([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (matterResult.error) {
-      console.error(
-        "Error loading matters:",
-        matterResult.error
-      );
-    }
-
-    setSarRequests(sarResult.data || []);
-    setEmployees(employeeResult.data || []);
-    setMatters(matterResult.data || []);
-    setLoading(false);
   }
 
   const filteredRequests = useMemo(() => {

@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 type Row = Record<string, unknown>;
 
@@ -305,123 +304,78 @@ export default function OffersWorkspace() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    const [
-      offersResult,
-      appointmentsResult,
-      candidatesResult,
-      applicationsResult,
-      vacanciesResult,
-    ] = await Promise.all([
-      supabase
-        .from("leo_talent_offers")
-        .select("*")
-        .is("archived_at", null)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("leo_talent_appointments")
-        .select("*")
-        .is("archived_at", null)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("leo_talent_candidates")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("leo_talent_applications")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("leo_talent_vacancies")
-        .select("*")
-        .order("created_at", { ascending: false }),
-    ]);
+    try {
+      const response = await fetch("/api/talent/offers", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
 
-    const firstError =
-      offersResult.error ||
-      appointmentsResult.error ||
-      candidatesResult.error ||
-      applicationsResult.error ||
-      vacanciesResult.error;
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "Offers and appointments could not be loaded.");
+      }
 
-    if (firstError) {
-      setErrorMessage(`Offers and appointments could not be loaded. ${firstError.message}`);
+      const candidateRows = (payload.candidates ?? []) as Row[];
+      const applicationRows = (payload.applications ?? []) as Row[];
+      const vacancyRows = (payload.vacancies ?? []) as Row[];
+      const candidateById = new Map(candidateRows.map((row) => [String(row.id), row]));
+      const vacancyById = new Map(vacancyRows.map((row) => [String(row.id), row]));
+      const mappedOffers = ((payload.offers ?? []) as Row[]).map((row) =>
+        mapOffer(row, candidateById.get(String(row.candidate_id))),
+      );
+
+      setOffers(mappedOffers);
+      setAppointments(((payload.appointments ?? []) as Row[]).map(mapAppointment));
+      setSelectedId((current) =>
+        mappedOffers.some((offer) => offer.id === current) ? current : "",
+      );
+
+      const existingApplicationIds = new Set(mappedOffers.map((offer) => offer.application_id));
+      const candidateOptions = applicationRows
+        .filter((application) => !existingApplicationIds.has(String(application.id)))
+        .map((application) => {
+          const candidateId = String(application.candidate_id ?? "");
+          const vacancyId = String(application.vacancy_id ?? "");
+          const candidate = candidateById.get(candidateId);
+          const vacancy = vacancyById.get(vacancyId);
+
+          return {
+            id: candidateId,
+            applicationId: String(application.id),
+            vacancyId,
+            name: candidate ? candidateName(candidate) : "Candidate",
+            email: candidate ? text(candidate.email) : "",
+            vacancyTitle:
+              text(vacancy?.job_title) || text(vacancy?.title) ||
+              text(vacancy?.vacancy_title) || "Vacancy",
+            vacancyReference:
+              text(vacancy?.vacancy_reference) || text(vacancy?.reference),
+            organisationId:
+              idValue(application.organisation_id) ||
+              idValue(candidate?.organisation_id) ||
+              idValue(vacancy?.organisation_id),
+            department: text(vacancy?.department),
+            locationName: text(vacancy?.location_name) || text(vacancy?.location),
+            employmentType:
+              text(vacancy?.employment_type) || text(vacancy?.contract_type) || "permanent",
+            managerName:
+              text(vacancy?.manager_name) || text(vacancy?.hiring_manager_name),
+          };
+        })
+        .filter((option) => option.id && option.applicationId && option.vacancyId && option.organisationId);
+
+      setCandidates(candidateOptions);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Offers and appointments could not be loaded.",
+      );
       setOffers([]);
       setAppointments([]);
       setCandidates([]);
+    } finally {
       setLoading(false);
       setRefreshing(false);
-      return;
     }
-
-    const candidateRows = (candidatesResult.data ?? []) as Row[];
-    const applicationRows = (applicationsResult.data ?? []) as Row[];
-    const vacancyRows = (vacanciesResult.data ?? []) as Row[];
-
-    const candidateById = new Map(candidateRows.map((row) => [String(row.id), row]));
-    const vacancyById = new Map(vacancyRows.map((row) => [String(row.id), row]));
-
-    const mappedOffers = ((offersResult.data ?? []) as Row[]).map((row) =>
-      mapOffer(row, candidateById.get(String(row.candidate_id))),
-    );
-
-    setOffers(mappedOffers);
-    setAppointments(((appointmentsResult.data ?? []) as Row[]).map(mapAppointment));
-    setSelectedId((current) =>
-      mappedOffers.some((offer) => offer.id === current)
-        ? current
-        : "",
-    );
-
-    const existingApplicationIds = new Set(mappedOffers.map((offer) => offer.application_id));
-
-    const candidateOptions = applicationRows
-      .filter((application) => !existingApplicationIds.has(String(application.id)))
-      .map((application) => {
-        const candidateId = String(application.candidate_id ?? "");
-        const vacancyId = String(application.vacancy_id ?? "");
-        const candidate = candidateById.get(candidateId);
-        const vacancy = vacancyById.get(vacancyId);
-
-        return {
-          id: candidateId,
-          applicationId: String(application.id),
-          vacancyId,
-          name: candidate ? candidateName(candidate) : "Candidate",
-          email: candidate ? text(candidate.email) : "",
-          vacancyTitle:
-            text(vacancy?.job_title) ||
-            text(vacancy?.title) ||
-            text(vacancy?.vacancy_title) ||
-            "Vacancy",
-          vacancyReference:
-            text(vacancy?.vacancy_reference) || text(vacancy?.reference),
-          organisationId:
-            idValue(application.organisation_id) ||
-            idValue(candidate?.organisation_id) ||
-            idValue(vacancy?.organisation_id),
-          department: text(vacancy?.department),
-          locationName:
-            text(vacancy?.location_name) || text(vacancy?.location),
-          employmentType:
-            text(vacancy?.employment_type) ||
-            text(vacancy?.contract_type) ||
-            "permanent",
-          managerName:
-            text(vacancy?.manager_name) ||
-            text(vacancy?.hiring_manager_name),
-        };
-      })
-      .filter(
-        (option) =>
-          option.id &&
-          option.applicationId &&
-          option.vacancyId &&
-          option.organisationId,
-      );
-
-    setCandidates(candidateOptions);
-    setLoading(false);
-    setRefreshing(false);
   }, []);
 
   useEffect(() => {
@@ -488,53 +442,33 @@ export default function OffersWorkspace() {
   };
 
   const createOffer = async (applicationId: string) => {
-    const candidate = candidates.find((item) => item.applicationId === applicationId);
-    if (!candidate) return;
-
+    if (!applicationId) return;
     setWorking("create");
     setErrorMessage("");
     setSuccessMessage("");
 
-    const payload = {
-      organisation_id: candidate.organisationId,
-      application_id: candidate.applicationId,
-      vacancy_id: candidate.vacancyId,
-      candidate_id: candidate.id,
-      offer_type: "conditional",
-      status: "draft",
-      job_title: candidate.vacancyTitle,
-      department: candidate.department || null,
-      location_name: candidate.locationName || null,
-      manager_name: candidate.managerName || null,
-      employment_type: candidate.employmentType,
-      salary_currency: "GBP",
-      salary_period: "year",
-      probation_months: 3,
-      conditions: [],
-      approval_status: "not_required",
-    };
-
-    const result = await supabase
-      .from("leo_talent_offers")
-      .insert(payload)
-      .select("*")
-      .single();
-
-    if (result.error) {
-      setErrorMessage(`The offer could not be created. ${result.error.message}`);
+    try {
+      const response = await fetch("/api/talent/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The offer could not be created.");
+      }
+      setSuccessMessage("Offer created. Complete the terms before sending it.");
+      await loadData(true);
+      setSelectedId(String(payload.offer.id));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The offer could not be created.");
+    } finally {
       setWorking("");
-      return;
     }
-
-    setSuccessMessage("Offer created. Complete the terms before sending it.");
-    setWorking("");
-    await loadData(true);
-    setSelectedId(String(result.data.id));
   };
 
   const saveOffer = async () => {
     if (!draft) return;
-
     if (!draft.job_title.trim() || !draft.employment_type.trim()) {
       setErrorMessage("Job title and employment type are required.");
       return;
@@ -544,87 +478,27 @@ export default function OffersWorkspace() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    const payload = {
-      offer_type: draft.offer_type,
-      status: draft.status,
-      job_title: draft.job_title,
-      department: draft.department || null,
-      location_name: draft.location_name || null,
-      manager_name: draft.manager_name || null,
-      employment_type: draft.employment_type,
-      proposed_start_date: draft.proposed_start_date || null,
-      hours_per_week: draft.hours_per_week ? Number(draft.hours_per_week) : null,
-      work_pattern: draft.work_pattern || null,
-      salary_amount: draft.salary_amount ? Number(draft.salary_amount) : null,
-      salary_period: draft.salary_period || null,
-      salary_currency: draft.salary_currency || "GBP",
-      probation_months: draft.probation_months ? Number(draft.probation_months) : null,
-      holiday_allowance_days: draft.holiday_allowance_days
-        ? Number(draft.holiday_allowance_days)
-        : null,
-      notice_period: draft.notice_period || null,
-      conditions: conditionsFromText(draft.conditions_text),
-      approval_status: draft.approval_status,
-      approval_notes: draft.approval_notes || null,
-      sent_at: draft.sent_at || null,
-      response_deadline: draft.response_deadline || null,
-      accepted_at: draft.accepted_at || null,
-      declined_at: draft.declined_at || null,
-      decline_reason: draft.decline_reason || null,
-      withdrawn_at: draft.withdrawn_at || null,
-      withdrawal_reason: draft.withdrawal_reason || null,
-      candidate_response_notes: draft.candidate_response_notes || null,
-    };
-
-    const result = await supabase
-      .from("leo_talent_offers")
-      .update(payload as any)
-      .eq("id", draft.id)
-      .select("*")
-      .single();
-
-    if (result.error) {
-      setErrorMessage(`The offer could not be saved. ${result.error.message}`);
-      setWorking("");
-      return;
-    }
-
-    if (draft.status === "accepted") {
-      const existingAppointment = appointments.find((item) => item.offer_id === draft.id);
-
-      if (!existingAppointment) {
-        const appointmentResult = await supabase
-          .from("leo_talent_appointments")
-          .insert({
-            organisation_id: draft.organisation_id,
-            offer_id: draft.id,
-            application_id: draft.application_id,
-            vacancy_id: draft.vacancy_id,
-            candidate_id: draft.candidate_id,
-            status: "pre_employment",
-            agreed_start_date: draft.proposed_start_date || null,
-            manager_name: draft.manager_name || null,
-            department: draft.department || null,
-            location_name: draft.location_name || null,
-          })
-          .select("*")
-          .single();
-
-        if (appointmentResult.error) {
-          setErrorMessage(
-            `The offer was saved, but its appointment record could not be created. ${appointmentResult.error.message}`,
-          );
-          setWorking("");
-          await loadData(true);
-          return;
-        }
+    try {
+      const response = await fetch(`/api/talent/offers/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_offer",
+          offer: { ...draft, conditions: conditionsFromText(draft.conditions_text) },
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The offer could not be saved.");
       }
+      setSuccessMessage("Offer saved.");
+      await loadData(true);
+      setSelectedId(draft.id);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The offer could not be saved.");
+    } finally {
+      setWorking("");
     }
-
-    setSuccessMessage("Offer saved.");
-    setWorking("");
-    await loadData(true);
-    setSelectedId(String(result.data.id));
   };
 
   const setOfferStatus = (status: OfferStatus) => {
@@ -650,119 +524,65 @@ export default function OffersWorkspace() {
 
   const acceptOfferAndStartOnboarding = async () => {
     if (!draft) return;
-
     setWorking("accept");
     setErrorMessage("");
     setSuccessMessage("");
 
-    const acceptedAt = draft.accepted_at || new Date().toISOString().slice(0, 10);
-
-    const offerResult = await supabase
-      .from("leo_talent_offers")
-      .update({
-        status: "accepted",
-        accepted_at: acceptedAt,
-        proposed_start_date: draft.proposed_start_date || null,
-        candidate_response_notes: draft.candidate_response_notes || null,
-      } as any)
-      .eq("id", draft.id)
-      .select("*")
-      .single();
-
-    if (offerResult.error) {
-      setErrorMessage(
-        `The offer acceptance could not be recorded. ${offerResult.error.message}`,
-      );
-      setWorking("");
-      return;
-    }
-
-    const existingAppointment = appointments.find(
-      (appointment) => appointment.offer_id === draft.id,
-    );
-
-    if (!existingAppointment) {
-      const appointmentResult = await supabase
-        .from("leo_talent_appointments")
-        .insert({
-          organisation_id: draft.organisation_id,
-          offer_id: draft.id,
-          application_id: draft.application_id,
-          vacancy_id: draft.vacancy_id,
-          candidate_id: draft.candidate_id,
-          status: "pre_employment",
-          agreed_start_date: draft.proposed_start_date || null,
-          manager_name: draft.manager_name || null,
-          department: draft.department || null,
-          location_name: draft.location_name || null,
-        })
-        .select("*")
-        .single();
-
-      if (appointmentResult.error && appointmentResult.error.code !== "23505") {
-        setErrorMessage(
-          `The offer was accepted, but the appointment record could not be created. ${appointmentResult.error.message}`,
-        );
-        setWorking("");
-        await loadData(true);
-        return;
+    try {
+      const response = await fetch(`/api/talent/offers/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "accept",
+          acceptedAt: draft.accepted_at || new Date().toISOString().slice(0, 10),
+          proposedStartDate: draft.proposed_start_date,
+          candidateResponseNotes: draft.candidate_response_notes,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The offer acceptance could not be recorded.");
       }
+      setSuccessMessage("Offer accepted. The candidate will now appear in Onboarding.");
+      await loadData(true);
+      setSelectedId(draft.id);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The offer acceptance could not be recorded.");
+    } finally {
+      setWorking("");
     }
-
-    setSuccessMessage(
-      "Offer accepted. The candidate will now appear in Onboarding.",
-    );
-    setWorking("");
-    await loadData(true);
-    setSelectedId(draft.id);
   };
 
   const saveAppointment = async () => {
     if (!draft || !appointmentDraft) return;
-
     setWorking("appointment");
     setErrorMessage("");
     setSuccessMessage("");
 
-    const result = await supabase
-      .from("leo_talent_appointments")
-      .update({
-        status: appointmentDraft.status,
-        agreed_start_date: appointmentDraft.agreed_start_date || null,
-        actual_start_date: appointmentDraft.actual_start_date || null,
-        manager_name: appointmentDraft.manager_name || null,
-        department: appointmentDraft.department || null,
-        location_name: appointmentDraft.location_name || null,
-        recruitment_summary_transferred:
-          appointmentDraft.recruitment_summary_transferred,
-        documents_transferred: appointmentDraft.documents_transferred,
-        onboarding_transferred: appointmentDraft.onboarding_transferred,
-        learning_pathway_triggered: appointmentDraft.learning_pathway_triggered,
-        handover_completed_at: appointmentDraft.handover_completed_at || null,
-        handover_notes: appointmentDraft.handover_notes || null,
-      })
-      .eq("id", appointmentDraft.id)
-      .select("*")
-      .single();
-
-    if (result.error) {
-      setErrorMessage(`The appointment could not be saved. ${result.error.message}`);
+    try {
+      const response = await fetch(`/api/talent/offers/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_appointment", appointment: appointmentDraft }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The appointment could not be saved.");
+      }
+      setSuccessMessage("Appointment record saved.");
+      await loadData(true);
+      setSelectedId(draft.id);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The appointment could not be saved.");
+    } finally {
       setWorking("");
-      return;
     }
-
-    setSuccessMessage("Appointment record saved.");
-    setWorking("");
-    await loadData(true);
   };
 
   const convertToEmployee = async () => {
     if (!draft || !appointmentDraft) return;
-
     if (!["ready_to_start", "employee_creation_pending"].includes(appointmentDraft.status)) {
-      setErrorMessage(
-        "Set the appointment to Ready to start before creating the employee record.",
-      );
+      setErrorMessage("Set the appointment to Ready to start before creating the employee record.");
       return;
     }
 
@@ -770,65 +590,23 @@ export default function OffersWorkspace() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    const pendingResult = await supabase
-      .from("leo_talent_appointments")
-      .update({ status: "employee_creation_pending" })
-      .eq("id", appointmentDraft.id);
-
-    if (pendingResult.error) {
-      setErrorMessage(
-        `The appointment could not be prepared for employee creation. ${pendingResult.error.message}`,
-      );
-      setWorking("");
-      return;
-    }
-
-    const rpcResult = await (supabase as any).rpc(
-  "convert_talent_candidate_to_employee",
-  {
-    p_offer_id: draft.id,
-  },
-);
-
-    if (rpcResult.error) {
-      setErrorMessage(
-        `Employee conversion failed. ${rpcResult.error.message}`,
-      );
-      setWorking("");
+    try {
+      const response = await fetch(`/api/talent/offers/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "convert" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "Employee conversion failed.");
+      }
+      setSuccessMessage("Candidate converted to an employee.");
       await loadData(true);
-      return;
-    }
-
-    const employeeId =
-      typeof rpcResult.data === "string" || typeof rpcResult.data === "number"
-        ? String(rpcResult.data)
-        : idValue((rpcResult.data as Row | null)?.employee_id);
-
-    const completionResult = await supabase
-      .from("leo_talent_appointments")
-      .update({
-        status: "employee_created",
-        employee_id: employeeId ? Number(employeeId) : null,
-        employee_created_at: new Date().toISOString(),
-        recruitment_summary_transferred: true,
-      })
-      .eq("id", appointmentDraft.id);
-
-    if (completionResult.error) {
-      setErrorMessage(
-        `The employee was created, but the appointment handover could not be completed. ${completionResult.error.message}`,
-      );
+      if (payload.employeeId) router.push(`/dashboard/employees/${payload.employeeId}`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Employee conversion failed.");
+    } finally {
       setWorking("");
-      await loadData(true);
-      return;
-    }
-
-    setSuccessMessage("Candidate converted to an employee.");
-    setWorking("");
-    await loadData(true);
-
-    if (employeeId) {
-      router.push(`/dashboard/employees/${employeeId}`);
     }
   };
 

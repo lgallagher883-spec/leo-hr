@@ -1,7 +1,14 @@
+export { default as AppointmentDecisionDetails } from "./AppointmentDecisionDetails";
+export { default as CandidateEmployeeDetails } from "./CandidateEmployeeDetails";
+export { default as DBSDetails } from "./DBSDetails";
+export { default as DrivingDetails } from "./DrivingDetails";
 export { default as EmergencyContactsDetails } from "./EmergencyContactsDetails";
 export { default as HealthDetails } from "./HealthDetails";
+export { default as IdentityVerificationDetails } from "./IdentityVerificationDetails";
+export { default as OverseasChecksDetails } from "./OverseasChecksDetails";
 export { default as ProfessionalRegistrationsDetails } from "./ProfessionalRegistrationsDetails";
 export { default as QualificationsDetails } from "./QualificationsDetails";
 export { default as ReferencesDetails } from "./ReferencesDetails";
-export { default as VehicleDetails } from "./VehicleDetails";
+export { default as RightToWorkDetails } from "./RightToWorkDetails";
 export { default as SharedDocumentsDetails } from "./SharedDocumentsDetails";
+export { default as VehicleDetails } from "./VehicleDetails";

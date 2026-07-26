@@ -7,7 +7,6 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { supabase } from "@/lib/supabase";
 
 type VacancyStatus =
   | "draft"
@@ -446,22 +445,37 @@ export default function VacanciesWorkspace() {
 
     setErrorMessage(null);
 
-    const { data, error } = await supabase
-      .from("leo_talent_vacancies")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const response = await fetch("/api/talent/vacancies", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-    if (error) {
+      const result = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        vacancies?: TalentVacancy[];
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Vacancy records could not be loaded."
+        );
+      }
+
+      setVacancies(result.vacancies ?? []);
+    } catch (error) {
+      console.error("Vacancy register load failed:", error);
       setVacancies([]);
       setErrorMessage(
-        `Vacancy records could not be loaded. ${error.message}`
+        error instanceof Error
+          ? error.message
+          : "Vacancy records could not be loaded."
       );
-    } else {
-      setVacancies((data ?? []) as TalentVacancy[]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setLoading(false);
-    setRefreshing(false);
   }, []);
 
   useEffect(() => {

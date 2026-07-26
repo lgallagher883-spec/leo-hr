@@ -9,7 +9,8 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
-import { supabase } from "@/lib/supabase";
+
+import { useSearchParams } from "next/navigation";
 
 type TalentPoolStatus =
   | "not_added"
@@ -259,6 +260,9 @@ const employmentTypeOptions: Array<{
 ];
 
 export default function CandidatesWorkspace() {
+  const searchParams = useSearchParams();
+  const candidateIdFromUrl = searchParams.get("candidateId");
+
   const [candidates, setCandidates] = useState<
     TalentCandidate[]
   >([]);
@@ -300,104 +304,37 @@ export default function CandidatesWorkspace() {
 
       setError(null);
 
-      const { data, error: queryError } = await supabase
-        .from("leo_talent_candidates")
-        .select(
-          `
-            id,
-            organisation_id,
-            candidate_reference,
-            first_name,
-            middle_names,
-            last_name,
-            preferred_name,
-            email,
-            phone,
-            address_line_1,
-            address_line_2,
-            town_city,
-            county_region,
-            postcode,
-            country,
-            is_internal_candidate,
-            existing_employee_id,
-            source,
-            source_detail,
-            talent_pool_status,
-            consent_to_contact,
-            consent_recorded_at,
-            privacy_notice_version,
-            data_retention_review_date,
-            do_not_contact,
-            do_not_contact_reason,
-            current_job_title,
-            current_employer,
-            years_experience,
-            preferred_location,
-            preferred_employment_type,
-            salary_expectations,
-            earliest_start_date,
-            general_notes,
-            summary,
-            skills,
-            metadata,
-            created_by,
-            updated_by,
-            created_at,
-            updated_at,
-            archived_at,
-            archived_by,
-            archive_reason,
-            documents:leo_talent_candidate_documents (
-              id,
-              candidate_id,
-              document_type,
-              title,
-              file_name,
-              file_path,
-              mime_type,
-              file_size_bytes,
-              created_at
-            ),
-            applications:leo_talent_applications (
-              id,
-              application_reference,
-              current_stage_key,
-              status,
-              submitted_at,
-              updated_at,
-              vacancy:leo_talent_vacancies (
-                id,
-                vacancy_reference,
-                title,
-                department,
-                location_name
-              )
-            )
-          `,
-        )
-        .order("updated_at", {
-          ascending: false,
+      try {
+        const response = await fetch("/api/talent/candidates", {
+          method: "GET",
+          cache: "no-store",
         });
 
-      if (queryError) {
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error ??
+              "Leo could not load the candidate register.",
+          );
+        }
+
+        setCandidates(normaliseCandidates(result.candidates ?? []));
+      } catch (loadError) {
         console.error(
           "Unable to load Leo Talent candidates:",
-          queryError,
+          loadError,
         );
-
         setCandidates([]);
         setError(
-          "Leo could not load the candidate register. Check that the Talent database foundation has been completed, then try again.",
+          loadError instanceof Error
+            ? loadError.message
+            : "Leo could not load the candidate register.",
         );
-      } else {
-        setCandidates(
-          normaliseCandidates(data ?? []),
-        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      setLoading(false);
-      setRefreshing(false);
     },
     [],
   );
@@ -405,6 +342,20 @@ export default function CandidatesWorkspace() {
   useEffect(() => {
     void loadCandidates();
   }, [loadCandidates]);
+
+  useEffect(() => {
+    if (!candidateIdFromUrl || candidates.length === 0) {
+      return;
+    }
+
+    const candidateExists = candidates.some(
+      (candidate) => candidate.id === candidateIdFromUrl,
+    );
+
+    if (candidateExists) {
+      setSelectedCandidateId(candidateIdFromUrl);
+    }
+  }, [candidateIdFromUrl, candidates]);
 
   const metrics = useMemo(() => {
     const today = startOfToday();
@@ -731,206 +682,100 @@ export default function CandidatesWorkspace() {
 
     setSaving(true);
 
-    const now = new Date().toISOString();
+    try {
+      const formData = new FormData();
+      formData.set(
+        "candidate",
+        JSON.stringify({
+          firstName,
+          middleNames: form.middleNames,
+          lastName,
+          preferredName: form.preferredName,
+          email,
+          phone: form.phone,
+          addressLine1: form.addressLine1,
+          addressLine2: form.addressLine2,
+          townCity: form.townCity,
+          countyRegion: form.countyRegion,
+          postcode: form.postcode,
+          country: form.country,
+          isInternalCandidate: form.isInternalCandidate,
+          existingEmployeeId: form.existingEmployeeId,
+          source: form.source,
+          sourceDetail: form.sourceDetail,
+          talentPoolStatus: form.talentPoolStatus,
+          consentToContact: form.consentToContact,
+          privacyNoticeVersion: form.privacyNoticeVersion,
+          dataRetentionReviewDate: form.dataRetentionReviewDate,
+          doNotContact: form.doNotContact,
+          doNotContactReason: form.doNotContactReason,
+          currentJobTitle: form.currentJobTitle,
+          currentEmployer: form.currentEmployer,
+          yearsExperience: form.yearsExperience,
+          preferredLocation: form.preferredLocation,
+          preferredEmploymentType: form.preferredEmploymentType,
+          salaryExpectations: form.salaryExpectations,
+          earliestStartDate: form.earliestStartDate,
+          generalNotes: form.generalNotes,
+          summary: form.summary,
+          skills: parseSkills(form.skills),
+        }),
+      );
 
-    const existingCandidate =
-      editingCandidateId !== null
-        ? candidates.find(
-            (candidate) =>
-              candidate.id === editingCandidateId,
-          )
-        : null;
+      if (uploads.cv) formData.append("cv", uploads.cv);
+      if (uploads.coverLetter) {
+        formData.append("coverLetter", uploads.coverLetter);
+      }
+      uploads.supportingDocuments.forEach((file) =>
+        formData.append("supportingDocuments", file),
+      );
 
-    const consentWasPreviouslyRecorded =
-      existingCandidate?.consent_to_contact ?? false;
+      const response = await fetch(
+        editingCandidateId
+          ? `/api/talent/candidates/${editingCandidateId}`
+          : "/api/talent/candidates",
+        {
+          method: editingCandidateId ? "PATCH" : "POST",
+          body: formData,
+        },
+      );
 
-    const payload = {
-      first_name: firstName,
-      middle_names: normaliseOptionalText(
-        form.middleNames,
-      ),
-      last_name: lastName,
-      preferred_name: normaliseOptionalText(
-        form.preferredName,
-      ),
-      email,
-      phone: normaliseOptionalText(form.phone),
-      address_line_1: normaliseOptionalText(
-        form.addressLine1,
-      ),
-      address_line_2: normaliseOptionalText(
-        form.addressLine2,
-      ),
-      town_city: normaliseOptionalText(form.townCity),
-      county_region: normaliseOptionalText(
-        form.countyRegion,
-      ),
-      postcode: normaliseOptionalText(
-        form.postcode,
-      )?.toUpperCase(),
-      country:
-        normaliseOptionalText(form.country) ??
-        "United Kingdom",
-      is_internal_candidate:
-        form.isInternalCandidate,
-      existing_employee_id:
-        form.isInternalCandidate &&
-        form.existingEmployeeId.trim()
-          ? Number(form.existingEmployeeId)
-          : null,
-      source: normaliseOptionalText(form.source),
-      source_detail: normaliseOptionalText(
-        form.sourceDetail,
-      ),
-      talent_pool_status: form.doNotContact
-        ? "do_not_contact"
-        : form.talentPoolStatus,
-      consent_to_contact:
-        form.consentToContact &&
-        !form.doNotContact,
-      consent_recorded_at:
-        form.consentToContact &&
-        !form.doNotContact
-          ? consentWasPreviouslyRecorded
-            ? existingCandidate?.consent_recorded_at ??
-              now
-            : now
-          : null,
-      privacy_notice_version:
-        normaliseOptionalText(
-          form.privacyNoticeVersion,
-        ),
-      data_retention_review_date:
-        normaliseOptionalText(
-          form.dataRetentionReviewDate,
-        ),
-      do_not_contact: form.doNotContact,
-      do_not_contact_reason: form.doNotContact
-        ? normaliseOptionalText(
-            form.doNotContactReason,
-          )
-        : null,
-      current_job_title: normaliseOptionalText(
-        form.currentJobTitle,
-      ),
-      current_employer: normaliseOptionalText(
-        form.currentEmployer,
-      ),
-      years_experience: form.yearsExperience.trim()
-        ? Number(form.yearsExperience)
-        : null,
-      preferred_location: normaliseOptionalText(
-        form.preferredLocation,
-      ),
-      preferred_employment_type:
-        form.preferredEmploymentType,
-      salary_expectations: normaliseOptionalText(
-        form.salaryExpectations,
-      ),
-      earliest_start_date: normaliseOptionalText(
-        form.earliestStartDate,
-      ),
-      general_notes: normaliseOptionalText(
-        form.generalNotes,
-      ),
-      summary: normaliseOptionalText(form.summary),
-      skills: parseSkills(form.skills),
-      updated_at: now,
-    };
+      const result = await response.json().catch(() => ({}));
 
-    let savedCandidateId = editingCandidateId;
-    let savedOrganisationId =
-      existingCandidate?.organisation_id ?? null;
-
-    if (editingCandidateId) {
-      const { data: updatedCandidate, error: updateError } =
-        await supabase
-          .from("leo_talent_candidates")
-          .update(payload)
-          .eq("id", editingCandidateId)
-          .select("id, organisation_id")
-          .single();
-
-      if (updateError) {
-        console.error(
-          "Unable to update candidate:",
-          updateError,
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ??
+            (editingCandidateId
+              ? "Leo could not update the candidate record."
+              : "Leo could not create the candidate record."),
         );
-
-        setFormError(
-          getCandidateSaveError(
-            updateError.message,
-            "Leo could not update the candidate record.",
-          ),
-        );
-
-        setSaving(false);
-        return;
       }
 
-      savedCandidateId = updatedCandidate.id;
-      savedOrganisationId = updatedCandidate.organisation_id;
-    } else {
-      const { data: createdCandidate, error: insertError } =
-        await supabase
-          .from("leo_talent_candidates")
-          .insert({
-            ...payload,
-            created_at: now,
-          })
-          .select("id, organisation_id")
-          .single();
+      const savedCandidateId = result.candidate?.id as
+        | string
+        | undefined;
 
-      if (insertError) {
-        console.error(
-          "Unable to create candidate:",
-          insertError,
-        );
+      setShowForm(false);
+      setEditingCandidateId(null);
+      setForm(emptyForm);
+      setUploads(emptyUploads());
+      setFormError(null);
 
-        setFormError(
-          getCandidateSaveError(
-            insertError.message,
-            "Leo could not create the candidate record.",
-          ),
-        );
+      await loadCandidates(true);
 
-        setSaving(false);
-        return;
+      if (savedCandidateId) {
+        setSelectedCandidateId(savedCandidateId);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-
-      savedCandidateId = createdCandidate.id;
-      savedOrganisationId = createdCandidate.organisation_id;
-    }
-
-    if (savedCandidateId && hasSelectedUploads(uploads)) {
-      const uploadError = await uploadCandidateDocuments({
-        candidateId: savedCandidateId,
-        organisationId: savedOrganisationId,
-        uploads,
-      });
-
-      if (uploadError) {
-        setFormError(
-          `The candidate record was saved, but ${uploadError}`,
-        );
-        setSaving(false);
-        await loadCandidates(true);
-        return;
-      }
-    }
-
-    setSaving(false);
-    setShowForm(false);
-    setEditingCandidateId(null);
-    setForm(emptyForm);
-    setUploads(emptyUploads());
-    setFormError(null);
-
-    await loadCandidates(true);
-
-    if (savedCandidateId) {
-      setSelectedCandidateId(savedCandidateId);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (saveError) {
+      console.error("Unable to save candidate:", saveError);
+      setFormError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Leo could not save the candidate record.",
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -945,57 +790,52 @@ export default function CandidatesWorkspace() {
     const warning =
       activeApplications.length > 0
         ? `This candidate has ${activeApplications.length} active application${
-            activeApplications.length === 1
-              ? ""
-              : "s"
+            activeApplications.length === 1 ? "" : "s"
           }. Archiving the candidate will not delete those application records. Continue?`
         : `Archive ${getCandidateName(
             candidate,
           )}? The record will remain available in the Archived view.`;
 
-    const confirmed = window.confirm(warning);
-
-    if (!confirmed) {
-      return;
-    }
+    if (!window.confirm(warning)) return;
 
     setActionCandidateId(candidate.id);
     setError(null);
 
-    const now = new Date().toISOString();
-
-    const { error: archiveError } = await supabase
-      .from("leo_talent_candidates")
-      .update({
-        archived_at: now,
-        archive_reason:
-          candidate.archive_reason ??
-          "Archived from the Candidates workspace.",
-        talent_pool_status: "archived",
-        updated_at: now,
-      })
-      .eq("id", candidate.id);
-
-    if (archiveError) {
-      console.error(
-        "Unable to archive candidate:",
-        archiveError,
+    try {
+      const response = await fetch(
+        `/api/talent/candidates/${candidate.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "archive",
+            reason:
+              candidate.archive_reason ??
+              "Archived from the Candidates workspace.",
+          }),
+        },
       );
-
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ??
+            "Leo could not archive this candidate.",
+        );
+      }
+      if (selectedCandidateId === candidate.id) {
+        setSelectedCandidateId(null);
+      }
+      await loadCandidates(true);
+    } catch (archiveError) {
+      console.error("Unable to archive candidate:", archiveError);
       setError(
-        "Leo could not archive this candidate. No changes were made.",
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Leo could not archive this candidate. No changes were made.",
       );
-
+    } finally {
       setActionCandidateId(null);
-      return;
     }
-
-    if (selectedCandidateId === candidate.id) {
-      setSelectedCandidateId(null);
-    }
-
-    await loadCandidates(true);
-    setActionCandidateId(null);
   }
 
   async function restoreCandidate(
@@ -1004,33 +844,33 @@ export default function CandidatesWorkspace() {
     setActionCandidateId(candidate.id);
     setError(null);
 
-    const { error: restoreError } = await supabase
-      .from("leo_talent_candidates")
-      .update({
-        archived_at: null,
-        archived_by: null,
-        archive_reason: null,
-        talent_pool_status: "not_added",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", candidate.id);
-
-    if (restoreError) {
-      console.error(
-        "Unable to restore candidate:",
-        restoreError,
+    try {
+      const response = await fetch(
+        `/api/talent/candidates/${candidate.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "restore" }),
+        },
       );
-
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ??
+            "Leo could not restore this candidate.",
+        );
+      }
+      await loadCandidates(true);
+    } catch (restoreError) {
+      console.error("Unable to restore candidate:", restoreError);
       setError(
-        "Leo could not restore this candidate. No changes were made.",
+        restoreError instanceof Error
+          ? restoreError.message
+          : "Leo could not restore this candidate. No changes were made.",
       );
-
+    } finally {
       setActionCandidateId(null);
-      return;
     }
-
-    await loadCandidates(true);
-    setActionCandidateId(null);
   }
 
   async function openCandidateDocument(
@@ -1038,23 +878,30 @@ export default function CandidatesWorkspace() {
   ) {
     setError(null);
 
-    const { data, error: signedUrlError } =
-      await supabase.storage
-        .from("leo-talent-candidate-documents")
-        .createSignedUrl(document.file_path, 60);
-
-    if (signedUrlError || !data?.signedUrl) {
+    try {
+      const response = await fetch(
+        `/api/talent/candidates/${document.candidate_id}/documents/${document.id}`,
+        { method: "GET", cache: "no-store" },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success || !result.url) {
+        throw new Error(
+          result.error ??
+            "Leo could not open this candidate document.",
+        );
+      }
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (documentError) {
       console.error(
         "Unable to open candidate document:",
-        signedUrlError,
+        documentError,
       );
       setError(
-        "Leo could not open this candidate document.",
+        documentError instanceof Error
+          ? documentError.message
+          : "Leo could not open this candidate document.",
       );
-      return;
     }
-
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
   function exportCurrentView() {
@@ -3016,100 +2863,6 @@ function InformationRow({
       </span>
     </div>
   );
-}
-
-function hasSelectedUploads(uploads: CandidateUploadState) {
-  return Boolean(
-    uploads.cv ||
-      uploads.coverLetter ||
-      uploads.supportingDocuments.length > 0,
-  );
-}
-
-async function uploadCandidateDocuments({
-  candidateId,
-  organisationId,
-  uploads,
-}: {
-  candidateId: string;
-  organisationId: string | null;
-  uploads: CandidateUploadState;
-}): Promise<string | null> {
-  const files: Array<{
-    file: File;
-    type: CandidateDocumentType;
-    title: string;
-  }> = [];
-
-  if (uploads.cv) {
-    files.push({ file: uploads.cv, type: "cv", title: "CV" });
-  }
-
-  if (uploads.coverLetter) {
-    files.push({
-      file: uploads.coverLetter,
-      type: "cover_letter",
-      title: "Cover Letter",
-    });
-  }
-
-  uploads.supportingDocuments.forEach((file) => {
-    files.push({
-      file,
-      type: "other",
-      title: file.name.replace(/\.[^.]+$/, ""),
-    });
-  });
-
-  for (const item of files) {
-    if (item.file.size > 15 * 1024 * 1024) {
-      return `${item.file.name} exceeds the 15 MB upload limit.`;
-    }
-
-    const safeName = item.file.name
-      .replace(/[^a-zA-Z0-9._-]+/g, "-")
-      .replace(/-+/g, "-");
-    const filePath = `${organisationId ?? "unassigned"}/${candidateId}/${crypto.randomUUID()}-${safeName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("leo-talent-candidate-documents")
-      .upload(filePath, item.file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: item.file.type || undefined,
-      });
-
-    if (uploadError) {
-      console.error("Unable to upload candidate document:", uploadError);
-      return `${item.file.name} could not be uploaded.`;
-    }
-
-    const { error: documentError } = await supabase
-      .from("leo_talent_candidate_documents")
-      .insert({
-        candidate_id: candidateId,
-        organisation_id: organisationId,
-        document_type: item.type,
-        title: item.title,
-        file_name: item.file.name,
-        file_path: filePath,
-        mime_type: item.file.type || null,
-        file_size_bytes: item.file.size,
-      });
-
-    if (documentError) {
-      console.error(
-        "Unable to create candidate document record:",
-        documentError,
-      );
-      await supabase.storage
-        .from("leo-talent-candidate-documents")
-        .remove([filePath]);
-      return `${item.file.name} could not be linked to the candidate record.`;
-    }
-  }
-
-  return null;
 }
 
 function normaliseCandidates(

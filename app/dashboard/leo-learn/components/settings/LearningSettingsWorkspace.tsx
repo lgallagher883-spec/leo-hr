@@ -675,29 +675,32 @@ export default function LearningSettingsWorkspace() {
         .order("id"),
     ]);
 
-    const firstError =
-      generalResult.error ||
-      notificationsResult.error ||
-      categoriesResult.error ||
-      providersResult.error ||
-      aiDefaultsResult.error ||
-      certificateResult.error ||
-      assignmentResult.error ||
-      reviewResult.error ||
-      permissionsResult.error;
+    const namedErrors = [
+      ["learning_settings", generalResult.error],
+      ["learning_notification_settings", notificationsResult.error],
+      ["learning_categories", categoriesResult.error],
+      ["learning_providers", providersResult.error],
+      ["learning_ai_studio_defaults", aiDefaultsResult.error],
+      [
+        "learning_certificate_configuration",
+        certificateResult.error,
+      ],
+      ["learning_assignment_rules", assignmentResult.error],
+      ["learning_review_rules", reviewResult.error],
+      ["learning_role_permissions", permissionsResult.error],
+    ].filter((entry) => Boolean(entry[1]));
 
-    if (firstError) {
-      console.error("Error loading Leo Learn settings:", firstError);
-
-      setErrorMessage(
-        "Leo Learn settings could not be loaded. Run the matching Settings SQL before testing this workspace."
+    if (namedErrors.length > 0) {
+      console.warn(
+        "Some Leo Learn settings data could not be loaded:",
+        namedErrors.map(([source, error]) => ({
+          source,
+          error,
+        })),
       );
-
-      setLoading(false);
-      return;
     }
 
-    if (generalResult.data) {
+    if (!generalResult.error && generalResult.data) {
       setGeneralSettings({
         learning_year_start_month:
           generalResult.data.learning_year_start_month,
@@ -734,7 +737,7 @@ export default function LearningSettingsWorkspace() {
       });
     }
 
-    if (notificationsResult.data) {
+    if (!notificationsResult.error && notificationsResult.data) {
       setNotificationSettings({
         assignment_created_employee:
           notificationsResult.data.assignment_created_employee,
@@ -778,7 +781,7 @@ export default function LearningSettingsWorkspace() {
       });
     }
 
-    if (aiDefaultsResult.data) {
+    if (!aiDefaultsResult.error && aiDefaultsResult.data) {
       setAIStudioDefaults({
         default_tone: aiDefaultsResult.data.default_tone,
         default_reading_level:
@@ -811,7 +814,7 @@ export default function LearningSettingsWorkspace() {
       });
     }
 
-    if (certificateResult.data) {
+    if (!certificateResult.error && certificateResult.data) {
       setCertificateSettings({
         certificate_number_prefix:
           certificateResult.data.certificate_number_prefix,
@@ -845,7 +848,7 @@ export default function LearningSettingsWorkspace() {
       });
     }
 
-    if (assignmentResult.data) {
+    if (!assignmentResult.error && assignmentResult.data) {
       setAssignmentRules({
         default_due_days: assignmentResult.data.default_due_days,
         allow_no_due_date: assignmentResult.data.allow_no_due_date,
@@ -882,7 +885,7 @@ export default function LearningSettingsWorkspace() {
       });
     }
 
-    if (reviewResult.data) {
+    if (!reviewResult.error && reviewResult.data) {
       setReviewRules({
         default_review_frequency_months:
           reviewResult.data.default_review_frequency_months,
@@ -915,15 +918,21 @@ export default function LearningSettingsWorkspace() {
     }
 
     setCategories(
-      (categoriesResult.data || []) as LearningCategory[]
+      categoriesResult.error
+        ? []
+        : ((categoriesResult.data || []) as LearningCategory[]),
     );
 
     setProviders(
-      (providersResult.data || []) as LearningProvider[]
+      providersResult.error
+        ? []
+        : ((providersResult.data || []) as LearningProvider[]),
     );
 
     setRolePermissions(
-      (permissionsResult.data || []) as LearningRolePermission[]
+      permissionsResult.error
+        ? []
+        : ((permissionsResult.data || []) as LearningRolePermission[]),
     );
 
     setLoading(false);

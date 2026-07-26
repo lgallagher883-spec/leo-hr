@@ -3,16 +3,28 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ComponentType } from "react";
 import {
+  useEffect,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import {
+  BadgeCheck,
   BookOpen,
   BriefcaseBusiness,
   Building2,
+  CalendarDays,
+  CarFront,
   CircleUserRound,
   ClipboardCheck,
+  ContactRound,
+  FileCheck2,
+  FileHeart,
   FileSearch,
   FileText,
   GraduationCap,
+  HeartPulse,
   LayoutDashboard,
   Library,
   LogOut,
@@ -28,6 +40,12 @@ import { MatterProvider } from "./matters/MatterContext";
 
 const SIDEBAR_WIDTH = 260;
 
+export type DashboardAccessRole =
+  | "owner"
+  | "senior"
+  | "manager"
+  | "employee";
+
 type NavigationIcon = ComponentType<{
   size?: number | string;
   strokeWidth?: number | string;
@@ -40,7 +58,7 @@ type NavigationLink = {
   icon: NavigationIcon;
 };
 
-const mainLinks: NavigationLink[] = [
+const managementMainLinks: NavigationLink[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
@@ -108,7 +126,7 @@ const mainLinks: NavigationLink[] = [
   },
 ];
 
-const accountLinks: NavigationLink[] = [
+const managementAccountLinks: NavigationLink[] = [
   {
     label: "My Account",
     href: "/dashboard/my-account",
@@ -121,23 +139,150 @@ const accountLinks: NavigationLink[] = [
   },
 ];
 
+const employeeMainLinks: NavigationLink[] = [
+  {
+    label: "Dashboard",
+    href: "/dashboard/employee",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Ask Leo",
+    href: "/dashboard/ask-leo",
+    icon: MessageCircle,
+  },
+  {
+    label: "My Employment",
+    href: "/dashboard/my-employment",
+    icon: BriefcaseBusiness,
+  },
+  {
+    label: "My Leave",
+    href: "/dashboard/my-employment/leave",
+    icon: CalendarDays,
+  },
+  {
+    label: "My Learning",
+    href: "/dashboard/my-employment/learning",
+    icon: GraduationCap,
+  },
+  {
+    label: "My Documents",
+    href: "/dashboard/my-employment/documents",
+    icon: FileText,
+  },
+  {
+    label: "Upcoming Reviews",
+    href: "/dashboard/my-employment/reviews",
+    icon: ClipboardCheck,
+  },
+  {
+    label: "Emergency Contacts",
+    href: "/dashboard/my-employment/emergency-contacts",
+    icon: ContactRound,
+  },
+  {
+    label: "Medical & Fit Notes",
+    href: "/dashboard/my-employment/medical",
+    icon: HeartPulse,
+  },
+  {
+    label: "Right to Work",
+    href: "/dashboard/my-employment/right-to-work",
+    icon: FileCheck2,
+  },
+  {
+    label: "DBS & Safeguarding",
+    href: "/dashboard/my-employment/dbs",
+    icon: BadgeCheck,
+  },
+  {
+    label: "Driving",
+    href: "/dashboard/my-employment/driving",
+    icon: CarFront,
+  },
+];
+
+const employeeAccountLinks: NavigationLink[] = [
+  {
+    label: "My Account",
+    href: "/dashboard/my-account",
+    icon: CircleUserRound,
+  },
+];
+
+const employeeAllowedRoutes = [
+  "/dashboard/employee",
+  "/dashboard/ask-leo",
+  "/dashboard/my-employment",
+  "/dashboard/my-account",
+];
+
+function routeIsWithin(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+function isEmployeeRouteAllowed(pathname: string) {
+  return employeeAllowedRoutes.some((route) =>
+    routeIsWithin(pathname, route),
+  );
+}
+
 export default function DashboardShell({
   children,
+  accessRole,
+  organisationId: _organisationId,
+  userId: _userId,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
+  accessRole: DashboardAccessRole;
+  organisationId: string | null;
+  userId: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [isResolvingRoute, setIsResolvingRoute] = useState(true);
+
+  const isEmployee = accessRole === "employee";
+  const mainLinks = isEmployee ? employeeMainLinks : managementMainLinks;
+  const accountLinks = isEmployee
+    ? employeeAccountLinks
+    : managementAccountLinks;
+
+  useEffect(() => {
+    if (isEmployee) {
+      if (
+        pathname === "/dashboard" ||
+        !isEmployeeRouteAllowed(pathname)
+      ) {
+        router.replace("/dashboard/employee");
+        return;
+      }
+
+      setIsResolvingRoute(false);
+      return;
+    }
+
+    if (pathname === "/dashboard/employee") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    setIsResolvingRoute(false);
+  }, [isEmployee, pathname, router]);
 
   function isActive(href: string) {
     if (href === "/dashboard") {
       return pathname === "/dashboard";
     }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+    if (href === "/dashboard/employee") {
+      return pathname === "/dashboard/employee";
+    }
+
+    return routeIsWithin(pathname, href);
   }
 
   async function handleSignOut() {
@@ -183,7 +328,11 @@ export default function DashboardShell({
         }}
       >
         <aside
-          aria-label="LEO dashboard navigation"
+          aria-label={
+            isEmployee
+              ? "LEO employee navigation"
+              : "LEO dashboard navigation"
+          }
           style={{
             position: "fixed",
             top: 0,
@@ -228,13 +377,49 @@ export default function DashboardShell({
             />
           </div>
 
+          {isEmployee ? (
+            <div
+              style={{
+                flexShrink: 0,
+                margin: "0 12px 8px",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                background: "#F7F1FC",
+                border: "1px solid #E9D5FF",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9px",
+                  color: "#6E5084",
+                }}
+              >
+                <FileHeart size={17} strokeWidth={1.8} aria-hidden />
+                <span
+                  style={{
+                    fontSize: "12px",
+                    lineHeight: 1.35,
+                    fontWeight: 750,
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  Employee workspace
+                </span>
+              </div>
+            </div>
+          ) : null}
+
           <nav
             aria-label="Main navigation"
             style={{
               flex: 1,
               minHeight: 0,
-              overflowY: "hidden",
+              overflowY: "auto",
               padding: "2px 12px 6px",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#D8C9E1 transparent",
             }}
           >
             <div
@@ -418,7 +603,35 @@ export default function DashboardShell({
             boxSizing: "border-box",
           }}
         >
-          {children}
+          {isResolvingRoute ? (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                minHeight: "calc(100vh - 60px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  padding: "18px 22px",
+                  borderRadius: "14px",
+                  background: "#FFFFFF",
+                  border: "1px solid #E8E2EB",
+                  color: "#6E5084",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  boxShadow: "0 8px 22px rgba(17, 24, 39, 0.05)",
+                }}
+              >
+                Opening your LEO workspace…
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </MatterProvider>

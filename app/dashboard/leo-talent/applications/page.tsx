@@ -8,7 +8,6 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 type RegisterView =
   | "current"
@@ -242,93 +241,41 @@ export default function ApplicationsPage() {
     refresh ? setRefreshing(true) : setLoading(true);
     setError("");
 
-    const [applicationsResult, stagesResult] = await Promise.all([
-      supabase
-        .from("leo_talent_applications")
-        .select(
-          `
-            id,
-            organisation_id,
-            application_reference,
-            vacancy_id,
-            candidate_id,
-            current_stage_key,
-            status,
-            source,
-            submitted_at,
-            last_reviewed_at,
-            manual_score,
-            ai_score,
-            combined_score,
-            recommendation,
-            knockout_failed,
-            created_at,
-            updated_at,
-            archived_at,
-            candidate:leo_talent_candidates (
-              id,
-              candidate_reference,
-              first_name,
-              last_name,
-              preferred_name,
-              email,
-              archived_at
-            ),
-            vacancy:leo_talent_vacancies (
-              id,
-              vacancy_reference,
-              title,
-              department,
-              location_name,
-              status,
-              archived_at
-            )
-          `,
-        )
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("leo_talent_pipeline_stages")
-        .select(
-          "id, stage_key, stage_name, description, stage_group, display_order, is_active",
-        )
-        .eq("is_active", true)
-        .order("display_order", { ascending: true }),
-    ]);
+    try {
+      const response = await fetch("/api/talent/applications", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-    if (applicationsResult.error) {
+      const payload = (await response.json()) as {
+        success?: boolean;
+        applications?: Application[];
+        stages?: PipelineStage[];
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "Leo could not load the application register.",
+        );
+      }
+
+      setApplications(payload.applications ?? []);
+      setStages(
+        payload.stages?.length ? payload.stages : fallbackStages,
+      );
+    } catch (loadError) {
       console.error(
         "Leo Talent applications could not be loaded:",
-        applicationsResult.error,
+        loadError,
       );
       setApplications([]);
-      setError(
-        `Leo could not load the application register. ${applicationsResult.error.message}`,
-      );
-    } else {
-      setApplications(
-        (applicationsResult.data ?? []).map((row) => {
-          const raw = row as unknown as Application & {
-            candidate: Candidate | Candidate[] | null;
-            vacancy: Vacancy | Vacancy[] | null;
-          };
-
-          return {
-            ...raw,
-            candidate: Array.isArray(raw.candidate)
-              ? raw.candidate[0] ?? null
-              : raw.candidate,
-            vacancy: Array.isArray(raw.vacancy)
-              ? raw.vacancy[0] ?? null
-              : raw.vacancy,
-          };
-        }),
-      );
-    }
-
-    if (!stagesResult.error && stagesResult.data?.length) {
-      setStages(stagesResult.data as PipelineStage[]);
-    } else {
       setStages(fallbackStages);
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Leo could not load the application register.",
+      );
     }
 
     setLoading(false);
@@ -509,23 +456,37 @@ export default function ApplicationsPage() {
       setWorkingId(application.id);
       setError("");
 
-      const now = new Date().toISOString();
-      const { error: updateError } = await supabase
-        .from("leo_talent_applications")
-        .update({
-          status: "archived",
-          archived_at: now,
-          updated_at: now,
-        })
-        .eq("id", application.id);
-
-      if (updateError) {
-        setError(
-          `The application could not be archived. ${updateError.message}`,
+      try {
+        const response = await fetch(
+          `/api/talent/applications/${application.id}/archive`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reason: "Archived from the application register",
+            }),
+          },
         );
-      } else {
+
+        const payload = (await response.json()) as {
+          success?: boolean;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.success) {
+          throw new Error(
+            payload.error || "The application could not be archived.",
+          );
+        }
+
         setNotice("Application archived.");
         await loadApplications(true);
+      } catch (archiveError) {
+        setError(
+          archiveError instanceof Error
+            ? archiveError.message
+            : "The application could not be archived.",
+        );
       }
 
       setWorkingId(null);
@@ -548,23 +509,35 @@ export default function ApplicationsPage() {
               ? "offered"
               : "active";
 
-      const { error: updateError } = await supabase
-        .from("leo_talent_applications")
-        .update({
-          status: restoredStatus,
-          archived_at: null,
-          archive_reason: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", application.id);
-
-      if (updateError) {
-        setError(
-          `The application could not be restored. ${updateError.message}`,
+      try {
+        const response = await fetch(
+          `/api/talent/applications/${application.id}/restore`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: restoredStatus }),
+          },
         );
-      } else {
+
+        const payload = (await response.json()) as {
+          success?: boolean;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.success) {
+          throw new Error(
+            payload.error || "The application could not be restored.",
+          );
+        }
+
         setNotice("Application restored.");
         await loadApplications(true);
+      } catch (restoreError) {
+        setError(
+          restoreError instanceof Error
+            ? restoreError.message
+            : "The application could not be restored.",
+        );
       }
 
       setWorkingId(null);

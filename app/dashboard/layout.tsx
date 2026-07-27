@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 import DashboardShell, {
   type DashboardAccessRole,
@@ -14,43 +15,15 @@ type MembershipRoleRow = {
   organisation_id?: string | null;
 };
 
-type LinkedRoleRow = {
-  roles?:
-    | {
-        name?: string | null;
-        slug?: string | null;
-        role_key?: string | null;
-      }
-    | Array<{
-        name?: string | null;
-        slug?: string | null;
-        role_key?: string | null;
-      }>
-    | null;
-};
-
 function normaliseRole(value: string | null | undefined): DashboardAccessRole {
   const role = value?.trim().toLowerCase();
 
   if (role === "employee") return "employee";
   if (role === "manager") return "manager";
-  if (role === "senior") return "senior";
+  if (role === "senior" || role === "hr") return "senior";
   if (role === "owner") return "owner";
 
   return "employee";
-}
-
-function extractLinkedRole(row: LinkedRoleRow | null): string | null {
-  if (!row?.roles) return null;
-
-  const roleRecord = Array.isArray(row.roles) ? row.roles[0] : row.roles;
-
-  return (
-    roleRecord?.slug ??
-    roleRecord?.role_key ??
-    roleRecord?.name ??
-    null
-  );
 }
 
 export default async function DashboardLayout({
@@ -90,40 +63,18 @@ export default async function DashboardLayout({
   if (membership) {
     organisationId = membership.organisation_id ?? null;
 
-    if (membership.role) {
-      activeRole = normaliseRole(membership.role);
-    }
-  }
-
-  /*
-   * membership_roles is the preferred role-assignment model.
-   * The legacy organisation_memberships.role value remains a safe fallback
-   * while existing organisations are migrated.
-   */
-  if (membership && organisationId) {
-    const linkedRoleResult = await (supabase as any)
-      .from("membership_roles")
-      .select(
-        `
-          roles (
-            name,
-            slug,
-            role_key
-          )
-        `,
-      )
-      .eq("membership_id", membership.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (!linkedRoleResult.error && linkedRoleResult.data) {
-      const linkedRole = extractLinkedRole(
-        linkedRoleResult.data as LinkedRoleRow,
+    if (membership.id) {
+      const resolvedRole = await resolveRoleForMembership(
+        supabase as any,
+        {
+          membershipId: membership.id,
+          fallbackRole: membership.role,
+        },
       );
 
-      if (linkedRole) {
-        activeRole = normaliseRole(linkedRole);
-      }
+      activeRole = resolvedRole.roleKey;
+    } else if (membership.role) {
+      activeRole = normaliseRole(membership.role);
     }
   }
 

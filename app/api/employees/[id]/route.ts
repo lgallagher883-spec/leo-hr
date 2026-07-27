@@ -3,6 +3,7 @@ import {
   NextResponse,
 } from "next/server";
 
+import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -848,10 +849,17 @@ async function requireAccess(
     };
   }
 
-  const role = membership.role || "";
+  const resolvedRole = await resolveRoleForMembership(
+    supabase as any,
+    {
+      membershipId: membership.id,
+      fallbackRole: membership.role,
+    }
+  );
+  const role = resolvedRole.roleKey;
   const permissionKeys = new Set<string>();
 
-  if (role.toLowerCase() !== "owner") {
+  if (role !== "owner") {
     const { data: permissions, error: permissionsError } =
       await supabase.rpc("leo_effective_permissions", {
         target_organisation_id: organisationId,

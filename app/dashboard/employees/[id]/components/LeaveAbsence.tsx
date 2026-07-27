@@ -286,7 +286,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
   const [annualLeaveAllowance, setAnnualLeaveAllowance] = useState(0);
 
   const [platformRole, setPlatformRole] =
-    useState<PlatformRole>("Owner");
+    useState<PlatformRole>("Employee");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [activeView, setActiveView] = useState<LeaveView>("Requests");
@@ -350,7 +350,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setPlatformRole("Owner");
+        setPlatformRole("Employee");
         setCurrentUserId(null);
         return;
       }
@@ -364,7 +364,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
         .maybeSingle();
 
       if (error || !profile) {
-        setPlatformRole("Owner");
+        setPlatformRole("Employee");
         return;
       }
 
@@ -376,7 +376,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       setPlatformRole(normalisePlatformRole(rawRole));
     } catch (error) {
       console.warn("User role could not be loaded:", error);
-      setPlatformRole("Owner");
+      setPlatformRole("Employee");
       setCurrentUserId(null);
     }
   }, []);
@@ -2266,7 +2266,7 @@ function normalisePlatformRole(value: string): PlatformRole {
   if (normalised === "senior") return "Senior";
   if (normalised === "owner") return "Owner";
 
-  return "Owner";
+  return "Employee";
 }
 
 function normaliseLeaveStatus(value: string | null): LeaveStatus {

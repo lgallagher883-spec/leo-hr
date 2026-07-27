@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import {
+  countActiveOwnerAssignments,
+  resolveAuthoritativeUserRole,
+  resolveRoleForMembership,
+} from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -87,25 +92,13 @@ async function getCurrentUserAuthorisation(organisationId: string) {
 
   const admin = adminClient();
 
-  const { data: membership, error: membershipError } = await admin
-    .from("organisation_memberships")
-    .select("id, organisation_id, user_id, role, membership_status")
-    .eq("organisation_id", organisationId)
-    .eq("user_id", user.id)
-    .eq("membership_status", "active")
-    .maybeSingle();
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    organisationId,
+    allowedStatuses: ["active"],
+  });
 
-  if (membershipError) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        { error: membershipError.message },
-        { status: 500 },
-      ),
-    };
-  }
-
-  if (!membership) {
+  if (!resolvedRole) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -115,7 +108,7 @@ async function getCurrentUserAuthorisation(organisationId: string) {
     };
   }
 
-  const callerRole = String(membership.role ?? "").toLowerCase();
+  const callerRole = resolvedRole.roleKey;
 
   if (!["owner", "senior"].includes(callerRole)) {
     return {
@@ -134,7 +127,6 @@ async function getCurrentUserAuthorisation(organisationId: string) {
     ok: true as const,
     user,
     admin,
-    membership: membership as MembershipRecord,
     callerRole,
   };
 }
@@ -301,7 +293,15 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const currentRoleKey = String(targetMembership.role ?? "").toLowerCase();
+    const targetResolvedRole = await resolveRoleForMembership(
+      admin as any,
+      {
+        membershipId: targetMembership.id,
+        fallbackRole: targetMembership.role,
+      },
+    );
+
+    const currentRoleKey = targetResolvedRole.roleKey;
 
     if (callerRole === "senior") {
       if (currentRoleKey === "owner") {
@@ -342,24 +342,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       currentRoleKey === "owner" &&
       selectedRole.role_key !== "owner"
     ) {
-      const { count: ownerCount, error: ownerCountError } = await admin
-        .from("organisation_memberships")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("organisation_id", organisationId)
-        .eq("membership_status", "active")
-        .eq("role", "owner");
+      const ownerCount = await countActiveOwnerAssignments(
+        admin as any,
+        organisationId,
+      );
 
-      if (ownerCountError) {
-        return NextResponse.json(
-          { error: ownerCountError.message },
-          { status: 500 },
-        );
-      }
-
-      if ((ownerCount ?? 0) <= 1) {
+      if (ownerCount <= 1) {
         return NextResponse.json(
           {
             error:

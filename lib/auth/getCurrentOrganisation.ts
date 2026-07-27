@@ -4,7 +4,11 @@ import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type LeoUserRole = "owner" | "hr" | "manager" | "employee";
+export type LeoUserRole =
+  | "owner"
+  | "senior"
+  | "manager"
+  | "employee";
 
 export type LeoOrganisationStatus =
   | "trial"
@@ -88,7 +92,7 @@ export type CurrentOrganisationSubscription = {
 export type CurrentOrganisationAccess = {
   isAuthenticated: true;
   isOwner: boolean;
-  isHr: boolean;
+  isSenior: boolean;
   isManager: boolean;
   isEmployee: boolean;
   isTrial: boolean;
@@ -198,7 +202,7 @@ type RawSubscription = {
 
 const VALID_ROLES: readonly LeoUserRole[] = [
   "owner",
-  "hr",
+  "senior",
   "manager",
   "employee",
 ];
@@ -233,8 +237,26 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function isRole(value: string): value is LeoUserRole {
-  return VALID_ROLES.includes(value as LeoUserRole);
+function isSupportedProfileRole(value: string): boolean {
+  const role = value.trim().toLowerCase();
+
+  return (
+    role === "owner" ||
+    role === "senior" ||
+    role === "hr" ||
+    role === "manager" ||
+    role === "employee"
+  );
+}
+
+function normaliseProfileRole(value: string): LeoUserRole {
+  const role = value.trim().toLowerCase();
+
+  if (role === "owner") return "owner";
+  if (role === "senior" || role === "hr") return "senior";
+  if (role === "manager") return "manager";
+
+  return "employee";
 }
 
 function isOrganisationStatus(
@@ -304,7 +326,7 @@ function buildAccess(
 
   const canAccessBilling =
     !isArchived &&
-    (role === "owner" || role === "hr");
+    (role === "owner" || role === "senior");
 
   const canManageOrganisation =
     !isArchived &&
@@ -314,12 +336,12 @@ function buildAccess(
   const canManageUsers =
     !isArchived &&
     !isCancelled &&
-    (role === "owner" || role === "hr");
+    (role === "owner" || role === "senior");
 
   return {
     isAuthenticated: true,
     isOwner: role === "owner",
-    isHr: role === "hr",
+    isSenior: role === "senior",
     isManager: role === "manager",
     isEmployee: role === "employee",
     isTrial,
@@ -393,7 +415,7 @@ export async function getCurrentOrganisation(): Promise<CurrentOrganisationConte
     );
   }
 
-  if (!isRole(rawProfile.role)) {
+  if (!isSupportedProfileRole(rawProfile.role)) {
     throw new CurrentOrganisationError(
       "invalid_profile_role",
       "The current user profile contains an unsupported role.",
@@ -502,7 +524,7 @@ export async function getCurrentOrganisation(): Promise<CurrentOrganisationConte
   const profile: CurrentOrganisationProfile = {
     userId: rawProfile.user_id,
     organisationId: rawProfile.organisation_id,
-    role: rawProfile.role,
+    role: normaliseProfileRole(rawProfile.role),
     firstName: rawProfile.first_name,
     lastName: rawProfile.last_name,
     displayName: rawProfile.display_name,

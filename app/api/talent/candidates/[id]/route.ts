@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -16,11 +17,10 @@ function normaliseRole(value: unknown): PlatformRole { const role = text(value).
 async function getAuthorisedContext(supabase: any) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return { error: NextResponse.json({ success: false, error: "Your session is unavailable. Please sign in again." }, { status: 401 }) };
-  const membershipResult = await supabase.from("organisation_memberships").select("organisation_id, role, membership_status").eq("user_id", user.id).eq("membership_status", "active").order("is_default_organisation", { ascending: false }).order("created_at", { ascending: true }).limit(1).maybeSingle();
-  if (membershipResult.error) return { error: NextResponse.json({ success: false, error: membershipResult.error.message || "Leo could not verify your organisation access." }, { status: 500 }) };
-  const organisationId = membershipResult.data?.organisation_id ?? null;
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase, { userId: user.id, allowedStatuses: ["active"] });
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
   if (!organisationId) return { error: NextResponse.json({ success: false, error: "Leo could not find an active organisation for your account." }, { status: 403 }) };
-  return { user, organisationId, role: normaliseRole(membershipResult.data?.role) };
+  return { user, organisationId, role: normaliseRole(resolvedRole?.roleKey) };
 }
 function payload(input: any, userId: string, existing: any) {
   const firstName = text(input.firstName); const lastName = text(input.lastName);

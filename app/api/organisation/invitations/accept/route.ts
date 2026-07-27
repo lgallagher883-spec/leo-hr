@@ -27,6 +27,20 @@ function normaliseEmail(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
 }
 
+function normaliseInvitationRole(value: unknown) {
+  const role =
+    typeof value === "string"
+      ? value.trim().toLowerCase()
+      : "";
+
+  if (role === "owner") return "owner";
+  if (role === "senior" || role === "hr") return "senior";
+  if (role === "manager") return "manager";
+  if (role === "employee") return "employee";
+
+  return null;
+}
+
 async function getSignedInUser() {
   const supabase = await createClient();
 
@@ -259,6 +273,54 @@ export async function POST(request: Request) {
     }
 
     const displayName = `${firstName} ${lastName}`.trim();
+    const requestedRoleKey = normaliseInvitationRole(invitation.role);
+
+    if (!requestedRoleKey) {
+      return NextResponse.json(
+        {
+          error:
+            "This invitation has an unsupported role assignment. Ask the organisation to resend the invitation.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const { data: roleRows, error: roleLookupError } = await admin
+      .from("roles")
+      .select(
+        "id, role_key, organisation_id, is_active, is_archived, is_assignable",
+      )
+      .eq("role_key", requestedRoleKey)
+      .eq("is_active", true)
+      .eq("is_archived", false)
+      .eq("is_assignable", true)
+      .or(`organisation_id.is.null,organisation_id.eq.${invitation.organisation_id}`);
+
+    if (roleLookupError) {
+      return NextResponse.json(
+        { error: roleLookupError.message },
+        { status: 500 },
+      );
+    }
+
+    const resolvedRole =
+      (roleRows ?? []).find(
+        (role) => role.organisation_id === invitation.organisation_id,
+      ) ??
+      (roleRows ?? []).find(
+        (role) => role.organisation_id === null,
+      ) ??
+      null;
+
+    if (!resolvedRole) {
+      return NextResponse.json(
+        {
+          error:
+            "The requested invitation role could not be resolved for this organisation.",
+        },
+        { status: 409 },
+      );
+    }
 
     const { error: identityError } = await admin
       .from("identity_profiles")
@@ -287,7 +349,7 @@ export async function POST(request: Request) {
         {
           user_id: user.id,
           organisation_id: invitation.organisation_id,
-          role: invitation.role,
+          role: requestedRoleKey,
           first_name: firstName,
           last_name: lastName,
           display_name: displayName,
@@ -308,13 +370,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: membershipError } = await admin
+    const { data: membershipRecord, error: membershipError } = await admin
       .from("organisation_memberships")
       .upsert(
         {
           organisation_id: invitation.organisation_id,
           user_id: user.id,
-          role: invitation.role,
+          role: requestedRoleKey,
           membership_status: "active",
           membership_type: "standard",
           invited_by: invitation.invited_by,
@@ -331,13 +393,145 @@ export async function POST(request: Request) {
           },
         },
         { onConflict: "organisation_id,user_id" },
-      );
+      )
+      .select("id, organisation_id")
+      .single();
 
     if (membershipError) {
       return NextResponse.json(
         { error: membershipError.message },
         { status: 500 },
       );
+    }
+
+    if (
+      !membershipRecord ||
+      membershipRecord.organisation_id !== invitation.organisation_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "The organisation membership could not be verified for role assignment.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const { data: existingAssignments, error: existingAssignmentsError } =
+      await admin
+        .from("membership_roles")
+        .select(
+          "id, role_id, is_primary, is_active, starts_at, expires_at, created_at",
+        )
+        .eq("membership_id", membershipRecord.id);
+
+    if (existingAssignmentsError) {
+      return NextResponse.json(
+        { error: existingAssignmentsError.message },
+        { status: 500 },
+      );
+    }
+
+    const assignments = existingAssignments ?? [];
+
+    const targetAssignments = assignments.filter(
+      (assignment) => assignment.role_id === resolvedRole.id,
+    );
+
+    const selectedTargetAssignment =
+      targetAssignments.find((assignment) => assignment.is_active) ??
+      targetAssignments[0] ??
+      null;
+
+    let selectedAssignmentId: string;
+
+    if (selectedTargetAssignment) {
+      const { error: activateTargetError } = await admin
+        .from("membership_roles")
+        .update({
+          is_primary: true,
+          is_active: true,
+          starts_at: now,
+          expires_at: null,
+          assigned_by: user.id,
+          assigned_at: now,
+          revoked_by: null,
+          revoked_at: null,
+          revocation_reason: null,
+          updated_at: now,
+        })
+        .eq("id", selectedTargetAssignment.id);
+
+      if (activateTargetError) {
+        return NextResponse.json(
+          { error: activateTargetError.message },
+          { status: 500 },
+        );
+      }
+
+      selectedAssignmentId = selectedTargetAssignment.id;
+    } else {
+      const { data: insertedAssignment, error: insertAssignmentError } =
+        await admin
+          .from("membership_roles")
+          .insert({
+            membership_id: membershipRecord.id,
+            role_id: resolvedRole.id,
+            is_primary: true,
+            is_active: true,
+            starts_at: now,
+            expires_at: null,
+            assigned_by: user.id,
+            assigned_at: now,
+            assignment_reason: "Assigned through invitation acceptance.",
+            updated_at: now,
+          })
+          .select("id")
+          .single();
+
+      if (insertAssignmentError || !insertedAssignment) {
+        return NextResponse.json(
+          {
+            error:
+              insertAssignmentError?.message ||
+              "The role assignment could not be created.",
+          },
+          { status: 500 },
+        );
+      }
+
+      selectedAssignmentId = insertedAssignment.id;
+    }
+
+    const conflictingPrimaryIds = assignments
+      .filter(
+        (assignment) =>
+          assignment.id !== selectedAssignmentId &&
+          assignment.is_active === true &&
+          assignment.is_primary === true,
+      )
+      .map((assignment) => assignment.id);
+
+    if (conflictingPrimaryIds.length > 0) {
+      const { error: clearConflictingPrimaryError } = await admin
+        .from("membership_roles")
+        .update({
+          is_primary: false,
+          is_active: false,
+          revoked_by: user.id,
+          revoked_at: now,
+          revocation_reason:
+            "Superseded by invitation acceptance role assignment.",
+          updated_at: now,
+        })
+        .in("id", conflictingPrimaryIds);
+
+      if (clearConflictingPrimaryError) {
+        return NextResponse.json(
+          { error: clearConflictingPrimaryError.message },
+          { status: 500 },
+        );
+      }
     }
 
     const { error: invitationUpdateError } = await admin
@@ -365,7 +559,7 @@ export async function POST(request: Request) {
         last_name: lastName,
         full_name: displayName,
         organisation_id: invitation.organisation_id,
-        organisation_role: invitation.role,
+        organisation_role: requestedRoleKey,
         organisation_invitation_id: null,
       },
     });

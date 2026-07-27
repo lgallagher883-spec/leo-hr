@@ -224,7 +224,7 @@ const quickActions: QuickAction[] = [
   },
 ];
 
-const defaultPlatformRole: PlatformRole = "Owner";
+const defaultPlatformRole: PlatformRole = "Employee";
 
 export default function EmployeeProfilePage() {
   const router = useRouter();

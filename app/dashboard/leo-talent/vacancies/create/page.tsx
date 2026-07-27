@@ -125,7 +125,7 @@ function normaliseRole(value: unknown): PlatformRole {
   if (role === "manager") return "Manager";
   if (role === "employee") return "Employee";
 
-  return "Owner";
+  return "Employee";
 }
 
 function optionalText(value: string): string | null {
@@ -203,7 +203,7 @@ export default function CreateVacancyPage() {
   const [userContext, setUserContext] = useState<UserContext>({
     userId: null,
     organisationId: null,
-    role: "Owner",
+    role: "Employee",
   });
   const [loadingContext, setLoadingContext] = useState(true);
   const [savingMode, setSavingMode] = useState<

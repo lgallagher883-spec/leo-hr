@@ -237,7 +237,7 @@ export default function CompliancePage() {
   const router = useRouter();
 
   const [platformRole, setPlatformRole] =
-    useState<PlatformRole>("Owner");
+    useState<PlatformRole>("Employee");
 
   const [activeView, setActiveView] =
     useState<RegisterView>("compliance");
@@ -322,7 +322,7 @@ export default function CompliancePage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setPlatformRole("Owner");
+        setPlatformRole("Employee");
         return;
       }
 
@@ -333,7 +333,7 @@ export default function CompliancePage() {
         .maybeSingle();
 
       if (error || !profile) {
-        setPlatformRole("Owner");
+        setPlatformRole("Employee");
         return;
       }
 
@@ -349,7 +349,7 @@ export default function CompliancePage() {
         error
       );
 
-      setPlatformRole("Owner");
+      setPlatformRole("Employee");
     }
   }, []);
 
@@ -3003,7 +3003,7 @@ function normalisePlatformRole(
     return "Owner";
   }
 
-  return "Owner";
+  return "Employee";
 }
 
 function normaliseEmployeeStatus(

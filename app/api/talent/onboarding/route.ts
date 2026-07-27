@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
@@ -59,26 +60,12 @@ async function getAuthorisedContext(supabase: any) {
     };
   }
 
-  const membershipResult = await supabase
-    .from("organisation_memberships")
-    .select("organisation_id, role, membership_status")
-    .eq("user_id", user.id)
-    .eq("membership_status", "active")
-    .order("is_default_organisation", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase, {
+    userId: user.id,
+    allowedStatuses: ["active"],
+  });
 
-  if (membershipResult.error) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: membershipResult.error.message || "Leo could not verify your organisation access." },
-        { status: 500 },
-      ),
-    };
-  }
-
-  const organisationId = membershipResult.data?.organisation_id ?? null;
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
   if (!organisationId) {
     return {
       error: NextResponse.json(
@@ -88,7 +75,7 @@ async function getAuthorisedContext(supabase: any) {
     };
   }
 
-  return { user, organisationId, role: normaliseRole(membershipResult.data?.role) };
+  return { user, organisationId, role: normaliseRole(resolvedRole?.roleKey) };
 }
 
 function checklistRows(

@@ -257,7 +257,7 @@ export default function EmployeesPage() {
   const [importHistory, setImportHistory] = useState<ImportHistoryRecord[]>([]);
 
   const [platformRole, setPlatformRole] =
-    useState<PlatformRole>("Owner");
+    useState<PlatformRole>("Employee");
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -302,7 +302,7 @@ export default function EmployeesPage() {
   const canAddEmployee = hasPermission("Senior");
 
   const loadCurrentUser = useCallback(async () => {
-    setPlatformRole("Owner");
+    setPlatformRole("Employee");
   }, []);
 
   const loadEmployees = useCallback(async () => {
@@ -2118,7 +2118,7 @@ function normalisePlatformRole(value: string): PlatformRole {
   if (normalised === "senior") return "Senior";
   if (normalised === "owner") return "Owner";
 
-  return "Owner";
+  return "Employee";
 }
 
 function normaliseEmployeeStatus(

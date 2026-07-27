@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -117,25 +118,13 @@ async function authoriseOrganisationManager(organisationId: string) {
 
   const admin = adminClient();
 
-  const { data: membership, error: membershipError } = await admin
-    .from("organisation_memberships")
-    .select("id, role, membership_status")
-    .eq("organisation_id", organisationId)
-    .eq("user_id", user.id)
-    .eq("membership_status", "active")
-    .maybeSingle();
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    organisationId,
+    allowedStatuses: ["active"],
+  });
 
-  if (membershipError) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        { error: membershipError.message },
-        { status: 500 },
-      ),
-    };
-  }
-
-  if (!membership) {
+  if (!resolvedRole) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -145,7 +134,7 @@ async function authoriseOrganisationManager(organisationId: string) {
     };
   }
 
-  if (!["owner", "senior"].includes(String(membership.role).toLowerCase())) {
+  if (!["owner", "senior"].includes(resolvedRole.roleKey)) {
     return {
       ok: false as const,
       response: NextResponse.json(

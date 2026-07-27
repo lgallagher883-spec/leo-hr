@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -59,30 +60,12 @@ async function accessContext(supabase: any) {
     };
   }
 
-  const membership = await supabase
-    .from("organisation_memberships")
-    .select("organisation_id, role")
-    .eq("user_id", user.id)
-    .eq("membership_status", "active")
-    .order("is_default_organisation", {
-      ascending: false,
-    })
-    .limit(1)
-    .maybeSingle();
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase, {
+    userId: user.id,
+    allowedStatuses: ["active"],
+  });
 
-  if (membership.error) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          error: membership.error.message,
-        },
-        { status: 500 },
-      ),
-    };
-  }
-
-  if (!membership.data?.organisation_id) {
+  if (!resolvedRole?.membership.organisation_id) {
     return {
       error: NextResponse.json(
         {
@@ -97,8 +80,8 @@ async function accessContext(supabase: any) {
 
   return {
     user,
-    organisationId: membership.data.organisation_id,
-    role: normaliseRole(membership.data.role),
+    organisationId: resolvedRole.membership.organisation_id,
+    role: normaliseRole(resolvedRole.roleKey),
   };
 }
 

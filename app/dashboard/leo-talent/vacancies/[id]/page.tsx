@@ -89,6 +89,41 @@ type Vacancy = {
   updated_at: string;
 };
 
+type VacancyEditForm = {
+  title: string;
+  department: string;
+  locationName: string;
+  hiringManagerName: string;
+  employmentType: string;
+  workPattern: string;
+  hoursPerWeek: string;
+  salaryMin: string;
+  salaryMax: string;
+  salaryCurrency: string;
+  salaryPeriod: string;
+  salaryVisible: boolean;
+  numberOfPositions: string;
+  openingDate: string;
+  closingDate: string;
+  targetStartDate: string;
+  advertText: string;
+  roleSummary: string;
+  responsibilities: string;
+  essentialCriteria: string;
+  desirableCriteria: string;
+  benefits: string;
+  isInternalOnly: boolean;
+  acceptsInternalCandidates: boolean;
+  blindReviewEnabled: boolean;
+  aiScreeningEnabled: boolean;
+  saferRecruitmentRequired: boolean;
+  regulatedRole: boolean;
+  requiresDbs: boolean;
+  requiresDriving: boolean;
+  requiresQualificationChecks: boolean;
+  requiredReferenceCount: string;
+};
+
 type PublicationChannel = {
   id: string;
   organisation_id: string | null;
@@ -290,7 +325,7 @@ function normaliseRole(value: unknown): PlatformRole {
   if (role === "senior" || role === "hr") return "Senior";
   if (role === "manager") return "Manager";
   if (role === "employee") return "Employee";
-  return "Owner";
+  return "Employee";
 }
 
 function humanise(value?: string | null): string {
@@ -359,6 +394,98 @@ function todayIso(): string {
   return new Date().toISOString();
 }
 
+function toInputDate(value?: string | null): string {
+  return value ? value.slice(0, 10) : "";
+}
+
+function optionalText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function optionalNumber(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normaliseEmploymentType(value: string): string {
+  const normalised = value.trim().toLowerCase();
+
+  const values: Record<string, string> = {
+    permanent: "permanent",
+    "fixed term": "fixed_term",
+    temporary: "temporary",
+    casual: "casual",
+    "zero hours": "zero_hours",
+    apprenticeship: "apprenticeship",
+    internship: "internship",
+    contractor: "contractor",
+    volunteer: "volunteer",
+    other: "other",
+  };
+
+  return values[normalised] ?? "other";
+}
+
+function normaliseSalaryPeriod(value: string): string | null {
+  const normalised = value.trim().toLowerCase();
+
+  const values: Record<string, string> = {
+    "per annum": "year",
+    "per year": "year",
+    year: "year",
+    "per month": "month",
+    month: "month",
+    "per week": "week",
+    week: "week",
+    "per day": "day",
+    day: "day",
+    "per hour": "hour",
+    hour: "hour",
+    fixed: "fixed",
+  };
+
+  return values[normalised] ?? null;
+}
+
+function createEditFormFromVacancy(vacancy: Vacancy): VacancyEditForm {
+  return {
+    title: vacancy.title ?? "",
+    department: vacancy.department ?? "",
+    locationName: vacancy.location_name ?? "",
+    hiringManagerName: vacancy.hiring_manager_name ?? "",
+    employmentType: vacancy.employment_type ?? "",
+    workPattern: vacancy.work_pattern ?? "",
+    hoursPerWeek: vacancy.hours_per_week !== null ? String(vacancy.hours_per_week) : "",
+    salaryMin: vacancy.salary_min !== null ? String(vacancy.salary_min) : "",
+    salaryMax: vacancy.salary_max !== null ? String(vacancy.salary_max) : "",
+    salaryCurrency: vacancy.salary_currency ?? "GBP",
+    salaryPeriod: vacancy.salary_period ?? "",
+    salaryVisible: vacancy.salary_visible,
+    numberOfPositions: String(vacancy.number_of_positions ?? 1),
+    openingDate: toInputDate(vacancy.opening_date),
+    closingDate: toInputDate(vacancy.closing_date),
+    targetStartDate: toInputDate(vacancy.target_start_date),
+    advertText: vacancy.advert_text ?? "",
+    roleSummary: vacancy.role_summary ?? "",
+    responsibilities: vacancy.responsibilities ?? "",
+    essentialCriteria: vacancy.essential_criteria ?? "",
+    desirableCriteria: vacancy.desirable_criteria ?? "",
+    benefits: vacancy.benefits ?? "",
+    isInternalOnly: vacancy.is_internal_only,
+    acceptsInternalCandidates: vacancy.accepts_internal_candidates,
+    blindReviewEnabled: vacancy.blind_review_enabled,
+    aiScreeningEnabled: vacancy.ai_screening_enabled,
+    saferRecruitmentRequired: vacancy.safer_recruitment_required,
+    regulatedRole: vacancy.regulated_role,
+    requiresDbs: vacancy.requires_dbs,
+    requiresDriving: vacancy.requires_driving,
+    requiresQualificationChecks: vacancy.requires_qualification_checks,
+    requiredReferenceCount: String(vacancy.required_reference_count ?? 0),
+  };
+}
+
 export default function VacancyWorkspacePage() {
   const params = useParams<{ vacancyId?: string; id?: string }>();
   const router = useRouter();
@@ -380,7 +507,7 @@ export default function VacancyWorkspacePage() {
   const [userContext, setUserContext] = useState<UserContext>({
     userId: null,
     organisationId: null,
-    role: "Owner",
+    role: "Employee",
   });
 
   const [loading, setLoading] = useState(true);
@@ -396,6 +523,8 @@ export default function VacancyWorkspacePage() {
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelType, setNewChannelType] = useState("manual");
   const [newChannelUrl, setNewChannelUrl] = useState("");
+  const [isEditingVacancy, setIsEditingVacancy] = useState(false);
+  const [editForm, setEditForm] = useState<VacancyEditForm | null>(null);
   const [questionText, setQuestionText] = useState("");
   const [questionHelpText, setQuestionHelpText] = useState("");
   const [questionType, setQuestionType] = useState("long_text");
@@ -462,6 +591,7 @@ export default function VacancyWorkspacePage() {
         const workspace = payload.workspace;
 
         setVacancy(workspace.vacancy);
+        setEditForm(createEditFormFromVacancy(workspace.vacancy));
         setPublicationChannels(workspace.publicationChannels ?? []);
         setVacancyQuestions(
           [...(workspace.vacancyQuestions ?? [])].sort(
@@ -476,16 +606,22 @@ export default function VacancyWorkspacePage() {
         setDocuments(workspace.documents ?? []);
         setActivity(workspace.activity ?? []);
         setAvailability(workspace.availability ?? emptyAvailability);
-        setUserContext(
-          workspace.userContext ?? {
-            userId: null,
-            organisationId: null,
-            role: "Employee",
-          },
-        );
+        const normalizedUserContext: UserContext = workspace.userContext
+          ? {
+              ...workspace.userContext,
+              role: normaliseRole(workspace.userContext.role),
+            }
+          : {
+              userId: null,
+              organisationId: null,
+              role: "Employee",
+            };
+
+        setUserContext(normalizedUserContext);
       } catch (error) {
         console.error("Talent vacancy workspace could not be loaded:", error);
         setVacancy(null);
+        setEditForm(null);
         setErrorMessage(
           error instanceof Error
             ? error.message
@@ -578,6 +714,135 @@ export default function VacancyWorkspacePage() {
     );
   }, [candidates, searchTerm]);
 
+  const resolveVacancyUrl = useCallback(
+    async (preferLiveRoute = true) => {
+      if (!vacancyId) return "";
+
+      if (preferLiveRoute && vacancy?.status === "open") {
+        const result = await supabase
+          .from("leo_public_careers_vacancies")
+          .select("organisation_slug, vacancy_slug")
+          .eq("vacancy_id", vacancy.id)
+          .maybeSingle();
+
+        if (!result.error && result.data) {
+          const organisationSlug = result.data.organisation_slug ?? "";
+          const vacancySlug = result.data.vacancy_slug ?? "";
+
+          if (organisationSlug && vacancySlug) {
+            return `/careers/${encodeURIComponent(organisationSlug)}/${encodeURIComponent(vacancySlug)}`;
+          }
+        }
+      }
+
+      return `/careers/${encodeURIComponent(vacancyId)}`;
+    },
+    [vacancy, vacancyId],
+  );
+
+  const startEditVacancy = useCallback(() => {
+    if (!vacancy || !canManage) return;
+    setEditForm(createEditFormFromVacancy(vacancy));
+    setIsEditingVacancy(true);
+    setActiveTab("overview");
+    setErrorMessage("");
+    setActionMessage("");
+  }, [canManage, vacancy]);
+
+  const cancelEditVacancy = useCallback(() => {
+    if (!vacancy) return;
+    setEditForm(createEditFormFromVacancy(vacancy));
+    setIsEditingVacancy(false);
+    setErrorMessage("");
+  }, [vacancy]);
+
+  const updateEditField = useCallback(
+    <K extends keyof VacancyEditForm>(field: K, value: VacancyEditForm[K]) => {
+      setEditForm((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          [field]: value,
+        };
+      });
+      setErrorMessage("");
+      setActionMessage("");
+    },
+    [],
+  );
+
+  const saveVacancyEdits = useCallback(async () => {
+    if (!vacancy || !editForm || !canManage) {
+      setErrorMessage("You do not have access to edit this vacancy.");
+      return;
+    }
+
+    setWorkingAction("edit-vacancy");
+    setErrorMessage("");
+    setActionMessage("");
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          department: optionalText(editForm.department),
+          location_name: optionalText(editForm.locationName),
+          hiring_manager_name: optionalText(editForm.hiringManagerName),
+          employment_type: normaliseEmploymentType(editForm.employmentType),
+          work_pattern: optionalText(editForm.workPattern),
+          hours_per_week: optionalNumber(editForm.hoursPerWeek),
+          salary_min: optionalNumber(editForm.salaryMin),
+          salary_max: optionalNumber(editForm.salaryMax),
+          salary_currency: editForm.salaryCurrency.trim() || "GBP",
+          salary_period: normaliseSalaryPeriod(editForm.salaryPeriod),
+          salary_visible: editForm.salaryVisible,
+          number_of_positions: Number(editForm.numberOfPositions),
+          opening_date: editForm.openingDate || null,
+          closing_date: editForm.closingDate || null,
+          target_start_date: editForm.targetStartDate || null,
+          advert_text: optionalText(editForm.advertText),
+          role_summary: optionalText(editForm.roleSummary),
+          responsibilities: optionalText(editForm.responsibilities),
+          essential_criteria: optionalText(editForm.essentialCriteria),
+          desirable_criteria: optionalText(editForm.desirableCriteria),
+          benefits: optionalText(editForm.benefits),
+          is_internal_only: editForm.isInternalOnly,
+          accepts_internal_candidates: editForm.acceptsInternalCandidates,
+          blind_review_enabled: editForm.blindReviewEnabled,
+          ai_screening_enabled: editForm.aiScreeningEnabled,
+          safer_recruitment_required: editForm.saferRecruitmentRequired,
+          regulated_role: editForm.regulatedRole,
+          requires_dbs: editForm.requiresDbs,
+          requires_driving: editForm.requiresDriving,
+          requires_qualification_checks: editForm.requiresQualificationChecks,
+          required_reference_count: Number(editForm.requiredReferenceCount),
+        }),
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The vacancy could not be updated. ${payload?.error || "Unable to save changes."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    setActionMessage("Vacancy updated successfully.");
+    setIsEditingVacancy(false);
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, editForm, loadWorkspace, vacancy]);
+
   const recordActivity = useCallback(
     async (eventType: string, description: string, metadata?: Record<string, unknown>) => {
       try {
@@ -606,11 +871,31 @@ export default function VacancyWorkspacePage() {
 
   const publicVacancyPath = vacancyId ? `/careers/${vacancyId}` : "";
 
-  const publicVacancyUrl = useMemo(() => {
-    if (!publicVacancyPath) return "";
-    if (typeof window === "undefined") return publicVacancyPath;
-    return `${window.location.origin}${publicVacancyPath}`;
-  }, [publicVacancyPath]);
+  const openVacancyPreview = useCallback(async () => {
+    const path = await resolveVacancyUrl(true);
+    if (!path) return;
+
+    const url = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [resolveVacancyUrl]);
+
+  const copyVacancyUrl = useCallback(async () => {
+    const path = await resolveVacancyUrl(true);
+    if (!path) {
+      setErrorMessage("The vacancy URL could not be resolved.");
+      return;
+    }
+
+    const url = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setActionMessage("Vacancy URL copied to clipboard.");
+    } catch {
+      window.prompt("Copy this vacancy URL:", url);
+      setActionMessage("Vacancy URL is ready to copy.");
+    }
+  }, [resolveVacancyUrl]);
 
   const updatePublicationSettings = useCallback(
     async (updates: Record<string, unknown>, successMessage: string) => {
@@ -624,17 +909,27 @@ export default function VacancyWorkspacePage() {
       setActionMessage("");
 
       const nextMetadata = { ...(vacancy.metadata ?? {}), ...updates };
-      const { error } = await supabase
-        .from("leo_talent_vacancies")
-        .update({
-  metadata: nextMetadata,
-  updated_at: todayIso(),
-  updated_by: userContext.userId,
-} as any)
-        .eq("id", vacancy.id);
+      const response = await fetch(
+        `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            metadata: nextMetadata,
+          }),
+        },
+      );
 
-      if (error) {
-        setErrorMessage(`Publication settings could not be saved. ${error.message}`);
+      const payload = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        setErrorMessage(
+          `Publication settings could not be saved. ${payload?.error || "Unable to save changes."}`,
+        );
         setWorkingAction(null);
         return;
       }
@@ -672,21 +967,37 @@ export default function VacancyWorkspacePage() {
     setActionMessage("");
 
     const now = todayIso();
-    const vacancyUpdate = await supabase
-      .from("leo_talent_vacancies")
-      .update({
-        status: "open",
-        approval_status:
-          vacancy.approval_status === "not_required" ? "approved" : vacancy.approval_status,
-        published_at: now,
-        opening_date: vacancy.opening_date ?? now.slice(0, 10),
-        updated_at: now,
-        updated_by: userContext.userId,
-      })
-      .eq("id", vacancy.id);
+    const vacancyUpdateResponse = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "open",
+          approval_status:
+            vacancy.approval_status === "not_required"
+              ? "approved"
+              : vacancy.approval_status,
+          published_at: now,
+          opening_date: vacancy.opening_date ?? now.slice(0, 10),
+        }),
+      },
+    );
 
-    if (vacancyUpdate.error) {
-      setErrorMessage(`The vacancy could not be published. ${vacancyUpdate.error.message}`);
+    const vacancyUpdatePayload =
+      (await vacancyUpdateResponse.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+    if (
+      !vacancyUpdateResponse.ok ||
+      !vacancyUpdatePayload?.success
+    ) {
+      setErrorMessage(
+        `The vacancy could not be published. ${vacancyUpdatePayload?.error || "Unable to save changes."}`,
+      );
       setWorkingAction(null);
       return;
     }
@@ -765,7 +1076,6 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
     canManage,
     loadWorkspace,
     publicVacancyPath,
-    publicVacancyUrl,
     publicationChannels,
     recordActivity,
     userContext.userId,
@@ -784,13 +1094,28 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
     setErrorMessage("");
     const now = todayIso();
 
-    const vacancyResult = await supabase
-      .from("leo_talent_vacancies")
-      .update({ status: "paused", updated_at: now, updated_by: userContext.userId })
-      .eq("id", vacancy.id);
+    const vacancyResponse = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "paused",
+        }),
+      },
+    );
 
-    if (vacancyResult.error) {
-      setErrorMessage(`The vacancy could not be unpublished. ${vacancyResult.error.message}`);
+    const vacancyPayload =
+      (await vacancyResponse.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+    if (!vacancyResponse.ok || !vacancyPayload?.success) {
+      setErrorMessage(
+        `The vacancy could not be unpublished. ${vacancyPayload?.error || "Unable to save changes."}`,
+      );
       setWorkingAction(null);
       return;
     }
@@ -889,34 +1214,40 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
         setWorkingAction("add-vacancy-question");
     setErrorMessage("");
 
-    const now = todayIso();
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}/questions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question_text: questionText.trim(),
+          help_text: questionHelpText.trim() || null,
+          question_type: questionType,
+          options: [],
+          is_required: questionRequired,
+          is_knockout: questionKnockout,
+          knockout_rule: {},
+          blind_review_excluded: false,
+          display_order: vacancyQuestions.length,
+          is_active: true,
+        }),
+      },
+    );
 
-    const { error } = await (supabase as any)
-      .from("leo_talent_vacancy_questions")
-      .insert({
-        organisation_id: vacancy.organisation_id,
-        vacancy_id: vacancy.id,
-        question_text: questionText.trim(),
-        help_text: questionHelpText.trim() || null,
-        question_type: questionType,
-        options: [],
-        is_required: questionRequired,
-        is_knockout: questionKnockout,
-        knockout_rule: {},
-        blind_review_excluded: false,
-        display_order: vacancyQuestions.length,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      } as any);
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
 
-    if (error) {
-      setErrorMessage(`The application question could not be added. ${error.message}`);
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The application question could not be added. ${payload?.error || "Unable to save changes."}`,
+      );
       setWorkingAction(null);
       return;
     }
 
-    await recordActivity("vacancy_question_added", "Application question added.", { question: questionText.trim() });
     setQuestionText("");
     setQuestionHelpText("");
     setQuestionType("long_text");
@@ -925,22 +1256,32 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
     setActionMessage("Application question added.");
     setWorkingAction(null);
     await loadWorkspace(true);
-  }, [canManage, loadWorkspace, questionHelpText, questionKnockout, questionRequired, questionText, questionType, recordActivity, vacancy, vacancyQuestions.length]);
+  }, [canManage, loadWorkspace, questionHelpText, questionKnockout, questionRequired, questionText, questionType, vacancy, vacancyQuestions.length]);
 
   const toggleVacancyQuestion = useCallback(async (question: VacancyQuestion, updates: Partial<VacancyQuestion>) => {
     if (!canManage) return;
     setWorkingAction(`question-${question.id}`);
     setErrorMessage("");
-        const { error } = await (supabase as any)
-      .from("leo_talent_vacancy_questions")
-      .update({
-        ...updates,
-        updated_at: todayIso(),
-      } as any)
-      .eq("id", question.id);
 
-    if (error) {
-      setErrorMessage(`The application question could not be updated. ${error.message}`);
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(question.vacancy_id)}/questions/${encodeURIComponent(question.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The application question could not be updated. ${payload?.error || "Unable to save changes."}`,
+      );
       setWorkingAction(null);
       return;
     }
@@ -951,19 +1292,29 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
   const deleteVacancyQuestion = useCallback(async (question: VacancyQuestion) => {
     if (!canManage || !window.confirm("Delete this application question?")) return;
     setWorkingAction(`question-${question.id}`);
-    const { error } = await supabase
-      .from("leo_talent_vacancy_questions")
-      .delete()
-      .eq("id", question.id);
-    if (error) {
-      setErrorMessage(`The application question could not be deleted. ${error.message}`);
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(question.vacancy_id)}/questions/${encodeURIComponent(question.id)}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The application question could not be deleted. ${payload?.error || "Unable to delete this question."}`,
+      );
       setWorkingAction(null);
       return;
     }
-    await recordActivity("vacancy_question_deleted", "Application question deleted.", { question: question.question_text });
+
     setWorkingAction(null);
     await loadWorkspace(true);
-  }, [canManage, loadWorkspace, recordActivity]);
+  }, [canManage, loadWorkspace]);
 
   const updateVacancyStatus = useCallback(
     async (
@@ -993,13 +1344,25 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
         payload.archived_at = null;
       }
 
-          const { error } = await (supabase as any)
-      .from("leo_talent_vacancies")
-      .update(payload as any)
-      .eq("id", vacancy.id);
+      const response = await fetch(
+        `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
 
-      if (error) {
-        setErrorMessage(`The vacancy could not be updated. ${error.message}`);
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || !result?.success) {
+        setErrorMessage(
+          `The vacancy could not be updated. ${result?.error || "Unable to save changes."}`,
+        );
         setWorkingAction(null);
         return;
       }
@@ -1028,17 +1391,28 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
       setWorkingAction(`approval-${approvalStatus}`);
       setErrorMessage("");
 
-      const { error } = await supabase
-        .from("leo_talent_vacancies")
-        .update({
-          approval_status: approvalStatus,
-          status,
-          updated_at: todayIso(),
-        })
-        .eq("id", vacancy.id);
+      const response = await fetch(
+        `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            approval_status: approvalStatus,
+            status,
+          }),
+        },
+      );
 
-      if (error) {
-        setErrorMessage(`Approval could not be recorded. ${error.message}`);
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || !result?.success) {
+        setErrorMessage(
+          `Approval could not be recorded. ${result?.error || "Unable to save changes."}`,
+        );
         setWorkingAction(null);
         return;
       }
@@ -1080,13 +1454,21 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
 
     setWorkingAction("delete");
 
-    const { error } = await supabase
-      .from("leo_talent_vacancies")
-      .delete()
-      .eq("id", vacancy.id);
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "DELETE",
+      },
+    );
 
-    if (error) {
-      setErrorMessage(`The vacancy could not be deleted. ${error.message}`);
+    const result = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !result?.success) {
+      setErrorMessage(
+        `The vacancy could not be deleted. ${result?.error || "Unable to delete this vacancy."}`,
+      );
       setWorkingAction(null);
       return;
     }
@@ -1263,6 +1645,17 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
             {refreshing ? "Refreshing…" : "Refresh"}
           </button>
 
+          {canManage ? (
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={startEditVacancy}
+              disabled={workingAction !== null}
+            >
+              Edit vacancy
+            </button>
+          ) : null}
+
           {canManage && vacancy.status === "draft" ? (
             <button
               type="button"
@@ -1324,7 +1717,18 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
       </nav>
 
       {activeTab === "overview" ? (
-        <OverviewTab vacancy={vacancy} canManage={canManage} onStatus={updateVacancyStatus} />
+        <OverviewTab
+          vacancy={vacancy}
+          canManage={canManage}
+          isEditingVacancy={isEditingVacancy}
+          editForm={editForm}
+          onStartEdit={startEditVacancy}
+          onCancelEdit={cancelEditVacancy}
+          onEditField={updateEditField}
+          onSaveEdit={saveVacancyEdits}
+          workingAction={workingAction}
+          onStatus={updateVacancyStatus}
+        />
       ) : null}
 
       {activeTab === "publication" ? (
@@ -1336,7 +1740,9 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
           questionsAvailable={availability.vacancyQuestions}
           canManage={canManage}
           workingAction={workingAction}
-          publicUrl={publicVacancyUrl || publicVacancyPath}
+          publicUrl={publicVacancyPath}
+          onPreviewVacancy={openVacancyPreview}
+          onCopyVacancyUrl={copyVacancyUrl}
           newChannelName={newChannelName}
           newChannelType={newChannelType}
           newChannelUrl={newChannelUrl}
@@ -1458,10 +1864,24 @@ const resolvedPublicPath = `/careers/${encodeURIComponent(
 function OverviewTab({
   vacancy,
   canManage,
+  isEditingVacancy,
+  editForm,
+  onStartEdit,
+  onCancelEdit,
+  onEditField,
+  onSaveEdit,
+  workingAction,
   onStatus,
 }: {
   vacancy: Vacancy;
   canManage: boolean;
+  isEditingVacancy: boolean;
+  editForm: VacancyEditForm | null;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onEditField: <K extends keyof VacancyEditForm>(field: K, value: VacancyEditForm[K]) => void;
+  onSaveEdit: () => void;
+  workingAction: string | null;
   onStatus: (
     status: VacancyStatus,
     approval?: ApprovalStatus,
@@ -1471,57 +1891,141 @@ function OverviewTab({
   return (
     <div style={styles.contentGrid}>
       <section style={styles.panel}>
-        <SectionHeading
-          title="Vacancy Overview"
-          description="The core employment and campaign details for this vacancy."
-        />
+        {isEditingVacancy && editForm ? (
+          <div style={styles.formStack}>
+            <SectionHeading
+              title="Edit Vacancy"
+              description="Update the vacancy details without changing the workspace layout."
+            />
 
-        <div style={styles.detailGrid}>
-          <Detail label="Vacancy reference" value={vacancy.vacancy_reference} />
-          <Detail label="Department" value={vacancy.department || "Not set"} />
-          <Detail label="Location" value={vacancy.location_name || "Not set"} />
-          <Detail
-            label="Hiring manager"
-            value={vacancy.hiring_manager_name || "Not set"}
-          />
-          <Detail
-            label="Recruitment lead"
-            value={vacancy.recruitment_lead_name || "Not set"}
-          />
-          <Detail label="Employment type" value={vacancy.employment_type} />
-          <Detail label="Working pattern" value={vacancy.work_pattern || "Not set"} />
-          <Detail
-            label="Hours per week"
-            value={
-              vacancy.hours_per_week !== null
-                ? `${vacancy.hours_per_week} hours`
-                : "Not set"
-            }
-          />
-          <Detail
-            label="Salary"
-            value={
-              vacancy.salary_visible
-                ? formatSalary(
-                    vacancy.salary_min,
-                    vacancy.salary_max,
-                    vacancy.salary_currency,
-                    vacancy.salary_period,
-                  )
-                : "Not displayed"
-            }
-          />
-          <Detail
-            label="Positions"
-            value={String(vacancy.number_of_positions)}
-          />
-          <Detail label="Opening date" value={formatDate(vacancy.opening_date)} />
-          <Detail label="Closing date" value={formatDate(vacancy.closing_date)} />
-          <Detail
-            label="Target start date"
-            value={formatDate(vacancy.target_start_date)}
-          />
-        </div>
+            <div style={styles.formGrid}>
+              <FieldLabel label="Vacancy title">
+                <input value={editForm.title} onChange={(event) => onEditField("title", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Department">
+                <input value={editForm.department} onChange={(event) => onEditField("department", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Location">
+                <input value={editForm.locationName} onChange={(event) => onEditField("locationName", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Hiring manager">
+                <input value={editForm.hiringManagerName} onChange={(event) => onEditField("hiringManagerName", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Employment type">
+                <input value={editForm.employmentType} onChange={(event) => onEditField("employmentType", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Working pattern">
+                <input value={editForm.workPattern} onChange={(event) => onEditField("workPattern", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Hours per week">
+                <input value={editForm.hoursPerWeek} onChange={(event) => onEditField("hoursPerWeek", event.target.value)} style={styles.input} inputMode="numeric" />
+              </FieldLabel>
+              <FieldLabel label="Salary minimum">
+                <input value={editForm.salaryMin} onChange={(event) => onEditField("salaryMin", event.target.value)} style={styles.input} inputMode="numeric" />
+              </FieldLabel>
+              <FieldLabel label="Salary maximum">
+                <input value={editForm.salaryMax} onChange={(event) => onEditField("salaryMax", event.target.value)} style={styles.input} inputMode="numeric" />
+              </FieldLabel>
+              <FieldLabel label="Salary currency">
+                <input value={editForm.salaryCurrency} onChange={(event) => onEditField("salaryCurrency", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Salary period">
+                <input value={editForm.salaryPeriod} onChange={(event) => onEditField("salaryPeriod", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Opening date">
+                <input type="date" value={editForm.openingDate} onChange={(event) => onEditField("openingDate", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Closing date">
+                <input type="date" value={editForm.closingDate} onChange={(event) => onEditField("closingDate", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Target start date">
+                <input type="date" value={editForm.targetStartDate} onChange={(event) => onEditField("targetStartDate", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Vacancy advert">
+                <textarea value={editForm.advertText} onChange={(event) => onEditField("advertText", event.target.value)} style={styles.textarea} rows={4} />
+              </FieldLabel>
+              <FieldLabel label="Role summary">
+                <textarea value={editForm.roleSummary} onChange={(event) => onEditField("roleSummary", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Responsibilities">
+                <textarea value={editForm.responsibilities} onChange={(event) => onEditField("responsibilities", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Essential criteria">
+                <textarea value={editForm.essentialCriteria} onChange={(event) => onEditField("essentialCriteria", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Desirable criteria">
+                <textarea value={editForm.desirableCriteria} onChange={(event) => onEditField("desirableCriteria", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Benefits">
+                <textarea value={editForm.benefits} onChange={(event) => onEditField("benefits", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+            </div>
+
+            <div style={styles.buttonRow}>
+              <button type="button" style={styles.primaryButton} onClick={onSaveEdit} disabled={workingAction !== null}>{workingAction === "edit-vacancy" ? "Saving…" : "Save changes"}</button>
+              <button type="button" style={styles.secondaryButton} onClick={onCancelEdit} disabled={workingAction !== null}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <SectionHeading
+              title="Vacancy Overview"
+              description="The core employment and campaign details for this vacancy."
+              action={
+                canManage ? (
+                  <button type="button" style={styles.secondaryButton} onClick={onStartEdit}>Edit vacancy</button>
+                ) : null
+              }
+            />
+
+            <div style={styles.detailGrid}>
+              <Detail label="Vacancy reference" value={vacancy.vacancy_reference} />
+              <Detail label="Department" value={vacancy.department || "Not set"} />
+              <Detail label="Location" value={vacancy.location_name || "Not set"} />
+              <Detail
+                label="Hiring manager"
+                value={vacancy.hiring_manager_name || "Not set"}
+              />
+              <Detail
+                label="Recruitment lead"
+                value={vacancy.recruitment_lead_name || "Not set"}
+              />
+              <Detail label="Employment type" value={vacancy.employment_type} />
+              <Detail label="Working pattern" value={vacancy.work_pattern || "Not set"} />
+              <Detail
+                label="Hours per week"
+                value={
+                  vacancy.hours_per_week !== null
+                    ? `${vacancy.hours_per_week} hours`
+                    : "Not set"
+                }
+              />
+              <Detail
+                label="Salary"
+                value={
+                  vacancy.salary_visible
+                    ? formatSalary(
+                        vacancy.salary_min,
+                        vacancy.salary_max,
+                        vacancy.salary_currency,
+                        vacancy.salary_period,
+                      )
+                    : "Not displayed"
+                }
+              />
+              <Detail
+                label="Positions"
+                value={String(vacancy.number_of_positions)}
+              />
+              <Detail label="Opening date" value={formatDate(vacancy.opening_date)} />
+              <Detail label="Closing date" value={formatDate(vacancy.closing_date)} />
+              <Detail
+                label="Target start date"
+                value={formatDate(vacancy.target_start_date)}
+              />
+            </div>
+          </>
+        )}
       </section>
 
       <aside style={styles.sideColumn}>
@@ -1627,6 +2131,8 @@ function PublicationTab({
   canManage,
   workingAction,
   publicUrl,
+  onPreviewVacancy,
+  onCopyVacancyUrl,
   newChannelName,
   newChannelType,
   newChannelUrl,
@@ -1660,6 +2166,8 @@ function PublicationTab({
   canManage: boolean;
   workingAction: string | null;
   publicUrl: string;
+  onPreviewVacancy: () => void;
+  onCopyVacancyUrl: () => void;
   newChannelName: string;
   newChannelType: string;
   newChannelUrl: string;
@@ -1688,13 +2196,6 @@ function PublicationTab({
   const metadata = vacancy.metadata ?? {};
   const published = vacancy.status === "open" && Boolean(vacancy.published_at);
   const liveChannels = channels.filter((channel) => channel.status === "published").length;
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-    } catch {
-      window.prompt("Copy this public vacancy link:", publicUrl);
-    }
-  };
 
   return (
     <div style={styles.settingsGrid}>
@@ -1741,8 +2242,8 @@ function PublicationTab({
               <div style={styles.publicLinkText}>{publicUrl}</div>
             </div>
             <div style={styles.buttonRow}>
-              <button type="button" style={styles.secondaryButton} onClick={() => void copyLink()}>Copy link</button>
-              <button type="button" style={styles.secondaryButton} onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}>Preview</button>
+              <button type="button" style={styles.secondaryButton} onClick={() => void onCopyVacancyUrl()}>Copy URL</button>
+              <button type="button" style={styles.secondaryButton} onClick={() => void onPreviewVacancy()}>Preview</button>
             </div>
           </div>
           <div style={styles.detailGrid}>
@@ -2125,7 +2626,7 @@ function InterviewsTab({
             type="button"
             style={styles.primaryButton}
             onClick={() =>
-              router.push(`/dashboard/leo-talent/interviews/create?vacancyId=${vacancyId}`)
+                        router.push("/dashboard/leo-talent?section=interviews")
             }
           >
             Schedule interview

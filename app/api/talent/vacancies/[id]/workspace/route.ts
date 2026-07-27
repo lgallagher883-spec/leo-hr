@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -154,36 +155,6 @@ export async function GET(
       );
     }
 
-    let profile: Record<string, unknown> | null = null;
-
-    for (const column of ["user_id", "auth_user_id", "id"]) {
-      const profileResult = await (supabase as any)
-        .from("user_profiles")
-        .select("*")
-        .eq(column, user.id)
-        .limit(1);
-
-      if (
-        !profileResult.error &&
-        Array.isArray(profileResult.data) &&
-        profileResult.data.length > 0
-      ) {
-        profile = profileResult.data[0] as Record<string, unknown>;
-        break;
-      }
-    }
-
-    const userContext = {
-      userId: user.id,
-      organisationId:
-        (profile?.organisation_id as string | number | null) ?? null,
-      role: normaliseRole(
-        profile?.platform_role ??
-          profile?.role ??
-          profile?.access_level,
-      ),
-    };
-
     const vacancyResult = await (supabase as any)
       .from("leo_talent_vacancies")
       .select("*")
@@ -211,6 +182,31 @@ export async function GET(
     }
 
     const vacancy = vacancyResult.data;
+
+    const resolvedRole = await resolveAuthoritativeUserRole(
+      supabase as any,
+      {
+        userId: user.id,
+        organisationId: String(vacancy.organisation_id ?? ""),
+        allowedStatuses: ["active"],
+      },
+    );
+
+    if (!resolvedRole) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You do not have access to this vacancy.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const userContext = {
+      userId: user.id,
+      organisationId: resolvedRole.membership.organisation_id,
+      role: normaliseRole(resolvedRole.roleKey),
+    };
 
     const availability: TableAvailability = {
       ...initialAvailability,

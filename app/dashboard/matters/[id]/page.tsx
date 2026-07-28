@@ -124,54 +124,6 @@ export default function MatterDetailPage() {
     setLoadingTimeline(false);
   }
 
-  async function addTimelineEvent({
-  eventType,
-  title,
-  description,
-  createdBy = "System",
-}: {
-  eventType: string;
-  title: string;
-  description?: string;
-  createdBy?: string;
-}) {
-  if (!matter) return;
-
-  const { error } = await supabase.from("matter_timeline").insert({
-    matter_id: matter.id,
-    event_type: eventType,
-    title,
-    description: description || null,
-    created_by: createdBy,
-  });
-
-  if (error) {
-    console.error("Error saving timeline event:", error);
-    return;
-  }
-
-  await loadTimeline();
-}
-
-  async function ensureMatterCreatedTimelineEvent() {
-    if (!matter) return;
-
-    const { data } = await supabase
-      .from("matter_timeline")
-      .select("id")
-      .eq("matter_id", matter.id)
-      .eq("event_type", "matter_created")
-      .limit(1);
-
-    if (data && data.length > 0) return;
-
-    await addTimelineEvent({
-      eventType: "matter_created",
-      title: "Matter created",
-      description: matter.description || "Matter record created.",
-    });
-  }
-
   async function updateStatus() {
     if (!matter) return;
 
@@ -179,22 +131,32 @@ export default function MatterDetailPage() {
 
     setMatters(matters.map((m) => (m.id === id ? { ...m, status } : m)));
 
-    const { error } = await supabase
-      .from("matters")
-      .update({ status })
-      .eq("id", matter.id);
+    const response = await fetch(`/api/matters/${matter.id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    });
 
-    if (error) {
-      console.error("Error updating matter status:", error);
+    const result = (await response.json().catch(() => null)) as
+      | {
+          success?: boolean;
+          error?: string;
+        }
+      | null;
+
+    if (!response.ok || !result?.success) {
+      console.error(
+        "Error updating matter status:",
+        result?.error || "The matter status could not be updated.",
+      );
       return;
     }
 
     if (previousStatus !== status) {
-      await addTimelineEvent({
-        eventType: "status_changed",
-        title: "Matter status updated",
-        description: `Status changed from ${previousStatus} to ${status}.`,
-      });
+      await loadTimeline();
     }
 
     setOpenWorkspace(null);

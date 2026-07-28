@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 
 import { runAuthorityEngine } from "@/leo/authority/router";
 import { buildConversationPlan } from "@/leo/conversation/conversationEngine";
@@ -20,11 +20,6 @@ import { runProfessionalThinking } from "@/leo/thinking/model";
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type StoredKnowledgeChunk = {
   id: string;
@@ -46,6 +41,45 @@ type PolicyRegisterRecord = {
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        {
+          error: "You must be signed in to use Ask Leo.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const {
+      data: organisationId,
+      error: organisationError,
+    } = await supabase.rpc("leo_current_organisation_id");
+
+    if (
+      organisationError ||
+      typeof organisationId !== "string" ||
+      !organisationId.trim()
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Your active organisation could not be resolved.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     const body = await req.json();
 
     const message =
@@ -109,7 +143,8 @@ export async function POST(req: Request) {
       error: foundationError,
     } = await supabase
       .from("organisation_foundations")
-      .select("section,key,value,source");
+      .select("section,key,value,source")
+      .eq("organisation_id", organisationId);
 
     if (foundationError) {
       console.error(
@@ -141,17 +176,11 @@ export async function POST(req: Request) {
      * 6. HR RESOURCE DOCUMENT KNOWLEDGE
      */
 
-    const organisationId =
-      typeof body.organisationId ===
-        "string" &&
-      body.organisationId.trim()
-        ? body.organisationId.trim()
-        : "default-organisation";
-
     const documentPolicies =
       await loadRelevantDocumentPolicies(
         message,
-        organisationId
+        organisationId,
+        supabase
       );
 
     /*
@@ -270,11 +299,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       response,
-      thinking: thinkingResult,
-      core: coreResult,
-      reasoning: reasoningResult,
-      conversation: conversationPlan,
-      responseArchitecture,
 
       documentKnowledge: {
         policyCount:
@@ -313,15 +337,13 @@ export async function POST(req: Request) {
 
 async function loadRelevantDocumentPolicies(
   message: string,
-  organisationId: string
+  organisationId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<StoredPolicy[]> {
-  const serverSupabase =
-    createServerSupabaseClient();
-
   const {
     data: chunkData,
     error: chunkError,
-  } = await serverSupabase
+  } = await supabase
     .from("knowledge_chunks")
     .select(
       `
@@ -386,11 +408,14 @@ async function loadRelevantDocumentPolicies(
   const {
     data: policyData,
     error: policyError,
-  } = await serverSupabase
+  } = await supabase
     .from("policy_register")
     .select(
       "id,name,register_type"
     )
+    // policy_register has no organisation_id column in schema.
+    // Safety is enforced by restricting lookup IDs to those derived from
+    // organisation-scoped knowledge_chunks above.
     .in("id", policyRecordIds);
 
   if (policyError) {
@@ -580,39 +605,6 @@ async function loadRelevantDocumentPolicies(
 
       active: true,
     })
-  );
-}
-
-function createServerSupabaseClient() {
-  const supabaseUrl =
-    process.env
-      .NEXT_PUBLIC_SUPABASE_URL;
-
-  const secretKey =
-    process.env
-      .SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL is not configured."
-    );
-  }
-
-  if (!secretKey) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is not configured."
-    );
-  }
-
-  return createClient(
-    supabaseUrl,
-    secretKey,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    }
   );
 }
 

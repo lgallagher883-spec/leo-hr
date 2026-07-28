@@ -131,15 +131,7 @@ export async function GET() {
 
     const { supabase, organisationId } = access;
 
-    const [
-      employeeResult,
-      siteResult,
-      employmentResult,
-      rightToWorkResult,
-      dbsResult,
-      drivingResult,
-      trainingResult,
-    ] = await Promise.all([
+    const [employeeResult, siteResult] = await Promise.all([
       supabase
         .from("employees")
         .select("*")
@@ -151,40 +143,6 @@ export async function GET() {
         .select("id, name, manager, status")
         .eq("organisation_id", organisationId)
         .order("name", { ascending: true }),
-
-      supabase
-        .from("employee_employment_details")
-        .select(
-          "employee_id, manager, probation_end_date, employment_end_date",
-        ),
-
-      supabase
-        .from("employee_right_to_work")
-        .select(
-          "id, employee_id, nationality, immigration_status, visa_or_permit_type, right_to_work_expiry, check_completed_date, next_review_date, created_at",
-        )
-        .order("created_at", { ascending: false }),
-
-      supabase
-        .from("employee_dbs_checks")
-        .select(
-          "id, employee_id, dbs_required, dbs_level, certificate_number, certificate_issue_date, next_check_due, update_service, update_service_id, update_service_last_check_date, update_service_next_check_due, safeguarding_training_completed, safeguarding_training_expiry, created_at",
-        )
-        .order("created_at", { ascending: false }),
-
-      supabase
-        .from("employee_driving_checks")
-        .select(
-          "id, employee_id, drives_for_work, vehicle_used, vehicle_registration, vehicle_ownership, authorised_to_drive, licence_expiry_date, dvla_check_completed, dvla_check_date, next_dvla_check_due, business_insurance_confirmed, business_insurance_expiry_date, mot_required, mot_expiry_date, created_at",
-        )
-        .order("created_at", { ascending: false }),
-
-      supabase
-        .from("employee_training_logs")
-        .select(
-          "id, employee_id, training_name, date_completed, refresh_or_expiry_date, notes, created_at",
-        )
-        .order("refresh_or_expiry_date", { ascending: true }),
     ]);
 
     if (employeeResult.error) {
@@ -202,6 +160,84 @@ export async function GET() {
         },
         { status: 500 },
       );
+    }
+
+    const employeeIds = (employeeResult.data ?? []).map(
+      (employee) => employee.id,
+    );
+
+    let employmentResult: QueryResult<unknown> = {
+      data: [],
+      error: null,
+    };
+
+    let rightToWorkResult: QueryResult<unknown> = {
+      data: [],
+      error: null,
+    };
+
+    let dbsResult: QueryResult<unknown> = {
+      data: [],
+      error: null,
+    };
+
+    let drivingResult: QueryResult<unknown> = {
+      data: [],
+      error: null,
+    };
+
+    let trainingResult: QueryResult<unknown> = {
+      data: [],
+      error: null,
+    };
+
+    if (employeeIds.length > 0) {
+      [
+        employmentResult,
+        rightToWorkResult,
+        dbsResult,
+        drivingResult,
+        trainingResult,
+      ] = await Promise.all([
+        supabase
+          .from("employee_employment_details")
+          .select(
+            "employee_id, manager, probation_end_date, employment_end_date",
+          )
+          .in("employee_id", employeeIds),
+
+      supabase
+          .from("employee_right_to_work")
+          .select(
+            "id, employee_id, nationality, immigration_status, visa_or_permit_type, right_to_work_expiry, check_completed_date, next_review_date, created_at",
+          )
+          .in("employee_id", employeeIds)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("employee_dbs_checks")
+          .select(
+            "id, employee_id, dbs_required, dbs_level, certificate_number, certificate_issue_date, next_check_due, update_service, update_service_id, update_service_last_check_date, update_service_next_check_due, safeguarding_training_completed, safeguarding_training_expiry, created_at",
+          )
+          .in("employee_id", employeeIds)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("employee_driving_checks")
+          .select(
+            "id, employee_id, drives_for_work, vehicle_used, vehicle_registration, vehicle_ownership, authorised_to_drive, licence_expiry_date, dvla_check_completed, dvla_check_date, next_dvla_check_due, business_insurance_confirmed, business_insurance_expiry_date, mot_required, mot_expiry_date, created_at",
+          )
+          .in("employee_id", employeeIds)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("employee_training_logs")
+          .select(
+            "id, employee_id, training_name, date_completed, refresh_or_expiry_date, notes, created_at",
+          )
+          .in("employee_id", employeeIds)
+          .order("refresh_or_expiry_date", { ascending: true }),
+      ]);
     }
 
     const optionalSources: Array<{

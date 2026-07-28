@@ -152,6 +152,37 @@ export async function PATCH(
 
   const { supabase } = access;
 
+  const {
+    data: existingMatter,
+    error: existingMatterError,
+  } = await supabase
+    .from("matters")
+    .select("id, status")
+    .eq("id", matterId)
+    .maybeSingle();
+
+  if (existingMatterError) {
+    console.error("Matter status could not be checked:", existingMatterError);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: existingMatterError.message || "The matter could not be checked.",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!existingMatter) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "The matter could not be found or accessed.",
+      },
+      { status: 404 },
+    );
+  }
+
   const { data, error } = await supabase
     .from("matters")
     .update({
@@ -181,6 +212,23 @@ export async function PATCH(
       },
       { status: 404 },
     );
+  }
+
+  if (existingMatter.status !== body.status) {
+    const { error: timelineError } = await supabase
+      .from("matter_timeline")
+      .insert({
+        matter_id: matterId,
+        event_type: "status_changed",
+        title: "Matter status updated",
+        description: `Status changed from ${existingMatter.status} to ${body.status}.`,
+        created_by: "System",
+      });
+
+    if (timelineError) {
+      // Keep status change successful even if chronology logging fails.
+      console.error("Matter timeline event could not be created:", timelineError);
+    }
   }
 
   return NextResponse.json({

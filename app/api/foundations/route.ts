@@ -9,9 +9,10 @@ export async function GET() {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json(
         {
           success: false,
@@ -21,11 +22,34 @@ export async function GET() {
       );
     }
 
+    const {
+      data: organisationId,
+      error: organisationError,
+    } = await supabase.rpc(
+      "leo_current_organisation_id"
+    );
+
+    if (
+      organisationError ||
+      typeof organisationId !== "string" ||
+      !organisationId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Your active organisation could not be resolved.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("organisation_foundations")
       .select(
         "id, section, key, value, source"
       )
+      .eq("organisation_id", organisationId)
       .order("created_at", {
         ascending: true,
       });

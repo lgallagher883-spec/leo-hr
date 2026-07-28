@@ -1,13 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useState } from "react";
 
 export default function NewEmployeePage() {
   const router = useRouter();
@@ -18,47 +12,6 @@ export default function NewEmployeePage() {
   const [startDate, setStartDate] = useState("");
   const [status, setStatus] = useState("Active");
   const [saving, setSaving] = useState(false);
-  const [organisationId, setOrganisationId] = useState<string | null>(null);
-  const [loadingOrganisation, setLoadingOrganisation] = useState(true);
-
-
-  useEffect(() => {
-    async function loadOrganisation() {
-      setLoadingOrganisation(true);
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.error("Current user could not be loaded:", userError);
-        setLoadingOrganisation(false);
-        return;
-      }
-
-      const { data: membership, error: membershipError } = await supabase
-        .from("organisation_memberships")
-        .select("organisation_id")
-        .eq("user_id", user.id)
-        .eq("membership_status", "active")
-        .maybeSingle();
-
-      if (membershipError) {
-        console.error(
-          "Organisation membership could not be loaded:",
-          membershipError
-        );
-        setLoadingOrganisation(false);
-        return;
-      }
-
-      setOrganisationId(membership?.organisation_id ?? null);
-      setLoadingOrganisation(false);
-    }
-
-    void loadOrganisation();
-  }, []);
 
   async function saveEmployee() {
     if (!name.trim()) {
@@ -66,31 +19,37 @@ export default function NewEmployeePage() {
       return;
     }
 
-    if (!organisationId) {
-      alert("Your active organisation could not be identified. Please sign out and back in, then try again.");
-      return;
-    }
-
     setSaving(true);
 
-    const { error } = await supabase.from("employees").insert([
-      {
-        organisation_id: organisationId,
-        name: name.trim(),
-        role: role.trim() || null,
-        email: email.trim() || null,
-        start_date: startDate || null,
-        status,
+    const response = await fetch("/api/employees", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
       },
-    ]);
+      body: JSON.stringify({
+        name,
+        role,
+        email,
+        startDate,
+        status,
+      }),
+    });
+
+    const result = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
 
     setSaving(false);
 
-    if (error) {
-  console.error("Error saving employee:", JSON.stringify(error, null, 2));
-  alert(`Employee could not be saved: ${error.message || "Unknown error"}`);
-  return;
-}
+    if (!response.ok || !result?.success) {
+      const errorMessage =
+        result?.error || "Employee could not be saved.";
+
+      console.error("Error saving employee:", errorMessage);
+      alert(`Employee could not be saved: ${errorMessage}`);
+      return;
+    }
 
     router.push("/dashboard/employees");
   }
@@ -127,14 +86,10 @@ export default function NewEmployeePage() {
 
         <button
           onClick={saveEmployee}
-          disabled={saving || loadingOrganisation || !organisationId}
+          disabled={saving}
           style={saveButtonStyle}
         >
-          {loadingOrganisation
-            ? "Loading organisation..."
-            : saving
-            ? "Saving..."
-            : "Save employee"}
+          {saving ? "Saving..." : "Save employee"}
         </button>
       </div>
     </div>

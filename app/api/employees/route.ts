@@ -143,6 +143,144 @@ export async function GET() {
   }
 }
 
+type CreateEmployeeBody = {
+  name?: unknown;
+  role?: unknown;
+  email?: unknown;
+  startDate?: unknown;
+  status?: unknown;
+};
+
+function readOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You are not signed in.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const accessResult = await requireAccess(
+      supabase,
+      user.id,
+      ["employees.create"]
+    );
+
+    if (!accessResult.ok) {
+      return accessResult.response;
+    }
+
+    const { organisationId } = accessResult.access;
+
+    let body: CreateEmployeeBody;
+
+    try {
+      body = (await request.json()) as CreateEmployeeBody;
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The employee details could not be read.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const name = readOptionalString(body.name);
+
+    if (!name) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Please enter the employee name.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const status = readOptionalString(body.status) || "Active";
+
+    if (
+      status !== "Active" &&
+      status !== "Former Employee" &&
+      status !== "Archived"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The selected employee status is invalid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: employee, error } = await supabase
+      .from("employees")
+      .insert({
+        organisation_id: organisationId,
+        name,
+        role: readOptionalString(body.role),
+        email: readOptionalString(body.email),
+        start_date: readOptionalString(body.startDate),
+        status,
+      })
+      .select("id,name,role,email,start_date,status")
+      .single();
+
+    if (error || !employee) {
+      console.error("Employee creation failed:", error);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: error?.message || "Employee could not be saved.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        employee,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Employee creation API failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to create employee.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 type AccessContext = {
   organisationId: string;
   role: string;

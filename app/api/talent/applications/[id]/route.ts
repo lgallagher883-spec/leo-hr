@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -16,6 +17,84 @@ const allowedStatuses = new Set([
   "offered",
   "appointed",
 ]);
+
+type PlatformRole = "owner" | "senior" | "manager" | "employee";
+
+const roleRank: Record<PlatformRole, number> = {
+  employee: 1,
+  manager: 2,
+  senior: 3,
+  owner: 4,
+};
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normaliseRole(value: unknown): PlatformRole {
+  const role = text(value).toLowerCase();
+
+  if (role === "owner") return "owner";
+  if (role === "senior" || role === "hr") return "senior";
+  if (role === "manager") return "manager";
+  return "employee";
+}
+
+async function getAuthorisedContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  minimumRole: PlatformRole,
+) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "You are not signed in." },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {
+    userId: user.id,
+    allowedStatuses: ["active", "accepted"],
+  });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+  const role = normaliseRole(resolvedRole?.roleKey);
+
+  if (!organisationId) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Leo could not find an active organisation for your account.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  if (roleRank[role] < roleRank[minimumRole]) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You do not have access to update applications.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    user,
+    organisationId,
+  };
+}
 
 async function ensureDueDiligenceProfile(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -195,18 +274,21 @@ async function ensureDueDiligenceProfile(
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const applicationId = id?.trim();
+
+    if (!applicationId) {
+      return NextResponse.json(
+        { success: false, error: "The application reference is invalid." },
+        { status: 400 },
+      );
+    }
+
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await getAuthorisedContext(supabase, "manager");
 
-    if (userError || !user) {
-      return NextResponse.json(
-        { success: false, error: "You are not signed in." },
-        { status: 401 },
-      );
+    if ("response" in access) {
+      return access.response;
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -244,7 +326,8 @@ export async function PATCH(request: Request, context: RouteContext) {
           overseas_check_required_if_applicable
         )
       `)
-      .eq("id", id)
+      .eq("id", applicationId)
+      .eq("organisation_id", access.organisationId)
       .single();
 
     if (applicationError || !application) {
@@ -263,9 +346,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       current_stage_key: currentStageKey,
       status,
       last_reviewed_at: now,
-      last_reviewed_by: user.id,
+      last_reviewed_by: access.user.id,
       updated_at: now,
-      updated_by: user.id,
+      updated_by: access.user.id,
     };
 
     if (status === "withdrawn") {
@@ -289,7 +372,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { data: updated, error: updateError } = await supabase
       .from("leo_talent_applications")
       .update(updatePayload as never)
-      .eq("id", id)
+      .eq("id", applicationId)
+      .eq("organisation_id", access.organisationId)
       .select("id, application_reference, current_stage_key, status")
       .single();
 

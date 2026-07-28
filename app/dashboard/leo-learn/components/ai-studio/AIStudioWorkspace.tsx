@@ -4,10 +4,156 @@ import { createClient } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const supabase = createClient(
+const browserSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+type MutationFilter = {
+  operator: "eq" | "in";
+  column: string;
+  value: unknown;
+};
+
+type MutationRequest = {
+  mutation: {
+    table: string;
+    operation: "insert" | "update";
+    values: unknown;
+    filters?: MutationFilter[];
+    select?: string;
+    single?: boolean;
+  };
+};
+
+async function runAiStudioMutation(request: MutationRequest) {
+  const response = await fetch("/api/leo-learn/ai-studio", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  const result = (await response.json().catch(() => null)) as
+    | {
+        success?: boolean;
+        data?: unknown;
+        error?: string;
+      }
+    | null;
+
+  if (!response.ok || !result?.success) {
+    return {
+      data: null,
+      error: {
+        message: result?.error || "The AI Studio update could not be saved.",
+      },
+    };
+  }
+
+  return {
+    data: (result.data as unknown) ?? null,
+    error: null,
+  };
+}
+
+function createInsertMutationChain(table: string, values: unknown) {
+  const execute = (select?: string, single = false) =>
+    runAiStudioMutation({
+      mutation: {
+        table,
+        operation: "insert",
+        values,
+        select,
+        single,
+      },
+    });
+
+  const chain: any = {
+    select(columns: string) {
+      return {
+        single: () => execute(columns, true),
+        then: (onfulfilled: any, onrejected: any) =>
+          execute(columns, false).then(onfulfilled, onrejected),
+      };
+    },
+    then(onfulfilled: any, onrejected: any) {
+      return execute().then(onfulfilled, onrejected);
+    },
+    catch(onrejected: any) {
+      return execute().catch(onrejected);
+    },
+  };
+
+  return chain;
+}
+
+function createUpdateMutationChain(table: string, values: unknown) {
+  const filters: MutationFilter[] = [];
+
+  const execute = (select?: string, single = false) =>
+    runAiStudioMutation({
+      mutation: {
+        table,
+        operation: "update",
+        values,
+        filters,
+        select,
+        single,
+      },
+    });
+
+  const chain: any = {
+    eq(column: string, value: unknown) {
+      filters.push({
+        operator: "eq",
+        column,
+        value,
+      });
+      return chain;
+    },
+    in(column: string, value: unknown) {
+      filters.push({
+        operator: "in",
+        column,
+        value,
+      });
+      return chain;
+    },
+    select(columns: string) {
+      return {
+        single: () => execute(columns, true),
+        then: (onfulfilled: any, onrejected: any) =>
+          execute(columns, false).then(onfulfilled, onrejected),
+      };
+    },
+    then(onfulfilled: any, onrejected: any) {
+      return execute().then(onfulfilled, onrejected);
+    },
+    catch(onrejected: any) {
+      return execute().catch(onrejected);
+    },
+  };
+
+  return chain;
+}
+
+const supabase = {
+  ...browserSupabase,
+  from(table: string) {
+    const query: any = browserSupabase.from(table as any);
+
+    query.insert = (values: unknown) =>
+      createInsertMutationChain(table, values);
+
+    query.update = (values: unknown) =>
+      createUpdateMutationChain(table, values);
+
+    return query;
+  },
+} as typeof browserSupabase;
 
 type AIProject = {
   id: number;

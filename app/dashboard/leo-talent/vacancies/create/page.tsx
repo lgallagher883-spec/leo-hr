@@ -500,32 +500,6 @@ export default function CreateVacancyPage() {
     return nextErrors;
   }
 
-   async function writeAuditEvent(
-    vacancyId: string,
-    action: string,
-  ) {
-    try {
-      await (supabase as any)
-        .from("talent_analytics_events")
-        .insert({
-          organisation_id: userContext.organisationId,
-          event_type: action,
-          entity_type: "vacancy",
-          entity_id: vacancyId,
-          actor_user_id: userContext.userId,
-          metadata: {
-            vacancy_reference: form.vacancyReference.trim(),
-            vacancy_title: form.title.trim(),
-          },
-        } as any);
-    } catch (error) {
-      console.warn(
-        "Vacancy audit event could not be recorded:",
-        error,
-      );
-    }
-  }
-
   async function saveVacancy(
     intendedStatus: "draft" | "open",
   ) {
@@ -582,8 +556,6 @@ export default function CreateVacancyPage() {
     const now = new Date().toISOString();
 
     const payload = {
-      organisation_id:
-        userContext.organisationId,
       vacancy_reference:
         form.vacancyReference.trim(),
       title: form.title.trim(),
@@ -643,42 +615,44 @@ export default function CreateVacancyPage() {
       archived_at: null,
       published_at:
         vacancyStatus === "open" ? now : null,
-      created_by: userContext.userId,
-      updated_by: userContext.userId,
-      created_at: now,
-      updated_at: now,
     };
 
-    const { data, error } = await (supabase as any)
-  .from("leo_talent_vacancies")
-  .insert(payload as any)
-  .select("id")
-  .single();
+    const response = await fetch(
+      "/api/talent/vacancies",
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    );
 
-    if (error) {
+    const result = (await response
+      .json()
+      .catch(() => null)) as
+      | {
+          success?: boolean;
+          vacancy?: { id?: string | number };
+          error?: string;
+        }
+      | null;
+
+    if (!response.ok || !result?.success || !result.vacancy?.id) {
       console.error(
         "Vacancy could not be created:",
-        error,
+        result?.error || "Leo could not create this vacancy.",
       );
 
       setPageError(
-        `Leo could not create this vacancy. ${error.message}`,
+        `Leo could not create this vacancy. ${result?.error || "Please try again."}`,
       );
       setSavingMode(null);
       return;
     }
 
-    const vacancyId = String(data.id);
-
-    await writeAuditEvent(
-      vacancyId,
-      vacancyStatus === "open"
-        ? "vacancy_opened"
-        : vacancyStatus ===
-            "approval_required"
-          ? "vacancy_submitted_for_approval"
-          : "vacancy_created",
-    );
+    const vacancyId = String(result.vacancy.id);
 
     setPageMessage(
       vacancyStatus === "open"

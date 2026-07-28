@@ -1,23 +1,97 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 
 export const dynamic = "force-dynamic";
+
+type PlatformRole = "owner" | "senior" | "manager" | "employee";
+
+const roleRank: Record<PlatformRole, number> = {
+  employee: 1,
+  manager: 2,
+  senior: 3,
+  owner: 4,
+};
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normaliseRole(value: unknown): PlatformRole {
+  const role = text(value).toLowerCase();
+
+  if (role === "owner") return "owner";
+  if (role === "senior" || role === "hr") return "senior";
+  if (role === "manager") return "manager";
+  return "employee";
+}
+
+async function getAuthorisedContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  minimumRole: PlatformRole,
+) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "You are not signed in." },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {
+    userId: user.id,
+    allowedStatuses: ["active", "accepted"],
+  });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+  const role = normaliseRole(resolvedRole?.roleKey);
+
+  if (!organisationId) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Leo could not find an active organisation for your account.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  if (roleRank[role] < roleRank[minimumRole]) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You do not have access to application records.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    user,
+    organisationId,
+    role,
+  };
+}
 
 export async function GET() {
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await getAuthorisedContext(supabase, "manager");
 
-    if (userError || !user) {
-      return NextResponse.json(
-        { success: false, error: "You are not signed in." },
-        { status: 401 },
-      );
+    if ("response" in access) {
+      return access.response;
     }
 
     const [applicationsResult, stagesResult] = await Promise.all([
@@ -61,6 +135,7 @@ export async function GET() {
             archived_at
           )
         `)
+        .eq("organisation_id", access.organisationId)
         .order("updated_at", { ascending: false }),
       supabase
         .from("leo_talent_pipeline_stages")

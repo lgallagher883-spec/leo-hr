@@ -32,6 +32,7 @@ export default function MatterDocuments({ matterId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [openingDocumentId, setOpeningDocumentId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -229,6 +230,54 @@ export default function MatterDocuments({ matterId }: Props) {
     }
   }
 
+  async function generateDraft() {
+    if (drafting) return;
+
+    setDrafting(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/matters/${matterId}/draft`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `${title.trim() || "Draft matter document"}\n\n${description.trim() || "Generate a Matter document from the current Matter context."}`,
+          title: title.trim() || `Draft for Matter #${matterId}`,
+          documentType,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        success: boolean;
+        document?: MatterDocument;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success || !result.document) {
+        throw new Error(result.error || "The draft could not be generated.");
+      }
+
+      setDocuments((current) => [result.document as MatterDocument, ...current]);
+      setTitle("");
+      setDocumentType("General document");
+      setDescription("");
+      setContent("");
+      setStatus("Draft");
+      setIncludeInBundle(true);
+      setMessage("LEO draft generated and saved to this Matter.");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "The draft could not be generated.",
+      );
+    } finally {
+      setDrafting(false);
+    }
+  }
+
   return (
     <section style={panelStyle}>
       <div style={{ fontWeight: 700, marginBottom: "6px" }}>Matter Documents</div>
@@ -302,13 +351,23 @@ export default function MatterDocuments({ matterId }: Props) {
         <span style={{ marginLeft: "8px" }}>Include in the Matter Bundle</span>
       </label>
 
-      <button
-        onClick={saveDocument}
-        disabled={saving || !title.trim()}
-        style={{ ...buttonStyle, opacity: saving || !title.trim() ? 0.6 : 1 }}
-      >
-        {saving ? "Saving..." : "Save Matter Document"}
-      </button>
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "10px" }}>
+        <button
+          onClick={saveDocument}
+          disabled={saving || !title.trim()}
+          style={{ ...buttonStyle, opacity: saving || !title.trim() ? 0.6 : 1, marginTop: 0 }}
+        >
+          {saving ? "Saving..." : "Save Matter Document"}
+        </button>
+
+        <button
+          onClick={() => void generateDraft()}
+          disabled={drafting}
+          style={{ ...secondaryButtonStyle, marginTop: 0, opacity: drafting ? 0.6 : 1 }}
+        >
+          {drafting ? "Generating..." : "Generate draft with LEO"}
+        </button>
+      </div>
 
       <div style={uploadPanelStyle}>
         <div style={{ fontWeight: 700 }}>Add evidence or another document</div>

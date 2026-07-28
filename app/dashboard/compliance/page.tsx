@@ -192,6 +192,46 @@ type SortState = {
   direction: SortDirection;
 };
 
+type ComplianceIntelligence = {
+  summary?: string;
+  nextStep?: string;
+  recommendations?: string[];
+  risks?: string[];
+  knowledge?: {
+    sourceCount?: number;
+  };
+  grounding?: {
+    foundationsCount?: number;
+    organisationMemoryCount?: number;
+  };
+  readiness?: {
+    band?: string;
+    score?: number;
+  };
+  risk?: {
+    level?: string;
+    actionsOutstanding?: number;
+  };
+};
+
+type ComplianceIntelligenceResponse = {
+  success: boolean;
+  intelligence?: ComplianceIntelligence;
+  error?: string;
+};
+
+type ComplianceDraftResponse = {
+  success: boolean;
+  draft?: {
+    title: string;
+    content: string;
+    summary: string;
+    rationale: string[];
+    documentType: string;
+  };
+  error?: string;
+};
+
 const roleRank: Record<PlatformRole, number> = {
   Employee: 1,
   Manager: 2,
@@ -293,6 +333,29 @@ export default function CompliancePage() {
   const [pageMessageTone, setPageMessageTone] = useState<
     "success" | "error" | "information"
   >("information");
+
+  const [intelligenceLoading, setIntelligenceLoading] =
+    useState(true);
+
+  const [intelligenceError, setIntelligenceError] =
+    useState("");
+
+  const [intelligence, setIntelligence] =
+    useState<ComplianceIntelligence | null>(null);
+
+  const [draftPrompt, setDraftPrompt] = useState(
+    "Draft an organisation-grounded compliance action plan covering audits, expiring requirements, inspection readiness and operational risk."
+  );
+
+  const [draftLoading, setDraftLoading] =
+    useState(false);
+
+  const [draftError, setDraftError] = useState("");
+
+  const [draftResult, setDraftResult] =
+    useState<ComplianceDraftResponse["draft"] | null>(
+      null
+    );
 
   const hasPermission = useCallback(
     (minimumRole: PlatformRole) =>
@@ -435,9 +498,117 @@ export default function CompliancePage() {
     }
   }, [showMessage]);
 
+  const loadComplianceIntelligence = useCallback(
+    async () => {
+      setIntelligenceLoading(true);
+      setIntelligenceError("");
+
+      try {
+        const response = await fetch(
+          "/api/compliance/intelligence",
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
+
+        const payload = (await response
+          .json()
+          .catch(() => null)) as ComplianceIntelligenceResponse | null;
+
+        if (
+          !response.ok ||
+          !payload?.success ||
+          !payload.intelligence
+        ) {
+          throw new Error(
+            payload?.error ||
+              "Leo intelligence is unavailable for Compliance."
+          );
+        }
+
+        setIntelligence(payload.intelligence);
+      } catch (error) {
+        setIntelligence(null);
+        setIntelligenceError(
+          error instanceof Error
+            ? error.message
+            : "Leo intelligence is unavailable for Compliance."
+        );
+      } finally {
+        setIntelligenceLoading(false);
+      }
+    },
+    []
+  );
+
+  async function generateComplianceDraft() {
+    if (!draftPrompt.trim() || draftLoading) {
+      return;
+    }
+
+    setDraftLoading(true);
+    setDraftError("");
+
+    try {
+      const response = await fetch(
+        "/api/compliance/intelligence",
+        {
+          method: "POST",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: draftPrompt.trim(),
+            focus: "compliance management",
+          }),
+        }
+      );
+
+      const payload = (await response
+        .json()
+        .catch(() => null)) as ComplianceDraftResponse | null;
+
+      if (!response.ok || !payload?.success || !payload.draft) {
+        throw new Error(
+          payload?.error ||
+            "The compliance draft could not be generated."
+        );
+      }
+
+      setDraftResult(payload.draft);
+    } catch (error) {
+      setDraftResult(null);
+      setDraftError(
+        error instanceof Error
+          ? error.message
+          : "The compliance draft could not be generated."
+      );
+    } finally {
+      setDraftLoading(false);
+    }
+  }
+
+  async function refreshComplianceWorkspace() {
+    await Promise.all([
+      loadComplianceData(),
+      loadComplianceIntelligence(),
+    ]);
+  }
+
   useEffect(() => {
     void loadComplianceData();
   }, [loadComplianceData]);
+
+  useEffect(() => {
+    void loadComplianceIntelligence();
+  }, [loadComplianceIntelligence]);
 
   useEffect(() => {
     setSelectedEmployeeIds([]);
@@ -1358,7 +1529,7 @@ export default function CompliancePage() {
           <button
             type="button"
             onClick={() =>
-              void loadComplianceData()
+              void refreshComplianceWorkspace()
             }
             style={secondaryButtonStyle}
           >
@@ -1414,6 +1585,20 @@ export default function CompliancePage() {
           tone="due"
         />
       </div>
+
+      <ComplianceIntelligencePanel
+        loading={intelligenceLoading}
+        error={intelligenceError}
+        intelligence={intelligence}
+        prompt={draftPrompt}
+        onPromptChange={setDraftPrompt}
+        onGenerateDraft={() =>
+          void generateComplianceDraft()
+        }
+        draftLoading={draftLoading}
+        draftError={draftError}
+        draft={draftResult}
+      />
 
 
       {pageMessage && (
@@ -2602,6 +2787,190 @@ function SummaryCard({
   );
 }
 
+function ComplianceIntelligencePanel({
+  loading,
+  error,
+  intelligence,
+  prompt,
+  onPromptChange,
+  onGenerateDraft,
+  draftLoading,
+  draftError,
+  draft,
+}: {
+  loading: boolean;
+  error: string;
+  intelligence: ComplianceIntelligence | null;
+  prompt: string;
+  onPromptChange: (value: string) => void;
+  onGenerateDraft: () => void;
+  draftLoading: boolean;
+  draftError: string;
+  draft: ComplianceDraftResponse["draft"] | null;
+}) {
+  const recommendations =
+    intelligence?.recommendations
+      ?.filter(Boolean)
+      .slice(0, 4) || [];
+
+  const risks =
+    intelligence?.risks
+      ?.filter(Boolean)
+      .slice(0, 3) || [];
+
+  return (
+    <section style={intelligencePanelStyle} aria-live="polite">
+      <div style={intelligenceHeaderStyle}>
+        <div>
+          <h2 style={intelligenceTitleStyle}>
+            Leo Draft and Insight
+          </h2>
+          <p style={intelligenceDescriptionStyle}>
+            Contextual guidance for audits, actions, expiring requirements, inspection readiness and organisational risk.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <p style={intelligenceTextStyle}>
+          Generating organisation-grounded compliance intelligence.
+        </p>
+      ) : null}
+
+      {!loading && error ? (
+        <p style={intelligenceTextStyle}>{error}</p>
+      ) : null}
+
+      {!loading && !error && intelligence ? (
+        <>
+          <div style={intelligenceSummaryPanelStyle}>
+            <p style={intelligenceTextStyle}>
+              {intelligence.summary ||
+                intelligence.nextStep ||
+                "Leo compliance intelligence is ready."}
+            </p>
+
+            <div style={intelligenceBadgeRowStyle}>
+              <span style={intelligenceBadgeStyle}>
+                Readiness: {intelligence.readiness?.band || "Not set"}
+                {typeof intelligence.readiness?.score ===
+                "number"
+                  ? ` (${intelligence.readiness?.score}/100)`
+                  : ""}
+              </span>
+
+              <span style={intelligenceBadgeStyle}>
+                Risk: {intelligence.risk?.level || "Not set"}
+              </span>
+
+              <span style={intelligenceBadgeStyle}>
+                Actions: {intelligence.risk?.actionsOutstanding ?? 0}
+              </span>
+
+              <span style={intelligenceBadgeStyle}>
+                Knowledge sources: {intelligence.knowledge?.sourceCount ?? 0}
+              </span>
+
+              <span style={intelligenceBadgeStyle}>
+                Foundations: {intelligence.grounding?.foundationsCount ?? 0}
+              </span>
+
+              <span style={intelligenceBadgeStyle}>
+                Organisation memory: {intelligence.grounding?.organisationMemoryCount ?? 0}
+              </span>
+            </div>
+
+            {recommendations.length > 0 ? (
+              <div>
+                <p style={intelligenceSectionTitleStyle}>
+                  Recommended next steps
+                </p>
+                <ul style={intelligenceListStyle}>
+                  {recommendations.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {risks.length > 0 ? (
+              <div>
+                <p style={intelligenceSectionTitleStyle}>
+                  Watchpoints
+                </p>
+                <ul style={intelligenceListStyle}>
+                  {risks.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      <div style={intelligenceDraftPanelStyle}>
+        <label style={fieldLabelStyle}>
+          Draft prompt
+        </label>
+
+        <textarea
+          value={prompt}
+          onChange={(event) =>
+            onPromptChange(event.target.value)
+          }
+          style={intelligenceTextareaStyle}
+          placeholder="Describe the compliance draft you want Leo to generate."
+        />
+
+        <button
+          type="button"
+          onClick={onGenerateDraft}
+          disabled={draftLoading || !prompt.trim()}
+          style={{
+            ...secondaryButtonStyle,
+            width: "fit-content",
+            opacity:
+              draftLoading || !prompt.trim()
+                ? 0.65
+                : 1,
+            cursor:
+              draftLoading || !prompt.trim()
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {draftLoading
+            ? "Generating draft..."
+            : "Generate contextual draft"}
+        </button>
+
+        {draftError ? (
+          <p style={intelligenceDraftErrorStyle}>
+            {draftError}
+          </p>
+        ) : null}
+
+        {draft ? (
+          <div style={intelligenceDraftResultStyle}>
+            <div style={intelligenceDraftTitleStyle}>
+              {draft.title}
+            </div>
+            <p style={intelligenceTextStyle}>
+              {draft.summary}
+            </p>
+            <textarea
+              readOnly
+              value={draft.content}
+              style={intelligenceDraftOutputStyle}
+            />
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function FormField({
   label,
   children,
@@ -3744,6 +4113,143 @@ const summaryGridStyle: CSSProperties = {
     "repeat(auto-fit, minmax(180px, 1fr))",
   gap: "14px",
   marginBottom: "18px",
+};
+
+const intelligencePanelStyle: CSSProperties = {
+  background: "#FFFFFF",
+  border: "1px solid #E7E1EA",
+  borderRadius: "16px",
+  padding: "16px",
+  display: "grid",
+  gap: "12px",
+  marginBottom: "16px",
+  boxShadow: "0 8px 24px rgba(73, 52, 82, 0.045)",
+};
+
+const intelligenceHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "10px",
+};
+
+const intelligenceTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#2F2435",
+  fontSize: "18px",
+  fontWeight: 800,
+};
+
+const intelligenceDescriptionStyle: CSSProperties = {
+  margin: "6px 0 0",
+  color: "#665A6C",
+  fontSize: "13px",
+  lineHeight: 1.55,
+};
+
+const intelligenceSummaryPanelStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  padding: "12px",
+  borderRadius: "12px",
+  border: "1px solid #EFE4F5",
+  background: "#FBF8FD",
+};
+
+const intelligenceTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#5D5263",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const intelligenceBadgeRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+};
+
+const intelligenceBadgeStyle: CSSProperties = {
+  border: "1px solid #DED2E7",
+  borderRadius: "999px",
+  background: "#F8F4FB",
+  color: "#5D4D66",
+  padding: "4px 9px",
+  fontSize: "11px",
+  fontWeight: 700,
+};
+
+const intelligenceSectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#352A3B",
+  fontSize: "12px",
+  fontWeight: 800,
+  letterSpacing: "0.03em",
+  textTransform: "uppercase",
+};
+
+const intelligenceListStyle: CSSProperties = {
+  margin: "6px 0 0",
+  paddingLeft: "18px",
+  color: "#45394B",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const intelligenceDraftPanelStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+};
+
+const intelligenceTextareaStyle: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  minHeight: "108px",
+  border: "1px solid #DDD4E2",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  background: "#FFFFFF",
+  color: "#302638",
+  fontFamily: "inherit",
+  fontSize: "13px",
+  lineHeight: 1.5,
+  resize: "vertical",
+};
+
+const intelligenceDraftErrorStyle: CSSProperties = {
+  margin: 0,
+  color: "#7A4C59",
+  fontSize: "12px",
+};
+
+const intelligenceDraftResultStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+  padding: "12px",
+  border: "1px solid #EFE4F5",
+  borderRadius: "12px",
+  background: "#FBF8FD",
+};
+
+const intelligenceDraftTitleStyle: CSSProperties = {
+  color: "#352A3B",
+  fontSize: "13px",
+  fontWeight: 800,
+};
+
+const intelligenceDraftOutputStyle: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  minHeight: "240px",
+  border: "1px solid #DCCFE4",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  background: "#FFFFFF",
+  color: "#302638",
+  fontFamily: "inherit",
+  fontSize: "12px",
+  lineHeight: 1.5,
+  resize: "vertical",
 };
 
 const summaryCardStyle: CSSProperties = {

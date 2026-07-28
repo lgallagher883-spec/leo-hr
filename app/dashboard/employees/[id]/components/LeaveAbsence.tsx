@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import ProfileSection from "./ProfileSection";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1302,6 +1303,12 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
 
   return (
     <ProfileSection title="Leave & Absence">
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="absence"
+        defaultPrompt="Draft a leave or absence case update that confirms status, timelines, operational cover and fair next steps without medical detail."
+      />
+
       <div style={headerRowStyle}>
         <div>
           <p style={introStyle}>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import SaveButton from "./SaveButton";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -121,6 +122,12 @@ export default function EmployeeNotes({ employeeId }: EmployeeNotesProps) {
 
   return (
     <ProfileSection title="Notes">
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="employee_relations"
+        defaultPrompt="Draft a balanced employee-relations case note summary from recent factual notes, including proportional next actions."
+      />
+
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
         Add internal HR notes for this employee. Notes are saved as a history
         and can be opened and edited.

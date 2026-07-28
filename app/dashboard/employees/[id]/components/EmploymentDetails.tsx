@@ -5,6 +5,7 @@ import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 type EmploymentDetailsProps = {
   employeeId: number;
@@ -201,6 +202,12 @@ export default function EmploymentDetails({
 
   return (
     <ProfileSection title="Employment Details">
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="employment"
+        defaultPrompt="Draft a concise employment status update that confirms role, manager accountability, and the next agreed check-in."
+      />
+
       <Field
         label="Full Name"
         value={name}

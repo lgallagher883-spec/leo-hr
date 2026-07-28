@@ -6,6 +6,7 @@ import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -164,6 +165,12 @@ export default function EmployeeWarnings({ employeeId }: EmployeeWarningsProps) 
 
   return (
     <ProfileSection title="Warnings">
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="employee_relations"
+        defaultPrompt="Draft a factual warning outcome summary with next steps, review date expectations, and neutral language."
+      />
+
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
         Record formal and informal warnings. Keep entries factual and linked to
         the relevant HR process where appropriate.

@@ -6,6 +6,7 @@ import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -155,6 +156,12 @@ export default function EmployeeDocuments({
 
   return (
     <ProfileSection title="Documents">
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="documents"
+        defaultPrompt="Draft a professional request that lists missing employee documents and asks for submission by a clear date."
+      />
+
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
         Upload documents linked to this employee, such as contracts, right to
         work evidence, fit notes, DBS certificates, driving documents and HR

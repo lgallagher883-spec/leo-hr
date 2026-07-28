@@ -15,6 +15,7 @@ import {
   getTodayDate,
 } from "./probationHelpers";
 import ProbationDocuments from "./ProbationDocuments";
+import EmployeeLifecycleIntelligence from "../../EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -298,6 +299,12 @@ export default function ProbationWorkspace({
       {errorMessage && (
         <div style={errorStyle}>{errorMessage}</div>
       )}
+
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="probation"
+        defaultPrompt="Draft a probation checkpoint communication with current progress, support measures and the next formal decision point."
+      />
 
       {!probation && showStartForm && (
         <div style={formPanelStyle}>

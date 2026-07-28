@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +52,12 @@ export default function EmployeeMatters({ employeeId }: EmployeeMattersProps) {
 
   return (
     <ProfileSection title="Matters">
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="employee_relations"
+        defaultPrompt="Draft a concise matter update for employee-relations governance, including current status and proportionate next steps."
+      />
+
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
         HR matters linked to this employee will appear here.
       </p>

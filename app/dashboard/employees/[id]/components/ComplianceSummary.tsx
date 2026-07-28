@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -230,7 +231,11 @@ export default function ComplianceSummary({
 
   return (
     <ProfileSection title="Compliance Summary">
-      
+      <EmployeeLifecycleIntelligence
+        employeeId={employeeId}
+        lifecycleContext="compliance"
+        defaultPrompt="Draft a compliance checkpoint summary that highlights upcoming checks, evidence gaps, and immediate actions."
+      />
 
       {loading ? (
         <div style={{ color: "#6B7280" }}>Checking compliance records...</div>

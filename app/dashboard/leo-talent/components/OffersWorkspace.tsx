@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type Row = Record<string, unknown>;
 
@@ -687,6 +688,8 @@ export default function OffersWorkspace() {
 
       {errorMessage ? <div style={styles.error}>{errorMessage}</div> : null}
       {successMessage ? <div style={styles.success}>{successMessage}</div> : null}
+
+      <TalentIntelligencePanel stage="offers" />
 
       <section style={styles.metrics}>
         <Metric label="Active offers" value={metrics.active} />

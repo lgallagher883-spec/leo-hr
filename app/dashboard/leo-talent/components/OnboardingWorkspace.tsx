@@ -25,6 +25,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type AppointmentStatus =
   | "pre_employment"
@@ -1044,6 +1045,8 @@ export default function OnboardingWorkspace() {
           </div>
         </div>
       ) : null}
+
+      <TalentIntelligencePanel stage="onboarding" />
 
       <div style={kpiGridStyle}>
         <KpiCard

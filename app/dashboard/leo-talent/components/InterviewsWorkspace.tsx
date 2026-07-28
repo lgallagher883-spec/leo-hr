@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
+import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type InterviewType =
   | "telephone"
@@ -1462,6 +1463,8 @@ export default function InterviewsWorkspace() {
           </button>
         </div>
       ) : null}
+
+      <TalentIntelligencePanel stage="interviews" />
 
       {showForm ? (
         <InterviewForm

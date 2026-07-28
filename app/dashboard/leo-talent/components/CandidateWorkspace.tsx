@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { useSearchParams } from "next/navigation";
+import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type TalentPoolStatus =
   | "not_added"
@@ -1170,6 +1171,8 @@ export default function CandidatesWorkspace() {
           </button>
         </div>
       ) : null}
+
+      <TalentIntelligencePanel stage="candidates" />
 
       <div style={kpiGridStyle}>
         <KpiCard

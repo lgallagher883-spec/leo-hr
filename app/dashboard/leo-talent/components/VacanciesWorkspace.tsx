@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type VacancyStatus =
   | "draft"
@@ -707,6 +708,8 @@ export default function VacanciesWorkspace() {
           {actionMessage}
         </div>
       ) : null}
+
+      <TalentIntelligencePanel stage="vacancies" />
 
       <div style={styles.panel}>
         <div style={styles.controls}>

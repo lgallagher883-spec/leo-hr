@@ -8,6 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import { supabase } from "@/lib/supabase";
+import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type ApplicationStatus =
   | "draft"
@@ -1982,6 +1983,8 @@ export default function ApplicationsWorkspace() {
           {actionMessage}
         </div>
       ) : null}
+
+      <TalentIntelligencePanel stage="applications" />
 
       <section style={styles.panel}>
         <div style={styles.panelHeader}>

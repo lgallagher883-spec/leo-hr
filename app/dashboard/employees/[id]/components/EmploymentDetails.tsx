@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type EmploymentDetailsProps = {
   employeeId: number;
@@ -19,6 +13,37 @@ type EmploymentDetailsProps = {
   initialRole: string;
   initialStatus: string;
   initialStartDate: string;
+};
+
+type EmploymentDetailsResponse = {
+  success?: boolean;
+  employmentDetails?: {
+    manager?: string | null;
+    probation_end_date?: string | null;
+    employment_end_date?: string | null;
+    reason_for_leaving?: string | null;
+    annual_leave_allowance?: string | null;
+  };
+  error?: string;
+};
+
+type EmploymentSaveResponse = {
+  success?: boolean;
+  employee?: {
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    status?: string | null;
+    start_date?: string | null;
+  };
+  employmentDetails?: {
+    manager?: string | null;
+    probation_end_date?: string | null;
+    employment_end_date?: string | null;
+    reason_for_leaving?: string | null;
+    annual_leave_allowance?: string | null;
+  };
+  error?: string;
 };
 
 export default function EmploymentDetails({
@@ -41,34 +66,58 @@ export default function EmploymentDetails({
   const [reasonForLeaving, setReasonForLeaving] = useState("");
   const [annualLeaveAllowance, setAnnualLeaveAllowance] = useState("");
 
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     async function loadEmploymentDetails() {
-      const { data, error } = await supabase
-        .from("employee_employment_details")
-        .select(
-          "manager, probation_end_date, employment_end_date, reason_for_leaving, annual_leave_allowance"
-        )
-        .eq("employee_id", employeeId)
-        .maybeSingle();
+      setLoading(true);
+      setMessage("");
 
-      if (error) {
+      try {
+        const response = await fetch(
+          `/api/employees/${employeeId}?include=employment_details`,
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+          }
+        );
+
+        const result =
+          (await response.json()) as EmploymentDetailsResponse;
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error || "Employment details could not be loaded."
+          );
+        }
+
+        const details = result.employmentDetails;
+
+        if (!details) {
+          throw new Error("Employment details could not be loaded.");
+        }
+
+        setManager(details.manager || "");
+        setProbationEndDate(details.probation_end_date || "");
+        setEmploymentEndDate(details.employment_end_date || "");
+        setReasonForLeaving(details.reason_for_leaving || "");
+        setAnnualLeaveAllowance(details.annual_leave_allowance || "");
+      } catch (error) {
         console.error("Error loading employment details:", error);
-        return;
-      }
-
-      if (data) {
-        setManager(data.manager || "");
-        setProbationEndDate(data.probation_end_date || "");
-        setEmploymentEndDate(data.employment_end_date || "");
-        setReasonForLeaving(data.reason_for_leaving || "");
-        setAnnualLeaveAllowance(data.annual_leave_allowance || "");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Employment details could not be loaded."
+        );
+      } finally {
+        setLoading(false);
       }
     }
 
-    loadEmploymentDetails();
+    void loadEmploymentDetails();
   }, [employeeId]);
 
   async function saveEmploymentDetails() {
@@ -80,48 +129,74 @@ export default function EmploymentDetails({
     setSaving(true);
     setMessage("");
 
-    const employeeUpdate = await supabase
-      .from("employees")
-      .update({
-        name: name.trim(),
-        email: email || null,
-        role: role || null,
-        status: status || "Active",
-        start_date: startDate || null,
-      })
-      .eq("id", employeeId);
-
-    if (employeeUpdate.error) {
-      console.error("Error saving employee:", employeeUpdate.error);
-      setMessage("Employment details could not be saved.");
-      setSaving(false);
-      return;
-    }
-
-    const detailsUpdate = await supabase
-      .from("employee_employment_details")
-      .upsert(
-        {
-          employee_id: employeeId,
-          manager: manager || null,
-          probation_end_date: probationEndDate || null,
-          employment_end_date: employmentEndDate || null,
-          reason_for_leaving: reasonForLeaving || null,
-          annual_leave_allowance: annualLeaveAllowance || null,
-          updated_at: new Date().toISOString(),
+    try {
+      const response = await fetch(`/api/employees/${employeeId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
         },
-        { onConflict: "employee_id" }
+        body: JSON.stringify({
+          action: "update_employment",
+          updates: {
+            name: name.trim(),
+            email,
+            role,
+            status,
+            start_date: startDate,
+            manager,
+            probation_end_date: probationEndDate,
+            employment_end_date: employmentEndDate,
+            reason_for_leaving: reasonForLeaving,
+            annual_leave_allowance: annualLeaveAllowance,
+          },
+        }),
+      });
+
+      const result =
+        (await response.json()) as EmploymentSaveResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Employment details could not be saved."
+        );
+      }
+
+      if (result.employee) {
+        setName(result.employee.name || "");
+        setEmail(result.employee.email || "");
+        setRole(result.employee.role || "");
+        setStatus(result.employee.status || "Active");
+        setStartDate(result.employee.start_date || "");
+      }
+
+      if (result.employmentDetails) {
+        setManager(result.employmentDetails.manager || "");
+        setProbationEndDate(
+          result.employmentDetails.probation_end_date || ""
+        );
+        setEmploymentEndDate(
+          result.employmentDetails.employment_end_date || ""
+        );
+        setReasonForLeaving(
+          result.employmentDetails.reason_for_leaving || ""
+        );
+        setAnnualLeaveAllowance(
+          result.employmentDetails.annual_leave_allowance || ""
+        );
+      }
+
+      setMessage("Employment details saved.");
+    } catch (error) {
+      console.error("Error saving employment details:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Employment details could not be saved."
       );
-
-    if (detailsUpdate.error) {
-      console.error("Error saving employment details:", detailsUpdate.error);
-      setMessage("Employment details could not be saved.");
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setMessage("Employment details saved.");
-    setSaving(false);
   }
 
   return (
@@ -202,8 +277,15 @@ export default function EmploymentDetails({
         small
       />
 
-      <SaveButton onClick={saveEmploymentDetails} disabled={saving}>
-        {saving ? "Saving..." : "Save employment details"}
+      <SaveButton
+        onClick={saveEmploymentDetails}
+        disabled={saving || loading}
+      >
+        {loading
+          ? "Loading..."
+          : saving
+          ? "Saving..."
+          : "Save employment details"}
       </SaveButton>
 
       {message && (

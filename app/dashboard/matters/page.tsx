@@ -41,6 +41,7 @@ export default function MattersPage() {
   const [loading, setLoading] = useState(true);
   const [deletingMatterId, setDeletingMatterId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     void loadData();
@@ -163,6 +164,23 @@ export default function MattersPage() {
     return { background: "#F5FFF9", color: "#166534" };
   }
 
+  const filteredMatters = matters.filter((matter) => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    const employeeName = getEmployeeName(
+      matter.employee_id,
+    ).toLowerCase();
+
+    return (
+      employeeName.includes(query) ||
+      (matter.subject ?? "").toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div>
       <div style={headerStyle}>
@@ -178,6 +196,16 @@ export default function MattersPage() {
         >
           + New Matter
         </button>
+      </div>
+
+      <div style={searchContainerStyle}>
+        <input
+          type="search"
+          placeholder="Search employee or subject..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          style={searchInputStyle}
+        />
       </div>
 
       <div style={tableCardStyle}>
@@ -211,7 +239,7 @@ export default function MattersPage() {
             </thead>
 
             <tbody>
-              {matters.map((matter) => {
+              {filteredMatters.map((matter) => {
                 const statusStyle = getStatusStyle(matter.status || "Open");
                 const isDeleting = deletingMatterId === matter.id;
 
@@ -339,6 +367,23 @@ const newButtonStyle: React.CSSProperties = {
   borderRadius: "10px",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const searchContainerStyle: React.CSSProperties = {
+  marginBottom: "16px",
+};
+
+const searchInputStyle: React.CSSProperties = {
+  width: "320px",
+  maxWidth: "100%",
+  padding: "10px 14px",
+  border: "1px solid #D1D5DB",
+  borderRadius: "10px",
+  background: "#FFFFFF",
+  color: "#111827",
+  fontSize: "14px",
+  outline: "none",
+  boxSizing: "border-box",
 };
 
 const tableCardStyle: React.CSSProperties = {

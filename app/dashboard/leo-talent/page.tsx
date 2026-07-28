@@ -23,14 +23,14 @@ type TalentSection =
   | "AI Studio"
   | "Settings";
 
-const sections: TalentSection[] = [
+  const sections: TalentSection[] = [
   "Dashboard",
   "Vacancies",
   "Applications",
   "Candidates",
   "Interviews",
-  "Due Diligence",
   "Offers & Appointments",
+  "Due Diligence",
   "Onboarding",
   "AI Studio",
   "Settings",
@@ -125,29 +125,31 @@ export default function LeoTalentPage() {
       </nav>
 
       <main style={workspaceStyle}>
-        {activeSection === "Dashboard" ? (
-          <TalentDashboard onNavigate={setActiveSection} />
-        ) : null}
+       {activeSection === "Dashboard" ? (
+  <TalentDashboard onNavigate={setActiveSection} />
+) : null}
 
-        {activeSection === "Vacancies" ? <VacanciesWorkspace /> : null}
+{activeSection === "Vacancies" ? <VacanciesWorkspace /> : null}
 
-        {activeSection === "Applications" ? <ApplicationsWorkspace /> : null}
+{activeSection === "Applications" ? <ApplicationsWorkspace /> : null}
 
-        {activeSection === "Candidates" ? <CandidateWorkspace /> : null}
+{activeSection === "Candidates" ? <CandidateWorkspace /> : null}
 
-        {activeSection === "Interviews" ? <InterviewsWorkspace /> : null}
+{activeSection === "Interviews" ? <InterviewsWorkspace /> : null}
 
-        {activeSection === "Due Diligence" ? (
-          <DueDiligenceWorkspace />
-        ) : null}
+{activeSection === "Offers & Appointments" ? <OffersWorkspace /> : null}
 
-        {activeSection === "Offers & Appointments" ? <OffersWorkspace /> : null}
+{activeSection === "Due Diligence" ? (
+  <DueDiligenceWorkspace />
+) : null}
 
-        {activeSection === "Onboarding" ? <OnboardingWorkspace /> : null}
+{activeSection === "Onboarding" ? <OnboardingWorkspace /> : null}
 
-        {activeSection === "AI Studio" ? (
-          <TalentAIStudio onNavigate={setActiveSection} />
-        ) : null}
+{activeSection === "AI Studio" ? (
+  <TalentAIStudio onNavigate={setActiveSection} />
+) : null}
+
+{activeSection === "Settings" ? <TalentSettings /> : null}
 
         {activeSection === "Settings" ? <TalentSettings /> : null}
       </main>
@@ -199,33 +201,33 @@ function TalentDashboard({
 
           <div style={quickActionGridStyle}>
             <QuickAction
-              label="Create vacancy"
-              onClick={() => onNavigate("Vacancies")}
-            />
-            <QuickAction
-              label="Review applications"
-              onClick={() => onNavigate("Applications")}
-            />
-            <QuickAction
-              label="Add candidate"
-              onClick={() => onNavigate("Candidates")}
-            />
-            <QuickAction
-              label="Schedule interview"
-              onClick={() => onNavigate("Interviews")}
-            />
-            <QuickAction
-              label="Review due diligence"
-              onClick={() => onNavigate("Due Diligence")}
-            />
-            <QuickAction
-              label="Prepare offer"
-              onClick={() => onNavigate("Offers & Appointments")}
-            />
-            <QuickAction
-              label="Manage onboarding"
-              onClick={() => onNavigate("Onboarding")}
-            />
+  label="Create vacancy"
+  onClick={() => onNavigate("Vacancies")}
+/>
+<QuickAction
+  label="Review applications"
+  onClick={() => onNavigate("Applications")}
+/>
+<QuickAction
+  label="Add candidate"
+  onClick={() => onNavigate("Candidates")}
+/>
+<QuickAction
+  label="Schedule interview"
+  onClick={() => onNavigate("Interviews")}
+/>
+<QuickAction
+  label="Prepare offer"
+  onClick={() => onNavigate("Offers & Appointments")}
+/>
+<QuickAction
+  label="Review due diligence"
+  onClick={() => onNavigate("Due Diligence")}
+/>
+<QuickAction
+  label="Manage onboarding"
+  onClick={() => onNavigate("Onboarding")}
+/>
           </div>
         </section>
       </div>

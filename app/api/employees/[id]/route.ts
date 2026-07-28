@@ -26,6 +26,18 @@ type TimelineEvent = {
   source: string;
 };
 
+type EmploymentDetailsRecord = {
+  id: number;
+  employee_id: number;
+  manager: string | null;
+  probation_end_date: string | null;
+  employment_end_date: string | null;
+  reason_for_leaving: string | null;
+  annual_leave_allowance: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export const dynamic = "force-dynamic";
 
 export async function GET(

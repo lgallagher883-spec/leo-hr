@@ -22,6 +22,7 @@ type SharedKey =
   | "appointment_decision";
 
 const writeRoles = new Set<PlatformRole>(["owner", "senior", "manager"]);
+const decisionWriteRoles = new Set<PlatformRole>(["owner", "senior"]);
 const sharedKeys = new Set<SharedKey>([
   "identity_verification",
   "right_to_work",
@@ -141,6 +142,29 @@ function isComplete(key: SharedKey, payload: any, vacancy: any) {
   ].includes(status ?? "");
 }
 
+function hasPopulatedPayload(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  return Object.keys(value as Record<string, unknown>).length > 0;
+}
+
+function normaliseDecisionOutcome(value: unknown) {
+  const outcome = text(value).toLowerCase();
+  if (outcome === "ready_for_appointment") return "ready_for_appointment";
+  if (outcome === "not_ready") return "not_ready";
+  if (outcome === "withdrawn") return "withdrawn";
+  return "pending";
+}
+
+function mergePayload(
+  existingPayload: Record<string, unknown> | null,
+  nextPayload: Record<string, unknown>,
+) {
+  return {
+    ...(existingPayload ?? {}),
+    ...nextPayload,
+  };
+}
+
 async function getProfile(supabase: any, organisationId: string, id: string) {
   return (supabase as any)
     .from("leo_talent_safer_recruitment_profiles")
@@ -178,7 +202,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const [sharedResult, documentsResult] = await Promise.all([
       (supabase as any)
         .from("leo_talent_candidate_shared_records")
-        .select("id,component_key,payload,status,updated_at")
+        .select("id,component_key,payload,status,completed_at,updated_at")
         .eq("organisation_id", access.organisationId)
         .eq("candidate_id", profile.candidate_id)
         .eq("application_id", profile.application_id),
@@ -318,6 +342,47 @@ export async function PATCH(request: Request, context: RouteContext) {
           ? (body.value as Record<string, unknown>)
           : {};
 
+      if (key === "appointment_decision" && !decisionWriteRoles.has(access.role)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Only Owner and Senior users can change the appointment decision.",
+          },
+          { status: 403 },
+        );
+      }
+
+      const effectivePayload =
+        key === "appointment_decision"
+          ? {
+              ...payload,
+              outcome: normaliseDecisionOutcome(payload.outcome),
+              decisionDate:
+                optionalText(payload.decisionDate) ??
+                optionalText(payload.decidedAt) ??
+                now.slice(0, 10),
+              decidedBy:
+                optionalText(payload.decidedBy) ??
+                optionalText(payload.decided_by) ??
+                access.user.id,
+              decidedAt:
+                optionalText(payload.decidedAt) ??
+                optionalText(payload.decided_at) ??
+                now,
+              notes:
+                optionalText(payload.notes) ??
+                optionalText(payload.rationale) ??
+                optionalText(payload.reason) ??
+                null,
+              decisionReason:
+                optionalText(payload.decisionReason) ??
+                optionalText(payload.reason) ??
+                optionalText(payload.rationale) ??
+                null,
+            }
+          : payload;
+
       const vacancyResult = await (supabase as any)
         .from("leo_talent_vacancies")
         .select(
@@ -329,31 +394,137 @@ export async function PATCH(request: Request, context: RouteContext) {
 
       if (vacancyResult.error) throw new Error(vacancyResult.error.message);
 
-      const status = extractStatus(key, payload);
-      const complete = isComplete(key, payload, vacancyResult.data);
+      const status = extractStatus(key, effectivePayload);
+      const complete = isComplete(key, effectivePayload, vacancyResult.data);
 
-      const sharedResult = await (supabase as any)
+      const existingSharedResult = await (supabase as any)
         .from("leo_talent_candidate_shared_records")
-        .upsert(
-          {
+        .select(
+          "id,component_key,payload,status,completed_at,updated_at,vacancy_id,safer_recruitment_profile_id",
+        )
+        .eq("organisation_id", access.organisationId)
+        .eq("candidate_id", profile.candidate_id)
+        .eq("application_id", profile.application_id)
+        .eq("component_key", key)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (existingSharedResult.error) {
+        throw new Error(
+          existingSharedResult.error.message ||
+            "The existing due diligence record could not be checked.",
+        );
+      }
+
+      const existingShared =
+        Array.isArray(existingSharedResult.data) &&
+        existingSharedResult.data.length > 0
+          ? existingSharedResult.data[0]
+          : null;
+
+      const keepCompletedData =
+        key !== "appointment_decision" &&
+        Boolean(existingShared?.completed_at) &&
+        hasPopulatedPayload(existingShared?.payload);
+
+      const nextStatus =
+        keepCompletedData && !complete
+          ? existingShared?.status ?? status
+          : status;
+      const nextCompletedAt =
+        existingShared?.completed_at ?? (complete ? now : null);
+
+      const mergedPayload = mergePayload(
+        (existingShared?.payload as Record<string, unknown> | null) ?? null,
+        effectivePayload,
+      );
+
+      let sharedResult;
+
+      if (existingShared?.id) {
+        const updatePayload: Record<string, unknown> = {
+          status: nextStatus,
+          completed_at: nextCompletedAt,
+          updated_at: now,
+        };
+
+        updatePayload.payload = mergedPayload;
+
+        if (!existingShared.vacancy_id) {
+          updatePayload.vacancy_id = profile.vacancy_id;
+        }
+        if (!existingShared.safer_recruitment_profile_id) {
+          updatePayload.safer_recruitment_profile_id = profile.id;
+        }
+
+        sharedResult = await (supabase as any)
+          .from("leo_talent_candidate_shared_records")
+          .update(updatePayload)
+          .eq("id", existingShared.id)
+          .eq("organisation_id", access.organisationId)
+          .select("id,component_key,payload,status,completed_at,updated_at")
+          .single();
+      } else {
+        sharedResult = await (supabase as any)
+          .from("leo_talent_candidate_shared_records")
+          .insert({
             organisation_id: access.organisationId,
             candidate_id: profile.candidate_id,
             application_id: profile.application_id,
             vacancy_id: profile.vacancy_id,
             safer_recruitment_profile_id: profile.id,
             component_key: key,
-            payload,
+            payload: effectivePayload,
             status,
             completed_at: complete ? now : null,
             updated_at: now,
-          },
-          {
-            onConflict:
-              "organisation_id,candidate_id,application_id,component_key",
-          },
-        )
-        .select("id,component_key,payload,status,updated_at")
-        .single();
+          })
+          .select("id,component_key,payload,status,completed_at,updated_at")
+          .single();
+
+        if (sharedResult.error && sharedResult.error.code === "23505") {
+          const recovered = await (supabase as any)
+            .from("leo_talent_candidate_shared_records")
+            .select("id")
+            .eq("organisation_id", access.organisationId)
+            .eq("candidate_id", profile.candidate_id)
+            .eq("application_id", profile.application_id)
+            .eq("component_key", key)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+
+          if (recovered.error) {
+            throw new Error(recovered.error.message);
+          }
+
+          const recoveredId =
+            Array.isArray(recovered.data) && recovered.data.length > 0
+              ? recovered.data[0]?.id
+              : null;
+
+          if (!recoveredId) {
+            throw new Error("The due diligence record could not be recovered.");
+          }
+
+          sharedResult = await (supabase as any)
+            .from("leo_talent_candidate_shared_records")
+            .update({
+              payload: mergedPayload,
+              status: keepCompletedData && !complete ? existingShared?.status ?? status : status,
+              completed_at:
+                keepCompletedData && !complete
+                  ? existingShared?.completed_at ?? null
+                  : complete
+                    ? now
+                    : null,
+              updated_at: now,
+            })
+            .eq("id", recoveredId)
+            .eq("organisation_id", access.organisationId)
+            .select("id,component_key,payload,status,completed_at,updated_at")
+            .single();
+        }
+      }
 
       if (sharedResult.error) {
         throw new Error(
@@ -372,6 +543,42 @@ export async function PATCH(request: Request, context: RouteContext) {
           "Due diligence record saved but profile status was not updated:",
           profileUpdate.error,
         );
+      }
+
+      if (key === "appointment_decision") {
+        const outcome = normaliseDecisionOutcome(
+          (sharedResult.data?.payload as Record<string, unknown> | null)
+            ?.outcome,
+        );
+        const payloadData =
+          (sharedResult.data?.payload as Record<string, unknown> | null) ?? {};
+
+        const { error: auditError } = await (supabase as any)
+          .from("talent_analytics_events")
+          .insert({
+            organisation_id: access.organisationId,
+            event_type: "appointment_decision_override_updated",
+            entity_type: "application",
+            entity_id: profile.application_id,
+            actor_user_id: access.user.id,
+            description: `Appointment decision set to ${outcome.replaceAll("_", " ")}.`,
+            metadata: {
+              profile_id: profile.id,
+              candidate_id: profile.candidate_id,
+              vacancy_id: profile.vacancy_id,
+              outcome,
+              decided_at: payloadData.decidedAt ?? now,
+              decided_by: payloadData.decidedBy ?? access.user.id,
+              notes: payloadData.notes ?? payloadData.decisionReason ?? null,
+            },
+          });
+
+        if (auditError) {
+          console.warn(
+            "Appointment decision audit event could not be recorded:",
+            auditError,
+          );
+        }
       }
 
       return NextResponse.json({

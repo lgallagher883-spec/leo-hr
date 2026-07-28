@@ -1,94 +1,287 @@
 "use client";
 
-import ComplianceSummary from "./components/ComplianceSummary";
-import DBSSafeguarding from "./components/DBSSafeguarding";
-import DrivingChecks from "./components/DrivingChecks";
-import EmergencyContacts from "./components/EmergencyContacts";
-import EmployeeDevelopment from "./components/EmployeeDevelopment";
-import EmployeeDocuments from "./components/EmployeeDocuments";
-import EmployeeMatters from "./components/EmployeeMatters";
-import EmployeeMedical from "./components/EmployeeMedical";
-import EmployeeNotes from "./components/EmployeeNotes";
-import EmployeeWarnings from "./components/EmployeeWarnings";
-import EmploymentDetails from "./components/EmploymentDetails";
-import LeaveAbsence from "./components/LeaveAbsence";
-import RightToWork from "./components/RightToWork";
-import TrainingLogs from "./components/TrainingLogs";
-
-import { useParams, useRouter } from "next/navigation";
 import {
-  type CSSProperties,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+type VacancyStatus =
+  | "draft"
+  | "approval_required"
+  | "approved"
+  | "open"
+  | "paused"
+  | "closed"
+  | "filled"
+  | "cancelled"
+  | "archived";
+
+type ApprovalStatus =
+  | "not_required"
+  | "pending"
+  | "approved"
+  | "returned"
+  | "declined";
+
+type WorkspaceTab =
+  | "overview"
+  | "publication"
+  | "applications"
+  | "candidates"
+  | "interviews"
+  | "due_diligence"
+  | "offers"
+  | "documents"
+  | "activity"
+  | "settings";
 
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
-type Employee = {
-  id: number;
-  name: string;
-  role: string | null;
-  email: string | null;
-  status: string | null;
-  start_date: string | null;
-  department?: string | null;
-  location?: string | null;
-  manager_name?: string | null;
-  employee_reference?: string | null;
+type Vacancy = {
+  id: string;
+  organisation_id: string | number | null;
+  vacancy_reference: string;
+  title: string;
+  department: string | null;
+  location_name: string | null;
+  hiring_manager_name: string | null;
+  recruitment_lead_name: string | null;
+  employment_type: string;
+  work_pattern: string | null;
+  hours_per_week: number | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_period: string | null;
+  salary_currency: string;
+  salary_visible: boolean;
+  number_of_positions: number;
+  status: VacancyStatus;
+  approval_status: ApprovalStatus;
+  opening_date: string | null;
+  closing_date: string | null;
+  target_start_date: string | null;
+  is_internal_only: boolean;
+  accepts_internal_candidates: boolean;
+  blind_review_enabled: boolean;
+  ai_screening_enabled: boolean;
+  safer_recruitment_required: boolean;
+  regulated_role: boolean;
+  requires_dbs: boolean;
+  requires_driving: boolean;
+  requires_qualification_checks: boolean;
+  required_reference_count: number;
+  archived_at: string | null;
+  created_at: string;
+  published_at?: string | null;
+  role_summary?: string | null;
+  responsibilities?: string | null;
+  essential_criteria?: string | null;
+  desirable_criteria?: string | null;
+  benefits?: string | null;
+  advert_text?: string | null;
+  metadata?: Record<string, unknown> | null;
+  updated_at: string;
+};
+
+type VacancyEditForm = {
+  title: string;
+  department: string;
+  locationName: string;
+  hiringManagerName: string;
+  employmentType: string;
+  workPattern: string;
+  hoursPerWeek: string;
+  salaryMin: string;
+  salaryMax: string;
+  salaryCurrency: string;
+  salaryPeriod: string;
+  salaryVisible: boolean;
+  numberOfPositions: string;
+  openingDate: string;
+  closingDate: string;
+  targetStartDate: string;
+  advertText: string;
+  roleSummary: string;
+  responsibilities: string;
+  essentialCriteria: string;
+  desirableCriteria: string;
+  benefits: string;
+  isInternalOnly: boolean;
+  acceptsInternalCandidates: boolean;
+  blindReviewEnabled: boolean;
+  aiScreeningEnabled: boolean;
+  saferRecruitmentRequired: boolean;
+  regulatedRole: boolean;
+  requiresDbs: boolean;
+  requiresDriving: boolean;
+  requiresQualificationChecks: boolean;
+  requiredReferenceCount: string;
+};
+
+type PublicationChannel = {
+  id: string;
+  organisation_id: string | null;
+  vacancy_id: string;
+  channel_name: string;
+  channel_type: string;
+  external_reference?: string | null;
+  published_url?: string | null;
+  status: string;
+  published_at?: string | null;
+  closed_at?: string | null;
+  connection_provider_key?: string | null;
+  connection_payload?: Record<string, unknown> | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
-type ProfileSection =
-  | "Overview"
-  | "Employment"
-  | "Compliance Summary"
-  | "Development"
-  | "Learning"
-  | "Timeline"
-  | "Documents"
-  | "Matters"
-  | "Leave & Absence"
-  | "Warnings"
-  | "Right to Work"
-  | "DBS / Safeguarding"
-  | "Driving"
-  | "Medical"
-  | "Emergency Contacts"
-  | "Notes"
-  | "Archive";
-
-type NavigationItem = {
-  section: ProfileSection;
-  description: string;
-  minimumRole: PlatformRole;
-};
-
-type TimelineEvent = {
+type VacancyQuestion = {
   id: string;
-  date: string | null;
-  title: string;
-  description: string;
-  category:
-    | "Employment"
-    | "Compliance"
-    | "Development"
-    | "Learning"
-    | "Document"
-    | "Matter"
-    | "System";
-  source: string;
+  organisation_id: string | null;
+  vacancy_id: string;
+  question_text: string;
+  help_text?: string | null;
+  question_type: string;
+  options: unknown[];
+  is_required: boolean;
+  is_knockout: boolean;
+  knockout_rule: Record<string, unknown>;
+  blind_review_excluded: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
-type QuickAction = {
-  label: string;
-  section: ProfileSection;
-  description: string;
-  minimumRole: PlatformRole;
+type Candidate = {
+  id: string;
+  candidate_reference?: string | null;
+  first_name?: string | null;
+  middle_names?: string | null;
+  last_name?: string | null;
+  preferred_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  telephone?: string | null;
+  phone?: string | null;
+  status?: string | null;
+  current_stage?: string | null;
+  created_at?: string | null;
+  archived_at?: string | null;
 };
+
+type Application = {
+  id: string;
+  candidate_id: string | null;
+  vacancy_id: string;
+  application_reference?: string | null;
+  status?: string | null;
+  current_stage_key?: string | null;
+  stage?: string | null;
+  source?: string | null;
+  submitted_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  candidate?: Candidate | Candidate[] | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
+};
+
+type Interview = {
+  id: string;
+  vacancy_id: string;
+  candidate_id?: string | null;
+  candidate_name?: string | null;
+  interview_type?: string | null;
+  scheduled_at?: string | null;
+  start_time?: string | null;
+  location?: string | null;
+  status?: string | null;
+  outcome?: string | null;
+  created_at?: string | null;
+};
+
+type DueDiligenceRecord = {
+  id: string;
+  organisation_id: string | null;
+  application_id: string;
+  vacancy_id: string;
+  candidate_id: string;
+  status: string;
+  overall_risk_level: string;
+  overall_notes: string | null;
+  review_required: boolean;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  candidate?: Candidate | null;
+  application_reference?: string | null;
+};
+
+type Offer = {
+  id: string;
+  vacancy_id: string;
+  candidate_id?: string | null;
+  candidate_name?: string | null;
+  status?: string | null;
+  offered_salary?: number | null;
+  salary_currency?: string | null;
+  salary_period?: string | null;
+  proposed_start_date?: string | null;
+  issued_at?: string | null;
+  responded_at?: string | null;
+  created_at?: string | null;
+};
+
+type TalentDocument = {
+  id: string;
+  vacancy_id: string;
+  title?: string | null;
+  document_type?: string | null;
+  file_name?: string | null;
+  file_path?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
+};
+
+type ActivityEvent = {
+  id: string;
+  vacancy_id?: string | null;
+  entity_id?: string | null;
+  event_type?: string | null;
+  action?: string | null;
+  description?: string | null;
+  metadata?: Record<string, unknown> | null;
+  actor_name?: string | null;
+  created_at?: string | null;
+};
+
+type UserContext = {
+  userId: string | null;
+  organisationId: string | number | null;
+  role: PlatformRole;
+};
+
+type TableAvailability = Record<
+  | "publicationChannels"
+  | "vacancyQuestions"
+  | "applications"
+  | "candidates"
+  | "interviews"
+  | "dueDiligence"
+  | "offers"
+  | "documents"
+  | "activity",
+  boolean
+>;
 
 const roleRank: Record<PlatformRole, number> = {
   Employee: 1,
@@ -97,2195 +290,3731 @@ const roleRank: Record<PlatformRole, number> = {
   Owner: 4,
 };
 
-const navigationItems: NavigationItem[] = [
-  {
-    section: "Overview",
-    description: "Current position and connected activity",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Employment",
-    description: "Employment information and status",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Compliance Summary",
-    description: "Current checks, records and renewals",
-    minimumRole: "Manager",
-  },
-  {
-    section: "Development",
-    description: "Probation, reviews and development",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Learning",
-    description: "Training, learning and qualifications",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Timeline",
-    description: "Chronological employee history",
-    minimumRole: "Manager",
-  },
-  {
-    section: "Documents",
-    description: "Employment and supporting documents",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Matters",
-    description: "Connected workplace Matters",
-    minimumRole: "Manager",
-  },
-  {
-    section: "Leave & Absence",
-    description: "Leave and absence records",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Warnings",
-    description: "Formal warning history",
-    minimumRole: "Manager",
-  },
-  {
-    section: "Right to Work",
-    description: "Eligibility evidence and review dates",
-    minimumRole: "Senior",
-  },
-  {
-    section: "DBS / Safeguarding",
-    description: "DBS and safeguarding records",
-    minimumRole: "Senior",
-  },
-  {
-    section: "Driving",
-    description: "Driving records and annual DVLA checks",
-    minimumRole: "Manager",
-  },
-  {
-    section: "Medical",
-    description: "Restricted employment health records",
-    minimumRole: "Senior",
-  },
-  {
-    section: "Emergency Contacts",
-    description: "Emergency contact information",
-    minimumRole: "Employee",
-  },
-  {
-    section: "Notes",
-    description: "General employment notes",
-    minimumRole: "Manager",
-  },
-  {
-    section: "Archive",
-    description: "Archive or restore the employee record",
-    minimumRole: "Senior",
-  },
+const tabs: Array<{ id: WorkspaceTab; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "publication", label: "Publication" },
+  { id: "applications", label: "Applications" },
+  { id: "candidates", label: "Candidates" },
+  { id: "interviews", label: "Interviews" },
+  { id: "due_diligence", label: "Due Diligence" },
+  { id: "offers", label: "Offers & Appointments" },
+  { id: "documents", label: "Documents" },
+  { id: "activity", label: "Activity" },
+  { id: "settings", label: "Settings" },
 ];
 
-const quickActions: QuickAction[] = [
-  {
-    label: "Update employment",
-    section: "Employment",
-    description: "Review or update the employee’s employment information.",
-    minimumRole: "Senior",
-  },
-  {
-    label: "Open Matter",
-    section: "Matters",
-    description: "View existing Matters or begin a connected workplace Matter.",
-    minimumRole: "Manager",
-  },
-  {
-    label: "Record absence",
-    section: "Leave & Absence",
-    description: "Open the employee’s leave and absence record.",
-    minimumRole: "Manager",
-  },
-  {
-    label: "Schedule review",
-    section: "Development",
-    description: "Open probation, reviews and one-to-one activity.",
-    minimumRole: "Manager",
-  },
-  {
-    label: "Add document",
-    section: "Documents",
-    description: "Upload or review employee documentation.",
-    minimumRole: "Manager",
-  },
-  {
-    label: "View learning",
-    section: "Learning",
-    description: "Review training, qualifications and development activity.",
-    minimumRole: "Manager",
-  },
-];
-
-const defaultPlatformRole: PlatformRole = "Employee";
-
-export default function EmployeeProfilePage() {
-  const router = useRouter();
-  const params = useParams<{ id: string }>();
-
-  const employeeId = useMemo(() => {
-    const parsed = Number(params.id);
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [params.id]);
-
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [activeSection, setActiveSection] =
-    useState<ProfileSection>("Overview");
-
-  const [platformRole] = useState<PlatformRole>(defaultPlatformRole);
-
-  const [archiving, setArchiving] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [archiveError, setArchiveError] = useState("");
-  const [archiveSuccess, setArchiveSuccess] = useState("");
-
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState("");
-
-  const hasPermission = useCallback(
-    (minimumRole: PlatformRole) =>
-      roleRank[platformRole] >= roleRank[minimumRole],
-    [platformRole]
-  );
-
-  const visibleNavigationItems = useMemo(
-    () =>
-      navigationItems.filter((item) => hasPermission(item.minimumRole)),
-    [hasPermission]
-  );
-
-  const visibleQuickActions = useMemo(
-    () => quickActions.filter((action) => hasPermission(action.minimumRole)),
-    [hasPermission]
-  );
-
-  const loadEmployee = useCallback(async () => {
-    if (!employeeId) {
-      setLoadError("The employee reference is not valid.");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setLoadError("");
-
-    try {
-      const response = await fetch(`/api/employees/${employeeId}`, {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const result = (await response.json()) as {
-        success?: boolean;
-        employee?: Employee;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success || !result.employee) {
-        throw new Error(
-          result.error ||
-            "This employee record could not be loaded. Please return to Employees and try again."
-        );
-      }
-
-      setEmployee(result.employee);
-    } catch (error) {
-      console.error("Error loading employee:", error);
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "This employee record could not be loaded. Please return to Employees and try again."
-      );
-      setEmployee(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [employeeId]);
-
-  useEffect(() => {
-    void loadEmployee();
-  }, [loadEmployee]);
-
-  useEffect(() => {
-    const selectedItem = navigationItems.find(
-      (item) => item.section === activeSection
-    );
-
-    if (
-      selectedItem &&
-      !hasPermission(selectedItem.minimumRole) &&
-      visibleNavigationItems.length > 0
-    ) {
-      setActiveSection(visibleNavigationItems[0].section);
-    }
-  }, [
-    activeSection,
-    hasPermission,
-    visibleNavigationItems,
-    platformRole,
-  ]);
-
-  const buildTimeline = useCallback(async () => {
-    if (!employee) return;
-
-    setTimelineLoading(true);
-    setTimelineError("");
-
-    try {
-      const response = await fetch(
-        `/api/employees/${employee.id}?include=timeline`,
-        {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        }
-      );
-
-      const result = (await response.json()) as {
-        success?: boolean;
-        timeline?: TimelineEvent[];
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || "The employee timeline could not be loaded."
-        );
-      }
-
-      setTimelineEvents(result.timeline || []);
-    } catch (error) {
-      console.error("Employee timeline could not be loaded:", error);
-      setTimelineEvents([]);
-      setTimelineError(
-        error instanceof Error
-          ? error.message
-          : "The employee timeline could not be loaded."
-      );
-    } finally {
-      setTimelineLoading(false);
-    }
-  }, [employee]);
-
-  useEffect(() => {
-    if (activeSection === "Timeline" && employee) {
-      void buildTimeline();
-    }
-  }, [activeSection, employee, buildTimeline]);
-
-
-  async function archiveEmployee() {
-    if (!employee || archiving) return;
-
-    const confirmed = window.confirm(
-      `Archive ${employee.name}?\n\nThe employee will be removed from the active employee list. Their profile, documents, Matters, learning history and audit record will remain preserved.`
-    );
-
-    if (!confirmed) return;
-
-    setArchiving(true);
-    setArchiveError("");
-    setArchiveSuccess("");
-
-    try {
-      const response = await fetch(`/api/employees/${employee.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "archive" }),
-      });
-
-      const result = (await response.json()) as {
-        success?: boolean;
-        employee?: Employee;
-        message?: string;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success || !result.employee) {
-        throw new Error(
-          result.error || "The employee could not be archived. No changes were made."
-        );
-      }
-
-      setEmployee(result.employee);
-      setArchiveSuccess(
-        `${employee.name} has been archived. Their employment record remains preserved.`
-      );
-    } catch (error) {
-      console.error("Error archiving employee:", error);
-      setArchiveError(
-        error instanceof Error
-          ? error.message
-          : "The employee could not be archived. No changes were made."
-      );
-    } finally {
-      setArchiving(false);
-    }
-  }
-
-  async function restoreEmployee() {
-    if (!employee || restoring) return;
-
-    const confirmed = window.confirm(
-      `Restore ${employee.name} to the active employee register?`
-    );
-
-    if (!confirmed) return;
-
-    setRestoring(true);
-    setArchiveError("");
-    setArchiveSuccess("");
-
-    try {
-      const response = await fetch(`/api/employees/${employee.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "restore" }),
-      });
-
-      const result = (await response.json()) as {
-        success?: boolean;
-        employee?: Employee;
-        message?: string;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success || !result.employee) {
-        throw new Error(
-          result.error || "The employee could not be restored. No changes were made."
-        );
-      }
-
-      setEmployee(result.employee);
-      setArchiveSuccess(
-        `${employee.name} has been restored to the active employee register.`
-      );
-    } catch (error) {
-      console.error("Error restoring employee:", error);
-      setArchiveError(
-        error instanceof Error
-          ? error.message
-          : "The employee could not be restored. No changes were made."
-      );
-    } finally {
-      setRestoring(false);
-    }
-  }
-
-  function openSection(section: ProfileSection) {
-    const item = navigationItems.find(
-      (navigationItem) => navigationItem.section === section
-    );
-
-    if (!item || !hasPermission(item.minimumRole)) return;
-
-    setActiveSection(section);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function handleQuickAction(action: QuickAction) {
-    openSection(action.section);
-  }
-
-  if (loading) {
-    return (
-      <PageState
-        title="Loading employee"
-        message="The employee workspace is being prepared."
-      />
-    );
-  }
-
-  if (loadError || !employee) {
-    return (
-      <PageState
-        title="Employee unavailable"
-        message={
-          loadError ||
-          "The employee record could not be found or you do not have access to it."
-        }
-        actionLabel="Return to employees"
-        onAction={() => router.push("/dashboard/employees")}
-      />
-    );
-  }
-
-  const employeeStatus = normaliseEmployeeStatus(employee.status);
-  const isArchived = employeeStatus === "Archived";
-  const isNewStarter = employeeStatus === "New Starter";
-  const startDateLabel = formatDate(employee.start_date);
-
-  return (
-    <div className="employee-profile-page">
-      <button
-        type="button"
-        onClick={() => router.push("/dashboard/employees")}
-        style={backButtonStyle}
-      >
-        <span aria-hidden="true">←</span>
-        <span>All employees</span>
-      </button>
-
-      <header style={headerStyle}>
-        <div style={headerIdentityStyle}>
-          <div style={headerTitleRowStyle}>
-            <div>
-              <div style={eyebrowStyle}>Employee workspace</div>
-              <h1 style={employeeNameStyle}>{employee.name}</h1>
-            </div>
-
-            <StatusBadge status={employeeStatus} />
-          </div>
-
-          <div style={headerMetaGridStyle}>
-            <HeaderMeta
-              label="Role"
-              value={employee.role || "Not set"}
-            />
-            <HeaderMeta label="Start date" value={startDateLabel} />
-            <HeaderMeta
-              label="Employee reference"
-              value={String(employee.id)}
-            />
-            <HeaderMeta label="Access view" value={platformRole} />
-          </div>
-        </div>
-
-        <div style={headerActionsStyle}>
-          <button
-            type="button"
-            onClick={() => openSection("Employment")}
-            style={secondaryButtonStyle}
-          >
-            View employment
-          </button>
-
-          {hasPermission("Manager") && !isArchived && (
-            <button
-              type="button"
-              onClick={() => openSection("Matters")}
-              style={primaryButtonStyle}
-            >
-              Open Matters
-            </button>
-          )}
-        </div>
-      </header>
-
-      {isNewStarter && (
-        <NewStarterBanner
-          employeeName={employee.name}
-          startDate={startDateLabel}
-          onViewEmployment={() => openSection("Employment")}
-          onViewDocuments={() => openSection("Documents")}
-        />
-      )}
-
-      {isArchived && (
-        <ArchivedBanner
-          employeeName={employee.name}
-          canRestore={hasPermission("Senior")}
-          restoring={restoring}
-          onRestore={restoreEmployee}
-        />
-      )}
-
-      <div className="employee-profile-layout">
-        <aside style={navigationStyle} aria-label="Employee profile sections">
-          <div style={navigationHeadingStyle}>
-            <div style={navigationTitleStyle}>Employee record</div>
-            <div style={navigationSubtitleStyle}>
-              Select an area to view or update.
-            </div>
-          </div>
-
-          <nav style={navigationListStyle}>
-            {visibleNavigationItems.map((item) => {
-              const isActive = activeSection === item.section;
-
-              return (
-                <button
-                  key={item.section}
-                  type="button"
-                  onClick={() => openSection(item.section)}
-                  aria-current={isActive ? "page" : undefined}
-                  style={
-                    isActive
-                      ? activeNavigationButtonStyle
-                      : navigationButtonStyle
-                  }
-                >
-                  <span style={navigationButtonTitleStyle}>
-                    {item.section}
-                  </span>
-                  <span style={navigationButtonDescriptionStyle}>
-                    {item.description}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <main style={mainContentStyle}>
-          {activeSection === "Overview" && (
-            <div style={sectionStackStyle}>
-              <SectionHeading
-                eyebrow="Employee overview"
-                title={`${employee.name} at a glance`}
-                description="Current employment information, compliance position and useful actions from one place."
-              />
-
-              <div style={summaryGridStyle}>
-                <SummaryCard
-                  label="Employment status"
-                  value={employeeStatus}
-                  supportingText={
-                    isArchived
-                      ? "The employee record is preserved for history."
-                      : isNewStarter
-                      ? "Pre-employment or onboarding activity is still underway."
-                      : "Current employee record."
-                  }
-                />
-
-                <SummaryCard
-                  label="Current role"
-                  value={employee.role || "Not set"}
-                  supportingText="Managed from Employment."
-                />
-
-                <SummaryCard
-                  label="Start date"
-                  value={startDateLabel}
-                  supportingText={
-                    employee.start_date
-                      ? serviceLength(employee.start_date)
-                      : "A start date has not been recorded."
-                  }
-                />
-
-                <SummaryCard
-                  label="Linked Matters"
-                  value="View record"
-                  supportingText="Open the Matters tab for connected workplace activity."
-                  onClick={
-                    hasPermission("Manager")
-                      ? () => openSection("Matters")
-                      : undefined
-                  }
-                />
-              </div>
-
-              {hasPermission("Manager") && (
-                <ComplianceSummary employeeId={employee.id} />
-              )}
-
-              <Panel
-                title="Quick actions"
-                description="Open the area needed for the next employee action."
-              >
-                <div style={quickActionGridStyle}>
-                  {visibleQuickActions.map((action) => (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={() => handleQuickAction(action)}
-                      style={quickActionButtonStyle}
-                    >
-                      <span style={quickActionTitleStyle}>
-                        {action.label}
-                      </span>
-                      <span style={quickActionDescriptionStyle}>
-                        {action.description}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel
-                title="Employee record"
-                description="Core information held against this employee."
-              >
-                <div style={informationGridStyle}>
-                  <Info label="Name" value={employee.name} />
-                  <Info
-                    label="Email"
-                    value={employee.email || "Not set"}
-                  />
-                  <Info
-                    label="Role"
-                    value={employee.role || "Not set"}
-                  />
-                  <Info label="Status" value={employeeStatus} />
-                  <Info label="Start date" value={startDateLabel} />
-                  <Info
-                    label="Employee reference"
-                    value={String(employee.id)}
-                  />
-                </div>
-              </Panel>
-            </div>
-          )}
-
-          {activeSection === "Employment" && (
-            <SectionShell
-              eyebrow="Employment"
-              title="Employment details"
-              description="Maintain the employee’s current employment information and status."
-            >
-              <EmploymentDetails
-                employeeId={employee.id}
-                initialName={employee.name || ""}
-                initialEmail={employee.email || ""}
-                initialRole={employee.role || ""}
-                initialStatus={employee.status || "Active"}
-                initialStartDate={employee.start_date || ""}
-              />
-            </SectionShell>
-          )}
-
-          {activeSection === "Compliance Summary" && (
-            <SectionShell
-              eyebrow="Compliance"
-              title="Compliance summary"
-              description="Review the employee’s current checks, evidence and upcoming renewal dates."
-            >
-              <ComplianceSummary employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Development" && (
-            <SectionShell
-              eyebrow="Development"
-              title="Development"
-              description="Manage probation, reviews, one-to-ones, support plans, achievements and recognition."
-            >
-              <EmployeeDevelopment employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Learning" && (
-            <SectionShell
-              eyebrow="Leo Learn"
-              title="Learning"
-              description="Review training records now and connected Leo Learn activity as the module develops."
-            >
-              <TrainingLogs employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Timeline" && (
-            <SectionShell
-              eyebrow="Employee history"
-              title="Timeline"
-              description="A chronological view of meaningful employment activity across the employee lifecycle."
-              action={
-                <button
-                  type="button"
-                  onClick={() => void buildTimeline()}
-                  disabled={timelineLoading}
-                  style={secondaryButtonStyle}
-                >
-                  {timelineLoading ? "Refreshing..." : "Refresh timeline"}
-                </button>
-              }
-            >
-              <EmployeeTimeline
-                events={timelineEvents}
-                loading={timelineLoading}
-                error={timelineError}
-              />
-            </SectionShell>
-          )}
-                    {activeSection === "Documents" && (
-            <SectionShell
-              eyebrow="Documents"
-              title="Employee documents"
-              description="Store and review employment, identity, compliance and supporting documents."
-            >
-              <EmployeeDocuments employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Matters" && (
-            <SectionShell
-              eyebrow="Matters"
-              title="Employee Matters"
-              description="Review workplace Matters connected to this employee."
-            >
-              <EmployeeMatters employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Leave & Absence" && (
-            <SectionShell
-              eyebrow="Leave and absence"
-              title="Leave & Absence"
-              description="Record and review leave, sickness absence and related workplace activity."
-            >
-              <LeaveAbsence employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Warnings" && (
-            <SectionShell
-              eyebrow="Warnings"
-              title="Warning history"
-              description="Maintain formal warning records, expiry dates and supporting documentation."
-            >
-              <EmployeeWarnings employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Right to Work" && (
-            <SectionShell
-              eyebrow="Eligibility"
-              title="Right to Work"
-              description="Maintain evidence, review dates and the employee’s current Right to Work position."
-            >
-              <RightToWork employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "DBS / Safeguarding" && (
-  <SectionShell
-    eyebrow="Due diligence"
-    title="DBS / Safeguarding"
-    description="Maintain DBS, Update Service and safeguarding-related employment records."
-  >
-    <DBSSafeguarding employeeId={employee.id} />
-  </SectionShell>
-)}
-
-          {activeSection === "Driving" && (
-            <SectionShell
-              eyebrow="Driving compliance"
-              title="Driving"
-              description="Maintain driving records, evidence and annual DVLA check history."
-            >
-              <DrivingChecks employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Medical" && (
-            <SectionShell
-              eyebrow="Restricted information"
-              title="Medical"
-              description="Maintain authorised employment-related health and occupational information."
-            >
-              <EmployeeMedical employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Emergency Contacts" && (
-            <SectionShell
-              eyebrow="Emergency information"
-              title="Emergency contacts"
-              description="Maintain the employee’s nominated emergency-contact information."
-            >
-              <EmergencyContacts employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Notes" && (
-            <SectionShell
-              eyebrow="Employment notes"
-              title="Notes"
-              description="Record appropriate general employment notes that do not belong within a Matter."
-            >
-              <EmployeeNotes employeeId={employee.id} />
-            </SectionShell>
-          )}
-
-          {activeSection === "Archive" && (
-            <SectionShell
-              eyebrow="Record lifecycle"
-              title={isArchived ? "Archived employee" : "Archive employee"}
-              description={
-                isArchived
-                  ? "This employee record remains preserved and can be restored by an authorised user."
-                  : "Archiving removes the employee from active use while preserving their complete record."
-              }
-            >
-              <Panel
-                title={
-                  isArchived
-                    ? "Restore employee record"
-                    : "Archive employee record"
-                }
-                description={
-                  isArchived
-                    ? "Restoring will return the employee to the active employee register."
-                    : "The employee’s documents, Matters, learning, compliance records and history will remain preserved."
-                }
-              >
-                <div style={archiveExplanationStyle}>
-                  <ArchiveInformationRow
-                    label="Current status"
-                    value={employeeStatus}
-                  />
-                  <ArchiveInformationRow
-                    label="Employee"
-                    value={employee.name}
-                  />
-                  <ArchiveInformationRow
-                    label="Record preservation"
-                    value="Employment history and connected records will be retained."
-                  />
-                </div>
-
-                {archiveError && (
-                  <MessageBox tone="error">{archiveError}</MessageBox>
-                )}
-
-                {archiveSuccess && (
-                  <MessageBox tone="success">{archiveSuccess}</MessageBox>
-                )}
-
-                {isArchived ? (
-                  <button
-                    type="button"
-                    onClick={restoreEmployee}
-                    disabled={restoring || !hasPermission("Senior")}
-                    style={
-                      restoring || !hasPermission("Senior")
-                        ? disabledPrimaryButtonStyle
-                        : primaryButtonStyle
-                    }
-                  >
-                    {restoring ? "Restoring..." : "Restore employee"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={archiveEmployee}
-                    disabled={archiving || !hasPermission("Senior")}
-                    style={
-                      archiving || !hasPermission("Senior")
-                        ? disabledArchiveButtonStyle
-                        : archiveButtonStyle
-                    }
-                  >
-                    {archiving ? "Archiving..." : "Archive employee"}
-                  </button>
-                )}
-              </Panel>
-            </SectionShell>
-          )}
-        </main>
-      </div>
-
-      <style jsx>{`
-        .employee-profile-page {
-          width: 100%;
-          max-width: 1440px;
-        }
-
-        .employee-profile-layout {
-          display: grid;
-          grid-template-columns: 270px minmax(0, 1fr);
-          gap: 20px;
-          align-items: start;
-        }
-
-        @media (max-width: 980px) {
-          .employee-profile-layout {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 720px) {
-          .employee-profile-page {
-            width: 100%;
-          }
-        }
-      `}</style>
-    </div>
-  );
+const emptyAvailability: TableAvailability = {
+  publicationChannels: true,
+  vacancyQuestions: true,
+  applications: true,
+  candidates: true,
+  interviews: true,
+  dueDiligence: true,
+  offers: true,
+  documents: true,
+  activity: true,
+};
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-function SectionShell({
-  eyebrow,
-  title,
-  description,
-  action,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div style={sectionStackStyle}>
-      <SectionHeading
-        eyebrow={eyebrow}
-        title={title}
-        description={description}
-        action={action}
-      />
-
-      {children}
-    </div>
-  );
+function normaliseRole(value: unknown): PlatformRole {
+  const role = text(value).toLowerCase();
+  if (role === "owner") return "Employee";
+  if (role === "senior" || role === "hr") return "Senior";
+  if (role === "manager") return "Manager";
+  if (role === "employee") return "Employee";
+  return "Owner";
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div style={sectionHeadingStyle}>
-      <div style={sectionHeadingContentStyle}>
-        <div style={eyebrowStyle}>{eyebrow}</div>
-        <h2 style={sectionTitleStyle}>{title}</h2>
-        <p style={sectionDescriptionStyle}>{description}</p>
-      </div>
-
-      {action && <div style={sectionHeadingActionStyle}>{action}</div>}
-    </div>
-  );
-}
-
-function Panel({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section style={panelStyle}>
-      <div style={panelHeadingStyle}>
-        <h3 style={panelTitleStyle}>{title}</h3>
-
-        {description && (
-          <p style={panelDescriptionStyle}>{description}</p>
-        )}
-      </div>
-
-      {children}
-    </section>
-  );
-}
-
-function Info({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div style={informationItemStyle}>
-      <div style={informationLabelStyle}>{label}</div>
-      <div style={informationValueStyle}>{value}</div>
-    </div>
-  );
-}
-
-function HeaderMeta({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div style={headerMetaItemStyle}>
-      <div style={headerMetaLabelStyle}>{label}</div>
-      <div style={headerMetaValueStyle}>{value}</div>
-    </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  supportingText,
-  onClick,
-}: {
-  label: string;
-  value: string;
-  supportingText: string;
-  onClick?: () => void;
-}) {
-  const content = (
-    <>
-      <div style={summaryCardLabelStyle}>{label}</div>
-      <div style={summaryCardValueStyle}>{value}</div>
-      <div style={summaryCardSupportingTextStyle}>{supportingText}</div>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        style={summaryCardButtonStyle}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return <div style={summaryCardStyle}>{content}</div>;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const style = getStatusBadgeStyle(status);
-
-  return <span style={style}>{status}</span>;
-}
-
-function NewStarterBanner({
-  employeeName,
-  startDate,
-  onViewEmployment,
-  onViewDocuments,
-}: {
-  employeeName: string;
-  startDate: string;
-  onViewEmployment: () => void;
-  onViewDocuments: () => void;
-}) {
-  return (
-    <section style={newStarterBannerStyle}>
-      <div>
-        <div style={bannerEyebrowStyle}>New starter</div>
-        <h2 style={bannerTitleStyle}>
-          Prepare {employeeName} for employment
-        </h2>
-        <p style={bannerDescriptionStyle}>
-          Start date: {startDate}. Review the employment record and ensure
-          required documents are available before employment begins.
-        </p>
-      </div>
-
-      <div style={bannerActionsStyle}>
-        <button
-          type="button"
-          onClick={onViewEmployment}
-          style={secondaryButtonStyle}
-        >
-          Review employment
-        </button>
-
-        <button
-          type="button"
-          onClick={onViewDocuments}
-          style={primaryButtonStyle}
-        >
-          View documents
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function ArchivedBanner({
-  employeeName,
-  canRestore,
-  restoring,
-  onRestore,
-}: {
-  employeeName: string;
-  canRestore: boolean;
-  restoring: boolean;
-  onRestore: () => void;
-}) {
-  return (
-    <section style={archivedBannerStyle}>
-      <div>
-        <div style={bannerEyebrowStyle}>Archived employee</div>
-        <h2 style={bannerTitleStyle}>{employeeName}</h2>
-        <p style={bannerDescriptionStyle}>
-          This employee is not included in the active employee register.
-          Their record remains preserved for employment history, audit and
-          authorised review.
-        </p>
-      </div>
-
-      {canRestore && (
-        <button
-          type="button"
-          onClick={onRestore}
-          disabled={restoring}
-          style={
-            restoring ? disabledPrimaryButtonStyle : primaryButtonStyle
-          }
-        >
-          {restoring ? "Restoring..." : "Restore employee"}
-        </button>
-      )}
-    </section>
-  );
-}
-
-function EmployeeTimeline({
-  events,
-  loading,
-  error,
-}: {
-  events: TimelineEvent[];
-  loading: boolean;
-  error: string;
-}) {
-  if (loading) {
-    return (
-      <Panel title="Timeline">
-        <div style={emptyStateStyle}>Loading employee history...</div>
-      </Panel>
-    );
-  }
-
-  if (error) {
-    return (
-      <Panel title="Timeline">
-        <MessageBox tone="error">{error}</MessageBox>
-      </Panel>
-    );
-  }
-
-  if (events.length === 0) {
-    return (
-      <Panel
-        title="Timeline"
-        description="Meaningful employee events will appear here as activity is recorded across Leo."
-      >
-        <div style={emptyStateStyle}>
-          No employee timeline activity has been recorded yet.
-        </div>
-      </Panel>
-    );
-  }
-
-  return (
-    <Panel
-      title="Timeline"
-      description="Events are shown with the most recent activity first."
-    >
-      <div style={timelineListStyle}>
-        {events.map((event, index) => (
-          <div key={event.id} style={timelineItemStyle}>
-            <div style={timelineRailStyle}>
-              <div style={timelineDotStyle} />
-
-              {index < events.length - 1 && (
-                <div style={timelineLineStyle} />
-              )}
-            </div>
-
-            <div style={timelineContentStyle}>
-              <div style={timelineTopRowStyle}>
-                <div>
-                  <div style={timelineCategoryStyle}>
-                    {event.category}
-                  </div>
-                  <h4 style={timelineTitleStyle}>{event.title}</h4>
-                </div>
-
-                <time style={timelineDateStyle}>
-                  {formatDateTime(event.date)}
-                </time>
-              </div>
-
-              <p style={timelineDescriptionStyle}>
-                {event.description}
-              </p>
-
-              <div style={timelineSourceStyle}>
-                Source: {event.source}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-function ArchiveInformationRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div style={archiveInformationRowStyle}>
-      <span style={archiveInformationLabelStyle}>{label}</span>
-      <span style={archiveInformationValueStyle}>{value}</span>
-    </div>
-  );
-}
-
-function MessageBox({
-  tone,
-  children,
-}: {
-  tone: "error" | "success";
-  children: ReactNode;
-}) {
-  return (
-    <div
-      role={tone === "error" ? "alert" : "status"}
-      style={tone === "error" ? errorMessageStyle : successMessageStyle}
-    >
-      {children}
-    </div>
-  );
-}
-
-function PageState({
-  title,
-  message,
-  actionLabel,
-  onAction,
-}: {
-  title: string;
-  message: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <div style={pageStateOuterStyle}>
-      <div style={pageStateCardStyle}>
-        <h1 style={pageStateTitleStyle}>{title}</h1>
-        <p style={pageStateMessageStyle}>{message}</p>
-
-        {actionLabel && onAction && (
-          <button
-            type="button"
-            onClick={onAction}
-            style={primaryButtonStyle}
-          >
-            {actionLabel}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function normaliseEmployeeStatus(status: string | null): string {
-  const value = status?.trim();
-
-  if (!value) return "Active";
-
-  const lowerValue = value.toLowerCase();
-
-  if (lowerValue === "archived") return "Archived";
-  if (lowerValue === "new starter") return "New Starter";
-  if (lowerValue === "active") return "Active";
-  if (lowerValue === "leaving") return "Leaving";
-  if (lowerValue === "former employee") return "Former Employee";
-  if (lowerValue === "suspended") return "Suspended";
-
-  return value;
-}
-
-function formatDate(value: string | null): string {
+function humanise(value?: string | null): string {
   if (!value) return "Not set";
-
-  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (dateOnlyMatch) {
-    const [, year, month, day] = dateOnlyMatch;
-    return `${day}/${month}/${year}`;
-  }
-
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Europe/London",
-  }).format(parsedDate);
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatDateTime(value: string | null): string {
-  if (!value) return "Date not recorded";
-
-  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (dateOnlyMatch) {
-    return formatDate(value);
-  }
-
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
-  }
+function formatDate(value?: string | null, includeTime = false): string {
+  if (!value) return "Not set";
+  const parsed = new Date(value.includes("T") ? value : `${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
 
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/London",
-  }).format(parsedDate);
+    ...(includeTime
+      ? {
+          hour: "2-digit",
+          minute: "2-digit",
+        }
+      : {}),
+  }).format(parsed);
 }
 
-function serviceLength(startDate: string): string {
-  const match = startDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+function formatSalary(
+  minimum: number | null,
+  maximum: number | null,
+  currency = "GBP",
+  period?: string | null,
+): string {
+  if (minimum === null && maximum === null) return "Not set";
 
-  let start: Date;
-
-  if (match) {
-    const [, year, month, day] = match;
-
-    start = new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      12,
-      0,
-      0
-    );
-  } else {
-    start = new Date(startDate);
-  }
-
-  if (Number.isNaN(start.getTime())) {
-    return "Length of service unavailable.";
-  }
-
-  const today = new Date();
-
-  if (start.getTime() > today.getTime()) {
-    return "Employment has not started yet.";
-  }
-
-  let years = today.getFullYear() - start.getFullYear();
-  let months = today.getMonth() - start.getMonth();
-
-  if (today.getDate() < start.getDate()) {
-    months -= 1;
-  }
-
-  if (months < 0) {
-    years -= 1;
-    months += 12;
-  }
-
-  if (years > 0 && months > 0) {
-    return `${years} year${years === 1 ? "" : "s"}, ${months} month${
-      months === 1 ? "" : "s"
-    } service.`;
-  }
-
-  if (years > 0) {
-    return `${years} year${years === 1 ? "" : "s"} service.`;
-  }
-
-  return `${Math.max(months, 0)} month${
-    months === 1 ? "" : "s"
-  } service.`;
-}
-
-function readString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-
-  return "";
-}
-
-function dateValue(value: string | null): number {
-  if (!value) return 0;
-
-  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (dateOnlyMatch) {
-    const [, year, month, day] = dateOnlyMatch;
-
-    return new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      12,
-      0,
-      0
-    ).getTime();
-  }
-
-  const parsedDate = new Date(value).getTime();
-
-  return Number.isNaN(parsedDate) ? 0 : parsedDate;
-}
-
-function inferTimelineCategory(
-  record: Record<string, unknown>
-): TimelineEvent["category"] {
-  const combinedText = [
-    readString(record.category),
-    readString(record.source_module),
-    readString(record.action_title),
-    readString(record.action),
-    readString(record.event_type),
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  if (
-    combinedText.includes("learn") ||
-    combinedText.includes("training") ||
-    combinedText.includes("qualification") ||
-    combinedText.includes("certificate")
-  ) {
-    return "Learning";
-  }
-
-  if (
-    combinedText.includes("matter") ||
-    combinedText.includes("disciplinary") ||
-    combinedText.includes("grievance") ||
-    combinedText.includes("investigation")
-  ) {
-    return "Matter";
-  }
-
-  if (
-    combinedText.includes("document") ||
-    combinedText.includes("file") ||
-    combinedText.includes("upload")
-  ) {
-    return "Document";
-  }
-
-  if (
-    combinedText.includes("compliance") ||
-    combinedText.includes("dbs") ||
-    combinedText.includes("right to work") ||
-    combinedText.includes("driving") ||
-    combinedText.includes("dvla")
-  ) {
-    return "Compliance";
-  }
-
-  if (
-    combinedText.includes("development") ||
-    combinedText.includes("probation") ||
-    combinedText.includes("review") ||
-    combinedText.includes("one-to-one")
-  ) {
-    return "Development";
-  }
-
-  if (
-    combinedText.includes("employee") ||
-    combinedText.includes("employment") ||
-    combinedText.includes("role") ||
-    combinedText.includes("status")
-  ) {
-    return "Employment";
-  }
-
-  return "System";
-}
-
-function removeDuplicateTimelineEvents(
-  events: TimelineEvent[]
-): TimelineEvent[] {
-  const seen = new Set<string>();
-
-  return events.filter((event) => {
-    const key = [
-      event.date || "",
-      event.title.trim().toLowerCase(),
-      event.description.trim().toLowerCase(),
-    ].join("|");
-
-    if (seen.has(key)) return false;
-
-    seen.add(key);
-    return true;
+  const formatter = new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currency || "GBP",
+    maximumFractionDigits: 0,
   });
+
+  const suffix = period ? ` ${period}` : "";
+
+  if (minimum !== null && maximum !== null && minimum !== maximum) {
+    return `${formatter.format(minimum)}–${formatter.format(maximum)}${suffix}`;
+  }
+
+  return `${formatter.format(minimum ?? maximum ?? 0)}${suffix}`;
 }
 
-function getStatusBadgeStyle(status: string): CSSProperties {
-  const sharedStyle: CSSProperties = {
+function candidateDisplayName(candidate: Candidate): string {
+  const combined = `${candidate.first_name ?? ""} ${candidate.last_name ?? ""}`.trim();
+  return candidate.full_name || combined || "Candidate";
+}
+
+function firstRelatedRecord<T>(
+  value: T | T[] | null | undefined,
+): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function applicationDisplayName(application: Application): string {
+  return application.candidate_name || application.candidate_email || "Candidate";
+}
+
+function todayIso(): string {
+  return new Date().toISOString();
+}
+
+function toInputDate(value?: string | null): string {
+  return value ? value.slice(0, 10) : "";
+}
+
+function optionalText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function optionalNumber(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normaliseEmploymentType(value: string): string {
+  const normalised = value.trim().toLowerCase();
+
+  const values: Record<string, string> = {
+    permanent: "permanent",
+    "fixed term": "fixed_term",
+    temporary: "temporary",
+    casual: "casual",
+    "zero hours": "zero_hours",
+    apprenticeship: "apprenticeship",
+    internship: "internship",
+    contractor: "contractor",
+    volunteer: "volunteer",
+    other: "other",
+  };
+
+  return values[normalised] ?? "other";
+}
+
+function normaliseSalaryPeriod(value: string): string | null {
+  const normalised = value.trim().toLowerCase();
+
+  const values: Record<string, string> = {
+    "per annum": "year",
+    "per year": "year",
+    year: "year",
+    "per month": "month",
+    month: "month",
+    "per week": "week",
+    week: "week",
+    "per day": "day",
+    day: "day",
+    "per hour": "hour",
+    hour: "hour",
+    fixed: "fixed",
+  };
+
+  return values[normalised] ?? null;
+}
+
+function createEditFormFromVacancy(vacancy: Vacancy): VacancyEditForm {
+  return {
+    title: vacancy.title ?? "",
+    department: vacancy.department ?? "",
+    locationName: vacancy.location_name ?? "",
+    hiringManagerName: vacancy.hiring_manager_name ?? "",
+    employmentType: vacancy.employment_type ?? "",
+    workPattern: vacancy.work_pattern ?? "",
+    hoursPerWeek: vacancy.hours_per_week !== null ? String(vacancy.hours_per_week) : "",
+    salaryMin: vacancy.salary_min !== null ? String(vacancy.salary_min) : "",
+    salaryMax: vacancy.salary_max !== null ? String(vacancy.salary_max) : "",
+    salaryCurrency: vacancy.salary_currency ?? "GBP",
+    salaryPeriod: vacancy.salary_period ?? "",
+    salaryVisible: vacancy.salary_visible,
+    numberOfPositions: String(vacancy.number_of_positions ?? 1),
+    openingDate: toInputDate(vacancy.opening_date),
+    closingDate: toInputDate(vacancy.closing_date),
+    targetStartDate: toInputDate(vacancy.target_start_date),
+    advertText: vacancy.advert_text ?? "",
+    roleSummary: vacancy.role_summary ?? "",
+    responsibilities: vacancy.responsibilities ?? "",
+    essentialCriteria: vacancy.essential_criteria ?? "",
+    desirableCriteria: vacancy.desirable_criteria ?? "",
+    benefits: vacancy.benefits ?? "",
+    isInternalOnly: vacancy.is_internal_only,
+    acceptsInternalCandidates: vacancy.accepts_internal_candidates,
+    blindReviewEnabled: vacancy.blind_review_enabled,
+    aiScreeningEnabled: vacancy.ai_screening_enabled,
+    saferRecruitmentRequired: vacancy.safer_recruitment_required,
+    regulatedRole: vacancy.regulated_role,
+    requiresDbs: vacancy.requires_dbs,
+    requiresDriving: vacancy.requires_driving,
+    requiresQualificationChecks: vacancy.requires_qualification_checks,
+    requiredReferenceCount: String(vacancy.required_reference_count ?? 0),
+  };
+}
+
+export default function VacancyWorkspacePage() {
+  const params = useParams<{ vacancyId?: string; id?: string }>();
+  const router = useRouter();
+  const rawVacancyId = params?.vacancyId ?? params?.id;
+  const vacancyId = Array.isArray(rawVacancyId) ? rawVacancyId[0] : rawVacancyId;
+
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+  const [publicationChannels, setPublicationChannels] = useState<PublicationChannel[]>([]);
+  const [vacancyQuestions, setVacancyQuestions] = useState<VacancyQuestion[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [dueDiligence, setDueDiligence] = useState<DueDiligenceRecord[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [documents, setDocuments] = useState<TalentDocument[]>([]);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [availability, setAvailability] = useState<TableAvailability>(emptyAvailability);
+  const [userContext, setUserContext] = useState<UserContext>({
+    userId: null,
+    organisationId: null,
+    role: "Owner",
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [workingAction, setWorkingAction] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [documentType, setDocumentType] = useState("Job description");
+  const [documentNotes, setDocumentNotes] = useState("");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelType, setNewChannelType] = useState("manual");
+  const [newChannelUrl, setNewChannelUrl] = useState("");
+  const [isEditingVacancy, setIsEditingVacancy] = useState(false);
+  const [editForm, setEditForm] = useState<VacancyEditForm | null>(null);
+  const [questionText, setQuestionText] = useState("");
+  const [questionHelpText, setQuestionHelpText] = useState("");
+  const [questionType, setQuestionType] = useState("long_text");
+  const [questionRequired, setQuestionRequired] = useState(false);
+  const [questionKnockout, setQuestionKnockout] = useState(false);
+
+  const canManage = roleRank[userContext.role] >= roleRank.Manager;
+  const canAdminister = roleRank[userContext.role] >= roleRank.Senior;
+  const isOwner = userContext.role === "Owner";
+
+  const loadWorkspace = useCallback(
+    async (refresh = false) => {
+      if (!vacancyId) {
+        setErrorMessage("This vacancy could not be identified.");
+        setLoading(false);
+        return;
+      }
+
+      refresh ? setRefreshing(true) : setLoading(true);
+      setErrorMessage("");
+      setActionMessage("");
+
+      try {
+        const response = await fetch(
+          `/api/talent/vacancies/${encodeURIComponent(vacancyId)}/workspace`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          },
+        );
+
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              error?: string;
+              workspace?: {
+                vacancy: Vacancy;
+                publicationChannels: PublicationChannel[];
+                vacancyQuestions: VacancyQuestion[];
+                applications: Application[];
+                candidates: Candidate[];
+                interviews: Interview[];
+                dueDiligence: DueDiligenceRecord[];
+                offers: Offer[];
+                documents: TalentDocument[];
+                activity: ActivityEvent[];
+                availability: TableAvailability;
+                userContext: UserContext;
+              };
+            }
+          | null;
+
+        if (!response.ok || !payload?.success || !payload.workspace) {
+          setVacancy(null);
+          setErrorMessage(
+            payload?.error || "The vacancy workspace could not be loaded.",
+          );
+          return;
+        }
+
+        const workspace = payload.workspace;
+
+        setVacancy(workspace.vacancy);
+        setEditForm(createEditFormFromVacancy(workspace.vacancy));
+        setPublicationChannels(workspace.publicationChannels ?? []);
+        setVacancyQuestions(
+          [...(workspace.vacancyQuestions ?? [])].sort(
+            (a, b) => a.display_order - b.display_order,
+          ),
+        );
+        setApplications(workspace.applications ?? []);
+        setCandidates(workspace.candidates ?? []);
+        setInterviews(workspace.interviews ?? []);
+        setDueDiligence(workspace.dueDiligence ?? []);
+        setOffers(workspace.offers ?? []);
+        setDocuments(workspace.documents ?? []);
+        setActivity(workspace.activity ?? []);
+        setAvailability(workspace.availability ?? emptyAvailability);
+        const normalizedUserContext: UserContext = workspace.userContext
+          ? {
+              ...workspace.userContext,
+              role: normaliseRole(workspace.userContext.role),
+            }
+          : {
+              userId: null,
+              organisationId: null,
+              role: "Employee",
+            };
+
+        setUserContext(normalizedUserContext);
+      } catch (error) {
+        console.error("Talent vacancy workspace could not be loaded:", error);
+        setVacancy(null);
+        setEditForm(null);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "The vacancy workspace could not be loaded.",
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [vacancyId],
+  );
+
+  useEffect(() => {
+    void loadWorkspace();
+  }, [loadWorkspace]);
+
+  const metrics = useMemo(() => {
+    const activeApplications = applications.filter(
+      (item) =>
+        !["withdrawn", "rejected", "declined", "appointed"].includes(
+          text(item.status).toLowerCase(),
+        ),
+    ).length;
+
+    const scheduledInterviews = interviews.filter(
+      (item) =>
+        ["scheduled", "confirmed", "planned"].includes(
+          text(item.status).toLowerCase(),
+        ),
+    ).length;
+
+    const outstandingChecks = dueDiligence.filter(
+      (item) =>
+        !["complete", "completed", "verified", "not_required"].includes(
+          text(item.status).toLowerCase(),
+        ),
+    ).length;
+
+    const activeOffers = offers.filter((item) =>
+      ["draft", "pending", "issued", "offered", "accepted"].includes(
+        text(item.status).toLowerCase(),
+      ),
+    ).length;
+
+    return {
+      activeApplications,
+      candidates: candidates.length,
+      scheduledInterviews,
+      outstandingChecks,
+      activeOffers,
+    };
+  }, [applications, candidates, dueDiligence, interviews, offers]);
+
+  const filteredApplications = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return applications;
+    return applications.filter((item) =>
+      [
+        item.application_reference,
+        item.candidate_name,
+        item.candidate_email,
+        item.status,
+        item.stage,
+        item.source,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [applications, searchTerm]);
+
+  const filteredCandidates = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return candidates;
+    return candidates.filter((item) =>
+      [
+        candidateDisplayName(item),
+        item.email,
+        item.telephone,
+        item.phone,
+        item.status,
+        item.current_stage,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [candidates, searchTerm]);
+
+  const resolveVacancyUrl = useCallback(
+    async (preferLiveRoute = true) => {
+      if (!vacancyId) return "";
+
+      if (preferLiveRoute && vacancy?.status === "open") {
+        const result = await supabase
+          .from("leo_public_careers_vacancies")
+          .select("organisation_slug, vacancy_slug")
+          .eq("vacancy_id", vacancy.id)
+          .maybeSingle();
+
+        if (!result.error && result.data) {
+          const organisationSlug = result.data.organisation_slug ?? "";
+          const vacancySlug = result.data.vacancy_slug ?? "";
+
+          if (organisationSlug && vacancySlug) {
+            return `/careers/${encodeURIComponent(organisationSlug)}/${encodeURIComponent(vacancySlug)}`;
+          }
+        }
+      }
+
+      return `/careers/${encodeURIComponent(vacancyId)}`;
+    },
+    [vacancy, vacancyId],
+  );
+
+  const startEditVacancy = useCallback(() => {
+    if (!vacancy || !canManage) return;
+    setEditForm(createEditFormFromVacancy(vacancy));
+    setIsEditingVacancy(true);
+    setActiveTab("overview");
+    setErrorMessage("");
+    setActionMessage("");
+  }, [canManage, vacancy]);
+
+  const cancelEditVacancy = useCallback(() => {
+    if (!vacancy) return;
+    setEditForm(createEditFormFromVacancy(vacancy));
+    setIsEditingVacancy(false);
+    setErrorMessage("");
+  }, [vacancy]);
+
+  const updateEditField = useCallback(
+    <K extends keyof VacancyEditForm>(field: K, value: VacancyEditForm[K]) => {
+      setEditForm((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          [field]: value,
+        };
+      });
+      setErrorMessage("");
+      setActionMessage("");
+    },
+    [],
+  );
+
+  const saveVacancyEdits = useCallback(async () => {
+    if (!vacancy || !editForm || !canManage) {
+      setErrorMessage("You do not have access to edit this vacancy.");
+      return;
+    }
+
+    setWorkingAction("edit-vacancy");
+    setErrorMessage("");
+    setActionMessage("");
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          department: optionalText(editForm.department),
+          location_name: optionalText(editForm.locationName),
+          hiring_manager_name: optionalText(editForm.hiringManagerName),
+          employment_type: normaliseEmploymentType(editForm.employmentType),
+          work_pattern: optionalText(editForm.workPattern),
+          hours_per_week: optionalNumber(editForm.hoursPerWeek),
+          salary_min: optionalNumber(editForm.salaryMin),
+          salary_max: optionalNumber(editForm.salaryMax),
+          salary_currency: editForm.salaryCurrency.trim() || "GBP",
+          salary_period: normaliseSalaryPeriod(editForm.salaryPeriod),
+          salary_visible: editForm.salaryVisible,
+          number_of_positions: Number(editForm.numberOfPositions),
+          opening_date: editForm.openingDate || null,
+          closing_date: editForm.closingDate || null,
+          target_start_date: editForm.targetStartDate || null,
+          advert_text: optionalText(editForm.advertText),
+          role_summary: optionalText(editForm.roleSummary),
+          responsibilities: optionalText(editForm.responsibilities),
+          essential_criteria: optionalText(editForm.essentialCriteria),
+          desirable_criteria: optionalText(editForm.desirableCriteria),
+          benefits: optionalText(editForm.benefits),
+          is_internal_only: editForm.isInternalOnly,
+          accepts_internal_candidates: editForm.acceptsInternalCandidates,
+          blind_review_enabled: editForm.blindReviewEnabled,
+          ai_screening_enabled: editForm.aiScreeningEnabled,
+          safer_recruitment_required: editForm.saferRecruitmentRequired,
+          regulated_role: editForm.regulatedRole,
+          requires_dbs: editForm.requiresDbs,
+          requires_driving: editForm.requiresDriving,
+          requires_qualification_checks: editForm.requiresQualificationChecks,
+          required_reference_count: Number(editForm.requiredReferenceCount),
+        }),
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The vacancy could not be updated. ${payload?.error || "Unable to save changes."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    setActionMessage("Vacancy updated successfully.");
+    setIsEditingVacancy(false);
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, editForm, loadWorkspace, vacancy]);
+
+  const recordActivity = useCallback(
+    async (eventType: string, description: string, metadata?: Record<string, unknown>) => {
+      try {
+        const { error } = await (supabase as any)
+  .from("talent_analytics_events")
+  .insert({
+          organisation_id: vacancy?.organisation_id ?? userContext.organisationId,
+          event_type: eventType,
+          entity_type: "vacancy",
+          entity_id: vacancyId,
+          actor_user_id: userContext.userId,
+          description,
+          metadata: metadata ?? {},
+          created_at: todayIso(),
+        });
+
+        if (error) {
+          console.warn("Talent activity could not be recorded:", error.message);
+        }
+      } catch (error) {
+        console.warn("Talent activity could not be recorded:", error);
+      }
+    },
+    [userContext, vacancy?.organisation_id, vacancyId],
+  );
+
+  const publicVacancyPath = vacancyId ? `/careers/${vacancyId}` : "";
+
+  const openVacancyPreview = useCallback(async () => {
+    const path = await resolveVacancyUrl(true);
+    if (!path) return;
+
+    const url = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [resolveVacancyUrl]);
+
+  const copyVacancyUrl = useCallback(async () => {
+    const path = await resolveVacancyUrl(true);
+    if (!path) {
+      setErrorMessage("The vacancy URL could not be resolved.");
+      return;
+    }
+
+    const url = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setActionMessage("Vacancy URL copied to clipboard.");
+    } catch {
+      window.prompt("Copy this vacancy URL:", url);
+      setActionMessage("Vacancy URL is ready to copy.");
+    }
+  }, [resolveVacancyUrl]);
+
+  const updatePublicationSettings = useCallback(
+    async (updates: Record<string, unknown>, successMessage: string) => {
+      if (!vacancy || !canManage) {
+        setErrorMessage("You do not have access to change publication settings.");
+        return;
+      }
+
+      setWorkingAction("publication-settings");
+      setErrorMessage("");
+      setActionMessage("");
+
+      const nextMetadata = { ...(vacancy.metadata ?? {}), ...updates };
+      const response = await fetch(
+        `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            metadata: nextMetadata,
+          }),
+        },
+      );
+
+      const payload = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        setErrorMessage(
+          `Publication settings could not be saved. ${payload?.error || "Unable to save changes."}`,
+        );
+        setWorkingAction(null);
+        return;
+      }
+
+      await recordActivity("vacancy_publication_settings_updated", successMessage, updates);
+      setActionMessage(successMessage);
+      setWorkingAction(null);
+      await loadWorkspace(true);
+    },
+    [canManage, loadWorkspace, recordActivity, userContext.userId, vacancy],
+  );
+
+  const publishVacancy = useCallback(async () => {
+    if (!vacancy || !canManage) {
+      setErrorMessage("You do not have access to publish this vacancy.");
+      return;
+    }
+
+    if (!vacancy.title.trim() || !vacancy.advert_text?.trim()) {
+      setErrorMessage("Add a vacancy title and advert text before publishing.");
+      setActiveTab("overview");
+      return;
+    }
+
+    if (vacancy.closing_date) {
+      const closing = new Date(`${vacancy.closing_date}T23:59:59`);
+      if (closing.getTime() < Date.now()) {
+        setErrorMessage("The closing date has passed. Update it before publishing.");
+        return;
+      }
+    }
+
+    setWorkingAction("publish-vacancy");
+    setErrorMessage("");
+    setActionMessage("");
+
+    const now = todayIso();
+    const vacancyUpdateResponse = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "open",
+          approval_status:
+            vacancy.approval_status === "not_required"
+              ? "approved"
+              : vacancy.approval_status,
+          published_at: now,
+          opening_date: vacancy.opening_date ?? now.slice(0, 10),
+        }),
+      },
+    );
+
+    const vacancyUpdatePayload =
+      (await vacancyUpdateResponse.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+    if (
+      !vacancyUpdateResponse.ok ||
+      !vacancyUpdatePayload?.success
+    ) {
+      setErrorMessage(
+        `The vacancy could not be published. ${vacancyUpdatePayload?.error || "Unable to save changes."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    const publicRouteResult = await supabase
+      .from("leo_public_careers_vacancies")
+      .select("organisation_slug, vacancy_slug")
+      .eq("vacancy_id", vacancy.id)
+      .maybeSingle();
+
+    if (publicRouteResult.error || !publicRouteResult.data) {
+      setErrorMessage(
+        `The vacancy was opened, but its public Careers route could not be resolved. ${publicRouteResult.error?.message ?? "Check the public careers view and publication rules."}`,
+      );
+      setWorkingAction(null);
+      await loadWorkspace(true);
+      return;
+    }
+
+    const organisationSlug =
+  publicRouteResult.data.organisation_slug ?? "";
+
+const vacancySlug =
+  publicRouteResult.data.vacancy_slug ?? "";
+
+const resolvedPublicPath = `/careers/${encodeURIComponent(
+  organisationSlug,
+)}/${encodeURIComponent(vacancySlug)}`;
+
+    const resolvedPublicUrl =
+      typeof window === "undefined"
+        ? resolvedPublicPath
+        : `${window.location.origin}${resolvedPublicPath}`;
+
+    const existingLeoChannel = publicationChannels.find(
+      (channel) => channel.channel_name.toLowerCase() === "leo careers",
+    );
+
+    const channelPayload = {
+      organisation_id: vacancy.organisation_id,
+      vacancy_id: vacancy.id,
+      channel_name: "LEO Careers",
+      channel_type: "leo_careers",
+      published_url: resolvedPublicUrl,
+      status: "published",
+      published_at: now,
+      closed_at: null,
+      updated_at: now,
+    };
+
+    const channelResult = existingLeoChannel
+      ? await supabase
+          .from("leo_talent_vacancy_publication_channels")
+          .update(channelPayload as any)
+          .eq("id", existingLeoChannel.id)
+      : await supabase
+          .from("leo_talent_vacancy_publication_channels")
+          .insert(channelPayload as any)
+
+    if (channelResult.error) {
+      setErrorMessage(
+        `The vacancy was opened, but its LEO Careers channel could not be recorded. ${channelResult.error.message}`,
+      );
+      setWorkingAction(null);
+      await loadWorkspace(true);
+      return;
+    }
+
+    await recordActivity("vacancy_published", "Vacancy published to LEO Careers.", {
+      public_url: resolvedPublicUrl,
+    });
+    setActionMessage("Vacancy published to LEO Careers.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [
+    canManage,
+    loadWorkspace,
+    publicVacancyPath,
+    publicationChannels,
+    recordActivity,
+    userContext.userId,
+    vacancy,
+  ]);
+
+  const unpublishVacancy = useCallback(async () => {
+    if (!vacancy || !canManage) {
+      setErrorMessage("You do not have access to unpublish this vacancy.");
+      return;
+    }
+
+    if (!window.confirm("Remove this vacancy from all published channels? Existing applications will be retained.")) return;
+
+    setWorkingAction("unpublish-vacancy");
+    setErrorMessage("");
+    const now = todayIso();
+
+    const vacancyResponse = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "paused",
+        }),
+      },
+    );
+
+    const vacancyPayload =
+      (await vacancyResponse.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+    if (!vacancyResponse.ok || !vacancyPayload?.success) {
+      setErrorMessage(
+        `The vacancy could not be unpublished. ${vacancyPayload?.error || "Unable to save changes."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    const channelResult = await supabase
+      .from("leo_talent_vacancy_publication_channels")
+      .update({ status: "closed", closed_at: now, updated_at: now })
+      .eq("vacancy_id", vacancy.id)
+      .eq("status", "published");
+
+    if (channelResult.error) {
+      setErrorMessage(`Publication channels could not all be closed. ${channelResult.error.message}`);
+      setWorkingAction(null);
+      await loadWorkspace(true);
+      return;
+    }
+
+    await recordActivity("vacancy_unpublished", "Vacancy removed from published channels.");
+    setActionMessage("Vacancy unpublished. Existing applications remain available.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, recordActivity, userContext.userId, vacancy]);
+
+  const addPublicationChannel = useCallback(async () => {
+    if (!vacancy || !canManage || !newChannelName.trim()) {
+      setErrorMessage("Add a publication channel name.");
+      return;
+    }
+
+        setWorkingAction("add-publication-channel");
+    setErrorMessage("");
+
+    const now = todayIso();
+
+    const { error } = await (supabase as any)
+      .from("leo_talent_vacancy_publication_channels")
+      .insert({
+        organisation_id: vacancy.organisation_id,
+        vacancy_id: vacancy.id,
+        channel_name: newChannelName.trim(),
+        channel_type: newChannelType,
+        published_url: newChannelUrl.trim() || null,
+        status: newChannelUrl.trim() ? "published" : "planned",
+        published_at: newChannelUrl.trim() ? now : null,
+        connection_payload: {},
+        created_at: now,
+        updated_at: now,
+      } as any);
+
+    if (error) {
+      setErrorMessage(`The publication channel could not be added. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+
+    await recordActivity("vacancy_publication_channel_added", `Publication channel added: ${newChannelName.trim()}.`);
+    setNewChannelName("");
+    setNewChannelType("manual");
+    setNewChannelUrl("");
+    setActionMessage("Publication channel added.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, newChannelName, newChannelType, newChannelUrl, recordActivity, vacancy]);
+
+  const updateChannelStatus = useCallback(async (channel: PublicationChannel, status: string) => {
+    if (!canManage) return;
+    setWorkingAction(`channel-${channel.id}`);
+    setErrorMessage("");
+    const now = todayIso();
+    const { error } = await supabase
+      .from("leo_talent_vacancy_publication_channels")
+      .update({
+        status,
+        published_at: status === "published" ? channel.published_at ?? now : channel.published_at,
+        closed_at: status === "closed" ? now : null,
+        updated_at: now,
+      })
+      .eq("id", channel.id);
+
+    if (error) {
+      setErrorMessage(`The channel could not be updated. ${error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+    await recordActivity("vacancy_publication_channel_updated", `${channel.channel_name} marked ${humanise(status)}.`);
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, recordActivity]);
+
+  const addVacancyQuestion = useCallback(async () => {
+    if (!vacancy || !canManage || !questionText.trim()) {
+      setErrorMessage("Enter the application question.");
+      return;
+    }
+
+        setWorkingAction("add-vacancy-question");
+    setErrorMessage("");
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}/questions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question_text: questionText.trim(),
+          help_text: questionHelpText.trim() || null,
+          question_type: questionType,
+          options: [],
+          is_required: questionRequired,
+          is_knockout: questionKnockout,
+          knockout_rule: {},
+          blind_review_excluded: false,
+          display_order: vacancyQuestions.length,
+          is_active: true,
+        }),
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The application question could not be added. ${payload?.error || "Unable to save changes."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    setQuestionText("");
+    setQuestionHelpText("");
+    setQuestionType("long_text");
+    setQuestionRequired(false);
+    setQuestionKnockout(false);
+    setActionMessage("Application question added.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace, questionHelpText, questionKnockout, questionRequired, questionText, questionType, vacancy, vacancyQuestions.length]);
+
+  const toggleVacancyQuestion = useCallback(async (question: VacancyQuestion, updates: Partial<VacancyQuestion>) => {
+    if (!canManage) return;
+    setWorkingAction(`question-${question.id}`);
+    setErrorMessage("");
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(question.vacancy_id)}/questions/${encodeURIComponent(question.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The application question could not be updated. ${payload?.error || "Unable to save changes."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace]);
+
+  const deleteVacancyQuestion = useCallback(async (question: VacancyQuestion) => {
+    if (!canManage || !window.confirm("Delete this application question?")) return;
+    setWorkingAction(`question-${question.id}`);
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(question.vacancy_id)}/questions/${encodeURIComponent(question.id)}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      setErrorMessage(
+        `The application question could not be deleted. ${payload?.error || "Unable to delete this question."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [canManage, loadWorkspace]);
+
+  const updateVacancyStatus = useCallback(
+    async (
+      nextStatus: VacancyStatus,
+      nextApprovalStatus?: ApprovalStatus,
+      confirmation?: string,
+    ) => {
+      if (!vacancy || !canManage) {
+        setErrorMessage("You do not have access to update this vacancy.");
+        return;
+      }
+
+      if (confirmation && !window.confirm(confirmation)) return;
+
+      setWorkingAction(nextStatus);
+      setErrorMessage("");
+      setActionMessage("");
+
+      const payload: Partial<Vacancy> = {
+        status: nextStatus,
+        updated_at: todayIso(),
+      };
+
+      if (nextApprovalStatus) payload.approval_status = nextApprovalStatus;
+      if (nextStatus === "archived") payload.archived_at = todayIso();
+      if (vacancy.status === "archived" && nextStatus !== "archived") {
+        payload.archived_at = null;
+      }
+
+      const response = await fetch(
+        `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || !result?.success) {
+        setErrorMessage(
+          `The vacancy could not be updated. ${result?.error || "Unable to save changes."}`,
+        );
+        setWorkingAction(null);
+        return;
+      }
+
+      const eventType = `vacancy_${nextStatus}`;
+      await recordActivity(
+        eventType,
+        `Vacancy status changed to ${humanise(nextStatus)}.`,
+        { previous_status: vacancy.status, new_status: nextStatus },
+      );
+
+      setActionMessage(`Vacancy updated to ${humanise(nextStatus)}.`);
+      setWorkingAction(null);
+      await loadWorkspace(true);
+    },
+    [canManage, loadWorkspace, recordActivity, vacancy],
+  );
+
+  const updateApproval = useCallback(
+    async (approvalStatus: ApprovalStatus, status: VacancyStatus) => {
+      if (!vacancy || !canAdminister) {
+        setErrorMessage("Senior or Owner access is required to approve vacancies.");
+        return;
+      }
+
+      setWorkingAction(`approval-${approvalStatus}`);
+      setErrorMessage("");
+
+      const response = await fetch(
+        `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            approval_status: approvalStatus,
+            status,
+          }),
+        },
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || !result?.success) {
+        setErrorMessage(
+          `Approval could not be recorded. ${result?.error || "Unable to save changes."}`,
+        );
+        setWorkingAction(null);
+        return;
+      }
+
+      await recordActivity(
+        `vacancy_approval_${approvalStatus}`,
+        `Vacancy approval marked ${humanise(approvalStatus)}.`,
+      );
+
+      setActionMessage(`Approval marked ${humanise(approvalStatus)}.`);
+      setWorkingAction(null);
+      await loadWorkspace(true);
+    },
+    [canAdminister, loadWorkspace, recordActivity, vacancy],
+  );
+
+  const handleDelete = useCallback(async () => {
+    if (!vacancy || !isOwner) {
+      setErrorMessage("Only an Owner can permanently delete a vacancy.");
+      return;
+    }
+
+    if (
+      applications.length > 0 ||
+      candidates.length > 0 ||
+      interviews.length > 0 ||
+      offers.length > 0
+    ) {
+      setErrorMessage(
+        "This vacancy has connected recruitment records and cannot be deleted. Archive it instead.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Permanently delete this vacancy? This cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setWorkingAction("delete");
+
+    const response = await fetch(
+      `/api/talent/vacancies/${encodeURIComponent(vacancy.id)}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    const result = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !result?.success) {
+      setErrorMessage(
+        `The vacancy could not be deleted. ${result?.error || "Unable to delete this vacancy."}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    router.push("/dashboard/leo-talent");
+  }, [applications.length, candidates.length, interviews.length, isOwner, offers.length, router, vacancy]);
+
+  const uploadDocument = useCallback(async () => {
+    if (!vacancy || !documentFile || !documentTitle.trim()) {
+      setErrorMessage("Add a document title and select a file.");
+      return;
+    }
+
+    if (!canManage) {
+      setErrorMessage("You do not have access to upload vacancy documents.");
+      return;
+    }
+
+    setWorkingAction("upload-document");
+    setErrorMessage("");
+    setActionMessage("");
+
+    const safeName = documentFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const path = `${vacancy.organisation_id ?? "organisation"}/${vacancy.id}/${Date.now()}-${safeName}`;
+
+    const uploadResult = await supabase.storage
+      .from("talent-documents")
+      .upload(path, documentFile, { upsert: false });
+
+    if (uploadResult.error) {
+      setErrorMessage(`The file could not be uploaded. ${uploadResult.error.message}`);
+      setWorkingAction(null);
+      return;
+    }
+
+        const insertResult = await (supabase as any)
+      .from("leo_talent_vacancy_documents")
+      .insert({
+        organisation_id: vacancy.organisation_id,
+        vacancy_id: vacancy.id,
+        title: documentTitle.trim(),
+        document_type: documentType,
+        file_name: documentFile.name,
+        file_path: path,
+        file_type: documentFile.type || null,
+        notes: documentNotes.trim() || null,
+        uploaded_by: userContext.userId,
+        created_at: todayIso(),
+        updated_at: todayIso(),
+      } as any);
+
+    if (insertResult.error) {
+      await supabase.storage.from("talent-documents").remove([path]);
+      setErrorMessage(
+        `The document record could not be saved. ${insertResult.error.message}`,
+      );
+      setWorkingAction(null);
+      return;
+    }
+
+    await recordActivity("vacancy_document_uploaded", `Document uploaded: ${documentTitle.trim()}.`);
+
+    setDocumentTitle("");
+    setDocumentType("Job description");
+    setDocumentNotes("");
+    setDocumentFile(null);
+    setActionMessage("Document uploaded.");
+    setWorkingAction(null);
+    await loadWorkspace(true);
+  }, [
+    canManage,
+    documentFile,
+    documentNotes,
+    documentTitle,
+    documentType,
+    loadWorkspace,
+    recordActivity,
+    userContext.userId,
+    vacancy,
+  ]);
+
+  const openDocument = useCallback(async (document: TalentDocument) => {
+    if (!document.file_path) {
+      setErrorMessage("This document does not have a stored file path.");
+      return;
+    }
+
+    const result = await supabase.storage
+      .from("talent-documents")
+      .createSignedUrl(document.file_path, 60);
+
+    if (result.error || !result.data?.signedUrl) {
+      setErrorMessage(
+        `The document could not be opened. ${result.error?.message ?? ""}`,
+      );
+      return;
+    }
+
+    window.open(result.data.signedUrl, "_blank", "noopener,noreferrer");
+  }, []);
+
+  if (loading) {
+    return (
+      <main style={styles.page}>
+        <StatePanel
+          title="Loading vacancy workspace…"
+          description="Leo is retrieving the vacancy and its connected recruitment records."
+        />
+      </main>
+    );
+  }
+
+  if (!vacancy) {
+    return (
+      <main style={styles.page}>
+        <StatePanel
+          title="Vacancy unavailable"
+          description={errorMessage || "This vacancy could not be found."}
+          action={
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => router.push("/dashboard/leo-talent")}
+            >
+              Return to Leo Talent
+            </button>
+          }
+        />
+      </main>
+    );
+  }
+
+  return (
+    <main style={styles.page}>
+      <header style={styles.headerCard}>
+        <div style={styles.headerMain}>
+          <button
+            type="button"
+            style={styles.backButton}
+            onClick={() => router.push("/dashboard/leo-talent")}
+          >
+            ← Back to Leo Talent
+          </button>
+
+          <div style={styles.headingRow}>
+            <div>
+              <p style={styles.eyebrow}>LEO TALENT · {vacancy.vacancy_reference}</p>
+              <h1 style={styles.pageTitle}>{vacancy.title}</h1>
+              <p style={styles.pageDescription}>
+                {vacancy.department || "Department not set"} ·{" "}
+                {vacancy.location_name || "Location not set"} ·{" "}
+                {vacancy.employment_type}
+              </p>
+            </div>
+
+            <div style={styles.statusStack}>
+              <span style={styles.statusPill}>{humanise(vacancy.status)}</span>
+              {vacancy.approval_status !== "not_required" ? (
+                <span style={styles.approvalPill}>
+                  Approval: {humanise(vacancy.approval_status)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div style={styles.headerActions}>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={() => void loadWorkspace(true)}
+            disabled={refreshing}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+
+          {canManage ? (
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={startEditVacancy}
+              disabled={workingAction !== null}
+            >
+              Edit vacancy
+            </button>
+          ) : null}
+
+          {canManage && vacancy.status === "draft" ? (
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => void updateVacancyStatus("open", "approved")}
+              disabled={workingAction !== null}
+            >
+              Open vacancy
+            </button>
+          ) : null}
+
+          {canManage && vacancy.status === "paused" ? (
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => void updateVacancyStatus("open")}
+              disabled={workingAction !== null}
+            >
+              Reopen vacancy
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      {errorMessage ? (
+        <div role="alert" style={styles.errorMessage}>
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {actionMessage ? (
+        <div role="status" style={styles.successMessage}>
+          {actionMessage}
+        </div>
+      ) : null}
+
+      <section style={styles.metrics}>
+        <Metric label="Active applications" value={metrics.activeApplications} />
+        <Metric label="Candidates" value={metrics.candidates} />
+        <Metric label="Scheduled interviews" value={metrics.scheduledInterviews} />
+        <Metric label="Outstanding checks" value={metrics.outstandingChecks} />
+        <Metric label="Active offers" value={metrics.activeOffers} />
+      </section>
+
+      <nav style={styles.tabBar} aria-label="Vacancy workspace">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            style={activeTab === tab.id ? styles.tabActive : styles.tab}
+            onClick={() => {
+              setActiveTab(tab.id);
+              setSearchTerm("");
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "overview" ? (
+        <OverviewTab
+          vacancy={vacancy}
+          canManage={canManage}
+          isEditingVacancy={isEditingVacancy}
+          editForm={editForm}
+          onStartEdit={startEditVacancy}
+          onCancelEdit={cancelEditVacancy}
+          onEditField={updateEditField}
+          onSaveEdit={saveVacancyEdits}
+          workingAction={workingAction}
+          onStatus={updateVacancyStatus}
+        />
+      ) : null}
+
+      {activeTab === "publication" ? (
+        <PublicationTab
+          vacancy={vacancy}
+          channels={publicationChannels}
+          questions={vacancyQuestions}
+          channelsAvailable={availability.publicationChannels}
+          questionsAvailable={availability.vacancyQuestions}
+          canManage={canManage}
+          workingAction={workingAction}
+          publicUrl={publicVacancyPath}
+          onPreviewVacancy={openVacancyPreview}
+          onCopyVacancyUrl={copyVacancyUrl}
+          newChannelName={newChannelName}
+          newChannelType={newChannelType}
+          newChannelUrl={newChannelUrl}
+          questionText={questionText}
+          questionHelpText={questionHelpText}
+          questionType={questionType}
+          questionRequired={questionRequired}
+          questionKnockout={questionKnockout}
+          onNewChannelName={setNewChannelName}
+          onNewChannelType={setNewChannelType}
+          onNewChannelUrl={setNewChannelUrl}
+          onQuestionText={setQuestionText}
+          onQuestionHelpText={setQuestionHelpText}
+          onQuestionType={setQuestionType}
+          onQuestionRequired={setQuestionRequired}
+          onQuestionKnockout={setQuestionKnockout}
+          onPublish={() => void publishVacancy()}
+          onUnpublish={() => void unpublishVacancy()}
+          onAddChannel={() => void addPublicationChannel()}
+          onChannelStatus={(channel, status) => void updateChannelStatus(channel, status)}
+          onAddQuestion={() => void addVacancyQuestion()}
+          onQuestionUpdate={(question, updates) => void toggleVacancyQuestion(question, updates)}
+          onQuestionDelete={(question) => void deleteVacancyQuestion(question)}
+          onSettings={(updates, message) => void updatePublicationSettings(updates, message)}
+        />
+      ) : null}
+
+      {activeTab === "applications" ? (
+        <ApplicationsTab
+          records={filteredApplications}
+          allCount={applications.length}
+          available={availability.applications}
+          searchTerm={searchTerm}
+          onSearch={setSearchTerm}
+          vacancyId={vacancy.id}
+          router={router}
+        />
+      ) : null}
+
+      {activeTab === "candidates" ? (
+        <CandidatesTab
+          records={filteredCandidates}
+          allCount={candidates.length}
+          available={availability.candidates}
+          searchTerm={searchTerm}
+          onSearch={setSearchTerm}
+          vacancyId={vacancy.id}
+          router={router}
+        />
+      ) : null}
+
+      {activeTab === "interviews" ? (
+        <InterviewsTab
+          records={interviews}
+          available={availability.interviews}
+          vacancyId={vacancy.id}
+          router={router}
+        />
+      ) : null}
+
+      {activeTab === "due_diligence" ? (
+        <DueDiligenceTab
+          vacancy={vacancy}
+          records={dueDiligence}
+          available={availability.dueDiligence}
+          vacancyId={vacancy.id}
+          router={router}
+          canManage={canManage}
+        />
+      ) : null}
+
+      {activeTab === "offers" ? (
+        <OffersTab
+          records={offers}
+          available={availability.offers}
+          vacancyId={vacancy.id}
+          router={router}
+        />
+      ) : null}
+
+      {activeTab === "documents" ? (
+        <DocumentsTab
+          records={documents}
+          available={availability.documents}
+          canManage={canManage}
+          documentTitle={documentTitle}
+          documentType={documentType}
+          documentNotes={documentNotes}
+          onTitle={setDocumentTitle}
+          onType={setDocumentType}
+          onNotes={setDocumentNotes}
+          onFile={setDocumentFile}
+          onUpload={() => void uploadDocument()}
+          onOpen={(document) => void openDocument(document)}
+          uploading={workingAction === "upload-document"}
+        />
+      ) : null}
+
+      {activeTab === "activity" ? (
+        <ActivityTab records={activity} available={availability.activity} />
+      ) : null}
+
+      {activeTab === "settings" ? (
+        <SettingsTab
+          vacancy={vacancy}
+          canManage={canManage}
+          canAdminister={canAdminister}
+          isOwner={isOwner}
+          workingAction={workingAction}
+          onStatus={updateVacancyStatus}
+          onApproval={updateApproval}
+          onDelete={() => void handleDelete()}
+        />
+      ) : null}
+    </main>
+  );
+}
+
+function OverviewTab({
+  vacancy,
+  canManage,
+  isEditingVacancy,
+  editForm,
+  onStartEdit,
+  onCancelEdit,
+  onEditField,
+  onSaveEdit,
+  workingAction,
+  onStatus,
+}: {
+  vacancy: Vacancy;
+  canManage: boolean;
+  isEditingVacancy: boolean;
+  editForm: VacancyEditForm | null;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onEditField: <K extends keyof VacancyEditForm>(field: K, value: VacancyEditForm[K]) => void;
+  onSaveEdit: () => void;
+  workingAction: string | null;
+  onStatus: (
+    status: VacancyStatus,
+    approval?: ApprovalStatus,
+    confirmation?: string,
+  ) => Promise<void>;
+}) {
+  return (
+    <div style={styles.contentGrid}>
+      <section style={styles.panel}>
+        {isEditingVacancy && editForm ? (
+          <div style={styles.formStack}>
+            <SectionHeading
+              title="Edit Vacancy"
+              description="Update the vacancy details without changing the workspace layout."
+            />
+
+            <div style={styles.formGrid}>
+              <FieldLabel label="Vacancy title">
+                <input value={editForm.title} onChange={(event) => onEditField("title", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Department">
+                <input value={editForm.department} onChange={(event) => onEditField("department", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Location">
+                <input value={editForm.locationName} onChange={(event) => onEditField("locationName", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Hiring manager">
+                <input value={editForm.hiringManagerName} onChange={(event) => onEditField("hiringManagerName", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Employment type">
+                <input value={editForm.employmentType} onChange={(event) => onEditField("employmentType", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Working pattern">
+                <input value={editForm.workPattern} onChange={(event) => onEditField("workPattern", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Hours per week">
+                <input value={editForm.hoursPerWeek} onChange={(event) => onEditField("hoursPerWeek", event.target.value)} style={styles.input} inputMode="numeric" />
+              </FieldLabel>
+              <FieldLabel label="Salary minimum">
+                <input value={editForm.salaryMin} onChange={(event) => onEditField("salaryMin", event.target.value)} style={styles.input} inputMode="numeric" />
+              </FieldLabel>
+              <FieldLabel label="Salary maximum">
+                <input value={editForm.salaryMax} onChange={(event) => onEditField("salaryMax", event.target.value)} style={styles.input} inputMode="numeric" />
+              </FieldLabel>
+              <FieldLabel label="Salary currency">
+                <input value={editForm.salaryCurrency} onChange={(event) => onEditField("salaryCurrency", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Salary period">
+                <input value={editForm.salaryPeriod} onChange={(event) => onEditField("salaryPeriod", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Opening date">
+                <input type="date" value={editForm.openingDate} onChange={(event) => onEditField("openingDate", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Closing date">
+                <input type="date" value={editForm.closingDate} onChange={(event) => onEditField("closingDate", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Target start date">
+                <input type="date" value={editForm.targetStartDate} onChange={(event) => onEditField("targetStartDate", event.target.value)} style={styles.input} />
+              </FieldLabel>
+              <FieldLabel label="Vacancy advert">
+                <textarea value={editForm.advertText} onChange={(event) => onEditField("advertText", event.target.value)} style={styles.textarea} rows={4} />
+              </FieldLabel>
+              <FieldLabel label="Role summary">
+                <textarea value={editForm.roleSummary} onChange={(event) => onEditField("roleSummary", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Responsibilities">
+                <textarea value={editForm.responsibilities} onChange={(event) => onEditField("responsibilities", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Essential criteria">
+                <textarea value={editForm.essentialCriteria} onChange={(event) => onEditField("essentialCriteria", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Desirable criteria">
+                <textarea value={editForm.desirableCriteria} onChange={(event) => onEditField("desirableCriteria", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+              <FieldLabel label="Benefits">
+                <textarea value={editForm.benefits} onChange={(event) => onEditField("benefits", event.target.value)} style={styles.textarea} rows={3} />
+              </FieldLabel>
+            </div>
+
+            <div style={styles.buttonRow}>
+              <button type="button" style={styles.primaryButton} onClick={onSaveEdit} disabled={workingAction !== null}>{workingAction === "edit-vacancy" ? "Saving…" : "Save changes"}</button>
+              <button type="button" style={styles.secondaryButton} onClick={onCancelEdit} disabled={workingAction !== null}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <SectionHeading
+              title="Vacancy Overview"
+              description="The core employment and campaign details for this vacancy."
+              action={
+                canManage ? (
+                  <button type="button" style={styles.secondaryButton} onClick={onStartEdit}>Edit vacancy</button>
+                ) : null
+              }
+            />
+
+            <div style={styles.detailGrid}>
+              <Detail label="Vacancy reference" value={vacancy.vacancy_reference} />
+              <Detail label="Department" value={vacancy.department || "Not set"} />
+              <Detail label="Location" value={vacancy.location_name || "Not set"} />
+              <Detail
+                label="Hiring manager"
+                value={vacancy.hiring_manager_name || "Not set"}
+              />
+              <Detail
+                label="Recruitment lead"
+                value={vacancy.recruitment_lead_name || "Not set"}
+              />
+              <Detail label="Employment type" value={vacancy.employment_type} />
+              <Detail label="Working pattern" value={vacancy.work_pattern || "Not set"} />
+              <Detail
+                label="Hours per week"
+                value={
+                  vacancy.hours_per_week !== null
+                    ? `${vacancy.hours_per_week} hours`
+                    : "Not set"
+                }
+              />
+              <Detail
+                label="Salary"
+                value={
+                  vacancy.salary_visible
+                    ? formatSalary(
+                        vacancy.salary_min,
+                        vacancy.salary_max,
+                        vacancy.salary_currency,
+                        vacancy.salary_period,
+                      )
+                    : "Not displayed"
+                }
+              />
+              <Detail
+                label="Positions"
+                value={String(vacancy.number_of_positions)}
+              />
+              <Detail label="Opening date" value={formatDate(vacancy.opening_date)} />
+              <Detail label="Closing date" value={formatDate(vacancy.closing_date)} />
+              <Detail
+                label="Target start date"
+                value={formatDate(vacancy.target_start_date)}
+              />
+            </div>
+          </>
+        )}
+      </section>
+
+      <aside style={styles.sideColumn}>
+        <section style={styles.panel}>
+          <SectionHeading
+            title="Recruitment Controls"
+            description="Controls applied to applications and review."
+          />
+
+          <ControlLine
+            label="Internal-only vacancy"
+            enabled={vacancy.is_internal_only}
+          />
+          <ControlLine
+            label="Accept internal candidates"
+            enabled={vacancy.accepts_internal_candidates}
+          />
+          <ControlLine
+            label="Blind review"
+            enabled={vacancy.blind_review_enabled}
+          />
+          <ControlLine
+            label="AI-assisted screening"
+            enabled={vacancy.ai_screening_enabled}
+          />
+        </section>
+
+        <section style={styles.panel}>
+          <SectionHeading
+            title="Due Diligence Requirements"
+            description="Checks expected before appointment."
+          />
+
+          <ControlLine
+            label="Due Diligence workflow"
+            enabled={vacancy.safer_recruitment_required}
+          />
+          <ControlLine label="Regulated role" enabled={vacancy.regulated_role} />
+          <ControlLine label="DBS" enabled={vacancy.requires_dbs} />
+          <ControlLine label="Driving checks" enabled={vacancy.requires_driving} />
+          <ControlLine
+            label="Qualification checks"
+            enabled={vacancy.requires_qualification_checks}
+          />
+          <Detail
+            label="References required"
+            value={String(vacancy.required_reference_count)}
+          />
+        </section>
+
+        {canManage &&
+        ["open", "approved", "approval_required"].includes(vacancy.status) ? (
+          <section style={styles.panel}>
+            <SectionHeading
+              title="Campaign Control"
+              description="Temporarily stop or close the recruitment campaign."
+            />
+
+            <div style={styles.buttonColumn}>
+              {vacancy.status === "open" ? (
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  onClick={() =>
+                    void onStatus(
+                      "paused",
+                      undefined,
+                      "Pause this vacancy? Applications already received will remain available.",
+                    )
+                  }
+                >
+                  Pause vacancy
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={() =>
+                  void onStatus(
+                    "closed",
+                    undefined,
+                    "Close this vacancy to new applications?",
+                  )
+                }
+              >
+                Close vacancy
+              </button>
+            </div>
+          </section>
+        ) : null}
+      </aside>
+    </div>
+  );
+}
+
+function PublicationTab({
+  vacancy,
+  channels,
+  questions,
+  channelsAvailable,
+  questionsAvailable,
+  canManage,
+  workingAction,
+  publicUrl,
+  onPreviewVacancy,
+  onCopyVacancyUrl,
+  newChannelName,
+  newChannelType,
+  newChannelUrl,
+  questionText,
+  questionHelpText,
+  questionType,
+  questionRequired,
+  questionKnockout,
+  onNewChannelName,
+  onNewChannelType,
+  onNewChannelUrl,
+  onQuestionText,
+  onQuestionHelpText,
+  onQuestionType,
+  onQuestionRequired,
+  onQuestionKnockout,
+  onPublish,
+  onUnpublish,
+  onAddChannel,
+  onChannelStatus,
+  onAddQuestion,
+  onQuestionUpdate,
+  onQuestionDelete,
+  onSettings,
+}: {
+  vacancy: Vacancy;
+  channels: PublicationChannel[];
+  questions: VacancyQuestion[];
+  channelsAvailable: boolean;
+  questionsAvailable: boolean;
+  canManage: boolean;
+  workingAction: string | null;
+  publicUrl: string;
+  onPreviewVacancy: () => void;
+  onCopyVacancyUrl: () => void;
+  newChannelName: string;
+  newChannelType: string;
+  newChannelUrl: string;
+  questionText: string;
+  questionHelpText: string;
+  questionType: string;
+  questionRequired: boolean;
+  questionKnockout: boolean;
+  onNewChannelName: (value: string) => void;
+  onNewChannelType: (value: string) => void;
+  onNewChannelUrl: (value: string) => void;
+  onQuestionText: (value: string) => void;
+  onQuestionHelpText: (value: string) => void;
+  onQuestionType: (value: string) => void;
+  onQuestionRequired: (value: boolean) => void;
+  onQuestionKnockout: (value: boolean) => void;
+  onPublish: () => void;
+  onUnpublish: () => void;
+  onAddChannel: () => void;
+  onChannelStatus: (channel: PublicationChannel, status: string) => void;
+  onAddQuestion: () => void;
+  onQuestionUpdate: (question: VacancyQuestion, updates: Partial<VacancyQuestion>) => void;
+  onQuestionDelete: (question: VacancyQuestion) => void;
+  onSettings: (updates: Record<string, unknown>, message: string) => void;
+}) {
+  const metadata = vacancy.metadata ?? {};
+  const published = vacancy.status === "open" && Boolean(vacancy.published_at);
+  const liveChannels = channels.filter((channel) => channel.status === "published").length;
+
+  return (
+    <div style={styles.settingsGrid}>
+      <section style={styles.publicationHero}>
+        <div>
+          <p style={styles.eyebrow}>VACANCY PUBLICATION</p>
+          <h2 style={styles.publicationTitle}>
+            {published ? "This vacancy is live" : "Prepare and publish this vacancy"}
+          </h2>
+          <p style={styles.publicationDescription}>
+            Control the public advert, application experience and every channel used to promote this role.
+          </p>
+        </div>
+        <div style={styles.publicationHeroActions}>
+          <span style={published ? styles.livePill : styles.draftPill}>
+            {published ? `Live on ${liveChannels || 1} channel${liveChannels === 1 ? "" : "s"}` : humanise(vacancy.status)}
+          </span>
+          {canManage ? (
+            published ? (
+              <button type="button" style={styles.secondaryButton} onClick={onUnpublish} disabled={workingAction !== null}>
+                {workingAction === "unpublish-vacancy" ? "Unpublishing…" : "Unpublish vacancy"}
+              </button>
+            ) : (
+              <button type="button" style={styles.primaryButton} onClick={onPublish} disabled={workingAction !== null}>
+                {workingAction === "publish-vacancy" ? "Publishing…" : "Publish vacancy"}
+              </button>
+            )
+          ) : null}
+        </div>
+      </section>
+
+      <div style={styles.contentGrid}>
+        <section style={styles.panel}>
+          <SectionHeading title="Public Vacancy" description="The candidate-facing link and core advert readiness." />
+          <div style={styles.readinessGrid}>
+            <ReadinessItem label="Vacancy title" ready={Boolean(vacancy.title.trim())} />
+            <ReadinessItem label="Advert text" ready={Boolean(vacancy.advert_text?.trim())} />
+            <ReadinessItem label="Closing date" ready={Boolean(vacancy.closing_date)} />
+            <ReadinessItem label="Application questions" ready={questions.length > 0} optional />
+          </div>
+          <div style={styles.publicLinkBox}>
+            <div style={{ minWidth: 0 }}>
+              <span style={styles.detailLabel}>Public URL</span>
+              <div style={styles.publicLinkText}>{publicUrl}</div>
+            </div>
+            <div style={styles.buttonRow}>
+              <button type="button" style={styles.secondaryButton} onClick={() => void onCopyVacancyUrl()}>Copy URL</button>
+              <button type="button" style={styles.secondaryButton} onClick={() => void onPreviewVacancy()}>Preview</button>
+            </div>
+          </div>
+          <div style={styles.detailGrid}>
+            <Detail label="Published" value={formatDate(vacancy.published_at, true)} />
+            <Detail label="Applications open" value={formatDate(vacancy.opening_date)} />
+            <Detail label="Closing date" value={formatDate(vacancy.closing_date)} />
+            <Detail label="Visibility" value={vacancy.is_internal_only ? "Internal only" : "Public"} />
+          </div>
+        </section>
+
+        <aside style={styles.sideColumn}>
+          <section style={styles.panel}>
+            <SectionHeading title="Candidate Experience" description="Set what applicants must provide." />
+            <ToggleSetting
+              label="Accept online applications"
+              description="Allow candidates to apply through the public vacancy page."
+              checked={metadata.accept_online_applications !== false}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ accept_online_applications: checked }, "Online application setting updated.")}
+            />
+            <ToggleSetting
+              label="Require CV"
+              description="Candidates must upload a current CV before submission."
+              checked={metadata.require_cv === true}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ require_cv: checked }, "CV requirement updated.")}
+            />
+            <ToggleSetting
+              label="Require cover letter"
+              description="Candidates must provide a supporting statement or cover letter."
+              checked={metadata.require_cover_letter === true}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ require_cover_letter: checked }, "Cover letter requirement updated.")}
+            />
+            <ToggleSetting
+              label="Automatic acknowledgement"
+              description="Prepare an acknowledgement when an application is submitted."
+              checked={metadata.automatic_acknowledgement !== false}
+              disabled={!canManage || workingAction !== null}
+              onChange={(checked) => onSettings({ automatic_acknowledgement: checked }, "Acknowledgement setting updated.")}
+            />
+          </section>
+        </aside>
+      </div>
+
+      <section style={styles.panel}>
+        <SectionHeading title="Publication Channels" description="Track every place where this vacancy is planned, published, paused or closed." />
+        {!channelsAvailable ? (
+          <UnavailableState table="leo_talent_vacancy_publication_channels" />
+        ) : (
+          <>
+            {channels.length === 0 ? (
+              <EmptyState title="No publication channels" description="Publish to LEO Careers or add an external channel below." />
+            ) : (
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead><tr><th style={styles.th}>Channel</th><th style={styles.th}>Type</th><th style={styles.th}>Status</th><th style={styles.th}>Published</th><th style={styles.th}>Link</th><th style={styles.th}>Action</th></tr></thead>
+                  <tbody>
+                    {channels.map((channel) => (
+                      <tr key={channel.id}>
+                        <td style={styles.td}><strong>{channel.channel_name}</strong></td>
+                        <td style={styles.td}>{humanise(channel.channel_type)}</td>
+                        <td style={styles.td}><span style={styles.inlinePill}>{humanise(channel.status)}</span></td>
+                        <td style={styles.td}>{formatDate(channel.published_at, true)}</td>
+                        <td style={styles.td}>{channel.published_url ? <button type="button" style={styles.linkButton} onClick={() => window.open(channel.published_url || "", "_blank", "noopener,noreferrer")}>Open link</button> : "Not recorded"}</td>
+                        <td style={styles.td}>
+                          {canManage ? (
+                            <select value={channel.status} onChange={(event) => onChannelStatus(channel, event.target.value)} style={styles.compactSelect} disabled={workingAction !== null}>
+                              <option value="planned">Planned</option><option value="published">Published</option><option value="paused">Paused</option><option value="closed">Closed</option>
+                            </select>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {canManage ? (
+              <div style={styles.inlineFormGrid}>
+                <FieldLabel label="Channel name"><input value={newChannelName} onChange={(event) => onNewChannelName(event.target.value)} style={styles.input} placeholder="e.g. LinkedIn" /></FieldLabel>
+                <FieldLabel label="Channel type"><select value={newChannelType} onChange={(event) => onNewChannelType(event.target.value)} style={styles.input}><option value="manual">Manual</option><option value="job_board">Job board</option><option value="company_website">Company website</option><option value="social">Social media</option><option value="connection">Connection</option></select></FieldLabel>
+                <FieldLabel label="Published URL"><input value={newChannelUrl} onChange={(event) => onNewChannelUrl(event.target.value)} style={styles.input} placeholder="Optional" /></FieldLabel>
+                <button type="button" style={styles.primaryButton} onClick={onAddChannel} disabled={workingAction !== null}>{workingAction === "add-publication-channel" ? "Adding…" : "Add channel"}</button>
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section style={styles.panel}>
+        <SectionHeading title="Application Questions" description="Build the vacancy-specific questions candidates complete when they apply." />
+        {!questionsAvailable ? (
+          <UnavailableState table="leo_talent_vacancy_questions" />
+        ) : (
+          <div style={styles.questionLayout}>
+            <div>
+              {questions.length === 0 ? <EmptyState title="No custom questions" description="Candidates will complete only the standard application fields until questions are added." /> : (
+                <div style={styles.cardList}>
+                  {questions.map((question, index) => (
+                    <article key={question.id} style={styles.questionCard}>
+                      <div style={styles.questionNumber}>{index + 1}</div>
+                      <div style={{ flex: "1 1 360px" }}>
+                        <h3 style={styles.listCardTitle}>{question.question_text}</h3>
+                        <p style={styles.listCardText}>{humanise(question.question_type)}{question.help_text ? ` · ${question.help_text}` : ""}</p>
+                        <div style={styles.questionFlags}>
+                          {question.is_required ? <span style={styles.inlinePill}>Required</span> : null}
+                          {question.is_knockout ? <span style={styles.warningPill}>Knockout</span> : null}
+                          {!question.is_active ? <span style={styles.disabledPill}>Inactive</span> : null}
+                        </div>
+                      </div>
+                      {canManage ? (
+                        <div style={styles.listCardActions}>
+                          <button type="button" style={styles.linkButton} onClick={() => onQuestionUpdate(question, { is_active: !question.is_active })} disabled={workingAction !== null}>{question.is_active ? "Deactivate" : "Activate"}</button>
+                          <button type="button" style={styles.deleteLinkButton} onClick={() => onQuestionDelete(question)} disabled={workingAction !== null}>Delete</button>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+            {canManage ? (
+              <aside style={styles.questionBuilder}>
+                <h3 style={styles.listCardTitle}>Add a question</h3>
+                <div style={styles.formStack}>
+                  <FieldLabel label="Question"><textarea value={questionText} onChange={(event) => onQuestionText(event.target.value)} style={styles.textarea} rows={3} /></FieldLabel>
+                  <FieldLabel label="Help text"><input value={questionHelpText} onChange={(event) => onQuestionHelpText(event.target.value)} style={styles.input} placeholder="Optional guidance" /></FieldLabel>
+                  <FieldLabel label="Answer type"><select value={questionType} onChange={(event) => onQuestionType(event.target.value)} style={styles.input}><option value="long_text">Long text</option><option value="short_text">Short text</option><option value="yes_no">Yes / No</option><option value="number">Number</option><option value="date">Date</option><option value="file">File upload</option></select></FieldLabel>
+                  <label style={styles.checkboxLine}><input type="checkbox" checked={questionRequired} onChange={(event) => onQuestionRequired(event.target.checked)} /> Required question</label>
+                  <label style={styles.checkboxLine}><input type="checkbox" checked={questionKnockout} onChange={(event) => onQuestionKnockout(event.target.checked)} /> Knockout question</label>
+                  <button type="button" style={styles.primaryButton} onClick={onAddQuestion} disabled={workingAction !== null}>{workingAction === "add-vacancy-question" ? "Adding…" : "Add question"}</button>
+                </div>
+              </aside>
+            ) : null}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ReadinessItem({ label, ready, optional = false }: { label: string; ready: boolean; optional?: boolean }) {
+  return <div style={styles.readinessItem}><span style={ready ? styles.readinessReady : styles.readinessMissing}>{ready ? "✓" : "!"}</span><span>{label}{optional ? " (optional)" : ""}</span></div>;
+}
+
+function ToggleSetting({ label, description, checked, disabled, onChange }: { label: string; description: string; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) {
+  return <label style={styles.toggleSetting}><div><div style={styles.toggleLabel}>{label}</div><div style={styles.toggleDescription}>{description}</div></div><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /></label>;
+}
+
+function ApplicationsTab({
+  records,
+  allCount,
+  available,
+  searchTerm,
+  onSearch,
+  vacancyId,
+  router,
+}: {
+  records: Application[];
+  allCount: number;
+  available: boolean;
+  searchTerm: string;
+  onSearch: (value: string) => void;
+  vacancyId: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <section style={styles.panel}>
+      <SectionHeading
+        title="Applications"
+        description="Review every application connected to this vacancy."
+        action={
+          <button
+            type="button"
+            style={styles.primaryButton}
+            onClick={() =>
+              router.push(
+                `/dashboard/leo-talent/applications/create?vacancyId=${vacancyId}`,
+              )
+            }
+          >
+            Add application
+          </button>
+        }
+      />
+
+      {!available ? (
+        <UnavailableState table="leo_talent_applications" />
+      ) : (
+        <>
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder="Search applications"
+            style={styles.searchInput}
+          />
+
+          {records.length === 0 ? (
+            <EmptyState
+              title={allCount === 0 ? "No applications yet" : "No applications match"}
+              description={
+                allCount === 0
+                  ? "Applications linked to this vacancy will appear here."
+                  : "Try changing the search term."
+              }
+            />
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Candidate</th>
+                    <th style={styles.th}>Reference</th>
+                    <th style={styles.th}>Stage</th>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Submitted</th>
+                    <th style={styles.th}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map((record) => (
+                    <tr key={record.id}>
+                      <td style={styles.td}>
+                        <strong>{applicationDisplayName(record)}</strong>
+                        {record.candidate_email ? (
+                          <div style={styles.muted}>{record.candidate_email}</div>
+                        ) : null}
+                      </td>
+                      <td style={styles.td}>
+                        {record.application_reference || "Not set"}
+                      </td>
+                      <td style={styles.td}>{humanise(record.stage)}</td>
+                      <td style={styles.td}>
+                        <span style={styles.inlinePill}>{humanise(record.status)}</span>
+                      </td>
+                      <td style={styles.td}>
+                        {formatDate(record.submitted_at || record.created_at)}
+                      </td>
+                      <td style={styles.td}>
+                        <button
+                          type="button"
+                          style={styles.linkButton}
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/leo-talent/applications/${record.id}`,
+                            )
+                          }
+                        >
+                          Open application
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function CandidatesTab({
+  records,
+  allCount,
+  available,
+  searchTerm,
+  onSearch,
+  vacancyId,
+  router,
+}: {
+  records: Candidate[];
+  allCount: number;
+  available: boolean;
+  searchTerm: string;
+  onSearch: (value: string) => void;
+  vacancyId: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <section style={styles.panel}>
+      <SectionHeading
+        title="Candidates"
+        description="Candidate records connected to this vacancy."
+        action={
+          <button
+            type="button"
+            style={styles.primaryButton}
+            onClick={() =>
+              router.push(`/dashboard/leo-talent/candidates/create?vacancyId=${vacancyId}`)
+            }
+          >
+            Add candidate
+          </button>
+        }
+      />
+
+      {!available ? (
+        <UnavailableState table="leo_talent_candidates" />
+      ) : (
+        <>
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder="Search candidates"
+            style={styles.searchInput}
+          />
+
+          {records.length === 0 ? (
+            <EmptyState
+              title={allCount === 0 ? "No candidates yet" : "No candidates match"}
+              description={
+                allCount === 0
+                  ? "Candidate records linked to this vacancy will appear here."
+                  : "Try changing the search term."
+              }
+            />
+          ) : (
+            <div style={styles.cardList}>
+              {records.map((record) => (
+                <article key={record.id} style={styles.listCard}>
+                  <div>
+                    <h3 style={styles.listCardTitle}>
+                      {candidateDisplayName(record)}
+                    </h3>
+                    <p style={styles.listCardText}>
+                      {record.email || "Email not recorded"}
+                      {(record.telephone || record.phone)
+                        ? ` · ${record.telephone || record.phone}`
+                        : ""}
+                    </p>
+                  </div>
+
+                  <div style={styles.listCardActions}>
+                    <span style={styles.inlinePill}>
+                      {humanise(record.current_stage || record.status)}
+                    </span>
+                    <button
+                      type="button"
+                      style={styles.linkButton}
+                      onClick={() =>
+                        router.push(`/dashboard/leo-talent/candidates/${record.id}`)
+                      }
+                    >
+                      Open candidate
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function InterviewsTab({
+  records,
+  available,
+  vacancyId,
+  router,
+}: {
+  records: Interview[];
+  available: boolean;
+  vacancyId: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <section style={styles.panel}>
+      <SectionHeading
+        title="Interviews"
+        description="Plan interviews, record outcomes and keep the selection process connected."
+        action={
+          <button
+            type="button"
+            style={styles.primaryButton}
+            onClick={() =>
+                        router.push("/dashboard/leo-talent?section=interviews")
+            }
+          >
+            Schedule interview
+          </button>
+        }
+      />
+
+      {!available ? (
+        <UnavailableState table="leo_talent_interviews" />
+      ) : records.length === 0 ? (
+        <EmptyState
+          title="No interviews scheduled"
+          description="Interviews linked to this vacancy will appear here."
+        />
+      ) : (
+        <div style={styles.cardList}>
+          {records.map((record) => (
+            <article key={record.id} style={styles.listCard}>
+              <div>
+                <h3 style={styles.listCardTitle}>
+                  {record.candidate_name || "Candidate interview"}
+                </h3>
+                <p style={styles.listCardText}>
+                  {humanise(record.interview_type)} ·{" "}
+                  {formatDate(record.scheduled_at || record.start_time, true)}
+                  {record.location ? ` · ${record.location}` : ""}
+                </p>
+              </div>
+
+              <div style={styles.listCardActions}>
+                <span style={styles.inlinePill}>
+                  {humanise(record.outcome || record.status)}
+                </span>
+                <button
+                  type="button"
+                  style={styles.linkButton}
+                  onClick={() =>
+                    router.push(`/dashboard/leo-talent/interviews/${record.id}`)
+                  }
+                >
+                  Open interview
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DueDiligenceTab({
+  vacancy,
+  records,
+  available,
+  vacancyId,
+  router,
+  canManage,
+}: {
+  vacancy: Vacancy;
+  records: DueDiligenceRecord[];
+  available: boolean;
+  vacancyId: string;
+  router: ReturnType<typeof useRouter>;
+  canManage: boolean;
+}) {
+  const requiredChecks = [
+    vacancy.safer_recruitment_required ? "Standard Due Diligence" : null,
+    vacancy.required_reference_count > 0
+      ? `${vacancy.required_reference_count} reference${
+          vacancy.required_reference_count === 1 ? "" : "s"
+        }`
+      : null,
+    vacancy.requires_dbs ? "DBS" : null,
+    vacancy.requires_driving ? "Driving checks" : null,
+    vacancy.requires_qualification_checks ? "Qualification verification" : null,
+    vacancy.regulated_role ? "Regulated role controls" : null,
+  ].filter((item): item is string => Boolean(item));
+
+  const openDueDiligence = (profileId?: string) => {
+    const query = new URLSearchParams();
+    query.set("vacancyId", vacancyId);
+    if (profileId) query.set("profileId", profileId);
+    router.push(`/dashboard/leo-talent?section=due-diligence&${query.toString()}`);
+  };
+
+  return (
+    <div style={styles.contentGrid}>
+      <section style={styles.panel}>
+        <SectionHeading
+          title="Due Diligence Register"
+          description="Track the candidate profiles created when applications enter Pre-employment Checks."
+          action={
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => openDueDiligence(records[0]?.id)}
+            >
+              Open Due Diligence
+            </button>
+          }
+        />
+
+        {!available ? (
+          <UnavailableState table="leo_talent_safer_recruitment_profiles" />
+        ) : records.length === 0 ? (
+          <EmptyState
+            title="No candidate profiles yet"
+            description={
+              canManage
+                ? "Move an application to Pre-employment Checks. LEO will create its due diligence profile automatically."
+                : "A profile will appear here when an application enters Pre-employment Checks."
+            }
+          />
+        ) : (
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Candidate</th>
+                  <th style={styles.th}>Application</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Risk</th>
+                  <th style={styles.th}>Review</th>
+                  <th style={styles.th}>Completed</th>
+                  <th style={styles.th}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((record) => (
+                  <tr key={record.id}>
+                    <td style={styles.td}>
+                      <strong>
+                        {record.candidate
+                          ? candidateDisplayName(record.candidate)
+                          : "Candidate"}
+                      </strong>
+                      {record.candidate?.email ? (
+                        <div style={styles.muted}>{record.candidate.email}</div>
+                      ) : null}
+                    </td>
+                    <td style={styles.td}>
+                      {record.application_reference || "Not recorded"}
+                    </td>
+                    <td style={styles.td}>
+                      <span style={styles.inlinePill}>
+                        {humanise(record.status)}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      {humanise(record.overall_risk_level)}
+                    </td>
+                    <td style={styles.td}>
+                      {record.review_required ? "Required" : "Not required"}
+                    </td>
+                    <td style={styles.td}>
+                      {formatDate(record.completed_at)}
+                    </td>
+                    <td style={styles.td}>
+                      <button
+                        type="button"
+                        style={styles.linkButton}
+                        onClick={() => openDueDiligence(record.id)}
+                      >
+                        Open profile
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <aside style={styles.sideColumn}>
+        <section style={styles.panel}>
+          <SectionHeading
+            title="Required for This Vacancy"
+            description="Controls set when the vacancy was created."
+          />
+
+          {requiredChecks.length === 0 ? (
+            <p style={styles.muted}>No enhanced checks have been selected.</p>
+          ) : (
+            <div style={styles.checkList}>
+              {requiredChecks.map((item) => (
+                <div key={item} style={styles.checkItem}>
+                  <span style={styles.checkIcon}>✓</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+function OffersTab({
+  records,
+  available,
+  vacancyId,
+  router,
+}: {
+  records: Offer[];
+  available: boolean;
+  vacancyId: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <section style={styles.panel}>
+      <SectionHeading
+        title="Offers & Appointments"
+        description="Issue offers, record responses and convert accepted candidates into employees."
+        action={
+          <button
+            type="button"
+            style={styles.primaryButton}
+            onClick={() =>
+              router.push(`/dashboard/leo-talent/offers/create?vacancyId=${vacancyId}`)
+            }
+          >
+            Create offer
+          </button>
+        }
+      />
+
+      {!available ? (
+        <UnavailableState table="leo_talent_offers" />
+      ) : records.length === 0 ? (
+        <EmptyState
+          title="No offers created"
+          description="Offers connected to this vacancy will appear here."
+        />
+      ) : (
+        <div style={styles.cardList}>
+          {records.map((record) => (
+            <article key={record.id} style={styles.listCard}>
+              <div>
+                <h3 style={styles.listCardTitle}>
+                  {record.candidate_name || "Candidate offer"}
+                </h3>
+                <p style={styles.listCardText}>
+                  {record.offered_salary !== null &&
+                  record.offered_salary !== undefined
+                    ? formatSalary(
+                        record.offered_salary,
+                        record.offered_salary,
+                        record.salary_currency || "GBP",
+                        record.salary_period,
+                      )
+                    : "Salary not recorded"}
+                  {" · "}
+                  Start {formatDate(record.proposed_start_date)}
+                </p>
+              </div>
+
+              <div style={styles.listCardActions}>
+                <span style={styles.inlinePill}>{humanise(record.status)}</span>
+                <button
+                  type="button"
+                  style={styles.linkButton}
+                  onClick={() =>
+                    router.push(`/dashboard/leo-talent/offers/${record.id}`)
+                  }
+                >
+                  Open offer
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DocumentsTab({
+  records,
+  available,
+  canManage,
+  documentTitle,
+  documentType,
+  documentNotes,
+  onTitle,
+  onType,
+  onNotes,
+  onFile,
+  onUpload,
+  onOpen,
+  uploading,
+}: {
+  records: TalentDocument[];
+  available: boolean;
+  canManage: boolean;
+  documentTitle: string;
+  documentType: string;
+  documentNotes: string;
+  onTitle: (value: string) => void;
+  onType: (value: string) => void;
+  onNotes: (value: string) => void;
+  onFile: (file: File | null) => void;
+  onUpload: () => void;
+  onOpen: (document: TalentDocument) => void;
+  uploading: boolean;
+}) {
+  return (
+    <div style={styles.contentGrid}>
+      <section style={styles.panel}>
+        <SectionHeading
+          title="Vacancy Documents"
+          description="Store job descriptions, adverts, selection materials and appointment documents."
+        />
+
+        {!available ? (
+          <UnavailableState table="leo_talent_vacancy_documents" />
+        ) : records.length === 0 ? (
+          <EmptyState
+            title="No documents uploaded"
+            description="Documents attached to this vacancy will appear here."
+          />
+        ) : (
+          <div style={styles.cardList}>
+            {records.map((record) => (
+              <article key={record.id} style={styles.listCard}>
+                <div>
+                  <h3 style={styles.listCardTitle}>
+                    {record.title || record.file_name || "Vacancy document"}
+                  </h3>
+                  <p style={styles.listCardText}>
+                    {record.document_type || "Document"} ·{" "}
+                    {formatDate(record.created_at)}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  style={styles.linkButton}
+                  onClick={() => onOpen(record)}
+                >
+                  Open document
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {canManage ? (
+        <aside style={styles.sideColumn}>
+          <section style={styles.panel}>
+            <SectionHeading
+              title="Upload Document"
+              description="Add a file to the vacancy record."
+            />
+
+            <div style={styles.formStack}>
+              <FieldLabel label="Document title">
+                <input
+                  type="text"
+                  value={documentTitle}
+                  onChange={(event) => onTitle(event.target.value)}
+                  style={styles.input}
+                />
+              </FieldLabel>
+
+              <FieldLabel label="Document type">
+                <select
+                  value={documentType}
+                  onChange={(event) => onType(event.target.value)}
+                  style={styles.input}
+                >
+                  <option>Job description</option>
+                  <option>Person specification</option>
+                  <option>Job advert</option>
+                  <option>Interview pack</option>
+                  <option>Scoring matrix</option>
+                  <option>Approval record</option>
+                  <option>Offer document</option>
+                  <option>Appointment document</option>
+                  <option>Other</option>
+                </select>
+              </FieldLabel>
+
+              <FieldLabel label="File">
+                <input
+                  type="file"
+                  onChange={(event) => onFile(event.target.files?.[0] ?? null)}
+                  style={styles.fileInput}
+                />
+              </FieldLabel>
+
+              <FieldLabel label="Notes">
+                <textarea
+                  value={documentNotes}
+                  onChange={(event) => onNotes(event.target.value)}
+                  style={styles.textarea}
+                  rows={3}
+                />
+              </FieldLabel>
+
+              <button
+                type="button"
+                style={styles.primaryButton}
+                onClick={onUpload}
+                disabled={uploading}
+              >
+                {uploading ? "Uploading…" : "Upload document"}
+              </button>
+            </div>
+          </section>
+        </aside>
+      ) : null}
+    </div>
+  );
+}
+
+function ActivityTab({
+  records,
+  available,
+}: {
+  records: ActivityEvent[];
+  available: boolean;
+}) {
+  return (
+    <section style={styles.panel}>
+      <SectionHeading
+        title="Vacancy Activity"
+        description="A chronological record of important actions and status changes."
+      />
+
+      {!available ? (
+        <UnavailableState table="talent_analytics_events" />
+      ) : records.length === 0 ? (
+        <EmptyState
+          title="No activity recorded"
+          description="Audit events for this vacancy will appear here."
+        />
+      ) : (
+        <div style={styles.timeline}>
+          {records.map((record) => (
+            <article key={record.id} style={styles.timelineItem}>
+              <div style={styles.timelineMarker}>✦</div>
+              <div>
+                <h3 style={styles.timelineTitle}>
+                  {humanise(record.event_type || record.action)}
+                </h3>
+                <p style={styles.timelineText}>
+                  {record.description ||
+                    (record.metadata
+                      ? JSON.stringify(record.metadata)
+                      : "Vacancy activity recorded.")}
+                </p>
+                <p style={styles.timelineDate}>
+                  {formatDate(record.created_at, true)}
+                  {record.actor_name ? ` · ${record.actor_name}` : ""}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SettingsTab({
+  vacancy,
+  canManage,
+  canAdminister,
+  isOwner,
+  workingAction,
+  onStatus,
+  onApproval,
+  onDelete,
+}: {
+  vacancy: Vacancy;
+  canManage: boolean;
+  canAdminister: boolean;
+  isOwner: boolean;
+  workingAction: string | null;
+  onStatus: (
+    status: VacancyStatus,
+    approval?: ApprovalStatus,
+    confirmation?: string,
+  ) => Promise<void>;
+  onApproval: (approval: ApprovalStatus, status: VacancyStatus) => Promise<void>;
+  onDelete: () => void;
+}) {
+  return (
+    <div style={styles.settingsGrid}>
+      <section style={styles.panel}>
+        <SectionHeading
+          title="Vacancy Status"
+          description="Control the vacancy lifecycle without losing recruitment records."
+        />
+
+        {!canManage ? (
+          <p style={styles.muted}>
+            Manager, Senior or Owner access is required to change vacancy status.
+          </p>
+        ) : (
+          <div style={styles.settingsActions}>
+            {vacancy.status === "open" ? (
+              <ActionCard
+                title="Pause vacancy"
+                description="Temporarily stop the campaign while retaining applications."
+                button="Pause"
+                onClick={() =>
+                  void onStatus(
+                    "paused",
+                    undefined,
+                    "Pause this vacancy?",
+                  )
+                }
+                disabled={workingAction !== null}
+              />
+            ) : null}
+
+            {["draft", "approved", "paused", "closed"].includes(vacancy.status) ? (
+              <ActionCard
+                title="Open vacancy"
+                description="Make the vacancy available for applications."
+                button="Open"
+                onClick={() => void onStatus("open", "approved")}
+                disabled={workingAction !== null}
+              />
+            ) : null}
+
+            {!["filled", "cancelled", "archived"].includes(vacancy.status) ? (
+              <ActionCard
+                title="Mark filled"
+                description="Record that the required appointment has been made."
+                button="Mark filled"
+                onClick={() =>
+                  void onStatus(
+                    "filled",
+                    undefined,
+                    "Mark this vacancy as filled?",
+                  )
+                }
+                disabled={workingAction !== null}
+              />
+            ) : null}
+
+            {!["cancelled", "archived"].includes(vacancy.status) ? (
+              <ActionCard
+                title="Cancel vacancy"
+                description="End the campaign without making an appointment."
+                button="Cancel vacancy"
+                onClick={() =>
+                  void onStatus(
+                    "cancelled",
+                    undefined,
+                    "Cancel this vacancy? Existing records will be retained.",
+                  )
+                }
+                disabled={workingAction !== null}
+              />
+            ) : null}
+
+            {vacancy.status !== "archived" ? (
+              <ActionCard
+                title="Archive vacancy"
+                description="Remove the vacancy from current registers while retaining its history."
+                button="Archive"
+                onClick={() =>
+                  void onStatus(
+                    "archived",
+                    undefined,
+                    "Archive this vacancy?",
+                  )
+                }
+                disabled={workingAction !== null}
+              />
+            ) : (
+              <ActionCard
+                title="Restore vacancy"
+                description="Return this vacancy to the closed register."
+                button="Restore"
+                onClick={() => void onStatus("closed")}
+                disabled={workingAction !== null}
+              />
+            )}
+          </div>
+        )}
+      </section>
+
+      <section style={styles.panel}>
+        <SectionHeading
+          title="Approval"
+          description="Senior and Owner users can record the vacancy approval outcome."
+        />
+
+        {!canAdminister ? (
+          <p style={styles.muted}>
+            Senior or Owner access is required to approve or return vacancies.
+          </p>
+        ) : (
+          <div style={styles.buttonRow}>
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => void onApproval("approved", "approved")}
+              disabled={workingAction !== null}
+            >
+              Approve vacancy
+            </button>
+
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => void onApproval("returned", "draft")}
+              disabled={workingAction !== null}
+            >
+              Return for changes
+            </button>
+
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => void onApproval("declined", "cancelled")}
+              disabled={workingAction !== null}
+            >
+              Decline vacancy
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section style={styles.dangerPanel}>
+        <SectionHeading
+          title="Permanent Deletion"
+          description="Deleting a vacancy cannot be undone and is blocked when connected records exist."
+        />
+
+        {isOwner ? (
+          <button
+            type="button"
+            style={styles.dangerButton}
+            onClick={onDelete}
+            disabled={workingAction !== null}
+          >
+            Permanently delete vacancy
+          </button>
+        ) : (
+          <p style={styles.muted}>Only an Owner can permanently delete a vacancy.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <article style={styles.metricCard}>
+      <p style={styles.metricLabel}>{label}</p>
+      <p style={styles.metricValue}>{value}</p>
+    </article>
+  );
+}
+
+function SectionHeading({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div style={styles.sectionHeading}>
+      <div>
+        <h2 style={styles.sectionTitle}>{title}</h2>
+        <p style={styles.sectionDescription}>{description}</p>
+      </div>
+      {action ? <div>{action}</div> : null}
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={styles.detail}>
+      <span style={styles.detailLabel}>{label}</span>
+      <span style={styles.detailValue}>{value}</span>
+    </div>
+  );
+}
+
+function ControlLine({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <div style={styles.controlLine}>
+      <span>{label}</span>
+      <span style={enabled ? styles.enabledPill : styles.disabledPill}>
+        {enabled ? "Enabled" : "Not required"}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div style={styles.emptyState}>
+      <h3 style={styles.emptyTitle}>{title}</h3>
+      <p style={styles.emptyText}>{description}</p>
+    </div>
+  );
+}
+
+function UnavailableState({ table }: { table: string }) {
+  return (
+    <div style={styles.unavailableState}>
+      <h3 style={styles.emptyTitle}>Workspace not connected yet</h3>
+      <p style={styles.emptyText}>
+        The <code>{table}</code> table is not available or cannot currently be read.
+        The vacancy workspace will begin using it automatically once the table and
+        permissions are in place.
+      </p>
+    </div>
+  );
+}
+
+function StatePanel({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <section style={styles.statePanel}>
+      <h1 style={styles.stateTitle}>{title}</h1>
+      <p style={styles.stateText}>{description}</p>
+      {action ? <div style={{ marginTop: 18 }}>{action}</div> : null}
+    </section>
+  );
+}
+
+function FieldLabel({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label style={styles.field}>
+      <span style={styles.fieldLabel}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function ActionCard({
+  title,
+  description,
+  button,
+  onClick,
+  disabled,
+}: {
+  title: string;
+  description: string;
+  button: string;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <article style={styles.actionCard}>
+      <div>
+        <h3 style={styles.actionCardTitle}>{title}</h3>
+        <p style={styles.actionCardText}>{description}</p>
+      </div>
+      <button
+        type="button"
+        style={styles.secondaryButton}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {button}
+      </button>
+    </article>
+  );
+}
+
+const styles: Record<string, CSSProperties> = {
+  page: {
+    width: "100%",
+    maxWidth: "1500px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  headerCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "20px",
+    flexWrap: "wrap",
+    padding: "24px",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: "16px",
+  },
+  headerMain: {
+    flex: "1 1 700px",
+  },
+  backButton: {
+    border: 0,
+    background: "transparent",
+    color: "#6E5084",
+    padding: 0,
+    marginBottom: "16px",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  headingRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "18px",
+    flexWrap: "wrap",
+  },
+  eyebrow: {
+    margin: "0 0 7px",
+    color: "#6E5084",
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: "0.07em",
+  },
+  pageTitle: {
+    margin: 0,
+    color: "#111827",
+    fontSize: "30px",
+    lineHeight: 1.2,
+  },
+  pageDescription: {
+    margin: "8px 0 0",
+    color: "#6B7280",
+    fontSize: "14px",
+    lineHeight: 1.55,
+  },
+  statusStack: {
+    display: "flex",
+    alignItems: "flex-end",
+    flexDirection: "column",
+    gap: "7px",
+  },
+  statusPill: {
+    display: "inline-flex",
+    padding: "7px 11px",
+    borderRadius: "999px",
+    background: "#F1EAF6",
+    color: "#6E5084",
+    fontSize: "12px",
+    fontWeight: 800,
+  },
+  approvalPill: {
+    display: "inline-flex",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "#F7F1FC",
+    color: "#6B5875",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+  metrics: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    gap: "12px",
+  },
+  metricCard: {
+    padding: "17px",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: "14px",
+  },
+  metricLabel: {
+    margin: 0,
+    color: "#6B7280",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+  metricValue: {
+    margin: "8px 0 0",
+    color: "#6E5084",
+    fontSize: "28px",
+    fontWeight: 800,
+  },
+  tabBar: {
+    display: "flex",
+    gap: "8px",
+    padding: "10px",
+    overflowX: "auto",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: "14px",
+  },
+  tab: {
+    flex: "0 0 auto",
+    padding: "9px 12px",
+    background: "#FFFFFF",
+    border: "1px solid transparent",
+    borderRadius: "10px",
+    color: "#6B7280",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  tabActive: {
+    flex: "0 0 auto",
+    padding: "9px 12px",
+    background: "#F7F1FC",
+    border: "1px solid #CDB2E2",
+    borderRadius: "10px",
+    color: "#6E5084",
+    fontSize: "13px",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  contentGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
+    gap: "16px",
+    alignItems: "start",
+  },
+  sideColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  panel: {
+    minWidth: 0,
+    padding: "22px",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: "16px",
+  },
+  dangerPanel: {
+    padding: "22px",
+    background: "#FFF9FA",
+    border: "1px solid #E7CBD2",
+    borderRadius: "16px",
+  },
+  sectionHeading: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "14px",
+    flexWrap: "wrap",
+    marginBottom: "18px",
+  },
+  sectionTitle: {
+    margin: 0,
+    color: "#111827",
+    fontSize: "19px",
+  },
+  sectionDescription: {
+    margin: "6px 0 0",
+    maxWidth: "760px",
+    color: "#6B7280",
+    fontSize: "13px",
+    lineHeight: 1.55,
+  },
+  detailGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "12px",
+  },
+  detail: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "5px",
+    padding: "14px",
+    background: "#FAFAFB",
+    border: "1px solid #ECEEF1",
+    borderRadius: "12px",
+  },
+  detailLabel: {
+    color: "#6B7280",
+    fontSize: "11px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  detailValue: {
+    color: "#1F2937",
+    fontSize: "14px",
+    fontWeight: 650,
+  },
+  controlLine: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    padding: "11px 0",
+    borderBottom: "1px solid #EEF0F2",
+    color: "#374151",
+    fontSize: "13px",
+  },
+  enabledPill: {
+    padding: "5px 8px",
+    background: "#F5FFF9",
+    borderRadius: "999px",
+    color: "#38634A",
+    fontSize: "11px",
+    fontWeight: 800,
+  },
+  disabledPill: {
+    padding: "5px 8px",
+    background: "#F3F4F6",
+    borderRadius: "999px",
+    color: "#6B7280",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
+  primaryButton: {
+    minHeight: "40px",
+    padding: "9px 14px",
+    background: "#6E5084",
+    border: "1px solid #6E5084",
+    borderRadius: "10px",
+    color: "#FFFFFF",
+    fontSize: "13px",
+    fontWeight: 750,
+    cursor: "pointer",
+  },
+  secondaryButton: {
+    minHeight: "40px",
+    padding: "9px 14px",
+    background: "#FFFFFF",
+    border: "1px solid #CDB2E2",
+    borderRadius: "10px",
+    color: "#6E5084",
+    fontSize: "13px",
+    fontWeight: 750,
+    cursor: "pointer",
+  },
+  dangerButton: {
+    minHeight: "40px",
+    padding: "9px 14px",
+    background: "#FFFFFF",
+    border: "1px solid #C96B82",
+    borderRadius: "10px",
+    color: "#9F4058",
+    fontSize: "13px",
+    fontWeight: 750,
+    cursor: "pointer",
+  },
+  buttonColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+  buttonRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+  errorMessage: {
+    padding: "13px 15px",
+    background: "#FFF8FA",
+    border: "1px solid #E7CBD2",
+    borderRadius: "12px",
+    color: "#7D4654",
+    fontSize: "13px",
+  },
+  successMessage: {
+    padding: "13px 15px",
+    background: "#F5FFF9",
+    border: "1px solid #CFE9DA",
+    borderRadius: "12px",
+    color: "#38634A",
+    fontSize: "13px",
+  },
+  searchInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    marginBottom: "16px",
+    padding: "11px 12px",
+    background: "#FAFAFB",
+    border: "1px solid #D1D5DB",
+    borderRadius: "10px",
+    color: "#111827",
+    fontSize: "14px",
+  },
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+  },
+  table: {
+    width: "100%",
+    minWidth: "760px",
+    borderCollapse: "collapse",
+  },
+  th: {
+    padding: "11px 12px",
+    background: "#FAFAFB",
+    borderBottom: "1px solid #E5E7EB",
+    color: "#6B7280",
+    fontSize: "11px",
+    fontWeight: 800,
+    textAlign: "left",
+    whiteSpace: "nowrap",
+  },
+  td: {
+    padding: "13px 12px",
+    borderBottom: "1px solid #EEF0F2",
+    color: "#374151",
+    fontSize: "13px",
+    verticalAlign: "top",
+  },
+  muted: {
+    margin: "4px 0 0",
+    color: "#6B7280",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
+  inlinePill: {
+    display: "inline-flex",
+    padding: "5px 8px",
+    background: "#F1EAF6",
+    borderRadius: "999px",
+    color: "#6E5084",
+    fontSize: "11px",
+    fontWeight: 750,
+  },
+  linkButton: {
+    border: 0,
+    background: "transparent",
+    color: "#6E5084",
+    padding: 0,
+    fontSize: "13px",
+    fontWeight: 750,
+    cursor: "pointer",
+  },
+  cardList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  listCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "14px",
+    flexWrap: "wrap",
+    padding: "15px",
+    background: "#FAFAFB",
+    border: "1px solid #ECEEF1",
+    borderRadius: "12px",
+  },
+  listCardTitle: {
+    margin: 0,
+    color: "#1F2937",
+    fontSize: "14px",
+  },
+  listCardText: {
+    margin: "5px 0 0",
+    color: "#6B7280",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
+  listCardActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+  emptyState: {
+    padding: "42px 18px",
+    textAlign: "center",
+  },
+  unavailableState: {
+    padding: "30px 18px",
+    background: "#FAFAFB",
+    border: "1px dashed #D1D5DB",
+    borderRadius: "12px",
+    textAlign: "center",
+  },
+  emptyTitle: {
+    margin: 0,
+    color: "#374151",
+    fontSize: "16px",
+  },
+  emptyText: {
+    margin: "7px auto 0",
+    maxWidth: "600px",
+    color: "#6B7280",
+    fontSize: "13px",
+    lineHeight: 1.55,
+  },
+  checkList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+  checkItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    color: "#374151",
+    fontSize: "13px",
+  },
+  checkIcon: {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "30px",
-    padding: "5px 11px",
-    borderRadius: "999px",
-    fontSize: "12px",
+    width: "22px",
+    height: "22px",
+    background: "#F5FFF9",
+    borderRadius: "50%",
+    color: "#38634A",
     fontWeight: 800,
-    whiteSpace: "nowrap",
-  };
-
-  switch (status) {
-    case "New Starter":
-      return {
-        ...sharedStyle,
-        background: "#F7F1FC",
-        color: "#6E5084",
-        border: "1px solid #CDB2E2",
-      };
-
-    case "Archived":
-      return {
-        ...sharedStyle,
-        background: "#F3F4F6",
-        color: "#4B5563",
-        border: "1px solid #D1D5DB",
-      };
-
-    case "Leaving":
-      return {
-        ...sharedStyle,
-        background: "#FFF8E7",
-        color: "#7C5A18",
-        border: "1px solid #EAD8A5",
-      };
-
-    case "Suspended":
-      return {
-        ...sharedStyle,
-        background: "#F8EFF2",
-        color: "#76515E",
-        border: "1px solid #DEC7CE",
-      };
-
-    case "Former Employee":
-      return {
-        ...sharedStyle,
-        background: "#F5F3F7",
-        color: "#62576A",
-        border: "1px solid #D8D1DD",
-      };
-
-    default:
-      return {
-        ...sharedStyle,
-        background: "#F5FFF9",
-        color: "#356653",
-        border: "1px solid #CDE7DA",
-      };
-  }
-}
-
-const backButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "7px",
-  border: "none",
-  background: "transparent",
-  cursor: "pointer",
-  color: "#6B7280",
-  fontWeight: 700,
-  padding: "0",
-  marginBottom: "16px",
-};
-
-const headerStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-  gap: "20px",
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "18px",
-  padding: "24px",
-  marginBottom: "18px",
-  boxShadow: "0 8px 24px rgba(73, 52, 86, 0.04)",
-};
-
-const headerIdentityStyle: CSSProperties = {
-  flex: "1 1 620px",
-  minWidth: 0,
-};
-
-const headerTitleRowStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-  gap: "14px",
-};
-
-const employeeNameStyle: CSSProperties = {
-  margin: "4px 0 0",
-  color: "#241B2B",
-  fontSize: "30px",
-  lineHeight: 1.15,
-};
-
-const eyebrowStyle: CSSProperties = {
-  color: "#6E5084",
-  fontSize: "12px",
-  fontWeight: 800,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-};
-
-const headerMetaGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
-  gap: "12px",
-  marginTop: "20px",
-};
-
-const headerMetaItemStyle: CSSProperties = {
-  padding: "12px",
-  borderRadius: "12px",
-  background: "#FBF9FC",
-  border: "1px solid #EEE8F0",
-};
-
-const headerMetaLabelStyle: CSSProperties = {
-  color: "#77707B",
-  fontSize: "12px",
-  marginBottom: "5px",
-};
-
-const headerMetaValueStyle: CSSProperties = {
-  color: "#2F2636",
-  fontSize: "14px",
-  fontWeight: 800,
-  overflowWrap: "anywhere",
-};
-
-const headerActionsStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-  gap: "10px",
-};
-
-const primaryButtonStyle: CSSProperties = {
-  border: "1px solid #6E5084",
-  background: "#6E5084",
-  color: "#FFFFFF",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: 800,
-  fontSize: "13px",
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  border: "1px solid #D8CCDE",
-  background: "#FFFFFF",
-  color: "#5B4568",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: 800,
-  fontSize: "13px",
-};
-
-const disabledPrimaryButtonStyle: CSSProperties = {
-  ...primaryButtonStyle,
-  opacity: 0.55,
-  cursor: "not-allowed",
-};
-
-const archiveButtonStyle: CSSProperties = {
-  border: "1px solid #A86573",
-  background: "#A86573",
-  color: "#FFFFFF",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: 800,
-  fontSize: "13px",
-};
-
-const disabledArchiveButtonStyle: CSSProperties = {
-  ...archiveButtonStyle,
-  opacity: 0.55,
-  cursor: "not-allowed",
-};
-
-const newStarterBannerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: "18px",
-  background: "#F7F1FC",
-  border: "1px solid #DCCBE7",
-  borderRadius: "16px",
-  padding: "20px",
-  marginBottom: "18px",
-};
-
-const archivedBannerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: "18px",
-  background: "#F5F4F6",
-  border: "1px solid #DDD8E0",
-  borderRadius: "16px",
-  padding: "20px",
-  marginBottom: "18px",
-};
-
-const bannerEyebrowStyle: CSSProperties = {
-  color: "#6E5084",
-  fontSize: "12px",
-  fontWeight: 800,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-};
-
-const bannerTitleStyle: CSSProperties = {
-  margin: "5px 0 7px",
-  color: "#302638",
-  fontSize: "20px",
-};
-
-const bannerDescriptionStyle: CSSProperties = {
-  margin: 0,
-  color: "#69616E",
-  fontSize: "14px",
-  lineHeight: 1.6,
-  maxWidth: "760px",
-};
-
-const bannerActionsStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px",
-};
-
-const navigationStyle: CSSProperties = {
-  position: "sticky",
-  top: "20px",
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "16px",
-  padding: "12px",
-  boxShadow: "0 8px 24px rgba(73, 52, 86, 0.035)",
-};
-
-const navigationHeadingStyle: CSSProperties = {
-  padding: "8px 8px 12px",
-  borderBottom: "1px solid #EEE8F0",
-  marginBottom: "8px",
-};
-
-const navigationTitleStyle: CSSProperties = {
-  color: "#2D2433",
-  fontSize: "14px",
-  fontWeight: 800,
-};
-
-const navigationSubtitleStyle: CSSProperties = {
-  color: "#7C7480",
-  fontSize: "12px",
-  lineHeight: 1.5,
-  marginTop: "4px",
-};
-
-const navigationListStyle: CSSProperties = {
-  display: "grid",
-  gap: "5px",
-};
-
-const navigationButtonStyle: CSSProperties = {
-  width: "100%",
-  textAlign: "left",
-  background: "transparent",
-  border: "1px solid transparent",
-  padding: "10px 11px",
-  borderRadius: "10px",
-  cursor: "pointer",
-};
-
-const activeNavigationButtonStyle: CSSProperties = {
-  ...navigationButtonStyle,
-  background: "#F7F1FC",
-  border: "1px solid #E6D8ED",
-};
-
-const navigationButtonTitleStyle: CSSProperties = {
-  display: "block",
-  color: "#3A3040",
-  fontWeight: 800,
-  fontSize: "13px",
-};
-
-const navigationButtonDescriptionStyle: CSSProperties = {
-  display: "block",
-  color: "#807885",
-  fontSize: "11px",
-  lineHeight: 1.45,
-  marginTop: "3px",
-};
-
-const mainContentStyle: CSSProperties = {
-  minWidth: 0,
-};
-
-const sectionStackStyle: CSSProperties = {
-  display: "grid",
-  gap: "16px",
-};
-
-const sectionHeadingStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-  gap: "14px",
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "16px",
-  padding: "20px",
-};
-
-const sectionHeadingContentStyle: CSSProperties = {
-  flex: "1 1 520px",
-  minWidth: 0,
-};
-
-const sectionHeadingActionStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  margin: "5px 0 6px",
-  color: "#2B2231",
-  fontSize: "23px",
-};
-
-const sectionDescriptionStyle: CSSProperties = {
-  margin: 0,
-  color: "#6F6773",
-  lineHeight: 1.6,
-  fontSize: "14px",
-  maxWidth: "760px",
-};
-
-const summaryGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "12px",
-};
-
-const summaryCardStyle: CSSProperties = {
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "14px",
-  padding: "17px",
-  textAlign: "left",
-};
-
-const summaryCardButtonStyle: CSSProperties = {
-  ...summaryCardStyle,
-  width: "100%",
-  cursor: "pointer",
-  fontFamily: "inherit",
-};
-
-const summaryCardLabelStyle: CSSProperties = {
-  color: "#79717E",
-  fontSize: "12px",
-  fontWeight: 700,
-};
-
-const summaryCardValueStyle: CSSProperties = {
-  color: "#6E5084",
-  fontSize: "21px",
-  fontWeight: 900,
-  marginTop: "8px",
-};
-
-const summaryCardSupportingTextStyle: CSSProperties = {
-  color: "#746C78",
-  fontSize: "12px",
-  lineHeight: 1.5,
-  marginTop: "7px",
-};
-
-const panelStyle: CSSProperties = {
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "16px",
-  padding: "20px",
-  minWidth: 0,
-};
-
-const panelHeadingStyle: CSSProperties = {
-  marginBottom: "16px",
-};
-
-const panelTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#2D2433",
-  fontSize: "18px",
-};
-
-const panelDescriptionStyle: CSSProperties = {
-  margin: "6px 0 0",
-  color: "#716A75",
-  fontSize: "13px",
-  lineHeight: 1.55,
-};
-
-const quickActionGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: "10px",
-};
-
-const quickActionButtonStyle: CSSProperties = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  background: "#FBF9FC",
-  border: "1px solid #E9E1ED",
-  borderRadius: "12px",
-  padding: "14px",
-  cursor: "pointer",
-  fontFamily: "inherit",
-};
-
-const quickActionTitleStyle: CSSProperties = {
-  display: "block",
-  color: "#5E456C",
-  fontSize: "13px",
-  fontWeight: 900,
-};
-
-const quickActionDescriptionStyle: CSSProperties = {
-  display: "block",
-  color: "#746D78",
-  fontSize: "12px",
-  lineHeight: 1.5,
-  marginTop: "5px",
-};
-
-const informationGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "12px",
-};
-
-const informationItemStyle: CSSProperties = {
-  background: "#FBF9FC",
-  border: "1px solid #EEE8F0",
-  borderRadius: "12px",
-  padding: "13px",
-};
-
-const informationLabelStyle: CSSProperties = {
-  color: "#7A727E",
-  fontSize: "12px",
-};
-
-const informationValueStyle: CSSProperties = {
-  color: "#312738",
-  fontWeight: 800,
-  fontSize: "14px",
-  marginTop: "5px",
-  overflowWrap: "anywhere",
-};
-
-const timelineListStyle: CSSProperties = {
-  display: "grid",
-};
-
-const timelineItemStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "24px minmax(0, 1fr)",
-  gap: "12px",
-};
-
-const timelineRailStyle: CSSProperties = {
-  position: "relative",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-};
-
-const timelineDotStyle: CSSProperties = {
-  width: "11px",
-  height: "11px",
-  borderRadius: "999px",
-  background: "#6E5084",
-  border: "3px solid #F1E9F5",
-  boxSizing: "content-box",
-  marginTop: "4px",
-  zIndex: 1,
-};
-
-const timelineLineStyle: CSSProperties = {
-  width: "2px",
-  flex: 1,
-  minHeight: "68px",
-  background: "#E3D8E8",
-  marginTop: "3px",
-};
-
-const timelineContentStyle: CSSProperties = {
-  paddingBottom: "22px",
-};
-
-const timelineTopRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: "10px",
-};
-
-const timelineCategoryStyle: CSSProperties = {
-  color: "#6E5084",
-  fontSize: "11px",
-  fontWeight: 900,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-};
-
-const timelineTitleStyle: CSSProperties = {
-  margin: "4px 0 0",
-  color: "#312738",
-  fontSize: "15px",
-};
-
-const timelineDateStyle: CSSProperties = {
-  color: "#7B737F",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const timelineDescriptionStyle: CSSProperties = {
-  margin: "7px 0 0",
-  color: "#655E69",
-  fontSize: "13px",
-  lineHeight: 1.55,
-};
-
-const timelineSourceStyle: CSSProperties = {
-  marginTop: "7px",
-  color: "#918A95",
-  fontSize: "11px",
-};
-
-const emptyStateStyle: CSSProperties = {
-  background: "#FBF9FC",
-  border: "1px dashed #DCCFE3",
-  borderRadius: "12px",
-  padding: "22px",
-  color: "#746D78",
-  textAlign: "center",
-  fontSize: "13px",
-};
-
-const archiveExplanationStyle: CSSProperties = {
-  display: "grid",
-  gap: "10px",
-  marginBottom: "16px",
-};
-
-const archiveInformationRowStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(140px, 200px) minmax(0, 1fr)",
-  gap: "12px",
-  padding: "11px 0",
-  borderBottom: "1px solid #EEE8F0",
-};
-
-const archiveInformationLabelStyle: CSSProperties = {
-  color: "#7A727E",
-  fontSize: "12px",
-  fontWeight: 700,
-};
-
-const archiveInformationValueStyle: CSSProperties = {
-  color: "#352B3B",
-  fontSize: "13px",
-  fontWeight: 700,
-};
-
-const errorMessageStyle: CSSProperties = {
-  background: "#FBF2F4",
-  color: "#81505B",
-  border: "1px solid #E7CBD1",
-  borderRadius: "10px",
-  padding: "12px",
-  marginBottom: "13px",
-  fontSize: "13px",
-};
-
-const successMessageStyle: CSSProperties = {
-  background: "#F5FFF9",
-  color: "#356653",
-  border: "1px solid #CDE7DA",
-  borderRadius: "10px",
-  padding: "12px",
-  marginBottom: "13px",
-  fontSize: "13px",
-};
-
-const pageStateOuterStyle: CSSProperties = {
-  minHeight: "420px",
-  display: "grid",
-  placeItems: "center",
-};
-
-const pageStateCardStyle: CSSProperties = {
-  width: "100%",
-  maxWidth: "560px",
-  background: "#FFFFFF",
-  border: "1px solid #E7E1EA",
-  borderRadius: "16px",
-  padding: "28px",
-  textAlign: "center",
-};
-
-const pageStateTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#302638",
-  fontSize: "24px",
-};
-
-const pageStateMessageStyle: CSSProperties = {
-  margin: "10px 0 18px",
-  color: "#716A75",
-  lineHeight: 1.6,
-  fontSize: "14px",
+  },
+  formStack: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "13px",
+  },
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  fieldLabel: {
+    color: "#374151",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: "40px",
+    padding: "9px 11px",
+    background: "#FFFFFF",
+    border: "1px solid #D1D5DB",
+    borderRadius: "10px",
+    color: "#111827",
+    fontSize: "13px",
+  },
+  textarea: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "9px 11px",
+    background: "#FFFFFF",
+    border: "1px solid #D1D5DB",
+    borderRadius: "10px",
+    color: "#111827",
+    fontSize: "13px",
+    resize: "vertical",
+  },
+  fileInput: {
+    width: "100%",
+    color: "#374151",
+    fontSize: "12px",
+  },
+  timeline: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+  },
+  timelineItem: {
+    display: "grid",
+    gridTemplateColumns: "28px minmax(0, 1fr)",
+    gap: "12px",
+    paddingBottom: "14px",
+    borderBottom: "1px solid #EEF0F2",
+  },
+  timelineMarker: {
+    color: "#6E5084",
+    fontSize: "18px",
+  },
+  timelineTitle: {
+    margin: 0,
+    color: "#1F2937",
+    fontSize: "14px",
+  },
+  timelineText: {
+    margin: "5px 0 0",
+    color: "#4B5563",
+    fontSize: "13px",
+    lineHeight: 1.5,
+    overflowWrap: "anywhere",
+  },
+  timelineDate: {
+    margin: "5px 0 0",
+    color: "#8A919C",
+    fontSize: "11px",
+  },
+  settingsGrid: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  settingsActions: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: "12px",
+  },
+  actionCard: {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    gap: "16px",
+    padding: "16px",
+    background: "#FAFAFB",
+    border: "1px solid #ECEEF1",
+    borderRadius: "12px",
+  },
+  actionCardTitle: {
+    margin: 0,
+    color: "#1F2937",
+    fontSize: "14px",
+  },
+  actionCardText: {
+    margin: "6px 0 0",
+    color: "#6B7280",
+    fontSize: "12px",
+    lineHeight: 1.5,
+  },
+  statePanel: {
+    padding: "44px 24px",
+    background: "#FFFFFF",
+    border: "1px solid #E5E7EB",
+    borderRadius: "16px",
+    textAlign: "center",
+  },
+  stateTitle: {
+    margin: 0,
+    color: "#111827",
+    fontSize: "21px",
+  },
+  stateText: {
+    margin: "8px auto 0",
+    maxWidth: "620px",
+    color: "#6B7280",
+    fontSize: "14px",
+    lineHeight: 1.6,
+  },
+  publicationHero: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "20px",
+    flexWrap: "wrap",
+    padding: "24px",
+    background: "linear-gradient(135deg, #F7F1FC 0%, #F5FFF9 100%)",
+    border: "1px solid #DED0E8",
+    borderRadius: "16px",
+  },
+  publicationTitle: { margin: 0, color: "#1F2937", fontSize: "24px" },
+  publicationDescription: { margin: "7px 0 0", maxWidth: "720px", color: "#5F6670", fontSize: "13px", lineHeight: 1.6 },
+  publicationHeroActions: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" },
+  livePill: { display: "inline-flex", padding: "7px 11px", borderRadius: "999px", background: "#EAF8F0", color: "#2F6847", fontSize: "12px", fontWeight: 800 },
+  draftPill: { display: "inline-flex", padding: "7px 11px", borderRadius: "999px", background: "#FFFFFF", color: "#6E5084", border: "1px solid #CDB2E2", fontSize: "12px", fontWeight: 800 },
+  readinessGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px", marginBottom: "16px" },
+  readinessItem: { display: "flex", alignItems: "center", gap: "8px", padding: "11px", background: "#FAFAFB", border: "1px solid #ECEEF1", borderRadius: "10px", color: "#374151", fontSize: "12px", fontWeight: 700 },
+  readinessReady: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "21px", height: "21px", borderRadius: "50%", background: "#EAF8F0", color: "#2F6847", fontWeight: 900 },
+  readinessMissing: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "21px", height: "21px", borderRadius: "50%", background: "#FFF4E8", color: "#9A5B1D", fontWeight: 900 },
+  publicLinkBox: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "14px", flexWrap: "wrap", padding: "14px", marginBottom: "14px", background: "#F7F1FC", border: "1px solid #DED0E8", borderRadius: "12px" },
+  publicLinkText: { marginTop: "5px", color: "#4B3B58", fontSize: "13px", overflowWrap: "anywhere" },
+  toggleSetting: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "14px", padding: "12px 0", borderBottom: "1px solid #EEF0F2", cursor: "pointer" },
+  toggleLabel: { color: "#374151", fontSize: "13px", fontWeight: 750 },
+  toggleDescription: { marginTop: "4px", color: "#6B7280", fontSize: "11px", lineHeight: 1.45 },
+  compactSelect: { minHeight: "34px", padding: "6px 8px", background: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: "8px", color: "#374151", fontSize: "12px" },
+  inlineFormGrid: { display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(150px, .7fr) minmax(220px, 1.2fr) auto", gap: "12px", alignItems: "end", marginTop: "18px", paddingTop: "18px", borderTop: "1px solid #EEF0F2" },
+  questionLayout: { display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)", gap: "16px", alignItems: "start" },
+  questionCard: { display: "flex", alignItems: "flex-start", gap: "13px", flexWrap: "wrap", padding: "15px", background: "#FAFAFB", border: "1px solid #ECEEF1", borderRadius: "12px" },
+  questionNumber: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", flex: "0 0 28px", borderRadius: "9px", background: "#F1EAF6", color: "#6E5084", fontSize: "12px", fontWeight: 900 },
+  questionFlags: { display: "flex", gap: "7px", flexWrap: "wrap", marginTop: "8px" },
+  warningPill: { display: "inline-flex", padding: "5px 8px", background: "#FFF4E8", borderRadius: "999px", color: "#8A551E", fontSize: "11px", fontWeight: 750 },
+  questionBuilder: { padding: "16px", background: "#FAFAFB", border: "1px solid #ECEEF1", borderRadius: "12px" },
+  checkboxLine: { display: "flex", alignItems: "center", gap: "8px", color: "#374151", fontSize: "12px", fontWeight: 650 },
+  deleteLinkButton: { border: 0, background: "transparent", color: "#9F4058", padding: 0, fontSize: "13px", fontWeight: 750, cursor: "pointer" },
 };

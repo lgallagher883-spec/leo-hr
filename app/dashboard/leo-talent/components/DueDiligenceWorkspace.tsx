@@ -108,8 +108,11 @@ type SharedRecord = {
   component_key: SharedKey;
   payload: Record<string, unknown>;
   status: string | null;
+  completed_at?: string | null;
   updated_at: string;
 };
+
+type PlatformRole = "owner" | "senior" | "manager" | "employee";
 
 type CandidateDocument = {
   id: string;
@@ -240,6 +243,7 @@ export default function DueDiligenceWorkspace() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<SharedKey | "personal" | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [role, setRole] = useState<PlatformRole>("employee");
 
   const selected = useMemo(
     () => records.find((item) => item.profile.id === selectedProfileId) ?? null,
@@ -282,15 +286,6 @@ export default function DueDiligenceWorkspace() {
     ];
   }, [selected]);
 
-  const completion = useMemo(() => {
-    const required = requirements.filter((item) => item.required);
-    if (!required.length) return 0;
-    const complete = required.filter((item) =>
-      isComplete(item.key, valueFor(item.key), selected?.vacancy ?? null),
-    ).length;
-    return Math.round((complete / required.length) * 100);
-  }, [requirements, selected, valueFor]);
-
   const setError = (message: string) => setNotice({ type: "error", message });
   const setSuccess = (message: string) => setNotice({ type: "success", message });
 
@@ -310,6 +305,16 @@ export default function DueDiligenceWorkspace() {
       }
 
       const assembled = (result.records ?? []) as WorkspaceRecord[];
+      const roleValue = String(result.role ?? "employee").toLowerCase();
+      setRole(
+        roleValue === "owner"
+          ? "owner"
+          : roleValue === "senior"
+            ? "senior"
+            : roleValue === "manager"
+              ? "manager"
+              : "employee",
+      );
       setRecords(assembled);
       setSelectedProfileId((current) =>
         assembled.some((item) => item.profile.id === current)
@@ -328,9 +333,9 @@ export default function DueDiligenceWorkspace() {
     }
   }, []);
 
-  const loadDetails = useCallback(async (record: WorkspaceRecord) => {
+  const loadDetails = useCallback(async (record: WorkspaceRecord, clearNotice = true) => {
     setDetailLoading(true);
-    setNotice(null);
+    if (clearNotice) setNotice(null);
 
     try {
       const response = await fetch(
@@ -383,7 +388,7 @@ export default function DueDiligenceWorkspace() {
   useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
   useEffect(() => {
     if (selected) void loadDetails(selected);
-  }, [selected, loadDetails]);
+  }, [selectedProfileId, loadDetails]);
 
   async function saveShared(
     key: SharedKey,
@@ -414,24 +419,7 @@ export default function DueDiligenceWorkspace() {
         throw new Error(result.error || "The record could not be saved.");
       }
 
-      setShared((current) => ({
-        ...current,
-        [key]: result.sharedRecord as SharedRecord,
-      }));
-      setRecords((current) =>
-        current.map((item) =>
-          item.profile.id === selected.profile.id
-            ? {
-                ...item,
-                profile: {
-                  ...item.profile,
-                  status: "in_progress",
-                  updated_at: new Date().toISOString(),
-                },
-              }
-            : item,
-        ),
-      );
+      await loadDetails(selected, false);
       setSuccess(message);
     } catch (error) {
       console.error(error);
@@ -514,7 +502,19 @@ export default function DueDiligenceWorkspace() {
     saving: savingKey === key,
     onSave: (payload: any) => saveShared(key, payload, `${tabs.find((tab) => tab.key === activeTab)?.label ?? "Record"} saved.`),
     onAudit: async () => undefined,
+    permissions:
+      key === "appointment_decision"
+        ? {
+            canEdit: role === "owner" || role === "senior",
+            canMakeDecision: role === "owner" || role === "senior",
+          }
+        : undefined,
   });
+
+  const appointmentDecisionOutcome =
+    typeof shared.appointment_decision?.payload?.outcome === "string"
+      ? shared.appointment_decision.payload.outcome
+      : "pending";
 
   if (loading) {
     return <Shell><Empty title="Loading due diligence" text="Leo is preparing the candidate register." /></Shell>;
@@ -569,16 +569,25 @@ export default function DueDiligenceWorkspace() {
                   <p style={styles.candidateMeta}>{selected.vacancy?.title ?? "Vacancy"}{selected.vacancy?.department ? ` · ${selected.vacancy.department}` : ""}</p>
                 </div>
               </div>
-              <div style={styles.progressBlock}><strong>{completion}%</strong><span>appointment readiness</span></div>
             </div>
-            <div style={styles.progressTrack}><div style={{ ...styles.progressFill, width: `${completion}%` }} /></div>
+
+            {appointmentDecisionOutcome === "ready_for_appointment" ? (
+              <div style={styles.overrideWarning}>
+                Appointment readiness override is active: Ready for appointment was set manually. Outstanding checks remain visible and unchanged.
+              </div>
+            ) : null}
+            {appointmentDecisionOutcome === "not_ready" || appointmentDecisionOutcome === "withdrawn" ? (
+              <div style={styles.blockWarning}>
+                Appointment progression is blocked by the current appointment decision.
+              </div>
+            ) : null}
 
             <nav style={styles.tabs}>
               {tabs.map((tab) => <button key={tab.key} type="button" style={{ ...styles.tab, ...(activeTab === tab.key ? styles.tabActive : {}) }} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
             </nav>
 
             <div style={styles.tabContent}>
-              {activeTab === "overview" ? <Overview record={selected} requirements={requirements} shared={shared} completion={completion} /> : null}
+              {activeTab === "overview" ? <Overview record={selected} requirements={requirements} shared={shared} /> : null}
               {activeTab === "personal" ? <CandidateEmployeeDetails mode="candidate" recordId={selected.candidate?.id} recordLabel={candidateName(selected.candidate)} value={candidateValue} saving={savingKey === "personal"} onSave={savePersonal} /> : null}
               {activeTab === "identity" ? <IdentityVerificationDetails {...sharedProps("identity_verification")} /> : null}
               {activeTab === "right_to_work" ? <RightToWorkDetails {...sharedProps("right_to_work")} /> : null}
@@ -603,12 +612,10 @@ function Overview({
   record,
   requirements,
   shared,
-  completion,
 }: {
   record: WorkspaceRecord;
   requirements: Array<{ key: SharedKey; label: string; required: boolean }>;
   shared: Record<SharedKey, SharedRecord | null>;
-  completion: number;
 }) {
   return <div style={styles.stack}>
     <section style={styles.card}>
@@ -619,7 +626,6 @@ function Overview({
         <Summary label="Vacancy" value={record.vacancy?.title ?? "Not recorded"} />
         <Summary label="Stage" value={normaliseLabel(record.application?.current_stage_key)} />
         <Summary label="Required references" value={String(record.vacancy?.required_reference_count ?? 1)} />
-        <Summary label="Overall readiness" value={`${completion}%`} />
       </div>
     </section>
     <section style={styles.card}>
@@ -676,11 +682,10 @@ const styles: Record<string, React.CSSProperties> = {
   largeAvatar: { width: 54, height: 54, display: "grid", placeItems: "center", borderRadius: 16, background: "#EFE4F7", color: "#6E5084", fontWeight: 800 },
   candidateName: { margin: "4px 0", fontSize: 21 },
   candidateMeta: { margin: 0, color: "#77707C", fontSize: 12 },
-  progressBlock: { display: "grid", textAlign: "right", gap: 3, color: "#6E5084" },
-  progressTrack: { height: 5, background: "#F1EAF5" },
-  progressFill: { height: "100%", background: "#6E5084" },
+  overrideWarning: { margin: "0 22px 14px", padding: "11px 12px", borderRadius: 10, border: "1px solid #CDAE8B", background: "#FFF4E6", color: "#7A4A14", fontSize: 12, lineHeight: 1.5 },
+  blockWarning: { margin: "0 22px 14px", padding: "11px 12px", borderRadius: 10, border: "1px solid #E9C8D0", background: "#FCF2F4", color: "#8A4252", fontSize: 12, lineHeight: 1.5 },
   tabs: { display: "flex", gap: 3, padding: "10px 16px 0", borderBottom: "1px solid #EDE7F1", overflowX: "auto" },
-  tab: { border: 0, borderBottom: "3px solid transparent", background: "transparent", padding: "10px 11px", color: "#776F7C", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 650, fontSize: 12 },
+  tab: { border: 0, borderBottomWidth: 3, borderBottomStyle: "solid", borderBottomColor: "transparent", background: "transparent", padding: "10px 11px", color: "#776F7C", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 650, fontSize: 12 },
   tabActive: { color: "#6E5084", borderBottomColor: "#6E5084" },
   tabContent: { padding: 20 },
   stack: { display: "grid", gap: 16 },

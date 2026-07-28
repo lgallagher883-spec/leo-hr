@@ -247,6 +247,7 @@ export const appointmentStatusSchema = z.enum([
   "ready_to_start",
   "employee_creation_pending",
   "employee_created",
+  "employment_commenced",
   "started",
   "withdrawn",
   "cancelled",

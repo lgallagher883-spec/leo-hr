@@ -45,6 +45,43 @@ function addDays(value: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+async function getAppointmentDecisionOutcome(
+  supabase: any,
+  organisationId: string,
+  applicationId: string,
+) {
+  const result = await (supabase as any)
+    .from("leo_talent_candidate_shared_records")
+    .select("payload,updated_at")
+    .eq("organisation_id", organisationId)
+    .eq("application_id", applicationId)
+    .eq("component_key", "appointment_decision")
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (result.error) throw new Error(result.error.message);
+
+  const latest =
+    Array.isArray(result.data) && result.data.length > 0
+      ? result.data[0]
+      : null;
+
+  const payload =
+    latest?.payload && typeof latest.payload === "object"
+      ? (latest.payload as Record<string, unknown>)
+      : null;
+
+  const outcome = text(payload?.outcome).toLowerCase();
+  if (outcome === "ready_for_appointment") return "ready_for_appointment";
+  if (outcome === "not_ready") return "not_ready";
+  if (outcome === "withdrawn") return "withdrawn";
+  return "pending";
+}
+
+function blockedByDecision(outcome: string) {
+  return outcome === "not_ready" || outcome === "withdrawn";
+}
+
 async function getAuthorisedContext(supabase: any) {
   const {
     data: { user },
@@ -124,8 +161,23 @@ async function createAppointmentForOffer(
     includeEquipment: boolean;
     includeLearning: boolean;
     automatic?: boolean;
+    decisionOutcome?: string;
   },
 ) {
+  const decisionOutcome =
+    settings.decisionOutcome ??
+    (await getAppointmentDecisionOutcome(
+      supabase,
+      organisationId,
+      String(offer.application_id),
+    ));
+
+  if (blockedByDecision(decisionOutcome)) {
+    throw new Error(
+      `Appointment progression is blocked because the appointment decision is ${decisionOutcome.replaceAll("_", " ")}.`,
+    );
+  }
+
   const existingResult = await supabase
     .from("leo_talent_appointments")
     .select("*")
@@ -200,6 +252,13 @@ export async function GET() {
         if (!(offer.status === "accepted" || Boolean(offer.accepted_at)) || usedOfferIds.has(String(offer.id))) continue;
         if (!offer.proposed_start_date) continue;
 
+        const decisionOutcome = await getAppointmentDecisionOutcome(
+          supabase as any,
+          access.organisationId,
+          String(offer.application_id),
+        );
+        if (blockedByDecision(decisionOutcome)) continue;
+
         const result = await createAppointmentForOffer(
           supabase as any,
           access.organisationId,
@@ -211,6 +270,7 @@ export async function GET() {
             includeEquipment: true,
             includeLearning: true,
             automatic: true,
+            decisionOutcome,
           },
         );
         if (result.created) syncedCount += 1;
@@ -280,6 +340,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Only accepted offers can enter onboarding." }, { status: 400 });
     }
 
+    const decisionOutcome = await getAppointmentDecisionOutcome(
+      supabase as any,
+      access.organisationId,
+      String(offerResult.data.application_id),
+    );
+
+    if (blockedByDecision(decisionOutcome)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Appointment progression is blocked because the appointment decision is ${decisionOutcome.replaceAll("_", " ")}.`,
+        },
+        { status: 409 },
+      );
+    }
+
     const vacancyResult = await (supabase as any)
       .from("leo_talent_vacancies")
       .select("*")
@@ -301,6 +377,7 @@ export async function POST(request: Request) {
         includeDbs: body.includeDbs === true,
         includeEquipment: body.includeEquipment !== false,
         includeLearning: body.includeLearning !== false,
+        decisionOutcome,
       },
     );
 

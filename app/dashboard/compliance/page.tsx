@@ -300,7 +300,6 @@ export default function CompliancePage() {
     [platformRole]
   );
 
-  const canViewRegisters = hasPermission("Manager");
   const canExport = hasPermission("Senior");
   const canUseBulkActions = hasPermission("Senior");
 
@@ -314,44 +313,6 @@ export default function CompliancePage() {
     },
     []
   );
-
-  const loadCurrentUser = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setPlatformRole("Employee");
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error || !profile) {
-        setPlatformRole("Employee");
-        return;
-      }
-
-      const role =
-        readString(profile.platform_role) ||
-        readString(profile.role) ||
-        readString(profile.access_level);
-
-      setPlatformRole(normalisePlatformRole(role));
-    } catch (error) {
-      console.warn(
-        "Compliance permissions could not be loaded:",
-        error
-      );
-
-      setPlatformRole("Employee");
-    }
-  }, []);
 
   const loadComplianceData = useCallback(async () => {
     setLoading(true);
@@ -371,6 +332,10 @@ export default function CompliancePage() {
       const payload = (await response.json().catch(() => null)) as
         | {
             success?: boolean;
+            access?: {
+              role?: string;
+              roleKey?: string;
+            };
             employees?: Record<string, unknown>[];
             sites?: Site[];
             employmentDetails?: EmploymentDetails[];
@@ -389,6 +354,14 @@ export default function CompliancePage() {
             `Compliance records request failed with status ${response.status}.`
         );
       }
+
+      setPlatformRole(
+        normalisePlatformRole(
+          readString(payload.access?.role) ||
+            readString(payload.access?.roleKey) ||
+            "employee"
+        )
+      );
 
       setEmployees(
         (payload.employees || []).map((record: Record<string, unknown>) => ({
@@ -461,10 +434,6 @@ export default function CompliancePage() {
       setLoading(false);
     }
   }, [showMessage]);
-
-  useEffect(() => {
-    void loadCurrentUser();
-  }, [loadCurrentUser]);
 
   useEffect(() => {
     void loadComplianceData();
@@ -1359,15 +1328,6 @@ export default function CompliancePage() {
     showMessage(
       "The selected records have been exported.",
       "success"
-    );
-  }
-
-  if (!canViewRegisters) {
-    return (
-      <PageState
-        title="Compliance registers unavailable"
-        message="Your current permission level does not include organisation compliance registers."
-      />
     );
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { findSafeCandidateByOrganisationAndEmail } from "@/lib/talent/candidateDedup";
 
 export const dynamic = "force-dynamic";
 
@@ -90,16 +91,14 @@ export async function POST(request: Request) {
         let candidateId: string | null = null;
 
         if (email) {
-          const { data: existingCandidate, error: lookupError } = await supabase
-            .from("leo_talent_candidates")
-            .select("id")
-            .eq("organisation_id", vacancy.organisation_id)
-            .ilike("email", email)
-            .is("archived_at", null)
-            .maybeSingle();
+          const dedupe = await findSafeCandidateByOrganisationAndEmail(
+            supabase,
+            vacancy.organisation_id,
+            email,
+            { select: "id" },
+          );
 
-          if (lookupError) throw lookupError;
-          candidateId = existingCandidate?.id ?? null;
+          candidateId = dedupe.matched && dedupe.candidate?.id ? dedupe.candidate.id : null;
         }
 
         if (!candidateId) {

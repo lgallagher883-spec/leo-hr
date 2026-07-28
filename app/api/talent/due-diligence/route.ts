@@ -84,7 +84,11 @@ export async function GET() {
     const profiles = profilesResult.data ?? [];
 
     if (profiles.length === 0) {
-      return NextResponse.json({ success: true, records: [] });
+      return NextResponse.json({
+        success: true,
+        records: [],
+        role: access.role,
+      });
     }
 
     const candidateIds = [
@@ -143,7 +147,11 @@ export async function GET() {
       application: applications.get(profile.application_id) ?? null,
     }));
 
-    return NextResponse.json({ success: true, records });
+    return NextResponse.json({
+      success: true,
+      records,
+      role: access.role,
+    });
   } catch (error) {
     console.error("Due diligence register loading failed:", error);
 

@@ -69,6 +69,119 @@ async function loadDocumentsFromTable(
   };
 }
 
+function normaliseText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const parsed = value.trim();
+  return parsed || null;
+}
+
+function isMedicalDocument(record: Record<string, unknown>) {
+  const type =
+    normaliseText(record.document_type)?.toLowerCase() ?? "";
+  const title =
+    normaliseText(record.title)?.toLowerCase() ??
+    normaliseText(record.file_name)?.toLowerCase() ??
+    "";
+
+  const haystack = `${type} ${title}`;
+
+  return (
+    haystack.includes("medical") ||
+    haystack.includes("health") ||
+    haystack.includes("fit note") ||
+    haystack.includes("occupational")
+  );
+}
+
+function isSensitiveRecruitmentDocument(record: Record<string, unknown>) {
+  const type =
+    normaliseText(record.document_type)?.toLowerCase() ?? "";
+  const title =
+    normaliseText(record.title)?.toLowerCase() ??
+    normaliseText(record.file_name)?.toLowerCase() ??
+    "";
+
+  const haystack = `${type} ${title}`;
+
+  return (
+    haystack.includes("right to work") ||
+    haystack.includes("passport") ||
+    haystack.includes("visa") ||
+    haystack.includes("dbs") ||
+    haystack.includes("safeguard") ||
+    haystack.includes("driving") ||
+    haystack.includes("licence") ||
+    haystack.includes("qualification") ||
+    haystack.includes("certificate") ||
+    haystack.includes("registration")
+  );
+}
+
+async function loadLinkedRecruitmentDocuments(
+  supabase: any,
+  employeeId: number,
+  organisationId: string,
+) {
+  const candidatesResult = await (supabase as any)
+    .from("leo_talent_candidates")
+    .select("id")
+    .eq("organisation_id", organisationId)
+    .eq("existing_employee_id", employeeId)
+    .is("archived_at", null)
+    .order("updated_at", { ascending: false });
+
+  if (candidatesResult.error) {
+    throw candidatesResult.error;
+  }
+
+  const candidateIds = (Array.isArray(candidatesResult.data)
+    ? candidatesResult.data
+    : [])
+    .map((item: unknown) =>
+      normaliseText((item as { id?: unknown }).id),
+    )
+    .filter((item: string | null): item is string => Boolean(item));
+
+  if (candidateIds.length === 0) {
+    return [] as DocumentRecord[];
+  }
+
+  const documentsResult = await (supabase as any)
+    .from("leo_talent_candidate_documents")
+    .select("*")
+    .eq("organisation_id", organisationId)
+    .in("candidate_id", candidateIds)
+    .order("created_at", { ascending: false });
+
+  if (documentsResult.error) {
+    throw documentsResult.error;
+  }
+
+  return (Array.isArray(documentsResult.data) ? documentsResult.data : [])
+    .filter(
+      (item: unknown) =>
+        !isMedicalDocument(item as Record<string, unknown>),
+    )
+    .filter(
+      (item: unknown) =>
+        !isSensitiveRecruitmentDocument(item as Record<string, unknown>),
+    )
+    .map((item: unknown) => {
+      const row = item as Record<string, unknown>;
+
+      return {
+        ...row,
+        source_module: "Talent",
+        source_table: "leo_talent_candidate_documents",
+        source_record_id: row.id,
+        recruitment_source: true,
+        visible_to_employee: true,
+        deletion_locked: true,
+        permanent_recruitment_record: true,
+      };
+    }) as DocumentRecord[];
+}
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -180,6 +293,25 @@ export async function GET() {
       documents = result.documents;
       sourceTable = tableName;
       break;
+    }
+
+    if (documents.length === 0) {
+      try {
+        documents = await loadLinkedRecruitmentDocuments(
+          supabase,
+          employeeId,
+          organisationId,
+        );
+
+        if (documents.length > 0) {
+          sourceTable = "leo_talent_candidate_documents";
+        }
+      } catch (fallbackError) {
+        console.warn(
+          "LEO employee documents recruitment fallback failed:",
+          fallbackError,
+        );
+      }
     }
 
     return NextResponse.json({

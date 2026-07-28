@@ -25,11 +25,9 @@ import {
 export type AppointmentDecisionMode = "candidate" | "employee";
 
 export type AppointmentDecisionOutcome =
+  | "pending"
+  | "ready_for_appointment"
   | "not_ready"
-  | "further_review_required"
-  | "cleared"
-  | "cleared_with_conditions"
-  | "not_cleared"
   | "withdrawn";
 
 export type AppointmentControlStatus =
@@ -118,9 +116,6 @@ export type AppointmentDecisionAuditEvent = {
     | "appointment_decision_edit_started"
     | "appointment_decision_edit_cancelled"
     | "appointment_decision_saved"
-    | "appointment_cleared"
-    | "appointment_cleared_with_conditions"
-    | "appointment_not_cleared"
     | "employee_creation_approved";
   mode: AppointmentDecisionMode;
   recordId?: string | number;
@@ -161,7 +156,7 @@ const CONTROL_DEFAULTS: AppointmentControlRecord[] = [
 ];
 
 const EMPTY_VALUE: AppointmentDecisionValue = {
-  outcome: "not_ready",
+  outcome: "pending",
   saferRecruitmentRequired: false,
   allMandatoryChecksComplete: false,
   unresolvedConcernsPresent: false,
@@ -197,11 +192,9 @@ const DEFAULT_PERMISSIONS: AppointmentDecisionPermissions = {
 };
 
 const OUTCOME_OPTIONS: Array<{ value: AppointmentDecisionOutcome; label: string }> = [
+  { value: "pending", label: "Pending" },
+  { value: "ready_for_appointment", label: "Ready for appointment" },
   { value: "not_ready", label: "Not ready" },
-  { value: "further_review_required", label: "Further review required" },
-  { value: "cleared", label: "Cleared for appointment" },
-  { value: "cleared_with_conditions", label: "Cleared with conditions" },
-  { value: "not_cleared", label: "Not cleared" },
   { value: "withdrawn", label: "Withdrawn" },
 ];
 
@@ -223,15 +216,20 @@ function normalise(value?: Partial<AppointmentDecisionValue>): AppointmentDecisi
 
 function validate(value: AppointmentDecisionValue): Errors {
   const errors: Errors = {};
-  const finalOutcome = ["cleared", "cleared_with_conditions", "not_cleared"].includes(value.outcome);
+  const finalOutcome = [
+    "ready_for_appointment",
+    "not_ready",
+    "withdrawn",
+  ].includes(value.outcome);
   const mandatoryIncomplete = value.controls.some((item) => item.required && !["complete", "waived"].includes(item.status));
 
   if (finalOutcome && !value.decisionDate) errors.decisionDate = "Enter the decision date.";
   if (finalOutcome && !value.decidedBy.trim()) errors.decidedBy = "Enter who made the decision.";
   if (finalOutcome && !value.rationale.trim()) errors.rationale = "Record the decision rationale.";
-  if (value.outcome === "cleared" && mandatoryIncomplete) errors.allMandatoryChecksComplete = "All mandatory checks must be complete or formally waived.";
-  if (value.outcome === "cleared" && value.unresolvedConcernsPresent) errors.unresolvedConcernsPresent = "A fully cleared appointment cannot retain unresolved concerns.";
-  if (value.outcome === "cleared_with_conditions") {
+  if (value.outcome === "ready_for_appointment" && value.unresolvedConcernsPresent && !value.unresolvedConcernSummary.trim()) {
+    errors.unresolvedConcernSummary = "Record the unresolved concern.";
+  }
+  if (value.outcome === "ready_for_appointment" && value.conditionsApply) {
     if (!value.conditions.trim()) errors.conditions = "Record the appointment conditions.";
     if (!value.conditionOwner.trim()) errors.conditionOwner = "Assign responsibility for the conditions.";
     if (!value.conditionReviewDate) errors.conditionReviewDate = "Enter the condition review date.";
@@ -242,7 +240,7 @@ function validate(value: AppointmentDecisionValue): Errors {
     if (!value.secondReviewDate) errors.secondReviewDate = "Enter the second-review date.";
     if (!value.secondReviewOutcome.trim()) errors.secondReviewOutcome = "Record the second-review outcome.";
   }
-  if (value.employeeCreationApproved && !["cleared", "cleared_with_conditions"].includes(value.outcome)) {
+  if (value.employeeCreationApproved && value.outcome !== "ready_for_appointment") {
     errors.employeeCreationApproved = "Employee creation can only be approved after appointment clearance.";
   }
   return errors;
@@ -299,9 +297,6 @@ export default function AppointmentDecisionDetails({
       await onSave({ value: finalValue, changedFields });
       setOriginal(finalValue); setDraft(finalValue); setEditing(false);
       await audit("appointment_decision_saved", { changedFields });
-      if (finalValue.outcome === "cleared") await audit("appointment_cleared", { changedFields });
-      if (finalValue.outcome === "cleared_with_conditions") await audit("appointment_cleared_with_conditions", { changedFields });
-      if (finalValue.outcome === "not_cleared") await audit("appointment_not_cleared", { changedFields });
       if (finalValue.employeeCreationApproved) await audit("employee_creation_approved", { changedFields });
     } finally { setLocalSaving(false); }
   }
@@ -352,7 +347,7 @@ export default function AppointmentDecisionDetails({
             <Checkbox checked={draft.secondReviewerRequired} label="Second reviewer required" disabled={!editing || isDisabled} onChange={(v) => update("secondReviewerRequired", v)} />
           </div>
           <div style={styles.grid}>
-            <Field label="Outcome">{editing && resolvedPermissions.canMakeDecision ? <select style={styles.input} value={draft.outcome} onChange={(e) => { const outcome = e.target.value as AppointmentDecisionOutcome; update("outcome", outcome); update("conditionsApply", outcome === "cleared_with_conditions"); }}>{OUTCOME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : <ReadOnly value={outcomeLabel(draft.outcome)} />}</Field>
+            <Field label="Outcome">{editing && resolvedPermissions.canMakeDecision ? <select style={styles.input} value={draft.outcome} onChange={(e) => { const outcome = e.target.value as AppointmentDecisionOutcome; update("outcome", outcome); if (outcome !== "ready_for_appointment") update("conditionsApply", false); }}>{OUTCOME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : <ReadOnly value={outcomeLabel(draft.outcome)} />}</Field>
             <Field label="Decision date" error={errors.decisionDate}>{editing && resolvedPermissions.canMakeDecision ? <input style={styles.input} type="date" value={draft.decisionDate} onChange={(e) => update("decisionDate", e.target.value)} /> : <ReadOnly value={draft.decisionDate ? formatDate(draft.decisionDate) : ""} />}</Field>
             <Field label="Decided by" error={errors.decidedBy}>{editing && resolvedPermissions.canMakeDecision ? <input style={styles.input} value={draft.decidedBy} onChange={(e) => update("decidedBy", e.target.value)} /> : <ReadOnly value={draft.decidedBy} />}</Field>
             <Field label="Appointment reference">{editing ? <input style={styles.input} value={draft.appointmentReference} onChange={(e) => update("appointmentReference", e.target.value)} /> : <ReadOnly value={draft.appointmentReference} />}</Field>
@@ -363,7 +358,7 @@ export default function AppointmentDecisionDetails({
           </div>
         </section>
 
-        {draft.outcome === "cleared_with_conditions" ? <section style={styles.section}>
+        {draft.outcome === "ready_for_appointment" && draft.conditionsApply ? <section style={styles.section}>
           <h3 style={styles.sectionTitle}><AlertCircle size={18} />Appointment conditions</h3>
           <div style={styles.grid}>
             <Field label="Conditions" error={errors.conditions}>{editing && resolvedPermissions.canApproveConditionalAppointment ? <textarea style={styles.textarea} value={draft.conditions} onChange={(e) => update("conditions", e.target.value)} /> : <ReadOnly value={draft.conditions} />}</Field>

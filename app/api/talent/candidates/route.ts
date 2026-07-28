@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import {
+  findSafeCandidateByOrganisationAndEmail,
+  normaliseEmail,
+} from "@/lib/talent/candidateDedup";
 
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
 type UploadItem = { file: File; type: "cv" | "cover_letter" | "other"; title: string };
@@ -51,7 +55,7 @@ function candidatePayload(input: any, userId: string) {
   if (!firstName) throw new Error("Enter the candidate’s first name.");
   if (!lastName) throw new Error("Enter the candidate’s last name.");
 
-  const email = optionalText(input.email);
+  const email = normaliseEmail(input.email);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address or leave the email field empty.");
 
   const existingEmployeeId = text(input.existingEmployeeId);
@@ -205,19 +209,64 @@ export async function POST(request: Request) {
     const input = JSON.parse(rawCandidate);
     const payload = candidatePayload(input, access.user.id);
     const now = new Date().toISOString();
-    const result = await (supabase as any).from("leo_talent_candidates").insert({
-      ...payload,
-      organisation_id: access.organisationId,
-      created_by: access.user.id,
-      created_at: now,
-      updated_at: now,
-      consent_recorded_at: payload.consent_to_contact ? now : null,
-    }).select("*").single();
-    if (result.error) throw new Error(result.error.message);
+
+    let candidateRecord: any = null;
+    let created = false;
+
+    if (payload.email) {
+      const dedupe = await findSafeCandidateByOrganisationAndEmail(
+        supabase as any,
+        access.organisationId,
+        payload.email,
+      );
+
+      if (dedupe.matched && dedupe.candidate) {
+        candidateRecord = dedupe.candidate;
+      }
+    }
+
+    if (!candidateRecord) {
+      const result = await (supabase as any).from("leo_talent_candidates").insert({
+        ...payload,
+        organisation_id: access.organisationId,
+        created_by: access.user.id,
+        created_at: now,
+        updated_at: now,
+        consent_recorded_at: payload.consent_to_contact ? now : null,
+      }).select("*").single();
+      if (result.error) throw new Error(result.error.message);
+      candidateRecord = result.data;
+      created = true;
+    } else {
+      const touched = await (supabase as any)
+        .from("leo_talent_candidates")
+        .update({
+          updated_at: now,
+          updated_by: access.user.id,
+        })
+        .eq("id", candidateRecord.id)
+        .eq("organisation_id", access.organisationId)
+        .select("*")
+        .single();
+
+      if (touched.error) throw new Error(touched.error.message);
+      candidateRecord = touched.data;
+    }
 
     const files = filesFromFormData(formData);
-    if (files.length > 0) await uploadDocuments(supabase as any, access.organisationId, result.data.id, files);
-    return NextResponse.json({ success: true, candidate: result.data }, { status: 201 });
+    if (files.length > 0) {
+      await uploadDocuments(
+        supabase as any,
+        access.organisationId,
+        candidateRecord.id,
+        files,
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, candidate: candidateRecord, created },
+      { status: created ? 201 : 200 },
+    );
   } catch (error) {
     console.error("Candidate creation failed:", error);
     const message = error instanceof Error ? error.message : "Leo could not create the candidate record.";

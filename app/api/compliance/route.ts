@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,28 @@ async function requireComplianceAccess() {
         {
           success: false,
           error: "Your active organisation could not be resolved.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const resolvedRole = await resolveAuthoritativeUserRole(
+    supabase as any,
+    {
+      userId: user.id,
+      organisationId,
+      allowedStatuses: ["active", "accepted"],
+    },
+  );
+
+  if (!resolvedRole) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error:
+            "Your organisation membership is not active for compliance access.",
         },
         { status: 403 },
       ),
@@ -88,6 +111,13 @@ async function requireComplianceAccess() {
   return {
     supabase,
     organisationId,
+    access: {
+      role: resolvedRole.role,
+      roleKey: resolvedRole.roleKey,
+      source: resolvedRole.source,
+      canViewCompliance: Boolean(allowed),
+      requiredPermission: "compliance.view",
+    },
   };
 }
 
@@ -200,6 +230,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: true,
+        access: access.access,
         employees: employeeResult.data || [],
         sites: siteResult.data || [],
         employmentDetails: employmentResult.data || [],

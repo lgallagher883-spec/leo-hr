@@ -1,10 +1,203 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import { useMatters } from "./matters/MatterContext";
+
+type InsightRecommendation = {
+  title?: string;
+  detail?: string;
+  actionPath?: string;
+  askLeoPrompt?: string;
+};
+
+type InsightPayload = {
+  recommendations?: InsightRecommendation[];
+};
+
+type ComplianceIntelligence = {
+  nextStep?: string;
+  recommendations?: string[];
+  readiness?: {
+    band?: string;
+  };
+  risk?: {
+    level?: string;
+    actionsOutstanding?: number;
+  };
+  knowledge?: {
+    sourceCount?: number;
+  };
+  grounding?: {
+    foundationsCount?: number;
+    organisationMemoryCount?: number;
+  };
+};
+
+type InsightsResponse = {
+  success: boolean;
+  insight?: InsightPayload;
+};
+
+type ComplianceIntelligenceResponse = {
+  success: boolean;
+  intelligence?: ComplianceIntelligence;
+};
+
+type DashboardPriority = {
+  summary: string;
+  actionLabel: string;
+  destination: string;
+  askLeoPrompt: string;
+};
+
+type DashboardShortcut = {
+  id: string;
+  label: string;
+  value: number | string;
+  actionLabel: string;
+  onClick: () => void;
+  priorityRank: number;
+};
+
+function normalisePath(path: string | undefined): string | null {
+  if (!path) return null;
+  const trimmed = path.trim();
+  if (!trimmed.startsWith("/dashboard/")) return null;
+  return trimmed;
+}
+
+function isClosedMatter(status: string | null | undefined) {
+  const normalised = status?.trim().toLowerCase() || "";
+
+  return (
+    normalised === "closed" ||
+    normalised === "completed" ||
+    normalised === "archived"
+  );
+}
+
+function isUrgentMatter(status: string | null | undefined) {
+  const normalised = status?.trim().toLowerCase() || "";
+
+  return ["urgent", "critical", "high", "escalated", "overdue"].some(
+    (keyword) => normalised.includes(keyword),
+  );
+}
+
+function daysSince(dateValue: string | null | undefined): number | null {
+  if (!dateValue) return null;
+
+  const parsed = new Date(dateValue);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function buildPriority(params: {
+  liveMatters: number;
+  urgentMatters: number;
+  staleMatters: number;
+  compliance: ComplianceIntelligence | null;
+  topRecommendation: InsightRecommendation | null;
+}): DashboardPriority {
+  const {
+    liveMatters,
+    urgentMatters,
+    staleMatters,
+    compliance,
+    topRecommendation,
+  } = params;
+
+  const actionsOutstanding =
+    compliance?.risk?.actionsOutstanding ?? null;
+  const riskLevel = compliance?.risk?.level?.toLowerCase() || "";
+  const readinessBand = compliance?.readiness?.band || null;
+
+  if (
+    (typeof actionsOutstanding === "number" && actionsOutstanding > 0) ||
+    riskLevel === "high"
+  ) {
+    const summary =
+      typeof actionsOutstanding === "number" && actionsOutstanding > 0
+        ? `${actionsOutstanding} compliance action${actionsOutstanding === 1 ? "" : "s"} need attention.`
+        : "Compliance risk should be reviewed today.";
+
+    const levelLabel = readinessBand
+      ? `${readinessBand} readiness`
+      : "compliance readiness";
+
+    return {
+      summary,
+      actionLabel: `Review ${levelLabel}`,
+      destination: "/dashboard/compliance",
+      askLeoPrompt:
+        compliance?.nextStep ||
+        "Review our compliance risk and recommend the next proportionate actions for this week.",
+    };
+  }
+
+  if (urgentMatters > 0) {
+    return {
+      summary: `${urgentMatters} live matter${urgentMatters === 1 ? "" : "s"} look urgent.`,
+      actionLabel: "Prioritise live matters",
+      destination: "/dashboard/matters",
+      askLeoPrompt:
+        "Review our current live matters and identify the most time-critical case with the next best step.",
+    };
+  }
+
+  if (staleMatters > 0) {
+    return {
+      summary: `${staleMatters} live matter${staleMatters === 1 ? "" : "s"} need a progress check.`,
+      actionLabel: "Reconfirm matter next steps",
+      destination: "/dashboard/matters",
+      askLeoPrompt:
+        "Review live matters that have slowed down and recommend proportionate next steps.",
+    };
+  }
+
+  const recommendationPath = normalisePath(topRecommendation?.actionPath);
+
+  if (topRecommendation?.detail) {
+    return {
+      summary: topRecommendation.detail,
+      actionLabel: topRecommendation.title || "Follow recommended next step",
+      destination: recommendationPath || "/dashboard/insights",
+      askLeoPrompt:
+        topRecommendation.askLeoPrompt ||
+        "Review our organisation priorities and recommend the most practical next step.",
+    };
+  }
+
+  if (liveMatters > 0) {
+    return {
+      summary: `${liveMatters} matter${liveMatters === 1 ? "" : "s"} are currently live across the organisation.`,
+      actionLabel: "Review active matters",
+      destination: "/dashboard/matters",
+      askLeoPrompt:
+        "Summarise our current live matters and suggest the most useful next action.",
+    };
+  }
+
+  return {
+    summary: "Your core dashboards are up to date for today.",
+    actionLabel: "Open Insights",
+    destination: "/dashboard/insights",
+    askLeoPrompt:
+      "Based on current organisation context, what should we proactively review next?",
+  };
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -13,10 +206,47 @@ export default function DashboardPage() {
   const [leoPrompt, setLeoPrompt] = useState("");
   const [employeeCount, setEmployeeCount] = useState<number | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
+  const [insightPayload, setInsightPayload] =
+    useState<InsightPayload | null>(null);
+
+  const [complianceIntelligence, setComplianceIntelligence] =
+    useState<ComplianceIntelligence | null>(null);
 
   const liveMatters = matters.filter(
-    (matter) => matter.status?.toLowerCase() !== "closed",
+    (matter) => !isClosedMatter(matter.status),
   ).length;
+
+  const urgentMatters = matters.filter(
+    (matter) => !isClosedMatter(matter.status) && isUrgentMatter(matter.status),
+  ).length;
+
+  const staleMatters = matters.filter((matter) => {
+    if (isClosedMatter(matter.status)) return false;
+
+    const ageInDays = daysSince(matter.created_at);
+    return typeof ageInDays === "number" && ageInDays >= 14;
+  }).length;
+
+  const topRecommendation =
+    insightPayload?.recommendations?.[0] || null;
+
+  const priority = useMemo(
+    () =>
+      buildPriority({
+        liveMatters,
+        urgentMatters,
+        staleMatters,
+        compliance: complianceIntelligence,
+        topRecommendation,
+      }),
+    [
+      complianceIntelligence,
+      liveMatters,
+      staleMatters,
+      topRecommendation,
+      urgentMatters,
+    ],
+  );
 
   useEffect(() => {
     let active = true;
@@ -29,31 +259,77 @@ export default function DashboardPage() {
           data: { user },
         },
         employeeResult,
+        insightsResult,
+        complianceResult,
       ] = await Promise.all([
         supabase.auth.getUser(),
         supabase
           .from("employees")
           .select("id", { count: "exact", head: true })
           .neq("status", "Archived"),
+        fetch("/api/insights", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        })
+          .then(async (response) => {
+            if (!response.ok) return null;
+
+            const payload =
+              (await response.json().catch(() => null)) as InsightsResponse | null;
+
+            return payload?.success ? payload : null;
+          })
+          .catch(() => null),
+        fetch("/api/compliance/intelligence", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        })
+          .then(async (response) => {
+            if (!response.ok) return null;
+
+            const payload =
+              (await response.json().catch(() => null)) as
+                | ComplianceIntelligenceResponse
+                | null;
+
+            return payload?.success ? payload : null;
+          })
+          .catch(() => null),
       ]);
 
       if (!active) return;
 
       const displayName =
-  user?.user_metadata?.display_name ||
-  user?.user_metadata?.full_name ||
-  user?.user_metadata?.name ||
-  user?.user_metadata?.first_name ||
-  user?.email?.split("@")[0] ||
-  null;
+        user?.user_metadata?.display_name ||
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
+        user?.user_metadata?.first_name ||
+        user?.email?.split("@")[0] ||
+        null;
 
       if (displayName) {
         const rawFirstName = displayName.trim().split(/\s+/)[0];
 
-setFirstName(
-  rawFirstName.charAt(0).toUpperCase() +
-    rawFirstName.slice(1).toLowerCase(),
-);
+        setFirstName(
+          rawFirstName.charAt(0).toUpperCase() +
+            rawFirstName.slice(1).toLowerCase(),
+        );
+      }
+
+      if (insightsResult?.insight) {
+        setInsightPayload(insightsResult.insight);
+      }
+
+      if (complianceResult?.intelligence) {
+        setComplianceIntelligence(complianceResult.intelligence);
       }
 
       if (employeeResult.error) {
@@ -83,8 +359,68 @@ setFirstName(
       return;
     }
 
+    if (priority.askLeoPrompt) {
+      router.push(
+        `/dashboard/ask-leo?prompt=${encodeURIComponent(priority.askLeoPrompt)}`,
+      );
+      return;
+    }
+
     router.push("/dashboard/ask-leo");
   }
+
+  const shortcuts = useMemo<DashboardShortcut[]>(() => {
+    const recommendedPath = normalisePath(topRecommendation?.actionPath);
+
+    return [
+      {
+        id: "employees",
+        label: "Employees",
+        value: employeeCount === null ? "—" : employeeCount,
+        actionLabel: "View Employees",
+        onClick: () => router.push("/dashboard/employees"),
+        priorityRank: liveMatters > 0 ? 2 : 1,
+      },
+      {
+        id: "matters",
+        label: "Live Matters",
+        value: liveMatters,
+        actionLabel: "View Matters",
+        onClick: () => router.push("/dashboard/matters"),
+        priorityRank:
+          urgentMatters > 0 ? 6 : staleMatters > 0 ? 5 : liveMatters > 0 ? 4 : 2,
+      },
+      {
+        id: "recent-conversations",
+        label: "Recent Conversations",
+        value: "View",
+        actionLabel: "View Conversations",
+        onClick: () => {
+          if (recommendedPath) {
+            router.push(recommendedPath);
+            return;
+          }
+
+          if (priority.destination) {
+            router.push(priority.destination);
+            return;
+          }
+
+          router.push("/dashboard/leo-conversations");
+        },
+        priorityRank: recommendedPath || complianceIntelligence ? 7 : 3,
+      },
+    ].sort((a, b) => b.priorityRank - a.priorityRank);
+  }, [
+    complianceIntelligence,
+    employeeCount,
+    liveMatters,
+    priority.destination,
+    router,
+    staleMatters,
+    topRecommendation?.actionPath,
+    urgentMatters,
+  ]);
 
   return (
     <main style={pageStyle}>
@@ -148,26 +484,15 @@ setFirstName(
       </section>
 
       <section style={summaryGridStyle} aria-label="Dashboard shortcuts">
-        <DashboardCard
-          label="Employees"
-          value={employeeCount === null ? "—" : employeeCount}
-          actionLabel="View Employees"
-          onClick={() => router.push("/dashboard/employees")}
-        />
-
-        <DashboardCard
-          label="Live Matters"
-          value={liveMatters}
-          actionLabel="View Matters"
-          onClick={() => router.push("/dashboard/matters")}
-        />
-
-        <DashboardCard
-          label="Recent Conversations"
-          value="View"
-          actionLabel="View Conversations"
-          onClick={() => router.push("/dashboard/leo-conversations")}
-        />
+        {shortcuts.map((shortcut) => (
+          <DashboardCard
+            key={shortcut.id}
+            label={shortcut.label}
+            value={shortcut.value}
+            actionLabel={shortcut.actionLabel}
+            onClick={shortcut.onClick}
+          />
+        ))}
       </section>
     </main>
   );
@@ -256,8 +581,8 @@ const primaryButtonStyle: CSSProperties = {
   background: "#6E5084",
   color: "#FFFFFF",
   borderWidth: "1px",
-borderStyle: "solid",
-borderColor: "#E5E7EB",
+  borderStyle: "solid",
+  borderColor: "#E5E7EB",
   padding: "11px 16px",
   borderRadius: "11px",
   fontSize: "14px",
@@ -375,8 +700,8 @@ const summaryCardStyle: CSSProperties = {
   gap: "20px",
   background: "#FFFFFF",
   borderWidth: "1px",
-borderStyle: "solid",
-borderColor: "#E5E7EB",
+  borderStyle: "solid",
+  borderColor: "#E5E7EB",
   borderRadius: "18px",
   padding: "24px",
   textAlign: "left",

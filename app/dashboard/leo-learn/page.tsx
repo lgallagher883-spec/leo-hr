@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LearningLibrary from "./components/LearningLibrary";
 import DevelopmentPathways from "./components/pathways/DevelopmentPathways";
 import LearningWorkspace from "./components/learning/LearningWorkspace";
@@ -29,9 +29,82 @@ const sections: LearnSection[] = [
   "Settings",
 ];
 
+type LearnIntelligence = {
+  section: string;
+  summary: string;
+  nextStep: string;
+  recommendations: string[];
+  capabilityInsights: string[];
+  complianceGuidance: string[];
+  developmentSuggestions: string[];
+  professionalDevelopmentSuggestions: string[];
+  draftLearningPlan: {
+    title: string;
+    summary: string;
+    actions: string[];
+  };
+  grounding?: {
+    snapshot?: {
+      assignmentsInProgress?: number;
+      assignmentsTotal?: number;
+      assignmentsCompleted?: number;
+      qualificationsDueForRenewal?: number;
+      pathwaysPublished?: number;
+      modulesPublished?: number;
+      assignmentsPastDue?: number;
+      qualificationsExpired?: number;
+    };
+  };
+};
+
 export default function LeoLearnPage() {
   const [activeSection, setActiveSection] =
     useState<LearnSection>("Dashboard");
+  const [dashboardIntelligence, setDashboardIntelligence] =
+    useState<LearnIntelligence | null>(null);
+  const [analyticsIntelligence, setAnalyticsIntelligence] =
+    useState<LearnIntelligence | null>(null);
+
+  useEffect(() => {
+    void loadPageIntelligence();
+  }, []);
+
+  async function loadPageIntelligence() {
+    try {
+      const [dashboardResponse, analyticsResponse] = await Promise.all([
+        fetch("/api/leo-learn/intelligence?section=dashboard", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+        fetch("/api/leo-learn/intelligence?section=analytics", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      ]);
+
+      const dashboardPayload = (await dashboardResponse.json().catch(() => null)) as
+        | { success?: boolean; intelligence?: LearnIntelligence }
+        | null;
+
+      const analyticsPayload = (await analyticsResponse.json().catch(() => null)) as
+        | { success?: boolean; intelligence?: LearnIntelligence }
+        | null;
+
+      if (dashboardResponse.ok && dashboardPayload?.success && dashboardPayload.intelligence) {
+        setDashboardIntelligence(dashboardPayload.intelligence);
+      }
+
+      if (analyticsResponse.ok && analyticsPayload?.success && analyticsPayload.intelligence) {
+        setAnalyticsIntelligence(analyticsPayload.intelligence);
+      }
+    } catch (error) {
+      console.error("Leo Learn intelligence could not be loaded:", error);
+    }
+  }
 
   return (
     <div style={pageStyle}>
@@ -83,7 +156,10 @@ export default function LeoLearnPage() {
 
       <div style={workspaceStyle}>
         {activeSection === "Dashboard" && (
-          <LearnDashboard onNavigate={setActiveSection} />
+          <LearnDashboard
+            onNavigate={setActiveSection}
+            intelligence={dashboardIntelligence}
+          />
         )}
 
         {activeSection === "Learning Library" && (
@@ -108,9 +184,8 @@ export default function LeoLearnPage() {
 )} 
 
         {activeSection === "Learning Analytics" && (
-          <PlaceholderWorkspace
-            title="Learning Analytics"
-            description="Understand learning activity, development trends and workforce capability."
+          <LearningAnalyticsWorkspace
+            intelligence={analyticsIntelligence}
           />
         )}
 
@@ -124,9 +199,13 @@ export default function LeoLearnPage() {
 
 function LearnDashboard({
   onNavigate,
+  intelligence,
 }: {
   onNavigate: (section: LearnSection) => void;
+  intelligence: LearnIntelligence | null;
 }) {
+  const snapshot = intelligence?.grounding?.snapshot;
+
   return (
     <div>
       <div style={workspaceHeaderStyle}>
@@ -146,32 +225,32 @@ function LearnDashboard({
       <div style={kpiGridStyle}>
         <KpiCard
           label="Employees Currently Learning"
-          value="0"
+          value={String(snapshot?.assignmentsInProgress || 0)}
         />
 
         <KpiCard
           label="Learning Assigned This Month"
-          value="0"
+          value={String(snapshot?.assignmentsTotal || 0)}
         />
 
         <KpiCard
           label="Learning Completed This Month"
-          value="0"
+          value={String(snapshot?.assignmentsCompleted || 0)}
         />
 
         <KpiCard
           label="Certificates Due for Renewal"
-          value="0"
+          value={String(snapshot?.qualificationsDueForRenewal || 0)}
         />
 
         <KpiCard
           label="Development Pathways Active"
-          value="0"
+          value={String(snapshot?.pathwaysPublished || 0)}
         />
 
         <KpiCard
           label="Learning Requiring Review"
-          value="0"
+          value={String(snapshot?.modulesPublished || 0)}
         />
       </div>
 
@@ -181,15 +260,31 @@ function LearnDashboard({
             Leo Recommendations
           </h3>
 
-          <div style={emptyPanelStyle}>
-            <div style={starStyle}>✦</div>
+          {intelligence ? (
+            <div style={intelligencePanelStyle}>
+              <p style={intelligenceSummaryStyle}>
+                {intelligence.summary}
+              </p>
 
-            <p style={emptyPanelTextStyle}>
-              Leo will present practical learning
-              and development recommendations here
-              once activity begins.
-            </p>
-          </div>
+              <div style={intelligenceLabelStyle}>Next step</div>
+              <p style={intelligenceNextStepStyle}>{intelligence.nextStep}</p>
+
+              <div style={intelligenceLabelStyle}>Top recommendations</div>
+              <ul style={intelligenceListStyle}>
+                {intelligence.recommendations.slice(0, 3).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div style={emptyPanelStyle}>
+              <div style={starStyle}>✦</div>
+
+              <p style={emptyPanelTextStyle}>
+                Leo is preparing contextual learning recommendations.
+              </p>
+            </div>
+          )}
         </div>
 
         <div style={panelStyle}>
@@ -276,6 +371,78 @@ function LearnDashboard({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LearningAnalyticsWorkspace({
+  intelligence,
+}: {
+  intelligence: LearnIntelligence | null;
+}) {
+  const snapshot = intelligence?.grounding?.snapshot;
+
+  return (
+    <div>
+      <div style={workspaceHeaderStyle}>
+        <div>
+          <h2 style={workspaceTitleStyle}>Learning Analytics</h2>
+
+          <p style={workspaceDescriptionStyle}>
+            Understand learning activity, development trends and workforce capability.
+          </p>
+        </div>
+      </div>
+
+      <div style={kpiGridStyle}>
+        <KpiCard label="Past Due Learning" value={String(snapshot?.assignmentsPastDue || 0)} />
+        <KpiCard label="Expired Credentials" value={String(snapshot?.qualificationsExpired || 0)} />
+        <KpiCard label="Active Learning" value={String(snapshot?.assignmentsInProgress || 0)} />
+        <KpiCard label="Completed Learning" value={String(snapshot?.assignmentsCompleted || 0)} />
+      </div>
+
+      {!intelligence ? (
+        <div style={placeholderStyle}>Leo analytics intelligence is loading.</div>
+      ) : (
+        <div style={dashboardGridStyle}>
+          <div style={panelStyle}>
+            <h3 style={panelTitleStyle}>Capability Insights</h3>
+            <ul style={intelligenceListStyle}>
+              {intelligence.capabilityInsights.slice(0, 4).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div style={panelStyle}>
+            <h3 style={panelTitleStyle}>Compliance-Driven Training Guidance</h3>
+            <ul style={intelligenceListStyle}>
+              {intelligence.complianceGuidance.slice(0, 4).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div style={panelStyle}>
+            <h3 style={panelTitleStyle}>{intelligence.draftLearningPlan.title}</h3>
+            <p style={intelligenceSummaryStyle}>{intelligence.draftLearningPlan.summary}</p>
+            <ul style={intelligenceListStyle}>
+              {intelligence.draftLearningPlan.actions.slice(0, 4).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div style={panelStyle}>
+            <h3 style={panelTitleStyle}>Professional Development Suggestions</h3>
+            <ul style={intelligenceListStyle}>
+              {intelligence.professionalDevelopmentSuggestions.slice(0, 4).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -586,4 +753,40 @@ const placeholderStyle: React.CSSProperties = {
   borderRadius: "14px",
   color: "#6B7280",
   textAlign: "center",
+};
+
+const intelligencePanelStyle: React.CSSProperties = {
+  padding: "16px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "12px",
+};
+
+const intelligenceSummaryStyle: React.CSSProperties = {
+  margin: "0 0 12px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const intelligenceLabelStyle: React.CSSProperties = {
+  color: "#6E5084",
+  fontSize: "12px",
+  fontWeight: 700,
+  marginBottom: "4px",
+};
+
+const intelligenceNextStepStyle: React.CSSProperties = {
+  margin: "0 0 10px",
+  color: "#111827",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const intelligenceListStyle: React.CSSProperties = {
+  margin: 0,
+  paddingLeft: "18px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
 };

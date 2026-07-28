@@ -169,6 +169,19 @@ type WorkspaceTab =
   | "Certificate"
   | "Activity";
 
+type LearnIntelligence = {
+  summary: string;
+  nextStep: string;
+  recommendations: string[];
+  complianceGuidance: string[];
+  capabilityInsights: string[];
+  draftLearningPlan: {
+    title: string;
+    summary: string;
+    actions: string[];
+  };
+};
+
 const assignmentStatuses = [
   "Assigned",
   "In Progress",
@@ -250,6 +263,8 @@ export default function LearningWorkspace() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [learningIntelligence, setLearningIntelligence] =
+    useState<LearnIntelligence | null>(null);
 
   const [sections, setSections] = useState<LearningSection[]>([]);
   const [sectionProgress, setSectionProgress] = useState<
@@ -321,12 +336,20 @@ export default function LearningWorkspace() {
     setErrorMessage("");
 
     try {
-      const response = await fetch("/api/leo-learn/learning", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const [response, intelligenceResponse] = await Promise.all([
+        fetch("/api/leo-learn/learning", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+        fetch("/api/leo-learn/intelligence?section=learning", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      ]);
 
       const payload = (await response.json()) as {
         success?: boolean;
@@ -335,6 +358,15 @@ export default function LearningWorkspace() {
         assignments?: LearningAssignment[];
         error?: string;
       };
+
+      const intelligencePayload = (await intelligenceResponse
+        .json()
+        .catch(() => null)) as
+        | {
+            success?: boolean;
+            intelligence?: LearnIntelligence;
+          }
+        | null;
 
       if (!response.ok || !payload.success) {
         console.error("Error loading learning workspace data:", payload.error);
@@ -346,6 +378,14 @@ export default function LearningWorkspace() {
       setEmployees((payload.employees || []) as Employee[]);
       setModules((payload.modules || []) as LearningModule[]);
       setAssignments((payload.assignments || []) as LearningAssignment[]);
+
+      if (
+        intelligenceResponse.ok &&
+        intelligencePayload?.success &&
+        intelligencePayload.intelligence
+      ) {
+        setLearningIntelligence(intelligencePayload.intelligence);
+      }
     } catch (error) {
       console.error("Error loading learning workspace data:", error);
       setErrorMessage("Learning data could not be loaded.");
@@ -1772,6 +1812,10 @@ export default function LearningWorkspace() {
           </div>
         )}
 
+        {learningIntelligence && (
+          <LearningIntelligencePanel intelligence={learningIntelligence} />
+        )}
+
         {workspaceLoading ? (
           <div style={emptyStateStyle}>
             Loading learning workspace...
@@ -2948,6 +2992,10 @@ export default function LearningWorkspace() {
         </div>
       )}
 
+      {learningIntelligence && (
+        <LearningIntelligencePanel intelligence={learningIntelligence} />
+      )}
+
       <div style={summaryGridStyle}>
         <SummaryCard
           label="Total Assignments"
@@ -3461,6 +3509,62 @@ function SummaryCard({
 
       <div style={summaryLabelStyle}>
         {label}
+      </div>
+    </div>
+  );
+}
+
+function LearningIntelligencePanel({
+  intelligence,
+}: {
+  intelligence: LearnIntelligence;
+}) {
+  return (
+    <div style={intelligencePanelStyle}>
+      <h3 style={intelligenceTitleStyle}>Leo Learning Intelligence</h3>
+
+      <p style={intelligenceTextStyle}>{intelligence.summary}</p>
+
+      <div style={intelligenceLabelStyle}>Next step</div>
+      <p style={intelligenceTextStyle}>{intelligence.nextStep}</p>
+
+      <div style={intelligenceGridStyle}>
+        <div>
+          <div style={intelligenceLabelStyle}>Contextual recommendations</div>
+          <ul style={intelligenceListStyle}>
+            {intelligence.recommendations.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <div style={intelligenceLabelStyle}>Compliance guidance</div>
+          <ul style={intelligenceListStyle}>
+            {intelligence.complianceGuidance.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <div style={intelligenceLabelStyle}>Capability insights</div>
+          <ul style={intelligenceListStyle}>
+            {intelligence.capabilityInsights.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div style={intelligenceDraftStyle}>
+        <strong>{intelligence.draftLearningPlan.title}</strong>
+        <p style={intelligenceTextStyle}>{intelligence.draftLearningPlan.summary}</p>
+        <ul style={intelligenceListStyle}>
+          {intelligence.draftLearningPlan.actions.slice(0, 3).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -4079,4 +4183,52 @@ const messageStyle: React.CSSProperties = {
   color: "#365C48",
   border: "1px solid #CFE8DA",
   borderRadius: "10px",
+};
+
+const intelligencePanelStyle: React.CSSProperties = {
+  padding: "16px",
+  marginBottom: "16px",
+  background: "#FFFFFF",
+  border: "1px solid #E5E7EB",
+  borderRadius: "12px",
+};
+
+const intelligenceTitleStyle: React.CSSProperties = {
+  margin: "0 0 8px",
+  color: "#111827",
+  fontSize: "15px",
+};
+
+const intelligenceLabelStyle: React.CSSProperties = {
+  marginBottom: "4px",
+  color: "#6E5084",
+  fontSize: "12px",
+  fontWeight: 700,
+};
+
+const intelligenceTextStyle: React.CSSProperties = {
+  margin: "0 0 10px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const intelligenceGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "12px",
+};
+
+const intelligenceListStyle: React.CSSProperties = {
+  margin: 0,
+  paddingLeft: "18px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const intelligenceDraftStyle: React.CSSProperties = {
+  marginTop: "10px",
+  paddingTop: "10px",
+  borderTop: "1px solid #E5E7EB",
 };

@@ -42,6 +42,18 @@ type LearningProvider = {
   name: string;
 };
 
+type LearnIntelligence = {
+  summary: string;
+  nextStep: string;
+  recommendations: string[];
+  capabilityInsights: string[];
+  draftLearningPlan: {
+    title: string;
+    summary: string;
+    actions: string[];
+  };
+};
+
 const learningTypes = [
   "Course",
   "Video",
@@ -128,6 +140,8 @@ export default function LearningLibrary() {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] =
     useState("");
+  const [libraryIntelligence, setLibraryIntelligence] =
+    useState<LearnIntelligence | null>(null);
 
   useEffect(() => {
     void loadLibrary();
@@ -138,12 +152,20 @@ export default function LearningLibrary() {
     setErrorMessage("");
 
     try {
-      const response = await fetch("/api/leo-learn/library", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const [response, intelligenceResponse] = await Promise.all([
+        fetch("/api/leo-learn/library", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+        fetch("/api/leo-learn/intelligence?section=library", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }),
+      ]);
 
       const payload = (await response.json()) as {
         success?: boolean;
@@ -152,6 +174,15 @@ export default function LearningLibrary() {
         providers?: LearningProvider[];
         error?: string;
       };
+
+      const intelligencePayload = (await intelligenceResponse
+        .json()
+        .catch(() => null)) as
+        | {
+            success?: boolean;
+            intelligence?: LearnIntelligence;
+          }
+        | null;
 
       if (!response.ok || !payload.success) {
         console.error(
@@ -168,6 +199,14 @@ export default function LearningLibrary() {
       setModules((payload.modules || []) as LearningModule[]);
       setCategories((payload.categories || []) as LearningCategory[]);
       setProviders((payload.providers || []) as LearningProvider[]);
+
+      if (
+        intelligenceResponse.ok &&
+        intelligencePayload?.success &&
+        intelligencePayload.intelligence
+      ) {
+        setLibraryIntelligence(intelligencePayload.intelligence);
+      }
     } catch (error) {
       console.error("Error loading learning library data:", error);
       setErrorMessage("The Learning Library could not be loaded.");
@@ -466,6 +505,47 @@ export default function LearningLibrary() {
 
       {message && (
         <div style={messageStyle}>{message}</div>
+      )}
+
+      {libraryIntelligence && (
+        <div style={intelligencePanelStyle}>
+          <h3 style={intelligenceTitleStyle}>Leo Intelligence</h3>
+
+          <p style={intelligenceSummaryStyle}>{libraryIntelligence.summary}</p>
+
+          <div style={intelligenceLabelStyle}>Next step</div>
+          <p style={intelligenceTextStyle}>{libraryIntelligence.nextStep}</p>
+
+          <div style={intelligenceGridStyle}>
+            <div>
+              <div style={intelligenceLabelStyle}>Recommendations</div>
+              <ul style={intelligenceListStyle}>
+                {libraryIntelligence.recommendations.slice(0, 3).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <div style={intelligenceLabelStyle}>Capability insights</div>
+              <ul style={intelligenceListStyle}>
+                {libraryIntelligence.capabilityInsights.slice(0, 3).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div style={draftPlanStyle}>
+            <strong>{libraryIntelligence.draftLearningPlan.title}</strong>
+            <p style={intelligenceTextStyle}>{libraryIntelligence.draftLearningPlan.summary}</p>
+            <ul style={intelligenceListStyle}>
+              {libraryIntelligence.draftLearningPlan.actions.slice(0, 3).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
 
       <div style={kpiGridStyle}>
@@ -1357,4 +1437,60 @@ const messageStyle: React.CSSProperties = {
   color: "#365C48",
   border: "1px solid #CFE8DA",
   borderRadius: "10px",
+};
+
+const intelligencePanelStyle: React.CSSProperties = {
+  padding: "16px",
+  marginBottom: "16px",
+  borderRadius: "12px",
+  border: "1px solid #E5E7EB",
+  background: "#FFFFFF",
+};
+
+const intelligenceTitleStyle: React.CSSProperties = {
+  margin: "0 0 8px",
+  color: "#111827",
+  fontSize: "15px",
+};
+
+const intelligenceSummaryStyle: React.CSSProperties = {
+  margin: "0 0 8px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const intelligenceLabelStyle: React.CSSProperties = {
+  marginBottom: "4px",
+  color: "#6E5084",
+  fontSize: "12px",
+  fontWeight: 700,
+};
+
+const intelligenceTextStyle: React.CSSProperties = {
+  margin: "0 0 10px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const intelligenceGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gap: "12px",
+};
+
+const intelligenceListStyle: React.CSSProperties = {
+  margin: 0,
+  paddingLeft: "18px",
+  color: "#374151",
+  fontSize: "13px",
+  lineHeight: 1.6,
+};
+
+const draftPlanStyle: React.CSSProperties = {
+  marginTop: "10px",
+  paddingTop: "10px",
+  borderTop: "1px solid #E5E7EB",
+  color: "#111827",
 };

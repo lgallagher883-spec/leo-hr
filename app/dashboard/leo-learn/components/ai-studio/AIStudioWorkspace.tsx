@@ -394,6 +394,19 @@ type MainView =
   | "Professional Review"
   | "Learning Intelligence";
 
+type LearnIntelligence = {
+  summary: string;
+  nextStep: string;
+  recommendations: string[];
+  developmentSuggestions: string[];
+  professionalDevelopmentSuggestions: string[];
+  draftLearningPlan: {
+    title: string;
+    summary: string;
+    actions: string[];
+  };
+};
+
 const projectTypes = [
   "Create Learning",
   "Rewrite Learning",
@@ -742,6 +755,8 @@ export default function AIStudioWorkspace() {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [studioIntelligence, setStudioIntelligence] =
+    useState<LearnIntelligence | null>(null);
 
   useEffect(() => {
     void loadPageData();
@@ -873,6 +888,37 @@ export default function AIStudioWorkspace() {
     setConnectionModules([]);
     setConnectionCapabilities([]);
     setProviderCapabilities([]);
+
+    try {
+      const intelligenceResponse = await fetch(
+        "/api/leo-learn/intelligence?section=ai-studio",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      const intelligencePayload = (await intelligenceResponse
+        .json()
+        .catch(() => null)) as
+        | {
+            success?: boolean;
+            intelligence?: LearnIntelligence;
+          }
+        | null;
+
+      if (
+        intelligenceResponse.ok &&
+        intelligencePayload?.success &&
+        intelligencePayload.intelligence
+      ) {
+        setStudioIntelligence(intelligencePayload.intelligence);
+      }
+    } catch (error) {
+      console.warn("AI Studio intelligence could not be loaded:", error);
+    }
 
     setLoading(false);
   }
@@ -4385,6 +4431,34 @@ export default function AIStudioWorkspace() {
                           <span style={secondaryBadgeStyle}>
                             {finding.priority}
                           </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={panelStyle}>
+                  <h3 style={panelTitleStyle}>
+                    Leo Studio Guidance
+                  </h3>
+
+                  {!studioIntelligence ? (
+                    <div style={emptyCompactStyle}>
+                      Leo is preparing contextual AI Studio guidance.
+                    </div>
+                  ) : (
+                    <div style={listStyle}>
+                      <div style={intelligenceSummaryStyle}>
+                        <strong>Summary:</strong> {studioIntelligence.summary}
+                      </div>
+
+                      <div style={intelligenceSummaryStyle}>
+                        <strong>Next Step:</strong> {studioIntelligence.nextStep}
+                      </div>
+
+                      {studioIntelligence.recommendations.slice(0, 3).map((item) => (
+                        <div key={item} style={intelligenceSummaryStyle}>
+                          - {item}
                         </div>
                       ))}
                     </div>

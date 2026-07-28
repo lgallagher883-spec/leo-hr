@@ -102,7 +102,14 @@ export async function storeKnowledgeChunks({
       heading: chunk.heading,
       content: chunk.content,
       token_estimate: chunk.tokenEstimate,
-      metadata: chunk.metadata,
+      metadata: {
+        ...(chunk.metadata || {}),
+        sourceTable,
+        sourceRecordId,
+        isActive: true,
+        isArchived: false,
+        versioned: true,
+      },
     }));
 
     const { error: insertError } = await supabase

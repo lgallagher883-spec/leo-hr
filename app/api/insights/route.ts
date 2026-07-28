@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { buildLeoInsight } from "@/leo/insight/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -225,6 +226,40 @@ export async function GET() {
       );
     }
 
+    const insight = buildLeoInsight({
+      periodLabel: "Last quarter",
+      employees: (employeeResult.data || []) as Array<{
+        id: number;
+        name: string;
+        status?: string | null;
+        start_date?: string | null;
+      }>,
+      matters: (matterResult.data || []) as Array<{
+        id: number;
+        title: string;
+        subject?: string | null;
+        status?: string | null;
+        matter_type?: string | null;
+        created_at?: string | null;
+      }>,
+      sars: (sarResult.data || []) as Array<{
+        id: number;
+        request_title: string;
+        employee_id: number;
+        matter_id?: number | null;
+        status?: string;
+        response_due_date?: string | null;
+        extended_due_date?: string | null;
+        created_at?: string | null;
+      }>,
+      resources: (resourceResult.data || []) as Array<{
+        id: number;
+        name: string;
+        register_type?: string | null;
+      }>,
+      knowledgeSectionCount: knowledgeResult.count || 0,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -233,6 +268,7 @@ export async function GET() {
         sars: sarResult.data || [],
         resources: resourceResult.data || [],
         knowledgeSectionCount: knowledgeResult.count || 0,
+        insight,
       },
       {
         status: 200,

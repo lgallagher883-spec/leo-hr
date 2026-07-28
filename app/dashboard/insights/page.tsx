@@ -115,6 +115,20 @@ export default function InsightsPage() {
   const [lastUpdated, setLastUpdated] =
     useState<Date | null>(null);
 
+  const [insightPayload, setInsightPayload] =
+    useState<{
+      summary?: string;
+      risks?: Array<{ title: string; severity: string; detail: string }>;
+      trends?: Array<{ title: string; detail: string }>;
+      recommendations?: Array<{
+        title: string;
+        detail: string;
+        actionPath?: string;
+        askLeoPrompt?: string;
+      }>;
+      earlyInterventions?: Array<{ title: string; detail: string }>;
+    } | null>(null);
+
   useEffect(() => {
     loadInsightsData();
   }, []);
@@ -178,6 +192,12 @@ export default function InsightsPage() {
           "number"
           ? result.knowledgeSectionCount
           : 0
+      );
+
+      setInsightPayload(
+        result?.insight && typeof result.insight === "object"
+          ? result.insight
+          : null
       );
 
       setLastUpdated(new Date());
@@ -402,6 +422,18 @@ export default function InsightsPage() {
     useMemo<InsightItem[]>(() => {
       const items: InsightItem[] = [];
 
+      const payloadRecommendations = insightPayload?.recommendations || [];
+      payloadRecommendations.forEach((recommendation, index) => {
+        items.push({
+          id: `payload-recommendation-${index}`,
+          title: recommendation.title,
+          detail: recommendation.detail,
+          actionLabel: recommendation.actionPath ? "Open" : undefined,
+          actionPath: recommendation.actionPath,
+          askLeoPrompt: recommendation.askLeoPrompt,
+        });
+      });
+
       if (sarsPastDeadline.length > 0) {
         items.push({
           id: "sar-past-date",
@@ -514,6 +546,7 @@ export default function InsightsPage() {
 
       return items;
     }, [
+      insightPayload?.recommendations,
       knowledgeSectionCount,
       longestOpenMatter,
       openMatters.length,
@@ -524,6 +557,30 @@ export default function InsightsPage() {
   const observations =
     useMemo<InsightItem[]>(() => {
       const items: InsightItem[] = [];
+
+      (insightPayload?.risks || []).forEach((risk, index) => {
+        items.push({
+          id: `payload-risk-${index}`,
+          title: risk.title,
+          detail: risk.detail,
+        });
+      });
+
+      (insightPayload?.trends || []).forEach((trend, index) => {
+        items.push({
+          id: `payload-trend-${index}`,
+          title: trend.title,
+          detail: trend.detail,
+        });
+      });
+
+      (insightPayload?.earlyInterventions || []).forEach((intervention, index) => {
+        items.push({
+          id: `payload-intervention-${index}`,
+          title: intervention.title,
+          detail: intervention.detail,
+        });
+      });
 
       const leadingMatterType =
         Object.entries(
@@ -607,6 +664,9 @@ export default function InsightsPage() {
     }, [
       activeSars.length,
       averageOpenMatterAge,
+      insightPayload?.earlyInterventions,
+      insightPayload?.risks,
+      insightPayload?.trends,
       mattersByType,
       periodJoiners.length,
       periodLabel,

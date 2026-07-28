@@ -1,4 +1,5 @@
 import { LeoCoreOutput } from "../core/router";
+import { buildDecisionFramework } from "./decisionFramework";
 
 export type ReasoningOutput = {
   primaryIssue: string;
@@ -20,6 +21,7 @@ export type ReasoningOutput = {
   employerRisks: string[];
   professionalRecommendation: string;
   immediateNextStep: string;
+  decisionFramework: ReturnType<typeof buildDecisionFramework>;
 };
 
 export function runLeoReasoning(
@@ -125,6 +127,32 @@ export function runLeoReasoning(
       recommendedSteps
     );
 
+  const decisionFramework = buildDecisionFramework(
+    result,
+    {
+      primaryIssue,
+      secondaryIssues,
+      legalConsiderations,
+      businessConsiderations,
+      policyConsiderations,
+      missingInformation,
+      recommendedApproach: professionalRecommendation,
+      recommendedSteps,
+      triggeredModules,
+      shouldAskQuestionsFirst: missingInformation.length > 0,
+      professionalReality: "",
+      professionalOpening: "",
+      professionalInsight: "",
+      professionalContext: [],
+      seriousnessAssessment: "",
+      employerRisks: [],
+      professionalRecommendation,
+      immediateNextStep,
+      decisionFramework: undefined as never,
+    } as ReasoningOutput,
+    matterContext
+  );
+
   return {
     primaryIssue,
     secondaryIssues,
@@ -150,6 +178,7 @@ export function runLeoReasoning(
     employerRisks,
     professionalRecommendation,
     immediateNextStep,
+    decisionFramework,
   };
 }
 

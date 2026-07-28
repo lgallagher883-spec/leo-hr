@@ -196,14 +196,16 @@ export async function POST(req: Request) {
      * 8. LEO KNOWLEDGE
      */
 
+    const organisationMemory = Array.isArray(
+      body.organisationMemory
+    )
+      ? body.organisationMemory
+      : [];
+
     const knowledgeResult = searchKnowledge({
       message,
 
-      organisationMemory: Array.isArray(
-        body.organisationMemory
-      )
-        ? body.organisationMemory
-        : [],
+      organisationMemory,
 
       policies: [
         ...suppliedPolicies,

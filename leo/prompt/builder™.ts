@@ -137,6 +137,27 @@ ${reasoning.professionalRecommendation}
 Immediate next step:
 ${reasoning.immediateNextStep}
 
+Decision framework sequence:
+${reasoning.decisionFramework.decisionSequence.join(" → ")}
+
+Decision principles:
+${formatList(reasoning.decisionFramework.decisionPrinciples)}
+
+Proportionate recommendation:
+${reasoning.decisionFramework.proportionateRecommendation}
+
+Next question:
+${reasoning.decisionFramework.nextQuestion || "No further question is required at this stage."}
+
+Escalation recommendation:
+${reasoning.decisionFramework.escalationRecommendation || "No escalation is required on the current facts."}
+
+Uncertainty plan:
+${formatList(reasoning.decisionFramework.uncertaintyPlan)}
+
+Confidence statement:
+${reasoning.decisionFramework.confidenceStatement}
+
 The professional insight is especially important.
 
 It should help the employer see the situation more clearly by expressing the important point they may not yet have recognised.

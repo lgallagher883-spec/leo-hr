@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { retrieveKnowledge } from "@/leo/knowledge/retrieve";
+import { buildKnowledgeContext } from "@/leo/knowledge/context";
+import { mapOrganisationMemoryRecords } from "@/leo/knowledge/organisationMemoryService";
 import {
   KnowledgeChunk,
   KnowledgeSourceType,
@@ -200,6 +202,43 @@ export async function POST(request: Request) {
       companyDocuments = (data || []) as CompanyDocumentRecord[];
     }
 
+    const memoryResponse = await fetch(
+      new URL("/api/knowledge/organisation-memory", getBaseUrl()),
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    let organisationMemoryRecords: Array<{
+      id: string;
+      organisation_id: string;
+      title: string;
+      content: string;
+      category: string | null;
+      keywords: string[] | null;
+      source: string | null;
+      status: string | null;
+      is_active: boolean;
+    }> = [];
+
+    if (memoryResponse.ok) {
+      const memoryPayload = await memoryResponse.json().catch(() => null);
+      if (memoryPayload?.success) {
+        organisationMemoryRecords = Array.isArray(memoryPayload.records)
+          ? memoryPayload.records
+          : [];
+      }
+    }
+
+    const memoryItems = mapOrganisationMemoryRecords(
+      organisationMemoryRecords.filter(
+        (record) => record.organisation_id === organisationId
+      )
+    );
+
     const searchableChunks = chunks.map((chunk) => {
       const policyRecord = policyRecords.find(
         (record) =>
@@ -255,11 +294,28 @@ export async function POST(request: Request) {
       searchableChunks
     );
 
+    const context = buildKnowledgeContext({
+      query,
+      results,
+      sourcesUsed: results.map((result) => ({
+        documentId: result.documentId,
+        title: result.documentTitle,
+        sourceType: result.sourceType,
+      })),
+      gaps: memoryItems.length
+        ? [
+            `Organisation memory currently contributes ${memoryItems.length} approved knowledge item${memoryItems.length === 1 ? "" : "s"}.`,
+          ]
+        : [],
+    });
+
     return NextResponse.json({
       success: true,
       query,
       resultCount: results.length,
       results,
+      organisationMemoryCount: memoryItems.length,
+      context,
     });
   } catch (error) {
     return NextResponse.json(
@@ -273,6 +329,10 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function getBaseUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 }
 
 function toKnowledgeSourceType(value: string): KnowledgeSourceType {

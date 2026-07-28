@@ -48,6 +48,7 @@ export interface KnowledgeSearchInput {
   message: string;
 
   organisationMemory?: OrganisationMemoryItem[];
+  organisationMemoryRecords?: OrganisationMemoryItem[];
 
   policies?: StoredPolicy[];
 
@@ -86,7 +87,10 @@ export function searchKnowledge(
 
   const memoryResult = searchOrganisationMemory(
     input.message,
-    input.organisationMemory || []
+    [
+      ...(input.organisationMemory || []),
+      ...(input.organisationMemoryRecords || []),
+    ]
   );
 
   const organisationMatches =

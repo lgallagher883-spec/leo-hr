@@ -124,6 +124,53 @@ export default function AskLeoPage() {
     ? Number(sarIdValue)
     : null;
 
+  const promptParam =
+    searchParams.get("prompt") ?? "";
+
+  const suppliedResourceTitle =
+    searchParams.get("resourceTitle")?.trim() ?? "";
+
+  const suppliedResourceType =
+    searchParams.get("resourceType")?.trim() ?? "";
+
+  const suppliedReturnUrl =
+    searchParams.get("returnUrl")?.trim() ?? "";
+
+  const recognisedFactsheetTitle =
+    promptParam.includes(
+      'LEO factsheet "Day One Employment Rights"'
+    )
+      ? "Day One Employment Rights"
+      : "";
+
+  const resourceTitle =
+    suppliedResourceTitle ||
+    recognisedFactsheetTitle;
+
+  const resourceType =
+    suppliedResourceType ||
+    (recognisedFactsheetTitle
+      ? "Factsheet"
+      : "");
+
+  const fallbackReturnUrl =
+    recognisedFactsheetTitle
+      ? "/dashboard/policies/factsheets/employment-rights-day-one"
+      : "";
+
+  const resourceReturnUrl =
+    suppliedReturnUrl.startsWith(
+      "/dashboard/"
+    )
+      ? suppliedReturnUrl
+      : fallbackReturnUrl;
+
+  const hasResourceContext =
+    Boolean(
+      resourceTitle &&
+        resourceReturnUrl
+    );
+
   const [messages, setMessages] =
     useState<Message[]>([
       DEFAULT_GREETING_MESSAGE,
@@ -313,7 +360,7 @@ export default function AskLeoPage() {
 
   useEffect(() => {
     const prompt =
-      searchParams.get("prompt");
+      promptParam;
 
     if (
       !prompt ||
@@ -341,7 +388,7 @@ export default function AskLeoPage() {
     loadingSarContext,
     loadingConversation,
     sarId,
-    searchParams,
+    promptParam,
   ]);
 
   async function loadSarContext(
@@ -861,21 +908,72 @@ export default function AskLeoPage() {
           </p>
         </div>
 
-        {sarContext && (
+        <div style={headerActionsStyle}>
+          {hasResourceContext && (
+            <button
+              onClick={() =>
+                router.push(
+                  resourceReturnUrl
+                )
+              }
+              style={
+                secondaryButtonStyle
+              }
+            >
+              ← Return to {resourceType || "resource"}
+            </button>
+          )}
+
+          {sarContext && (
+            <button
+              onClick={() =>
+                router.push(
+                  `/dashboard/sar-requests/${sarContext.sar.id}`
+                )
+              }
+              style={
+                secondaryButtonStyle
+              }
+            >
+              Back to SAR
+            </button>
+          )}
+        </div>
+      </div>
+
+      {hasResourceContext && (
+        <div style={resourceContextStyle}>
+          <div style={resourceContextCopyStyle}>
+            <span style={resourceContextEyebrowStyle}>
+              Discussing
+            </span>
+
+            <strong style={resourceContextTitleStyle}>
+              {resourceTitle}
+            </strong>
+
+            <span style={resourceContextDescriptionStyle}>
+              This conversation is using the{" "}
+              {resourceTitle}{" "}
+              {resourceType
+                ? resourceType.toLowerCase()
+                : "resource"}{" "}
+              as context.
+            </span>
+          </div>
+
           <button
             onClick={() =>
               router.push(
-                `/dashboard/sar-requests/${sarContext.sar.id}`
+                resourceReturnUrl
               )
             }
-            style={
-              secondaryButtonStyle
-            }
+            style={resourceReturnButtonStyle}
           >
-            Back to SAR
+            ← Return to {resourceType || "resource"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {loadingSarContext && (
         <div style={noticeStyle}>
@@ -1762,6 +1860,65 @@ const matterButtonStyle: React.CSSProperties =
     fontWeight: 600,
     cursor: "pointer",
   };
+
+const headerActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "10px",
+};
+
+const resourceContextStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "18px",
+  marginBottom: "18px",
+  padding: "16px 18px",
+  border: "1px solid #e4d7eb",
+  borderRadius: "16px",
+  background:
+    "linear-gradient(135deg, #fbf7fd 0%, #f5fff9 100%)",
+};
+
+const resourceContextCopyStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "3px",
+  minWidth: 0,
+};
+
+const resourceContextEyebrowStyle: React.CSSProperties = {
+  color: "#8a6a9e",
+  fontSize: "11px",
+  fontWeight: 700,
+  letterSpacing: "0.11em",
+  textTransform: "uppercase",
+};
+
+const resourceContextTitleStyle: React.CSSProperties = {
+  color: "#6e5084",
+  fontSize: "16px",
+  lineHeight: 1.35,
+};
+
+const resourceContextDescriptionStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const resourceReturnButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  minHeight: "40px",
+  padding: "0 14px",
+  border: "1px solid #cdb2e2",
+  borderRadius: "10px",
+  background: "#ffffff",
+  color: "#6e5084",
+  fontSize: "13px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
 
 const secondaryButtonStyle: React.CSSProperties =
   {

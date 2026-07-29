@@ -8,6 +8,7 @@ import SecurityWorkspace from "./components/SecurityWorkspace";
 import AuditWorkspace from "./components/AuditWorkspace";
 import SubscriptionBillingWorkspace from "./components/SubscriptionBillingWorkspace";
 import BrandWorkspace from "./components/BrandWorkspace";
+import CompanyDocumentsWorkspace from "./components/CompanyDocumentsWorkspace";
 
 
 type OrganisationRecord = {
@@ -25,6 +26,7 @@ type OrganisationRecord = {
 type OrganisationWorkspace =
   | "overview"
   | "brand"
+  | "documents"
   | "billing"
   | "people"
   | "security"
@@ -43,6 +45,7 @@ const workspaceOptions: Array<{
 }> = [
   { key: "overview", label: "Overview" },
   { key: "brand", label: "Brand" },
+  { key: "documents", label: "Company Documents" },
   { key: "billing", label: "Subscription & Billing" },
   { key: "people", label: "People & Access" },
   { key: "security", label: "Security" },
@@ -506,6 +509,14 @@ export default function OrganisationPage() {
         </section>
       ) : null}
 
+
+
+
+      {!pageError && organisation && activeWorkspace === "documents" ? (
+        <section className="workspace-panel">
+          <CompanyDocumentsWorkspace organisationId={organisation.id} />
+        </section>
+      ) : null}
 
       {!pageError && organisation && activeWorkspace === "billing" ? (
         <div className="billing-workspace-container">

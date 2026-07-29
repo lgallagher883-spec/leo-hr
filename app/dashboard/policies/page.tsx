@@ -150,6 +150,9 @@ export default function PoliciesPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<"library" | "organisation">("library");
+
   const [activeTab, setActiveTab] =
     useState("Policy");
 
@@ -1170,6 +1173,19 @@ export default function PoliciesPage() {
         ) === "Review suggested"
     ).length;
 
+  if (activeWorkspace === "library") {
+    return (
+      <ResourcesHome
+        organisationResourceCount={totalResourceCount}
+        readyForLeoCount={readyResourceCount}
+        reviewSuggestedCount={reviewSuggestedCount}
+        onOpenOrganisationResources={() =>
+          setActiveWorkspace("organisation")
+        }
+      />
+    );
+  }
+
   return (
     <div>
       <div style={headerStyle}>
@@ -1188,27 +1204,39 @@ export default function PoliciesPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            if (
-              activeTab !==
-                "Uncategorised" &&
-              activeTab !==
-                "Archived"
-            ) {
-              setRegisterType(
-                activeTab
-              );
+        <div style={headerActionsStyle}>
+          <button
+            type="button"
+            onClick={() =>
+              setActiveWorkspace("library")
             }
+            style={secondaryButtonStyle}
+          >
+            Back to library
+          </button>
 
-            setShowForm(
-              !showForm
-            );
-          }}
-          style={primaryButtonStyle}
-        >
-          + Add Resources
-        </button>
+          <button
+            onClick={() => {
+              if (
+                activeTab !==
+                  "Uncategorised" &&
+                activeTab !==
+                  "Archived"
+              ) {
+                setRegisterType(
+                  activeTab
+                );
+              }
+
+              setShowForm(
+                !showForm
+              );
+            }}
+            style={primaryButtonStyle}
+          >
+            + Add Resources
+          </button>
+        </div>
       </div>
 
       <div style={overviewCardStyle}>
@@ -1881,6 +1909,251 @@ export default function PoliciesPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ResourcesHome({
+  organisationResourceCount,
+  readyForLeoCount,
+  reviewSuggestedCount,
+  onOpenOrganisationResources,
+}: {
+  organisationResourceCount: number;
+  readyForLeoCount: number;
+  reviewSuggestedCount: number;
+  onOpenOrganisationResources: () => void;
+}) {
+  const [librarySearch, setLibrarySearch] =
+    useState("");
+
+  const categories = [
+    {
+      title: "Letters",
+      description:
+        "Professional letters for common employment situations and workplace processes.",
+      marker: "L",
+      slug: "letters",
+    },
+    {
+      title: "Forms",
+      description:
+        "Practical forms for recording decisions, meetings, requests and actions.",
+      marker: "F",
+      slug: "forms",
+    },
+    {
+      title: "Guides",
+      description:
+        "Clear, practical guidance to help managers handle HR matters confidently.",
+      marker: "G",
+      slug: "guides",
+    },
+    {
+      title: "Checklists",
+      description:
+        "Step-by-step checks that help keep important processes complete and consistent.",
+      marker: "C",
+      slug: "checklists",
+    },
+    {
+      title: "Toolkits",
+      description:
+        "Connected resource packs for managing more involved workplace situations.",
+      marker: "T",
+      slug: "toolkits",
+    },
+    {
+      title: "Factsheets",
+      description:
+        "Concise explanations of key employment rights, duties and good practice.",
+      marker: "F",
+      slug: "factsheets",
+    },
+  ];
+
+  const normalisedSearch = librarySearch
+    .trim()
+    .toLowerCase();
+
+  const visibleCategories = categories.filter(
+    (category) =>
+      !normalisedSearch ||
+      `${category.title} ${category.description}`
+        .toLowerCase()
+        .includes(normalisedSearch)
+  );
+
+  return (
+    <div style={resourcesHomeStyle}>
+      <section style={resourcesHeroStyle}>
+        <div style={resourcesHeroCopyStyle}>
+          <div style={resourcesEyebrowStyle}>
+            HR Resources
+          </div>
+
+          <h1 style={resourcesHeroTitleStyle}>
+            Practical HR support, ready when you need it.
+          </h1>
+
+          <p style={resourcesHeroTextStyle}>
+            Browse LEO&apos;s professional resource library or open your organisation&apos;s own policies, contracts, handbooks and documents.
+          </p>
+
+          <div style={resourcesSearchWrapStyle}>
+            <input
+              value={librarySearch}
+              onChange={(event) =>
+                setLibrarySearch(event.target.value)
+              }
+              style={resourcesSearchStyle}
+              placeholder="Search letters, forms, guides, checklists and more..."
+              aria-label="Search HR Resources"
+            />
+          </div>
+        </div>
+
+        <div style={resourcesHeroPanelStyle}>
+          <div style={resourcesHeroPanelLabelStyle}>
+            Your organisation
+          </div>
+
+          <div style={resourcesHeroMetricStyle}>
+            {organisationResourceCount}
+          </div>
+
+          <div style={resourcesHeroMetricLabelStyle}>
+            organisation resources
+          </div>
+
+          {(readyForLeoCount > 0 || reviewSuggestedCount > 0) && (
+            <div style={resourcesHeroSmallStatsStyle}>
+              {readyForLeoCount > 0 && (
+                <span>{readyForLeoCount} ready for Leo</span>
+              )}
+              {reviewSuggestedCount > 0 && (
+                <span>{reviewSuggestedCount} reviews suggested</span>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onOpenOrganisationResources}
+            style={resourcesHeroButtonStyle}
+          >
+            Open organisation resources
+          </button>
+        </div>
+      </section>
+
+      <section style={resourcesSectionStyle}>
+        <div style={resourcesSectionHeadingStyle}>
+          <h2 style={resourcesSectionTitleStyle}>
+            Browse the library
+          </h2>
+        </div>
+
+        {visibleCategories.length === 0 ? (
+          <div style={resourcesNoResultsStyle}>
+            No resource categories match your search yet.
+          </div>
+        ) : (
+          <div style={resourcesCategoryGridStyle}>
+            {visibleCategories.map((category) => (
+              <button
+                key={category.title}
+                type="button"
+                onClick={() => {
+                  window.location.href = `/dashboard/policies/${category.slug}`;
+                }}
+                style={resourcesCategoryCardStyle}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.transform = "translateY(-3px)";
+                  event.currentTarget.style.boxShadow =
+                    "0 12px 30px rgba(71, 49, 82, 0.10)";
+                  event.currentTarget.style.borderColor = "#CDB2E2";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform = "translateY(0)";
+                  event.currentTarget.style.boxShadow = "none";
+                  event.currentTarget.style.borderColor = "#E8DFEB";
+                }}
+              >
+                <div style={resourcesCategoryTopRowStyle}>
+                  <div style={resourcesCategoryMarkerStyle}>
+                    {category.marker}
+                  </div>
+                  <span style={resourcesCategoryChevronStyle}>→</span>
+                </div>
+
+                <div>
+                  <h3 style={resourcesCategoryTitleStyle}>
+                    {category.title}
+                  </h3>
+                  <p style={resourcesCategoryTextStyle}>
+                    {category.description}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section style={resourcesBottomGridStyle}>
+        <article style={resourcesFeatureCardStyle}>
+          <div style={resourcesFeatureEyebrowStyle}>
+            Organisation resources
+          </div>
+          <h2 style={resourcesFeatureTitleStyle}>
+            Your own HR documents, preserved and connected to Leo.
+          </h2>
+          <p style={resourcesFeatureTextStyle}>
+            Upload and manage policies, contracts, handbooks, procedures, forms and other company documents. Version history, review dates and knowledge preparation remain exactly where you need them.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenOrganisationResources}
+            style={primaryButtonStyle}
+          >
+            Manage organisation resources
+          </button>
+        </article>
+
+        <article style={resourcesAskLeoCardStyle}>
+          <div style={resourcesFeatureEyebrowStyle}>
+            Ask Leo
+          </div>
+          <h2 style={resourcesFeatureTitleStyle}>
+            Turn guidance into action.
+          </h2>
+          <p style={resourcesFeatureTextStyle}>
+            Each published resource can connect to Ask Leo so the guidance can be applied to the organisation and situation in front of you.
+          </p>
+          <a
+            href="/dashboard/ask-leo"
+            style={resourcesSecondaryLinkStyle}
+          >
+            Open Ask Leo
+          </a>
+        </article>
+      </section>
+
+      <section style={resourcesCurrentCardStyle}>
+        <div style={resourcesCurrentIconStyle}>↻</div>
+        <div>
+          <div style={resourcesFeatureEyebrowStyle}>
+            Keeping resources current
+          </div>
+          <h2 style={resourcesCurrentTitleStyle}>
+            Professionally maintained as guidance changes.
+          </h2>
+          <p style={resourcesCurrentTextStyle}>
+            LEO Resources are reviewed against employment legislation, official guidance and recognised HR practice. Published resources can carry a version number, last reviewed date, next review date, review status, change summary, categories, tags and related resources.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
@@ -2927,4 +3200,402 @@ const emptyTextStyle:
 const emptyStyle:
   React.CSSProperties = {
   color: "#6B7280",
+};
+
+const resourcesHomeStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: "1440px",
+  margin: "0 auto",
+};
+
+const resourcesHeroStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
+  gap: "20px",
+  marginBottom: "22px",
+};
+
+const resourcesHeroCopyStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #F7F1FC 0%, #FFFFFF 68%)",
+  border: "1px solid #E4D8EA",
+  borderRadius: "22px",
+  padding: "34px",
+};
+
+const resourcesEyebrowStyle: React.CSSProperties = {
+  color: "#6E5084",
+  fontSize: "12px",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  marginBottom: "10px",
+};
+
+const resourcesHeroTitleStyle: React.CSSProperties = {
+  margin: 0,
+  maxWidth: "760px",
+  color: "#6E5084",
+  fontSize: "clamp(30px, 4vw, 48px)",
+  lineHeight: 1.12,
+  letterSpacing: "-0.025em",
+  fontWeight: 600,
+};
+
+const resourcesHeroTextStyle: React.CSSProperties = {
+  maxWidth: "760px",
+  margin: "16px 0 0",
+  color: "#6D6371",
+  fontSize: "16px",
+  lineHeight: 1.65,
+};
+
+const resourcesSearchWrapStyle: React.CSSProperties = {
+  marginTop: "24px",
+};
+
+const resourcesSearchStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: "52px",
+  boxSizing: "border-box",
+  border: "1px solid #D8CBDE",
+  borderRadius: "14px",
+  background: "#FFFFFF",
+  padding: "0 16px",
+  color: "#2F2635",
+  fontSize: "15px",
+  boxShadow: "0 8px 24px rgba(70, 51, 79, 0.05)",
+};
+
+const resourcesHeroPanelStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  borderRadius: "22px",
+  padding: "28px",
+  background: "#6E5084",
+  color: "#FFFFFF",
+};
+
+const resourcesHeroPanelLabelStyle: React.CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 800,
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
+  opacity: 0.8,
+};
+
+const resourcesHeroMetricStyle: React.CSSProperties = {
+  marginTop: "14px",
+  fontSize: "52px",
+  lineHeight: 1,
+  fontWeight: 850,
+};
+
+const resourcesHeroMetricLabelStyle: React.CSSProperties = {
+  marginTop: "6px",
+  fontSize: "14px",
+  fontWeight: 700,
+};
+
+const resourcesHeroSmallStatsStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "7px",
+  marginTop: "18px",
+  paddingTop: "18px",
+  borderTop: "1px solid rgba(255,255,255,0.22)",
+  fontSize: "13px",
+  opacity: 0.9,
+};
+
+const resourcesHeroButtonStyle: React.CSSProperties = {
+  minHeight: "44px",
+  marginTop: "22px",
+  border: "1px solid rgba(255,255,255,0.35)",
+  borderRadius: "12px",
+  background: "#FFFFFF",
+  color: "#6E5084",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const resourcesSectionStyle: React.CSSProperties = {
+  background: "#FFFFFF",
+  border: "1px solid #E5DCE8",
+  borderRadius: "20px",
+  padding: "24px",
+  marginBottom: "20px",
+};
+
+const resourcesSectionHeadingStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "16px",
+  marginBottom: "18px",
+};
+
+const resourcesSectionTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#6E5084",
+  fontSize: "24px",
+  fontWeight: 600,
+};
+
+const resourcesSectionTextStyle: React.CSSProperties = {
+  margin: "7px 0 0",
+  color: "#746A78",
+  lineHeight: 1.55,
+};
+
+const resourcesCategoryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "14px",
+};
+
+const resourcesCategoryCardStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "16px",
+  minHeight: "190px",
+  border: "1px solid #E8DFEB",
+  borderRadius: "17px",
+  background: "#FCFAFD",
+  padding: "20px",
+  textAlign: "left",
+  cursor: "pointer",
+  transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+  font: "inherit",
+};
+
+const resourcesCategoryMarkerStyle: React.CSSProperties = {
+  width: "48px",
+  height: "48px",
+  borderRadius: "15px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#F0E7F5",
+  color: "#6E5084",
+  fontWeight: 850,
+  fontSize: "16px",
+};
+
+const resourcesCategoryTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#6E5084",
+  fontSize: "18px",
+  fontWeight: 600,
+};
+
+const resourcesCategoryTextStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#746A78",
+  fontSize: "14px",
+  lineHeight: 1.55,
+};
+
+const resourcesNoResultsStyle: React.CSSProperties = {
+  padding: "30px",
+  border: "1px dashed #D8CBDE",
+  borderRadius: "16px",
+  textAlign: "center",
+  color: "#746A78",
+};
+
+const resourcesBottomGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "18px",
+};
+
+const resourcesFeatureCardStyle: React.CSSProperties = {
+  border: "1px solid #E5DCE8",
+  borderRadius: "20px",
+  background: "#FFFFFF",
+  padding: "24px",
+};
+
+const resourcesAskLeoCardStyle: React.CSSProperties = {
+  border: "1px solid #DCEBE4",
+  borderRadius: "20px",
+  background: "#F5FFF9",
+  padding: "24px",
+};
+
+const resourcesFeatureEyebrowStyle: React.CSSProperties = {
+  color: "#6E5084",
+  fontSize: "12px",
+  fontWeight: 800,
+  letterSpacing: "0.07em",
+  textTransform: "uppercase",
+};
+
+const resourcesFeatureTitleStyle: React.CSSProperties = {
+  margin: "9px 0 0",
+  color: "#6E5084",
+  fontSize: "22px",
+  lineHeight: 1.3,
+  fontWeight: 600,
+};
+
+const resourcesFeatureTextStyle: React.CSSProperties = {
+  margin: "12px 0 20px",
+  color: "#746A78",
+  fontSize: "14px",
+  lineHeight: 1.6,
+};
+
+const resourcesSecondaryLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: "42px",
+  padding: "0 14px",
+  border: "1px solid #CDB2E2",
+  borderRadius: "11px",
+  background: "#FFFFFF",
+  color: "#6E5084",
+  textDecoration: "none",
+  fontWeight: 800,
+};
+
+const resourcesCategoryTopRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const resourcesCategoryChevronStyle: React.CSSProperties = {
+  color: "#6E5084",
+  fontSize: "22px",
+  fontWeight: 500,
+};
+
+const resourcesBackButtonStyle: React.CSSProperties = {
+  marginBottom: "16px",
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const resourcesCategoryPageStyle: React.CSSProperties = {
+  border: "1px solid #E5DCE8",
+  borderRadius: "22px",
+  background: "#FFFFFF",
+  padding: "30px",
+};
+
+const resourcesCategoryPageHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "18px",
+};
+
+const resourcesCategoryMarkerLargeStyle: React.CSSProperties = {
+  width: "58px",
+  height: "58px",
+  flex: "0 0 58px",
+  borderRadius: "18px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#F0E7F5",
+  color: "#6E5084",
+  fontSize: "20px",
+  fontWeight: 700,
+};
+
+const resourcesCategoryPageTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#6E5084",
+  fontSize: "34px",
+  lineHeight: 1.15,
+  fontWeight: 600,
+};
+
+const resourcesCategoryPageTextStyle: React.CSSProperties = {
+  maxWidth: "720px",
+  margin: "10px 0 0",
+  color: "#746A78",
+  fontSize: "15px",
+  lineHeight: 1.6,
+};
+
+const resourcesEmptyLibraryStyle: React.CSSProperties = {
+  marginTop: "28px",
+  padding: "28px",
+  border: "1px dashed #D8CBDE",
+  borderRadius: "16px",
+  background: "#FCFAFD",
+};
+
+const resourcesEmptyLibraryTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#6E5084",
+  fontSize: "18px",
+  fontWeight: 600,
+};
+
+const resourcesEmptyLibraryTextStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#746A78",
+  fontSize: "14px",
+  lineHeight: 1.6,
+};
+
+const resourcesCurrentCardStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "52px minmax(0, 1fr)",
+  gap: "18px",
+  marginTop: "18px",
+  border: "1px solid #E4D8EA",
+  borderRadius: "20px",
+  background: "linear-gradient(135deg, #F7F1FC 0%, #FFFFFF 72%)",
+  padding: "24px",
+};
+
+const resourcesCurrentIconStyle: React.CSSProperties = {
+  width: "52px",
+  height: "52px",
+  borderRadius: "16px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#FFFFFF",
+  border: "1px solid #E4D8EA",
+  color: "#6E5084",
+  fontSize: "24px",
+};
+
+const resourcesCurrentTitleStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#6E5084",
+  fontSize: "22px",
+  lineHeight: 1.3,
+  fontWeight: 600,
+};
+
+const resourcesCurrentTextStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  color: "#746A78",
+  fontSize: "14px",
+  lineHeight: 1.65,
+};
+
+const resourcesCurrentNoteStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  color: "#6E5084",
+  fontSize: "13px",
+  lineHeight: 1.55,
+};
+
+const headerActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  flexWrap: "wrap",
 };

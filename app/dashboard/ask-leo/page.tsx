@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChangeEvent,
   KeyboardEvent,
   useEffect,
   useMemo,
@@ -77,6 +78,13 @@ type TimelineEvent = {
   created_by: string | null;
 };
 
+type SavedConversationMessage = {
+  id: number;
+  role: "user" | "leo";
+  content: string;
+  created_at: string;
+};
+
 type SarContext = {
   sar: SarRequest;
   employee: Employee | null;
@@ -90,6 +98,24 @@ export default function AskLeoPage() {
   const searchParams = useSearchParams();
 
   const hasSentDashboardPrompt = useRef(false);
+  const hasActiveLocalConversation = useRef(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const [conversationId, setConversationId] =
+    useState<number | null>(null);
+
+  const [loadingConversation, setLoadingConversation] =
+    useState(false);
+
+  const [conversationError, setConversationError] =
+    useState("");
+
+  const DEFAULT_GREETING_MESSAGE: Message = {
+    role: "leo",
+    content:
+      "Hi, I’m Leo. How can I help you today?",
+  };
 
   const sarIdValue =
     searchParams.get("sarId");
@@ -100,11 +126,7 @@ export default function AskLeoPage() {
 
   const [messages, setMessages] =
     useState<Message[]>([
-      {
-        role: "leo",
-        content:
-          "Hi, I’m Leo. How can I help you today?",
-      },
+      DEFAULT_GREETING_MESSAGE,
     ]);
 
   const [input, setInput] =
@@ -112,6 +134,12 @@ export default function AskLeoPage() {
 
   const [loading, setLoading] =
     useState(false);
+
+  const [streamStarted, setStreamStarted] =
+    useState(false);
+
+  const [thinkingStage, setThinkingStage] =
+    useState(0);
 
   const [
     loadingSarContext,
@@ -130,6 +158,145 @@ export default function AskLeoPage() {
     shouldCreateMatter,
     setShouldCreateMatter,
   ] = useState(false);
+
+  const conversationIdValue =
+    searchParams.get("conversationId");
+
+  useEffect(() => {
+    const selectedConversationId = conversationIdValue
+      ? Number(conversationIdValue)
+      : null;
+
+    if (
+      !selectedConversationId ||
+      !Number.isFinite(selectedConversationId)
+    ) {
+      setConversationId(null);
+      setConversationError("");
+
+      if (
+        !sarContext &&
+        !hasActiveLocalConversation.current
+      ) {
+        setMessages([
+          DEFAULT_GREETING_MESSAGE,
+        ]);
+      }
+
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadConversation() {
+      setLoadingConversation(true);
+      setConversationError("");
+
+      try {
+        const response = await fetch(
+          `/api/ask-leo/conversations/${selectedConversationId}`,
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }
+        );
+
+        const result = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              messages?: SavedConversationMessage[];
+              error?: string;
+            }
+          | null;
+
+        if (!response.ok || !result?.success) {
+          throw new Error(
+            result?.error ||
+              "The conversation could not be loaded."
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const loadedMessages = (result.messages || [])
+          .filter(
+            (message) =>
+              (message.role === "user" ||
+                message.role === "leo") &&
+              typeof message.content === "string" &&
+              Boolean(message.content.trim())
+          )
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+          }));
+
+        hasActiveLocalConversation.current = true;
+        setConversationId(selectedConversationId);
+        setMessages(
+          loadedMessages.length > 0
+            ? loadedMessages
+            : [
+                DEFAULT_GREETING_MESSAGE,
+              ]
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setConversationError(
+          error instanceof Error
+            ? error.message
+            : "The conversation could not be loaded."
+        );
+
+        setConversationId(null);
+      } finally {
+        if (!cancelled) {
+          setLoadingConversation(false);
+        }
+      }
+    }
+
+    void loadConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationIdValue, sarContext]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages, loading, streamStarted]);
+
+  useEffect(() => {
+    if (!loading || streamStarted) {
+      setThinkingStage(0);
+      return;
+    }
+
+    setThinkingStage(0);
+
+    const reviewTimer = window.setTimeout(() => {
+      setThinkingStage(1);
+    }, 2200);
+
+    const recommendationTimer = window.setTimeout(() => {
+      setThinkingStage(2);
+    }, 4400);
+
+    return () => {
+      window.clearTimeout(reviewTimer);
+      window.clearTimeout(recommendationTimer);
+    };
+  }, [loading, streamStarted]);
 
   useEffect(() => {
     if (
@@ -162,12 +329,17 @@ export default function AskLeoPage() {
       return;
     }
 
+    if (loadingConversation) {
+      return;
+    }
+
     hasSentDashboardPrompt.current =
       true;
 
     sendMessage(prompt);
   }, [
     loadingSarContext,
+    loadingConversation,
     sarId,
     searchParams,
   ]);
@@ -324,6 +496,8 @@ export default function AskLeoPage() {
         loadedContext
       );
 
+      hasActiveLocalConversation.current = true;
+
       setMessages([
         {
           role: "leo",
@@ -364,6 +538,12 @@ export default function AskLeoPage() {
       return;
     }
 
+    const requestId =
+      typeof crypto !== "undefined" &&
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
     const userMessage: Message =
       {
         role: "user",
@@ -373,21 +553,30 @@ export default function AskLeoPage() {
     const conversationBeforeReply =
       [...messages, userMessage];
 
-    setMessages(
-      conversationBeforeReply
-    );
+    hasActiveLocalConversation.current = true;
+
+    setMessages((previous) => [
+      ...previous,
+      userMessage,
+    ]);
 
     setInput("");
+
+    if (composerRef.current) {
+      composerRef.current.style.height = "46px";
+    }
     setLoading(true);
+    setStreamStarted(false);
     setShouldCreateMatter(false);
 
     try {
-      const messageForLeo =
-        buildMessageForLeo(
-          messageText,
-          conversationBeforeReply,
-          sarContext
-        );
+      const contextSummary = sarContext
+        ? buildMessageForLeo(
+            messageText,
+            conversationBeforeReply,
+            sarContext
+          )
+        : "";
 
       const response = await fetch(
         "/api/ask-leo",
@@ -398,41 +587,134 @@ export default function AskLeoPage() {
               "application/json",
           },
           body: JSON.stringify({
-            message: messageForLeo,
+            message: messageText,
+            latestMessage: messageText,
+            conversationId,
+            requestId,
+            contextType: sarContext
+              ? "contextual"
+              : "general",
+            conversation:
+              conversationBeforeReply,
+            contextSummary,
           }),
         }
       );
 
-      const data =
-        await response.json();
-
       if (!response.ok) {
+        const errorPayload =
+          (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+
         throw new Error(
-          data.error ||
+          errorPayload?.error ||
             "Leo could not process the request."
         );
       }
 
-      const leoMessage: Message =
-        {
-          role: "leo",
-          content:
-            data.response ||
-            data.reply ||
-            "Leo was unable to generate a response.",
-        };
+      if (!response.body) {
+        throw new Error(
+          "Leo returned an empty response stream."
+        );
+      }
 
-      setMessages((previous) => [
-        ...previous,
-        leoMessage,
-      ]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let leoMessageAdded = false;
+      let fullResponse = "";
 
-      setShouldCreateMatter(
-        !sarContext &&
-          Boolean(
-            data.shouldCreateMatter
-          )
-      );
+      const applyStreamEvent = (event: {
+        type?: string;
+        delta?: string;
+        conversationId?: number | null;
+        shouldCreateMatter?: boolean;
+      }) => {
+        if (
+          typeof event.conversationId === "number" &&
+          Number.isInteger(event.conversationId)
+        ) {
+          setConversationId(event.conversationId);
+        }
+
+        if (event.type === "delta" && event.delta) {
+          fullResponse += event.delta;
+
+          if (!leoMessageAdded) {
+            leoMessageAdded = true;
+            setStreamStarted(true);
+            setMessages((previous) => [
+              ...previous,
+              {
+                role: "leo",
+                content: event.delta || "",
+              },
+            ]);
+            return;
+          }
+
+          setMessages((previous) => {
+            const updated = [...previous];
+            const lastIndex = updated.length - 1;
+            const lastMessage = updated[lastIndex];
+
+            if (lastMessage?.role === "leo") {
+              updated[lastIndex] = {
+                ...lastMessage,
+                content: `${lastMessage.content}${event.delta}`,
+              };
+            }
+
+            return updated;
+          });
+        }
+
+        if (event.type === "done") {
+          setShouldCreateMatter(
+            !sarContext &&
+              Boolean(event.shouldCreateMatter)
+          );
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+
+          if (!trimmed) {
+            continue;
+          }
+
+          applyStreamEvent(JSON.parse(trimmed));
+        }
+
+        if (done) {
+          break;
+        }
+      }
+
+      if (buffer.trim()) {
+        applyStreamEvent(JSON.parse(buffer.trim()));
+      }
+
+      if (!fullResponse.trim()) {
+        setStreamStarted(true);
+        setMessages((previous) => [
+          ...previous,
+          {
+            role: "leo",
+            content:
+              "Leo was unable to generate a response.",
+          },
+        ]);
+      }
     } catch (error) {
       console.error(
         "Error connecting to Leo:",
@@ -449,55 +731,47 @@ export default function AskLeoPage() {
       ]);
     } finally {
       setLoading(false);
+      setStreamStarted(false);
     }
   }
 
   function createMatter() {
-    const lastUserMessage =
-      [...messages]
-        .reverse()
-        .find(
-          (message) =>
-            message.role === "user"
-        );
-
-    const payload = {
-      title:
-        lastUserMessage?.content?.slice(
-          0,
-          60
-        ) || "New HR Matter",
-
-      subject:
-        lastUserMessage?.content?.slice(
-          0,
-          60
-        ) || "New HR Matter",
-
-      description:
-        lastUserMessage?.content ||
-        "",
-
-      risk: shouldCreateMatter
-        ? "medium"
-        : "low",
-
-      suggestedNextStep:
-        "Review and confirm details before submission",
-    };
-
-    localStorage.setItem(
-      "leo_matter_draft",
-      JSON.stringify(payload)
-    );
+    if (!conversationId) {
+      return;
+    }
 
     router.push(
-      "/dashboard/matters/new"
+      `/dashboard/matters/new?sourceConversationId=${conversationId}`
     );
   }
 
+  function startNewConversation() {
+    hasActiveLocalConversation.current = false;
+    hasSentDashboardPrompt.current = false;
+    setConversationId(null);
+    setConversationError("");
+    setShouldCreateMatter(false);
+    setMessages([
+      DEFAULT_GREETING_MESSAGE,
+    ]);
+
+    router.push("/dashboard/ask-leo");
+  }
+
+  function handleInputChange(
+    event: ChangeEvent<HTMLTextAreaElement>
+  ) {
+    setInput(event.target.value);
+
+    event.target.style.height = "46px";
+    event.target.style.height = `${Math.min(
+      event.target.scrollHeight,
+      112
+    )}px`;
+  }
+
   function handleInputKeyDown(
-    event: KeyboardEvent<HTMLInputElement>
+    event: KeyboardEvent<HTMLTextAreaElement>
   ) {
     if (
       event.key === "Enter" &&
@@ -541,6 +815,39 @@ export default function AskLeoPage() {
 
   return (
     <div style={pageStyle}>
+      <style jsx global>{`
+        @keyframes leoThinkingPulse {
+          0%, 100% { transform: scale(1); opacity: 0.82; }
+          50% { transform: scale(1.04); opacity: 1; }
+        }
+
+        @keyframes leoCursorBlink {
+          0%, 45% { opacity: 1; }
+          46%, 100% { opacity: 0; }
+        }
+
+        @keyframes leoMessageIn {
+          from {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes userMessageIn {
+          from {
+            opacity: 0;
+            transform: translateX(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
       <div style={headerStyle}>
         <div>
           <h1 style={titleStyle}>
@@ -579,6 +886,18 @@ export default function AskLeoPage() {
       {sarContextError && (
         <div style={errorStyle}>
           {sarContextError}
+        </div>
+      )}
+
+      {conversationError && (
+        <div style={errorStyle}>
+          {conversationError}
+        </div>
+      )}
+
+      {loadingConversation && (
+        <div style={noticeStyle}>
+          Loading conversation...
         </div>
       )}
 
@@ -684,34 +1003,74 @@ export default function AskLeoPage() {
 
       <div style={chatShellStyle}>
         <div style={chatBoxStyle}>
-          {messages.map(
-            (message, index) => (
+          {messages.map((message, index) =>
+            message.role === "user" ? (
               <div
                 key={`${message.role}-${index}`}
                 style={{
                   ...messageStyle,
-                  ...(message.role ===
-                  "user"
-                    ? userMessageStyle
-                    : leoMessageStyle),
+                  ...userMessageStyle,
+                  animation:
+                    "userMessageIn 180ms ease-out",
                 }}
               >
                 {message.content}
               </div>
+            ) : (
+              <div
+                key={`${message.role}-${index}`}
+                style={leoMessageRowStyle}
+              >
+                <LeoMark />
+
+                <div
+                  style={{
+                    ...messageStyle,
+                    ...leoMessageStyle,
+                    animation:
+                      "leoMessageIn 180ms ease-out",
+                  }}
+                >
+                  {message.content}
+                  {loading &&
+                    streamStarted &&
+                    index === messages.length - 1 && (
+                      <span style={streamCursorStyle}>▌</span>
+                    )}
+                </div>
+              </div>
             )
           )}
 
-          {loading && (
+          {loading && !streamStarted && (
             <div
               style={{
-                ...messageStyle,
-                ...leoMessageStyle,
-                color: "#6B7280",
+                ...leoMessageRowStyle,
+                animation:
+                  "leoMessageIn 180ms ease-out",
               }}
             >
-              Leo is thinking...
+              <div style={thinkingMarkStyle}>
+                <LeoMark />
+              </div>
+
+              <div
+                style={{
+                  ...messageStyle,
+                  ...leoMessageStyle,
+                  color: "#6B7280",
+                }}
+              >
+                {thinkingStage === 0
+                  ? "Leo is thinking..."
+                  : thinkingStage === 1
+                    ? "Leo is reviewing your information..."
+                    : "Leo is preparing a recommendation..."}
+              </div>
             </div>
           )}
+
+          <div ref={chatEndRef} />
         </div>
 
         {shouldCreateMatter && (
@@ -731,14 +1090,22 @@ export default function AskLeoPage() {
           </div>
         )}
 
+        {!sarContext && (
+          <div style={matterActionStyle}>
+            <button
+              onClick={startNewConversation}
+              style={secondaryButtonStyle}
+            >
+              New conversation
+            </button>
+          </div>
+        )}
+
         <div style={composerStyle}>
-          <input
+          <textarea
+            ref={composerRef}
             value={input}
-            onChange={(event) =>
-              setInput(
-                event.target.value
-              )
-            }
+            onChange={handleInputChange}
             placeholder={
               sarContext
                 ? "Ask Leo what to do next with this SAR..."
@@ -748,6 +1115,7 @@ export default function AskLeoPage() {
             onKeyDown={
               handleInputKeyDown
             }
+            rows={1}
             disabled={
               loading ||
               loadingSarContext
@@ -1040,6 +1408,15 @@ Guide the employer through the next proportionate stage of the SAR.
 `.trim();
 }
 
+function LeoMark() {
+  return (
+    <span style={leoMarkStyle} aria-label="Leo">
+      <span style={leoMarkLargeStarStyle}>✦</span>
+      <span style={leoMarkSmallStarStyle}>✦</span>
+    </span>
+  );
+}
+
 function ContextItem({
   label,
   value,
@@ -1266,8 +1643,8 @@ const messageStyle: React.CSSProperties =
     padding: "10px 12px",
     borderRadius: "12px",
     maxWidth: "76%",
-    fontSize: "14px",
-    lineHeight: 1.55,
+    fontSize: "16px",
+    lineHeight: 1.6,
     whiteSpace: "pre-wrap",
   };
 
@@ -1276,6 +1653,7 @@ const userMessageStyle: React.CSSProperties =
     alignSelf: "flex-end",
     background: "#6E5084",
     color: "#FFFFFF",
+    maxWidth: "48%",
   };
 
 const leoMessageStyle: React.CSSProperties =
@@ -1283,6 +1661,57 @@ const leoMessageStyle: React.CSSProperties =
     alignSelf: "flex-start",
     background: "#F3F4F6",
     color: "#111827",
+  };
+
+const leoMessageRowStyle: React.CSSProperties =
+  {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "9px",
+    alignSelf: "flex-start",
+    maxWidth: "82%",
+  };
+
+const leoMarkStyle: React.CSSProperties =
+  {
+    position: "relative",
+    display: "inline-block",
+    width: "31px",
+    height: "31px",
+    minWidth: "31px",
+    color: "#6E5084",
+    marginTop: "3px",
+  };
+
+const leoMarkLargeStarStyle: React.CSSProperties =
+  {
+    position: "absolute",
+    left: 0,
+    bottom: 0,
+    fontSize: "25px",
+    lineHeight: 1,
+  };
+
+const leoMarkSmallStarStyle: React.CSSProperties =
+  {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    fontSize: "14px",
+    lineHeight: 1,
+  };
+
+const thinkingMarkStyle: React.CSSProperties =
+  {
+    animation: "leoThinkingPulse 1.8s ease-in-out infinite",
+  };
+
+const streamCursorStyle: React.CSSProperties =
+  {
+    display: "inline-block",
+    marginLeft: "2px",
+    color: "#6E5084",
+    animation: "leoCursorBlink 0.8s steps(1) infinite",
   };
 
 const matterActionStyle: React.CSSProperties =
@@ -1300,10 +1729,16 @@ const composerStyle: React.CSSProperties =
 const inputStyle: React.CSSProperties =
   {
     flex: 1,
+    minHeight: "46px",
+    maxHeight: "112px",
     padding: "12px",
     borderRadius: "10px",
     border: "1px solid #E5E7EB",
-    fontSize: "14px",
+    fontSize: "16px",
+    lineHeight: 1.55,
+    resize: "none",
+    overflowY: "auto",
+    fontFamily: "inherit",
   };
 
 const sendButtonStyle: React.CSSProperties =

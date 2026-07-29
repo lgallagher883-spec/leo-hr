@@ -74,12 +74,17 @@ export function buildResponsePrompt({
   instructions.push(
     "",
     `Use no more than ${architecture.maximumSections} distinct conversational parts.`,
-    "The first paragraph must add professional interpretation rather than merely repeating the employer's message.",
-    "The response must explain the most important professional judgement before moving into process.",
-    "Give one clear immediate recommendation.",
-    "End with the next practical step, expressed naturally.",
+    "Lead with one clear recommendation in the opening lines, then explain the professional judgement that supports it.",
+    "Do not delay the recommendation with a long preamble or generic acknowledgement.",
+    "Explain the most important professional judgement before moving into wider process detail.",
+    "Do not tell the employer to familiarise themselves with legal duties, procedures or HR processes; provide the needed guidance directly.",
+    "For complex or ongoing matters, guide the employer step by step and explain legal and practical requirements as they become relevant.",
+    "For simple factual questions, give a direct answer without creating unnecessary process.",
+    "Give one clear immediate recommendation and one practical next step.",
+    "Keep most responses concise at approximately 250-450 words unless the employer has explicitly asked for a brief or detailed answer.",
+    "End with a useful recommendation, next step, or specific offer of further guidance linked to the current matter.",
     "The employer should experience one calm, coherent response rather than a template.",
-    "The final wording must sound natural when spoken aloud by an experienced retained HR consultant."
+    "The final wording must sound natural when spoken aloud by an experienced HR Director advising a leadership team."
   );
 
   return instructions.join("\n");

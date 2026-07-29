@@ -111,5 +111,11 @@ export function buildConversationPrompt({
     );
   }
 
+  instructions.push(
+    "Where it is safe to advise, lead with a clear recommendation before extended explanation.",
+    "For simple factual questions, answer directly without turning the reply into a process.",
+    "For complex or ongoing matters, guide step by step and explain legal and practical requirements at each relevant stage."
+  );
+
   return instructions.join("\n");
 }

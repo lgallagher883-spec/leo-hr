@@ -213,28 +213,25 @@ export default function MatterDetailPage() {
       setConversation((previous) => [...previous, userMessage]);
       setQuestion("");
 
-      const fullConversation = [...conversation, userMessage]
-        .map((message) => `${message.role}: ${message.content}`)
-        .join("\n\n");
-
-      const matterContext = `
-Matter ID: ${matter.id}
-Matter Title: ${matter.title}
-Matter Description: ${matter.description || "No description provided"}
-Matter Status: ${matter.status}
-
-Conversation so far:
-${fullConversation}
-
-Latest User Message:
-${messageText}
-`;
-
       const response = await fetch("/api/ask-leo", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: matterContext }),
+        body: JSON.stringify({
+          message: messageText,
+          latestMessage: messageText,
+          contextType: "matter",
+          activeMatterId: matter.id,
+          matter: {
+            id: matter.id,
+            title: matter.title,
+            subject: matter.subject || "",
+            matterType: matter.matter_type || "",
+            description: matter.description || "",
+            status: matter.status || "",
+          },
+          conversation: [...conversation, userMessage],
+        }),
       });
 
       const data = (await response.json().catch(() => null)) as

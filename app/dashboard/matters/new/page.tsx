@@ -4,7 +4,10 @@ import {
   useEffect,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { useMatters } from "../MatterContext";
 
 type Employee = {
@@ -14,10 +17,30 @@ type Employee = {
   status: string | null;
 };
 
+type ConversationMessage = {
+  role: "user" | "leo";
+  content: string;
+};
+
+type SourceConversation = {
+  id: number;
+  title: string;
+  messages: ConversationMessage[];
+};
+
 export default function NewMatterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addMatter } =
     useMatters();
+
+  const sourceConversationIdValue =
+    searchParams.get("sourceConversationId");
+
+  const sourceConversationId =
+    sourceConversationIdValue
+      ? Number(sourceConversationIdValue)
+      : null;
 
   const [
     matterType,
@@ -61,6 +84,138 @@ export default function NewMatterPage() {
     creating,
     setCreating,
   ] = useState(false);
+
+  const [
+    sourceConversation,
+    setSourceConversation,
+  ] = useState<
+    SourceConversation | null
+  >(null);
+
+  const [
+    loadingSourceConversation,
+    setLoadingSourceConversation,
+  ] = useState(false);
+
+  const [
+    sourceConversationError,
+    setSourceConversationError,
+  ] = useState(false);
+
+  useEffect(() => {
+    if (
+      !sourceConversationId ||
+      !Number.isFinite(sourceConversationId)
+    ) {
+      setSourceConversation(null);
+      setSourceConversationError(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSourceConversation() {
+      setLoadingSourceConversation(true);
+      setSourceConversationError(false);
+
+      try {
+        const response = await fetch(
+          `/api/ask-leo/conversations/${sourceConversationId}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+          }
+        );
+
+        const result = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              conversation?: {
+                id: number;
+                title: string;
+              };
+              messages?: Array<{
+                role: "user" | "leo";
+                content: string;
+              }>;
+              error?: string;
+            }
+          | null;
+
+        if (!response.ok || !result?.success || !result.conversation) {
+          throw new Error(
+            result?.error ||
+              "The Ask Leo conversation could not be loaded."
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const validMessages = (result.messages || [])
+          .filter(
+            (message) =>
+              (message.role === "user" ||
+                message.role === "leo") &&
+              typeof message.content === "string" &&
+              Boolean(message.content.trim())
+          )
+          .map((message) => ({
+            role: message.role,
+            content: message.content.trim(),
+          }));
+
+        setSourceConversation({
+          id: result.conversation.id,
+          title: result.conversation.title,
+          messages: validMessages,
+        });
+
+        setSubject((previous) => {
+          if (previous.trim()) {
+            return previous;
+          }
+
+          const proposed =
+            result.conversation?.title?.trim() || "";
+
+          return proposed || previous;
+        });
+
+        setDescription((previous) => {
+          if (previous.trim()) {
+            return previous;
+          }
+
+          const latestUserMessage = [...validMessages]
+            .reverse()
+            .find((message) => message.role === "user");
+
+          return latestUserMessage?.content || previous;
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("Ask Leo conversation could not be loaded:", error);
+        setSourceConversation(null);
+        setSourceConversationError(true);
+      } finally {
+        if (!cancelled) {
+          setLoadingSourceConversation(false);
+        }
+      }
+    }
+
+    void loadSourceConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceConversationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +265,42 @@ export default function NewMatterPage() {
     };
   }, []);
 
+  async function convertSourceConversation(
+    matterId: number
+  ) {
+    if (!sourceConversationId) {
+      return;
+    }
+
+    const response = await fetch(
+      `/api/ask-leo/conversations/${sourceConversationId}/convert`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          matterId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const result =
+        (await response.json().catch(() => null)) as
+          | {
+              error?: string;
+            }
+          | null;
+
+      throw new Error(
+        result?.error ||
+          "The Ask Leo conversation could not be linked to the new Matter."
+      );
+    }
+  }
+
   async function handleCreate() {
     if (creating) {
       return;
@@ -153,6 +344,20 @@ export default function NewMatterPage() {
       return;
     }
 
+    try {
+      await convertSourceConversation(
+        createdMatter.id
+      );
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "The Ask Leo conversation could not be linked to this Matter."
+      );
+    } finally {
+      setCreating(false);
+    }
+
     router.push(
       `/dashboard/matters/${createdMatter.id}`
     );
@@ -194,6 +399,24 @@ export default function NewMatterPage() {
         Create a structured HR
         Matter record.
       </p>
+
+      {loadingSourceConversation && (
+        <div style={noticeStyle}>
+          Loading Ask Leo conversation...
+        </div>
+      )}
+
+      {sourceConversationError && (
+        <div style={errorStyle}>
+          The Ask Leo conversation could not be loaded. You can still create a Matter manually.
+        </div>
+      )}
+
+      {sourceConversation && (
+        <div style={noticeStyle}>
+          This Matter will link Ask Leo conversation: <strong>{sourceConversation.title}</strong>
+        </div>
+      )}
 
       <div style={cardStyle}>
         <div>
@@ -540,4 +763,24 @@ const createButtonStyle: React.CSSProperties = {
   color: "white",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const noticeStyle: React.CSSProperties = {
+  marginBottom: "14px",
+  border: "1px solid #D1D5DB",
+  background: "#F9FAFB",
+  color: "#111827",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  fontSize: "13px",
+};
+
+const errorStyle: React.CSSProperties = {
+  marginBottom: "14px",
+  border: "1px solid #FECACA",
+  background: "#FEF2F2",
+  color: "#991B1B",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  fontSize: "13px",
 };

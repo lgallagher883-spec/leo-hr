@@ -293,6 +293,51 @@ function buildProfessionalReality(
 ): string {
   const normalised = message.toLowerCase();
 
+  const mentionsCapability = includesAny(
+    normalised,
+    [
+      "performance",
+      "capability",
+      "underperform",
+      "not meeting expectations",
+      "not capable",
+    ]
+  );
+
+  const mentionsMisconduct = includesAny(
+    normalised,
+    [
+      "misconduct",
+      "disciplinary",
+      "refused",
+      "insubordination",
+      "gross misconduct",
+    ]
+  );
+
+  const mentionsSocialMedia = includesAny(
+    normalised,
+    [
+      "social media",
+      "facebook",
+      "instagram",
+      "linkedin",
+      "twitter",
+      " x ",
+      "tiktok",
+      "online comment",
+      "online post",
+    ]
+  );
+
+  if (mentionsCapability && mentionsMisconduct) {
+    return "The immediate issue is classification. A capability shortfall is not the same as misconduct, and the route you take should depend on whether the concern is inability to meet standards, deliberate refusal, or both.";
+  }
+
+  if (mentionsSocialMedia) {
+    return "A social media concern does not automatically justify disciplinary action. The practical question is whether there is a genuine contractual, legal or business impact that makes formal action proportionate.";
+  }
+
   if (
     includesAny(normalised, [
       "accused",
@@ -388,6 +433,83 @@ function buildProfessionalInsight(
   missingInformation: string[]
 ): string {
   const normalised = message.toLowerCase();
+
+  const mentionsCapability = includesAny(
+    normalised,
+    [
+      "performance",
+      "capability",
+      "underperform",
+      "not meeting expectations",
+      "not capable",
+    ]
+  );
+
+  const mentionsMisconduct = includesAny(
+    normalised,
+    [
+      "misconduct",
+      "disciplinary",
+      "refused",
+      "insubordination",
+      "gross misconduct",
+    ]
+  );
+
+  const mentionsDisability = includesAny(
+    normalised,
+    [
+      "disability",
+      "disabled",
+      "fit note",
+      "medical",
+      "condition",
+      "mental health",
+      "anxiety",
+      "depression",
+      "reasonable adjustment",
+      "adjustment",
+    ]
+  );
+
+  const mentionsFormalAction = includesAny(
+    normalised,
+    [
+      "disciplinary",
+      "warning",
+      "dismiss",
+      "terminate",
+      "formal action",
+      "capability hearing",
+    ]
+  );
+
+  const mentionsSocialMedia = includesAny(
+    normalised,
+    [
+      "social media",
+      "facebook",
+      "instagram",
+      "linkedin",
+      "twitter",
+      " x ",
+      "tiktok",
+      "online comment",
+      "online post",
+    ]
+  );
+
+  if (mentionsCapability && mentionsMisconduct) {
+    return "The key judgement is to classify the issue correctly before acting. If the concern is capability, support and performance management are usually proportionate; if it is deliberate misconduct, formal disciplinary steps may be justified.";
+  }
+
+  if (mentionsDisability && mentionsFormalAction) {
+    return "The crucial risk is sequencing. If health or disability may be relevant, the employer should understand medical impact and reasonable adjustments before moving to formal action, otherwise the process may be unfair and legally vulnerable.";
+  }
+
+  if (mentionsSocialMedia) {
+    return "The strongest response is not always the safest response. The question is whether the post creates a real workplace, contractual or reputational impact that justifies formal action, rather than reacting to offence alone.";
+  }
 
   if (
     includesAny(normalised, [
@@ -509,6 +631,9 @@ function buildProfessionalContext(
       "health",
       "wellbeing",
       "feel awful",
+      "disability",
+      "adjustment",
+      "medical",
     ])
   ) {
     context.push(
@@ -566,6 +691,83 @@ function buildProfessionalRecommendation(
   recommendedSteps: string[]
 ): string {
   const normalised = message.toLowerCase();
+
+  const mentionsCapability = includesAny(
+    normalised,
+    [
+      "performance",
+      "capability",
+      "underperform",
+      "not meeting expectations",
+      "not capable",
+    ]
+  );
+
+  const mentionsMisconduct = includesAny(
+    normalised,
+    [
+      "misconduct",
+      "disciplinary",
+      "refused",
+      "insubordination",
+      "gross misconduct",
+    ]
+  );
+
+  const mentionsDisability = includesAny(
+    normalised,
+    [
+      "disability",
+      "disabled",
+      "fit note",
+      "medical",
+      "condition",
+      "mental health",
+      "anxiety",
+      "depression",
+      "reasonable adjustment",
+      "adjustment",
+    ]
+  );
+
+  const mentionsFormalAction = includesAny(
+    normalised,
+    [
+      "disciplinary",
+      "warning",
+      "dismiss",
+      "terminate",
+      "formal action",
+      "capability hearing",
+    ]
+  );
+
+  const mentionsSocialMedia = includesAny(
+    normalised,
+    [
+      "social media",
+      "facebook",
+      "instagram",
+      "linkedin",
+      "twitter",
+      " x ",
+      "tiktok",
+      "online comment",
+      "online post",
+    ]
+  );
+
+  if (mentionsCapability && mentionsMisconduct) {
+    return "Separate capability from misconduct before choosing a process, and only use disciplinary action if there is evidence of deliberate misconduct rather than inability to meet standards.";
+  }
+
+  if (mentionsDisability && mentionsFormalAction) {
+    return "Before supporting formal action, establish whether disability may be relevant and what reasonable adjustments are possible, then reassess what remains proportionate on the facts.";
+  }
+
+  if (mentionsSocialMedia) {
+    return "Do not move straight to disciplinary action. First test whether the social media issue creates a genuine contractual, legal or business risk and then choose the least intrusive proportionate response.";
+  }
 
   if (
     includesAny(normalised, [
@@ -661,6 +863,83 @@ function buildImmediateNextStep(
   recommendedSteps: string[]
 ): string {
   const normalised = message.toLowerCase();
+
+  const mentionsCapability = includesAny(
+    normalised,
+    [
+      "performance",
+      "capability",
+      "underperform",
+      "not meeting expectations",
+      "not capable",
+    ]
+  );
+
+  const mentionsMisconduct = includesAny(
+    normalised,
+    [
+      "misconduct",
+      "disciplinary",
+      "refused",
+      "insubordination",
+      "gross misconduct",
+    ]
+  );
+
+  const mentionsDisability = includesAny(
+    normalised,
+    [
+      "disability",
+      "disabled",
+      "fit note",
+      "medical",
+      "condition",
+      "mental health",
+      "anxiety",
+      "depression",
+      "reasonable adjustment",
+      "adjustment",
+    ]
+  );
+
+  const mentionsFormalAction = includesAny(
+    normalised,
+    [
+      "disciplinary",
+      "warning",
+      "dismiss",
+      "terminate",
+      "formal action",
+      "capability hearing",
+    ]
+  );
+
+  const mentionsSocialMedia = includesAny(
+    normalised,
+    [
+      "social media",
+      "facebook",
+      "instagram",
+      "linkedin",
+      "twitter",
+      " x ",
+      "tiktok",
+      "online comment",
+      "online post",
+    ]
+  );
+
+  if (mentionsCapability && mentionsMisconduct) {
+    return "Set out, in writing, which parts of the concern relate to capability and which (if any) relate to misconduct, then follow the route that matches each issue.";
+  }
+
+  if (mentionsDisability && mentionsFormalAction) {
+    return "Arrange a focused discussion on the employee's health impact and possible adjustments, and gather any available medical evidence before deciding whether formal action remains justified.";
+  }
+
+  if (mentionsSocialMedia) {
+    return "Identify exactly what was posted, how it links to the workplace or contractual obligations, and what measurable business impact arose before deciding whether formal action is proportionate.";
+  }
 
   if (
     includesAny(normalised, [

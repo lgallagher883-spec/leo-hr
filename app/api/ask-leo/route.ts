@@ -39,6 +39,42 @@ type PolicyRegisterRecord = {
   register_type: string;
 };
 
+type ConversationMessage = {
+  role: "user" | "leo";
+  content: string;
+};
+
+type AskLeoRequestBody = {
+  message?: unknown;
+  latestMessage?: unknown;
+  conversationId?: unknown;
+  requestId?: unknown;
+  conversation?: unknown;
+  contextType?: unknown;
+  activeMatterId?: unknown;
+  matter?: unknown;
+  contextSummary?: unknown;
+  policies?: unknown;
+  organisationMemory?: unknown;
+  previousMatters?: unknown;
+};
+
+type MatterContextPayload = {
+  id: number | null;
+  title: string;
+  description: string;
+  status: string;
+  matterType: string;
+  subject: string;
+};
+
+type AskLeoConversationRow = {
+  id: number;
+  title: string;
+  converted_to_matter_id: number | null;
+  converted_to_matter_at: string | null;
+};
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -80,12 +116,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as AskLeoRequestBody;
+
+    const latestMessage =
+      typeof body.latestMessage === "string"
+        ? body.latestMessage.trim()
+        : "";
 
     const message =
-      typeof body.message === "string"
+      latestMessage ||
+      (typeof body.message === "string"
         ? body.message.trim()
-        : "";
+        : "");
 
     if (!message) {
       return NextResponse.json(
@@ -96,6 +138,140 @@ export async function POST(req: Request) {
           status: 400,
         }
       );
+    }
+
+    const conversation = normaliseConversation(
+      body.conversation
+    );
+
+    const contextType =
+      typeof body.contextType === "string"
+        ? body.contextType
+            .trim()
+            .toLowerCase()
+        : "general";
+
+    const activeMatterId = readMatterId(
+      body.activeMatterId
+    );
+
+    const providedConversationId =
+      readConversationId(body.conversationId);
+
+    const requestId = readRequestId(
+      body.requestId
+    );
+
+    const matterContext = normaliseMatterContext(
+      body.matter,
+      activeMatterId
+    );
+
+    const contextSummary =
+      typeof body.contextSummary === "string"
+        ? body.contextSummary.trim()
+        : "";
+
+    const shouldPersistConversation =
+      contextType !== "matter" &&
+      !activeMatterId;
+
+    let persistedConversationId: number | null =
+      null;
+
+    let userMessageAlreadyStored = false;
+
+    if (shouldPersistConversation) {
+      const ensuredConversation =
+        await ensureAskLeoConversation({
+          supabase,
+          organisationId,
+          userId: user.id,
+          conversationId:
+            providedConversationId,
+          firstMessage: message,
+        });
+
+      if (
+        "error" in
+        ensuredConversation
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              ensuredConversation.error,
+          },
+          {
+            status:
+              ensuredConversation.status,
+          }
+        );
+      }
+
+      const currentConversationId =
+        ensuredConversation.conversation.id;
+
+      persistedConversationId =
+        currentConversationId;
+
+      if (requestId) {
+        const dedupeResult =
+          await getAskLeoRequestReplay({
+            supabase,
+            conversationId:
+              currentConversationId,
+            requestId,
+          });
+
+        if (dedupeResult.error) {
+          return NextResponse.json(
+            {
+              error:
+                dedupeResult.error,
+            },
+            { status: 500 }
+          );
+        }
+
+        if (dedupeResult.response) {
+          return createReplayStreamResponse({
+            response: dedupeResult.response,
+            conversationId: persistedConversationId,
+          });
+        }
+
+        userMessageAlreadyStored =
+          dedupeResult.userMessageExists;
+      }
+
+      if (!userMessageAlreadyStored) {
+        const saveUserMessageResult =
+          await saveAskLeoConversationMessage({
+            supabase,
+            conversationId:
+              currentConversationId,
+            organisationId,
+            userId: user.id,
+            role: "user",
+            content: message,
+            requestId,
+          });
+
+        if (
+          saveUserMessageResult.error &&
+          !saveUserMessageResult.isDuplicate
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Leo could not save your Ask Leo message.",
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+      }
     }
 
     /*
@@ -109,7 +285,16 @@ export async function POST(req: Request) {
      * 2. LEO CORE
      */
 
-    const coreResult = runLeoCore(message);
+    const coreMessage = [
+      matterContext.id
+        ? `Matter context is active for Matter ${matterContext.id}.`
+        : "",
+      message,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const coreResult = runLeoCore(coreMessage);
 
     /*
      * 3. PROFESSIONAL REASONING
@@ -117,7 +302,7 @@ export async function POST(req: Request) {
 
     const reasoningResult = runLeoReasoning(
       coreResult,
-      message
+      coreMessage
     );
 
     /*
@@ -271,11 +456,48 @@ export async function POST(req: Request) {
      * 12. OPENAI
      */
 
-    const completion =
+    const promptContext =
+      buildPromptContextEnvelope({
+        latestMessage: message,
+        conversation,
+        contextType,
+        matter: matterContext,
+        contextSummary,
+      });
+
+    const matterRecommendation =
+      evaluateMatterRecommendation({
+        latestMessage: message,
+        contextType,
+        activeMatterId,
+        coreRequiresMatter:
+          coreResult.requiresMatter,
+        intent: coreResult.intent,
+        overallRisk:
+          coreResult.risk.overall,
+        missingInformationCount:
+          reasoningResult
+            .missingInformation.length,
+      });
+
+    const documentKnowledge = {
+      policyCount: documentPolicies.length,
+      sectionCount: documentPolicies.reduce(
+        (total, policy) =>
+          total + policy.sections.length,
+        0
+      ),
+      sources: documentPolicies.map(
+        (policy) => policy.title
+      ),
+    };
+
+    const completionStream =
       await client.chat.completions.create(
         {
           model: "gpt-4o-mini",
           temperature: 0.4,
+          stream: true,
           messages: [
             {
               role: "system",
@@ -283,40 +505,154 @@ export async function POST(req: Request) {
             },
             {
               role: "user",
-              content: message,
+              content: promptContext,
             },
           ],
         }
       );
 
-    const response =
-      completion.choices[0]?.message
-        ?.content ??
-      "Leo was unable to generate a response.";
+    const encoder = new TextEncoder();
 
-    console.log(
-      "LEO CONVERSATION PLAN:",
-      conversationPlan
-    );
+    const responseStream = new ReadableStream({
+      async start(controller) {
+        let fullResponse = "";
 
-    return NextResponse.json({
-      response,
+        const sendEvent = (payload: Record<string, unknown>) => {
+          controller.enqueue(
+            encoder.encode(`${JSON.stringify(payload)}\n`)
+          );
+        };
 
-      documentKnowledge: {
-        policyCount:
-          documentPolicies.length,
+        try {
+          sendEvent({
+            type: "meta",
+            conversationId: persistedConversationId,
+          });
 
-        sectionCount:
-          documentPolicies.reduce(
-            (total, policy) =>
-              total +
-              policy.sections.length,
-            0
-          ),
+          for await (const chunk of completionStream) {
+            const delta =
+              chunk.choices[0]?.delta?.content || "";
 
-        sources: documentPolicies.map(
-          (policy) => policy.title
-        ),
+            if (!delta) {
+              continue;
+            }
+
+            fullResponse += delta;
+            sendEvent({
+              type: "delta",
+              delta,
+            });
+          }
+
+          if (!fullResponse.trim()) {
+            fullResponse =
+              "Leo was unable to generate a response.";
+
+            sendEvent({
+              type: "delta",
+              delta: fullResponse,
+            });
+          }
+
+          if (
+            shouldPersistConversation &&
+            persistedConversationId
+          ) {
+            const saveLeoMessageResult =
+              await saveAskLeoConversationMessage({
+                supabase,
+                conversationId:
+                  persistedConversationId,
+                organisationId,
+                userId: user.id,
+                role: "leo",
+                content: fullResponse,
+                requestId,
+              });
+
+            if (
+              saveLeoMessageResult.error &&
+              !saveLeoMessageResult.isDuplicate
+            ) {
+              console.error(
+                "Ask Leo reply could not be persisted:",
+                saveLeoMessageResult.error
+              );
+            }
+
+            const nowIso =
+              new Date().toISOString();
+
+            const { error: conversationUpdateError } =
+              await supabase
+                .from("ask_leo_conversations")
+                .update({
+                  last_message_preview:
+                    buildConversationPreview(
+                      fullResponse
+                    ),
+                  last_message_at: nowIso,
+                  updated_at: nowIso,
+                })
+                .eq(
+                  "id",
+                  persistedConversationId
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq("user_id", user.id);
+
+            if (conversationUpdateError) {
+              console.error(
+                "Ask Leo conversation metadata could not be updated:",
+                conversationUpdateError
+              );
+            }
+          }
+
+          console.log(
+            "LEO CONVERSATION PLAN:",
+            conversationPlan
+          );
+
+          sendEvent({
+            type: "done",
+            conversationId: persistedConversationId,
+            shouldCreateMatter:
+              matterRecommendation.shouldRecommend,
+            matterRecommendationReason:
+              matterRecommendation.reason,
+            documentKnowledge,
+          });
+
+          controller.close();
+        } catch (streamError) {
+          console.error(
+            "Ask Leo streaming error:",
+            streamError
+          );
+
+          sendEvent({
+            type: "error",
+            error:
+              "Leo could not complete the response.",
+          });
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(responseStream, {
+      status: 200,
+      headers: {
+        "Content-Type":
+          "application/x-ndjson; charset=utf-8",
+        "Cache-Control":
+          "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
   } catch (error) {
@@ -335,6 +671,64 @@ export async function POST(req: Request) {
       }
     );
   }
+}
+
+function createReplayStreamResponse(input: {
+  response: string;
+  conversationId: number | null;
+}) {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          `${JSON.stringify({
+            type: "meta",
+            conversationId: input.conversationId,
+          })}\n`
+        )
+      );
+
+      controller.enqueue(
+        encoder.encode(
+          `${JSON.stringify({
+            type: "delta",
+            delta: input.response,
+          })}\n`
+        )
+      );
+
+      controller.enqueue(
+        encoder.encode(
+          `${JSON.stringify({
+            type: "done",
+            conversationId: input.conversationId,
+            shouldCreateMatter: false,
+            matterRecommendationReason:
+              "Conversation replayed from saved history.",
+            documentKnowledge: {
+              policyCount: 0,
+              sectionCount: 0,
+              sources: [],
+            },
+          })}\n`
+        )
+      );
+
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "Content-Type":
+        "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
 
 async function loadRelevantDocumentPolicies(
@@ -816,4 +1210,621 @@ function buildKnowledgeKeywords(
         )
     )
   );
+}
+
+function normaliseConversation(
+  value: unknown
+): ConversationMessage[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((item) => {
+        if (
+          !item ||
+          typeof item !== "object"
+        ) {
+          return null;
+        }
+
+        const role =
+          (item as { role?: unknown }).role;
+
+        const content =
+          (item as { content?: unknown })
+            .content;
+
+        if (
+          (role !== "user" &&
+            role !== "leo") ||
+          typeof content !== "string"
+        ) {
+          return null;
+        }
+
+        const trimmed = content.trim();
+
+        if (!trimmed) {
+          return null;
+        }
+
+        return {
+          role,
+          content: trimmed,
+        } as ConversationMessage;
+      })
+      .filter(
+        (
+          item
+        ): item is ConversationMessage =>
+          Boolean(item)
+      )
+      .slice(-14);
+}
+
+function readMatterId(
+  value: unknown
+): number | null {
+    const parsed = Number(value);
+
+    return Number.isInteger(parsed) &&
+      parsed > 0
+      ? parsed
+      : null;
+}
+
+function normaliseMatterContext(
+  value: unknown,
+  fallbackMatterId: number | null
+): MatterContextPayload {
+    if (!value || typeof value !== "object") {
+      return {
+        id: fallbackMatterId,
+        title: "",
+        description: "",
+        status: "",
+        matterType: "",
+        subject: "",
+      };
+    }
+
+    const payload = value as {
+      id?: unknown;
+      title?: unknown;
+      description?: unknown;
+      status?: unknown;
+      matterType?: unknown;
+      subject?: unknown;
+    };
+
+    return {
+      id:
+        readMatterId(payload.id) ||
+        fallbackMatterId,
+      title:
+        typeof payload.title === "string"
+          ? payload.title.trim()
+          : "",
+      description:
+        typeof payload.description ===
+        "string"
+          ? payload.description.trim()
+          : "",
+      status:
+        typeof payload.status === "string"
+          ? payload.status.trim()
+          : "",
+      matterType:
+        typeof payload.matterType ===
+        "string"
+          ? payload.matterType.trim()
+          : "",
+      subject:
+        typeof payload.subject === "string"
+          ? payload.subject.trim()
+          : "",
+    };
+}
+
+function buildPromptContextEnvelope(input: {
+  latestMessage: string;
+  conversation: ConversationMessage[];
+  contextType: string;
+  matter: MatterContextPayload;
+  contextSummary: string;
+}): string {
+    const conversationSummary =
+      input.conversation.length > 0
+        ? input.conversation
+            .map(
+              (item) =>
+                `${
+                  item.role === "leo"
+                    ? "Leo"
+                    : "Employer"
+                }: ${item.content}`
+            )
+            .join("\n\n")
+        : "No prior conversation context supplied.";
+
+    const matterLines =
+      input.matter.id
+        ? [
+            `Matter ID: ${input.matter.id}`,
+            `Matter title: ${input.matter.title || "Not recorded"}`,
+            `Matter subject: ${input.matter.subject || "Not recorded"}`,
+            `Matter type: ${input.matter.matterType || "Not recorded"}`,
+            `Matter status: ${input.matter.status || "Not recorded"}`,
+            `Matter description: ${input.matter.description || "Not recorded"}`,
+          ].join("\n")
+        : "No active Matter context provided.";
+
+    return [
+      "Use the context below to answer as Leo.",
+      "",
+      `Context type: ${input.contextType || "general"}`,
+      "",
+      "ACTIVE MATTER CONTEXT",
+      matterLines,
+      "",
+      "CONVERSATION CONTEXT",
+      conversationSummary,
+      input.contextSummary
+        ? "\nADDITIONAL CONTEXT\n" +
+          input.contextSummary
+        : "",
+      "",
+      "LATEST EMPLOYER MESSAGE",
+      input.latestMessage,
+    ]
+      .filter(Boolean)
+      .join("\n");
+}
+
+function evaluateMatterRecommendation(input: {
+  latestMessage: string;
+  contextType: string;
+  activeMatterId: number | null;
+  coreRequiresMatter: boolean;
+  intent: string;
+  overallRisk:
+    | "low"
+    | "medium"
+    | "high"
+    | "critical";
+  missingInformationCount: number;
+}): {
+  shouldRecommend: boolean;
+  reason: string;
+} {
+    if (
+      input.activeMatterId ||
+      input.contextType === "matter"
+    ) {
+      return {
+        shouldRecommend: false,
+        reason:
+          "Conversation is already within an active Matter.",
+      };
+    }
+
+    const text =
+      input.latestMessage.toLowerCase();
+
+    const informationalSignals = [
+      "what is",
+      "what are",
+      "can you explain",
+      "how does",
+      "policy",
+      "guidance",
+      "general",
+    ];
+
+    const caseManagementSignals = [
+      "employee relations",
+      "investigation",
+      "disciplinary",
+      "grievance",
+      "capability",
+      "absence",
+      "long-term absence",
+      "long term absence",
+      "safeguarding",
+      "compliance risk",
+      "evidence",
+      "hearing",
+      "appeal",
+      "dismiss",
+      "terminate",
+      "tribunal",
+      "redundancy",
+      "whistleblowing",
+      "harassment",
+      "discrimination",
+    ];
+
+    const continuitySignals = [
+      "ongoing",
+      "escalating",
+      "formal",
+      "written warning",
+      "final warning",
+      "chronology",
+      "timeline",
+      "record",
+      "witness",
+      "meeting",
+      "appeal",
+      "already raised",
+      "again",
+    ];
+
+    const looksInformational =
+      informationalSignals.some((term) =>
+        text.includes(term)
+      ) &&
+      !caseManagementSignals.some((term) =>
+        text.includes(term)
+      ) &&
+      input.overallRisk === "low";
+
+    if (looksInformational) {
+      return {
+        shouldRecommend: false,
+        reason:
+          "Query appears informational and does not currently require structured case management.",
+      };
+    }
+
+    const caseSignalCount =
+      caseManagementSignals.filter((term) =>
+        text.includes(term)
+      ).length;
+
+    const continuitySignalCount =
+      continuitySignals.filter((term) =>
+        text.includes(term)
+      ).length;
+
+    const highSuitabilityIntent = [
+      "disciplinary",
+      "grievance",
+      "termination",
+      "redundancy",
+    ].includes(input.intent);
+
+    const likelyERCase =
+      input.overallRisk === "critical" ||
+      input.overallRisk === "high" ||
+      input.coreRequiresMatter ||
+      highSuitabilityIntent ||
+      caseSignalCount >= 2;
+
+    const likelyOngoingCaseManagement =
+      continuitySignalCount >= 1 ||
+      input.overallRisk !== "low" ||
+      input.missingInformationCount >= 4;
+
+    const shouldRecommend =
+      likelyERCase &&
+      likelyOngoingCaseManagement;
+
+    return shouldRecommend
+      ? {
+          shouldRecommend: true,
+          reason:
+            "A structured Matter record would support ongoing risk management, chronology and formal process continuity.",
+        }
+      : {
+          shouldRecommend: false,
+          reason:
+            "Conversation can continue as general Ask Leo guidance at this stage.",
+        };
+}
+
+function readConversationId(
+  value: unknown
+): number | null {
+    const parsed = Number(value);
+
+    return Number.isInteger(parsed) &&
+      parsed > 0
+      ? parsed
+      : null;
+}
+
+function readRequestId(
+  value: unknown
+): string | null {
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return null;
+    }
+
+    return trimmed.slice(0, 100);
+}
+
+function buildConversationTitle(
+  message: string
+): string {
+  const singleLine = message
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!singleLine) {
+    return "New Ask Leo conversation";
+  }
+
+  return singleLine.length > 90
+    ? `${singleLine.slice(0, 87)}...`
+    : singleLine;
+}
+
+function buildConversationPreview(
+  content: string
+): string {
+  const singleLine = content
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!singleLine) {
+    return "";
+  }
+
+  return singleLine.length > 180
+    ? `${singleLine.slice(0, 177)}...`
+    : singleLine;
+}
+
+async function ensureAskLeoConversation(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  organisationId: string;
+  userId: string;
+  conversationId: number | null;
+  firstMessage: string;
+}): Promise<
+  | {
+      conversation: AskLeoConversationRow;
+    }
+  | {
+      error: string;
+      status: number;
+    }
+> {
+  if (input.conversationId) {
+    const { data, error } = await input.supabase
+      .from("ask_leo_conversations")
+      .select(
+        "id,title,converted_to_matter_id,converted_to_matter_at"
+      )
+      .eq("id", input.conversationId)
+      .eq(
+        "organisation_id",
+        input.organisationId
+      )
+      .eq("user_id", input.userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Ask Leo conversation lookup failed:",
+        error
+      );
+
+      return {
+        error:
+          "The Ask Leo conversation could not be verified.",
+        status: 500,
+      };
+    }
+
+    if (!data) {
+      return {
+        error:
+          "The Ask Leo conversation could not be found.",
+        status: 404,
+      };
+    }
+
+    if (data.converted_to_matter_at) {
+      return {
+        error:
+          "This Ask Leo conversation has already been converted to a Matter.",
+        status: 409,
+      };
+    }
+
+    return {
+      conversation:
+        data as AskLeoConversationRow,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const { data, error } =
+    await input.supabase
+      .from("ask_leo_conversations")
+      .insert({
+        organisation_id:
+          input.organisationId,
+        user_id: input.userId,
+        title: buildConversationTitle(
+          input.firstMessage
+        ),
+        last_message_preview:
+          buildConversationPreview(
+            input.firstMessage
+          ),
+        last_message_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select(
+        "id,title,converted_to_matter_id,converted_to_matter_at"
+      )
+      .single();
+
+  if (error || !data) {
+    console.error(
+      "Ask Leo conversation creation failed:",
+      error
+    );
+
+    return {
+      error:
+        "Leo could not start a saved conversation.",
+      status: 500,
+    };
+  }
+
+  return {
+    conversation:
+      data as AskLeoConversationRow,
+  };
+}
+
+async function getAskLeoRequestReplay(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  conversationId: number;
+  requestId: string;
+}): Promise<{
+  userMessageExists: boolean;
+  response: string | null;
+  error?: string;
+}> {
+  const { data: userMessage, error: userMessageError } =
+    await input.supabase
+      .from("ask_leo_conversation_messages")
+      .select("id")
+      .eq(
+        "conversation_id",
+        input.conversationId
+      )
+      .eq("role", "user")
+      .eq(
+        "client_message_id",
+        input.requestId
+      )
+      .maybeSingle();
+
+  if (userMessageError) {
+    console.error(
+      "Ask Leo dedupe user lookup failed:",
+      userMessageError
+    );
+
+    return {
+      userMessageExists: false,
+      response: null,
+      error:
+        "Leo could not verify conversation replay state.",
+    };
+  }
+
+  if (!userMessage) {
+    return {
+      userMessageExists: false,
+      response: null,
+    };
+  }
+
+  const { data: leoMessage, error: leoMessageError } =
+    await input.supabase
+      .from("ask_leo_conversation_messages")
+      .select("content")
+      .eq(
+        "conversation_id",
+        input.conversationId
+      )
+      .eq("role", "leo")
+      .eq(
+        "client_message_id",
+        input.requestId
+      )
+      .maybeSingle();
+
+  if (leoMessageError) {
+    console.error(
+      "Ask Leo dedupe reply lookup failed:",
+      leoMessageError
+    );
+
+    return {
+      userMessageExists: true,
+      response: null,
+      error:
+        "Leo could not verify replay response state.",
+    };
+  }
+
+  return {
+    userMessageExists: true,
+    response:
+      typeof leoMessage?.content ===
+      "string"
+        ? leoMessage.content
+        : null,
+  };
+}
+
+async function saveAskLeoConversationMessage(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  conversationId: number;
+  organisationId: string;
+  userId: string;
+  role: "user" | "leo";
+  content: string;
+  requestId: string | null;
+}): Promise<{
+  isDuplicate: boolean;
+  error?: unknown;
+}> {
+  const { error } =
+    await input.supabase
+      .from("ask_leo_conversation_messages")
+      .insert({
+        conversation_id:
+          input.conversationId,
+        organisation_id:
+          input.organisationId,
+        user_id: input.userId,
+        role: input.role,
+        content: input.content,
+        client_message_id:
+          input.requestId,
+      });
+
+  if (!error) {
+    return {
+      isDuplicate: false,
+    };
+  }
+
+  const maybeCode =
+    (error as {
+      code?: string;
+    }).code;
+
+  if (maybeCode === "23505") {
+    return {
+      isDuplicate: true,
+    };
+  }
+
+  console.error(
+    "Ask Leo conversation message save failed:",
+    error
+  );
+
+  return {
+    isDuplicate: false,
+    error,
+  };
 }

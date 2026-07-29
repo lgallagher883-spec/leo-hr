@@ -395,20 +395,8 @@ export default function DashboardPage() {
         label: "Recent Conversations",
         value: "View",
         actionLabel: "View Conversations",
-        onClick: () => {
-          if (recommendedPath) {
-            router.push(recommendedPath);
-            return;
-          }
-
-          if (priority.destination) {
-            router.push(priority.destination);
-            return;
-          }
-
-          router.push("/dashboard/leo-conversations");
-        },
-        priorityRank: recommendedPath || complianceIntelligence ? 7 : 3,
+        onClick: () => router.push("/dashboard/leo-conversations"),
+        priorityRank: 3,
       },
     ].sort((a, b) => b.priorityRank - a.priorityRank);
   }, [

@@ -123,7 +123,7 @@ export function buildResponseArchitecture({
     {
       type: "professional_interpretation",
       instruction:
-        "Open by explaining the professional reality of the situation rather than repeating the employer's words or immediately listing actions.",
+        "Open with a clear recommendation, then briefly interpret the professional reality so the employer understands why that recommendation is proportionate.",
       required:
         conversationPlan.framingRequired,
     },
@@ -187,8 +187,17 @@ export function buildResponseArchitecture({
 
     responseRules: [
       "Do not begin with a generic phrase such as 'From what you have shared, this sounds like a serious situation.'",
+      "Do not begin with explanation alone. Start with a direct recommendation in natural language.",
       "Do not begin by listing steps.",
       "Do not repeat the employer's message back to them without adding professional interpretation.",
+      "Distinguish clearly between established facts, professional judgement and recommended action.",
+      "Identify the real HR issue behind the immediate question before advising.",
+      "Where key facts are missing, state uncertainty honestly and ask concise questions only if the answers would materially change the recommendation.",
+      "Keep legal, commercial, employee wellbeing and organisational risk in balance.",
+      "Where management assumptions are poor or disproportionate, challenge them respectfully and explain why.",
+      "Use confident, practical language that sounds like an experienced HR Director, not a textbook.",
+      "Avoid hedging phrases such as 'this may be appropriate' where the available facts support a clear opinion.",
+      "Explain why the recommendation is being made in plain English.",
       "Do not describe fact-finding as something separate from an investigation where it forms part of the investigation.",
       "Do not recommend speaking to an accused employee before considering the correct investigation order and whether evidence should first be secured.",
       "Do not turn every response into a complete HR procedure.",

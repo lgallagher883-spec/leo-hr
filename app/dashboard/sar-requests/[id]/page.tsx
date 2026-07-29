@@ -413,31 +413,49 @@ export default function SarDetailPage() {
     description?: string | null;
     createdBy?: string | null;
   }) {
-    const { error } =
-      await supabase
-        .from(
-          "employee_sar_timeline"
-        )
-        .insert({
-          sar_id: sarId,
-          event_type: eventType,
+    const response = await fetch(
+      `/api/sar-requests/${sarId}/timeline`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+        },
+        body: JSON.stringify({
+          eventType,
           title,
           description:
             description?.trim() ||
             null,
-          created_by:
+          createdBy:
             createdBy?.trim() ||
             assignedTo.trim() ||
             "User",
-        });
+        }),
+      }
+    );
 
-    if (error) {
+    const result = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !result?.success
+    ) {
+      const message =
+        result?.error ||
+        "The SAR timeline could not be updated.";
+
       console.error(
         "Error saving SAR timeline:",
-        error
+        message
       );
 
-      throw error;
+      throw new Error(message);
     }
 
     await loadTimeline();
@@ -515,22 +533,46 @@ export default function SarDetailPage() {
           : null,
     };
 
-    const { data, error } =
-      await supabase
-        .from("employee_sars")
-        .update(updateValues)
-        .eq("id", sar.id)
-        .select("*")
-        .single();
+    const response = await fetch(
+      `/api/sar-requests/${sar.id}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+        },
+        body: JSON.stringify({
+          action: "updateDetails",
+          status,
+          assignedTo,
+          scopeNotes,
+          extensionApplied,
+          extensionReason,
+          extendedDueDate,
+        }),
+      }
+    );
 
-    if (error || !data) {
+    const result = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !result?.success ||
+      !result?.sar
+    ) {
       console.error(
         "Error updating SAR:",
-        error
+        result?.error
       );
 
       setErrorMessage(
-        "The SAR details could not be saved."
+        result?.error ||
+          "The SAR details could not be saved."
       );
 
       setSaving(false);
@@ -538,7 +580,7 @@ export default function SarDetailPage() {
     }
 
     const updatedSar =
-      data as SarRequest;
+      result.sar as SarRequest;
 
     if (
       sar.status !== updatedSar.status
@@ -658,32 +700,51 @@ export default function SarDetailPage() {
           : null;
     }
 
-    const { data, error } =
-      await supabase
-        .from("employee_sars")
-        .update({
-          [field]: checked,
+    const response = await fetch(
+      `/api/sar-requests/${sar.id}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+        },
+        body: JSON.stringify({
+          action:
+            "toggleChecklist",
+          field,
+          checked,
           ...additionalValues,
-        })
-        .eq("id", sar.id)
-        .select("*")
-        .single();
+        }),
+      }
+    );
 
-    if (error || !data) {
+    const result = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !result?.success ||
+      !result?.sar
+    ) {
       console.error(
         "Error updating SAR progress:",
-        error
+        result?.error
       );
 
       setErrorMessage(
-        "The progress item could not be updated."
+        result?.error ||
+          "The progress item could not be updated."
       );
 
       return;
     }
 
     const updatedSar =
-      data as SarRequest;
+      result.sar as SarRequest;
 
     setSar(updatedSar);
 
@@ -780,86 +841,50 @@ export default function SarDetailPage() {
         documentTitle.trim() ||
         fileBeingUploaded.name;
 
-      const safeFileName =
-        fileBeingUploaded.name
-          .replace(
-            /[^a-zA-Z0-9._-]/g,
-            "-"
-          )
-          .replace(
-            /-+/g,
-            "-"
-          );
+      const formData = new FormData();
+      formData.append(
+        "documentType",
+        documentType
+      );
+      formData.append(
+        "title",
+        documentName
+      );
+      formData.append(
+        "notes",
+        documentNotes
+      );
+      formData.append(
+        "file",
+        fileBeingUploaded
+      );
 
-      const filePath =
-        `sar-requests/${sar.employee_id}/${sar.id}/${Date.now()}-${safeFileName}`;
+      const response = await fetch(
+        `/api/sar-requests/${sar.id}/documents`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
 
-      const { error: uploadError } =
-        await supabase.storage
-          .from("hr-resources")
-          .upload(
-            filePath,
-            fileBeingUploaded,
-            {
-              upsert: false,
-              contentType:
-                fileBeingUploaded.type ||
-                "application/octet-stream",
-            }
-          );
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const {
-        data: documentRecord,
-        error: recordError,
-      } = await supabase
-        .from(
-          "employee_sar_documents"
-        )
-        .insert({
-          sar_id: sar.id,
-          employee_id:
-            sar.employee_id,
-          document_type:
-            documentType,
-          title:
-            documentName,
-          file_name:
-            fileBeingUploaded.name,
-          file_path:
-            filePath,
-          file_type:
-            fileBeingUploaded.type ||
-            null,
-          file_size:
-            fileBeingUploaded.size,
-          review_status:
-            "Not Reviewed",
-          notes:
-            documentNotes.trim() ||
-            null,
-        })
-        .select("*")
-        .single();
+      const result = await response
+        .json()
+        .catch(() => null);
 
       if (
-        recordError ||
-        !documentRecord
+        !response.ok ||
+        !result?.success ||
+        !result?.document
       ) {
-        await supabase.storage
-          .from("hr-resources")
-          .remove([filePath]);
-
-        throw (
-          recordError ||
-          new Error(
+        throw new Error(
+          result?.error ||
             "The document record was not created."
-          )
         );
       }
+
+      const documentRecord =
+        result.document as SarDocument;
 
       await addTimelineEvent({
         eventType:
@@ -978,28 +1003,39 @@ export default function SarDetailPage() {
       return;
     }
 
-    const { error } =
-      await supabase
-        .from(
-          "employee_sar_documents"
-        )
-        .update({
-          review_status:
-            reviewStatus,
-        })
-        .eq(
-          "id",
-          documentId
-        );
+    const response = await fetch(
+      `/api/sar-requests/${sar.id}/documents/${documentId}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Accept:
+            "application/json",
+        },
+        body: JSON.stringify({
+          reviewStatus,
+        }),
+      }
+    );
 
-    if (error) {
+    const result = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !result?.success
+    ) {
       console.error(
         "Error updating document:",
-        error
+        result?.error
       );
 
       setErrorMessage(
-        "The document status could not be updated."
+        result?.error ||
+          "The document status could not be updated."
       );
 
       return;
@@ -1123,44 +1159,34 @@ export default function SarDetailPage() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (
-      documentItem.file_path
-    ) {
-      const {
-        error: storageError,
-      } = await supabase.storage
-        .from("hr-resources")
-        .remove([
-          documentItem.file_path,
-        ]);
-
-      if (storageError) {
-        console.error(
-          "Error deleting stored file:",
-          storageError
-        );
+    const response = await fetch(
+      `/api/sar-requests/${sar.id}/documents/${documentItem.id}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          Accept:
+            "application/json",
+        },
       }
-    }
+    );
 
-    const { error } =
-      await supabase
-        .from(
-          "employee_sar_documents"
-        )
-        .delete()
-        .eq(
-          "id",
-          documentItem.id
-        );
+    const result = await response
+      .json()
+      .catch(() => null);
 
-    if (error) {
+    if (
+      !response.ok ||
+      !result?.success
+    ) {
       console.error(
         "Error deleting SAR document:",
-        error
+        result?.error
       );
 
       setErrorMessage(
-        "The document could not be removed."
+        result?.error ||
+          "The document could not be removed."
       );
 
       return;

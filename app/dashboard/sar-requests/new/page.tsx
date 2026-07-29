@@ -2,12 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Employee = {
   id: number;
@@ -50,37 +44,55 @@ export default function NewSarRequestPage() {
   async function loadReferenceData() {
     setLoading(true);
 
-    const [employeeResult, matterResult] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id,name")
-        .neq("status", "Archived")
-        .order("name", { ascending: true }),
-
-      supabase
-        .from("matters")
-        .select("id,title,subject,employee_id,status")
-        .neq("status", "Closed")
-        .order("created_at", { ascending: false }),
-    ]);
-
-    if (employeeResult.error) {
-      console.error(
-        "Error loading employees:",
-        employeeResult.error
+    try {
+      const response = await fetch(
+        "/api/sar-requests",
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        }
       );
-    }
 
-    if (matterResult.error) {
-      console.error(
-        "Error loading matters:",
-        matterResult.error
+      const result = await response
+        .json()
+        .catch(() => null);
+
+      if (
+        !response.ok ||
+        !result?.success
+      ) {
+        throw new Error(
+          result?.error ||
+            "SAR reference data could not be loaded."
+        );
+      }
+
+      setEmployees(
+        Array.isArray(result.employees)
+          ? (result.employees as Employee[])
+          : []
       );
-    }
 
-    setEmployees(employeeResult.data || []);
-    setMatters(matterResult.data || []);
-    setLoading(false);
+      setMatters(
+        Array.isArray(result.matters)
+          ? (result.matters as Matter[])
+          : []
+      );
+    } catch (error) {
+      console.error(
+        "Error loading SAR reference data:",
+        error
+      );
+
+      setEmployees([]);
+      setMatters([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const availableMatters = useMemo(() => {
@@ -128,119 +140,73 @@ export default function NewSarRequestPage() {
     setErrorMessage("");
 
     try {
-      const responseDueDate =
-        calculateInitialDeadline(receivedDate);
+      const formData = new FormData();
+      formData.append("employeeId", employeeId);
 
-      const { data: sarRecord, error: sarError } =
-        await supabase
-          .from("employee_sars")
-          .insert({
-            employee_id: Number(employeeId),
-            matter_id: matterId
-              ? Number(matterId)
-              : null,
-            request_title:
-              requestTitle.trim() ||
-              "Subject Access Request",
-            request_summary:
-              requestSummary.trim() || null,
-            request_received_date: receivedDate,
-            response_due_date: responseDueDate,
-            status: "Received",
-            request_source:
-              requestSource.trim() || null,
-            assigned_to:
-              assignedTo.trim() || null,
-          })
-          .select("id")
-          .single();
+      if (matterId) {
+        formData.append("matterId", matterId);
+      }
 
-      if (sarError || !sarRecord) {
-        throw sarError || new Error(
-          "SAR record was not created."
+      formData.append(
+        "requestTitle",
+        requestTitle.trim() ||
+          "Subject Access Request"
+      );
+
+      formData.append(
+        "requestSummary",
+        requestSummary
+      );
+
+      formData.append(
+        "receivedDate",
+        receivedDate
+      );
+
+      formData.append(
+        "assignedTo",
+        assignedTo
+      );
+
+      formData.append(
+        "requestSource",
+        requestSource
+      );
+
+      if (requestFile) {
+        formData.append(
+          "requestFile",
+          requestFile
         );
       }
 
-      let uploadedFileDetails:
-        | {
-            fileName: string;
-            filePath: string;
-            fileType: string | null;
-            fileSize: number;
-          }
-        | null = null;
-
-      if (requestFile) {
-        uploadedFileDetails =
-          await uploadOriginalRequest(
-            sarRecord.id,
-            Number(employeeId),
-            requestFile
-          );
-
-        const { error: updateError } =
-          await supabase
-            .from("employee_sars")
-            .update({
-              request_file_name:
-                uploadedFileDetails.fileName,
-              request_file_path:
-                uploadedFileDetails.filePath,
-              request_file_type:
-                uploadedFileDetails.fileType,
-              request_file_size:
-                uploadedFileDetails.fileSize,
-            })
-            .eq("id", sarRecord.id);
-
-        if (updateError) {
-          throw updateError;
+      const response = await fetch(
+        "/api/sar-requests",
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
         }
+      );
 
-        const { error: documentError } =
-          await supabase
-            .from("employee_sar_documents")
-            .insert({
-              sar_id: sarRecord.id,
-              employee_id: Number(employeeId),
-              document_type: "Original Request",
-              title: requestFile.name,
-              file_name:
-                uploadedFileDetails.fileName,
-              file_path:
-                uploadedFileDetails.filePath,
-              file_type:
-                uploadedFileDetails.fileType,
-              file_size:
-                uploadedFileDetails.fileSize,
-              review_status: "Not Reviewed",
-            });
+      const result = await response
+        .json()
+        .catch(() => null);
 
-        if (documentError) {
-          throw documentError;
-        }
+      if (
+        !response.ok ||
+        !result?.success ||
+        !result?.sar?.id
+      ) {
+        throw new Error(
+          result?.error ||
+            "SAR record was not created."
+        );
       }
 
-      const { error: timelineError } =
-        await supabase
-          .from("employee_sar_timeline")
-          .insert({
-            sar_id: sarRecord.id,
-            event_type: "sar_received",
-            title: "SAR received",
-            description: matterId
-              ? "The Subject Access Request was recorded and linked to an existing Matter."
-              : "The Subject Access Request was recorded without a linked Matter.",
-            created_by: assignedTo.trim() || "User",
-          });
-
-     if (timelineError) {
-  throw timelineError;
-}
-
-router.push(
-  `/dashboard/sar-requests/${sarRecord.id}`
-); 
+      router.push(
+        `/dashboard/sar-requests/${result.sar.id}`
+      );
     } catch (error) {
       console.error("Error creating SAR:", error);
 
@@ -250,40 +216,6 @@ router.push(
 
       setSaving(false);
     }
-  }
-
-  async function uploadOriginalRequest(
-    sarId: number,
-    selectedEmployeeId: number,
-    file: File
-  ) {
-    const safeFileName = file.name
-      .replace(/[^a-zA-Z0-9._-]/g, "-")
-      .replace(/-+/g, "-");
-
-    const filePath =
-      `sar-requests/${selectedEmployeeId}/${sarId}/${Date.now()}-${safeFileName}`;
-
-    const { error: uploadError } =
-      await supabase.storage
-        .from("hr-resources")
-        .upload(filePath, file, {
-          upsert: false,
-          contentType:
-            file.type ||
-            "application/octet-stream",
-        });
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    return {
-      fileName: file.name,
-      filePath,
-      fileType: file.type || null,
-      fileSize: file.size,
-    };
   }
 
   if (loading) {

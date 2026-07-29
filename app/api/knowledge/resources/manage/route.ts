@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
+import { processKnowledgeDocument } from "@/leo/knowledge/processor";
+import { storeKnowledgeChunks } from "@/leo/knowledge/store";
 
 export const runtime = "nodejs";
 
@@ -81,7 +85,7 @@ function createServerSupabaseClient() {
     );
   }
 
-  return createClient(supabaseUrl, secretKey, {
+  return createAdminClient(supabaseUrl, secretKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -89,8 +93,99 @@ function createServerSupabaseClient() {
   });
 }
 
+async function requireAuthorisedContext(permissionKey: string) {
+  const session = await createSessionClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await session.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { success: false, error: "You are not signed in." },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const admin = createServerSupabaseClient();
+
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    allowedStatuses: ["active", "accepted"],
+  });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+
+  if (!organisationId) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your active organisation could not be resolved.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const { data: allowed, error: permissionError } = await (session as any).rpc(
+    "leo_has_permission",
+    {
+      target_organisation_id: organisationId,
+      target_permission_key: permissionKey,
+      target_user_id: user.id,
+    },
+  );
+
+  if (permissionError) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your permission to access knowledge could not be verified.",
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  if (!allowed) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error:
+            "You do not have permission to access this resource.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ok: true as const,
+    supabase: admin,
+    organisationId: String(organisationId),
+  };
+}
+
 export async function POST(request: Request) {
   try {
+    const access = await requireAuthorisedContext("hr_resources.view");
+
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const { supabase, organisationId } = access;
+
     const body =
       (await request.json()) as Partial<ManageResourceRequest>;
 
@@ -98,10 +193,6 @@ export async function POST(request: Request) {
     const sourceTable = body.sourceTable;
     const sourceRecordId =
       body.sourceRecordId;
-
-    const organisationId =
-  body.organisationId?.trim() ||
-  "00000000-0000-0000-0000-000000000000";
 
     if (
       action !== "prepare" &&
@@ -154,9 +245,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase =
-      createServerSupabaseClient();
-
     const documentId =
       body.documentId?.trim() ||
       buildDocumentId(
@@ -199,6 +287,7 @@ export async function POST(request: Request) {
         sourceTable,
         sourceRecordId,
         documentId,
+        organisationId,
       });
     }
 
@@ -208,6 +297,7 @@ export async function POST(request: Request) {
         sourceTable,
         sourceRecordId,
         documentId,
+        organisationId,
       });
     }
 
@@ -218,6 +308,7 @@ export async function POST(request: Request) {
       documentId,
       filePath:
         body.filePath || null,
+      organisationId,
     });
   } catch (error) {
     return NextResponse.json(
@@ -370,6 +461,7 @@ async function replaceResource({
       supabase,
       sourceTable,
       sourceRecordId,
+      organisationId,
     });
 
   if (!currentResource.success) {
@@ -443,7 +535,8 @@ async function replaceResource({
       version_number: nextVersion,
       updated_at: updatedAt,
     })
-    .eq("id", sourceRecordId);
+    .eq("id", sourceRecordId)
+    .eq("organisation_id", organisationId);
 
   if (updateError) {
     return NextResponse.json(
@@ -534,6 +627,7 @@ async function archiveResource({
   sourceTable,
   sourceRecordId,
   documentId,
+  organisationId,
 }: {
   supabase: ReturnType<
     typeof createServerSupabaseClient
@@ -542,6 +636,7 @@ async function archiveResource({
   sourceTable: SourceTable;
   sourceRecordId: number;
   documentId: string;
+  organisationId: string;
 }) {
   const archivedAt =
     new Date().toISOString();
@@ -554,7 +649,8 @@ async function archiveResource({
       is_archived: true,
       archived_at: archivedAt,
     })
-    .eq("id", sourceRecordId);
+    .eq("id", sourceRecordId)
+    .eq("organisation_id", organisationId);
 
   if (recordError) {
     return NextResponse.json(
@@ -604,6 +700,7 @@ async function restoreResource({
   sourceTable,
   sourceRecordId,
   documentId,
+  organisationId,
 }: {
   supabase: ReturnType<
     typeof createServerSupabaseClient
@@ -612,6 +709,7 @@ async function restoreResource({
   sourceTable: SourceTable;
   sourceRecordId: number;
   documentId: string;
+  organisationId: string;
 }) {
   const {
     error: recordError,
@@ -621,7 +719,8 @@ async function restoreResource({
       is_archived: false,
       archived_at: null,
     })
-    .eq("id", sourceRecordId);
+    .eq("id", sourceRecordId)
+    .eq("organisation_id", organisationId);
 
   if (recordError) {
     return NextResponse.json(
@@ -672,6 +771,7 @@ async function deleteResource({
   sourceRecordId,
   documentId,
   filePath,
+  organisationId,
 }: {
   supabase: ReturnType<
     typeof createServerSupabaseClient
@@ -681,6 +781,7 @@ async function deleteResource({
   sourceRecordId: number;
   documentId: string;
   filePath: string | null;
+  organisationId: string;
 }) {
   const {
     error: chunksError,
@@ -757,7 +858,8 @@ async function deleteResource({
   } = await supabase
     .from(sourceTable)
     .delete()
-    .eq("id", sourceRecordId);
+    .eq("id", sourceRecordId)
+    .eq("organisation_id", organisationId);
 
   if (recordError) {
     return NextResponse.json(
@@ -784,6 +886,7 @@ async function loadCurrentResource({
   supabase,
   sourceTable,
   sourceRecordId,
+  organisationId,
 }: {
   supabase: ReturnType<
     typeof createServerSupabaseClient
@@ -791,6 +894,7 @@ async function loadCurrentResource({
 
   sourceTable: SourceTable;
   sourceRecordId: number;
+  organisationId: string;
 }): Promise<
   | {
       success: true;
@@ -840,6 +944,7 @@ async function loadCurrentResource({
     .from(sourceTable)
     .select(fields)
     .eq("id", sourceRecordId)
+    .eq("organisation_id", organisationId)
     .single();
 
   if (error || !data) {
@@ -970,52 +1075,52 @@ async function processResourceKnowledge({
       error: string;
     }
 > {
-  const processResponse =
-    await fetch(
-      new URL(
-        "/api/knowledge/process",
-        getBaseUrl()
-      ),
-      {
-        method: "POST",
+  const fileResponse = await fetch(fileUrl);
 
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-          documentId,
-          organisationId,
-          fileName,
-          fileUrl,
-          sourceTable,
-          sourceRecordId,
-        }),
-      }
-    );
-
-  const result =
-    await processResponse.json();
-
-  if (
-    !processResponse.ok ||
-    !result.success
-  ) {
+  if (!fileResponse.ok) {
     return {
       success: false,
-      status:
-        processResponse.status || 500,
-      error:
-        result.error ||
-        "Leo could not prepare this resource.",
+      status: 400,
+      error: `The uploaded file could not be downloaded. Status: ${fileResponse.status}.`,
+    };
+  }
+
+  const arrayBuffer = await fileResponse.arrayBuffer();
+  const fileBuffer = Buffer.from(arrayBuffer);
+
+  const processResult = await processKnowledgeDocument({
+    documentId,
+    organisationId,
+    fileName,
+    fileBuffer,
+  });
+
+  if (!processResult.success) {
+    return {
+      success: false,
+      status: 400,
+      error: processResult.error || "The resource could not be processed.",
+    };
+  }
+
+  const storeResult = await storeKnowledgeChunks({
+    documentId,
+    chunks: processResult.chunks,
+    sourceTable,
+    sourceRecordId,
+  });
+
+  if (!storeResult.success) {
+    return {
+      success: false,
+      status: 500,
+      error: storeResult.error || "The knowledge chunks could not be stored.",
     };
   }
 
   return {
     success: true,
-    storedChunkCount:
-      result.storedChunkCount || 0,
+    storedChunkCount: storeResult.storedCount,
   };
 }
 
@@ -1032,9 +1137,3 @@ function buildDocumentId(
   return `company-document-${sourceRecordId}`;
 }
 
-function getBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000"
-  );
-}

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -42,7 +44,7 @@ function createServerSupabaseClient() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
   }
 
-  return createClient(supabaseUrl, secretKey, {
+  return createAdminClient(supabaseUrl, secretKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -50,19 +52,94 @@ function createServerSupabaseClient() {
   });
 }
 
+async function requireAuthorisedContext(permissionKey: string) {
+  const session = await createSessionClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await session.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { success: false, error: "You are not signed in." },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const admin = createServerSupabaseClient();
+
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    allowedStatuses: ["active", "accepted"],
+  });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+
+  if (!organisationId) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your active organisation could not be resolved.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const { data: allowed, error: permissionError } = await (session as any).rpc(
+    "leo_has_permission",
+    {
+      target_organisation_id: organisationId,
+      target_permission_key: permissionKey,
+      target_user_id: user.id,
+    },
+  );
+
+  if (permissionError) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your permission to access knowledge could not be verified.",
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  if (!allowed) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { success: false, error: "You do not have permission to access this resource." },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ok: true as const,
+    supabase: admin,
+    organisationId: String(organisationId),
+  };
+}
+
 export async function GET(request: Request) {
   try {
-    const url = new URL(request.url);
-    const organisationId = url.searchParams.get("organisationId")?.trim();
+    const access = await requireAuthorisedContext("hr_resources.view");
 
-    if (!organisationId) {
-      return NextResponse.json(
-        { success: false, error: "organisationId is required." },
-        { status: 400 }
-      );
+    if (!access.ok) {
+      return access.response;
     }
 
-    const supabase = createServerSupabaseClient();
+    const { supabase, organisationId } = access;
 
     const { data, error } = await supabase
       .from("leo_organisation_memory_records")
@@ -94,18 +171,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const access = await requireAuthorisedContext("hr_resources.view");
+
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const { supabase, organisationId } = access;
+
     const body = (await request.json()) as Partial<OrganisationMemoryRequest>;
 
-    const organisationId = body.organisationId?.trim();
     const title = body.title?.trim();
     const content = body.content?.trim();
-
-    if (!organisationId) {
-      return NextResponse.json(
-        { success: false, error: "organisationId is required." },
-        { status: 400 }
-      );
-    }
 
     if (!title || !content) {
       return NextResponse.json(
@@ -113,8 +190,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    const supabase = createServerSupabaseClient();
 
     const record = {
       organisation_id: organisationId,
@@ -158,6 +233,14 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const access = await requireAuthorisedContext("hr_resources.view");
+
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const { supabase, organisationId } = access;
+
     const body = (await request.json()) as Partial<OrganisationMemoryRequest> & { id?: string };
 
     const id = body.id?.trim();
@@ -168,8 +251,6 @@ export async function PATCH(request: Request) {
         { status: 400 }
       );
     }
-
-    const supabase = createServerSupabaseClient();
 
     const update: Record<string, unknown> = {};
 
@@ -186,6 +267,7 @@ export async function PATCH(request: Request) {
       .from("leo_organisation_memory_records")
       .update(update)
       .eq("id", id)
+      .eq("organisation_id", organisationId)
       .select()
       .single();
 
@@ -213,6 +295,14 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const access = await requireAuthorisedContext("hr_resources.view");
+
+    if (!access.ok) {
+      return access.response;
+    }
+
+    const { supabase, organisationId } = access;
+
     const url = new URL(request.url);
     const id = url.searchParams.get("id")?.trim();
 
@@ -223,12 +313,11 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
-
     const { error } = await supabase
       .from("leo_organisation_memory_records")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("organisation_id", organisationId);
 
     if (error) {
       return NextResponse.json(

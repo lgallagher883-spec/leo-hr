@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import { retrieveKnowledge } from "@/leo/knowledge/retrieve";
 import { buildKnowledgeContext } from "@/leo/knowledge/context";
 import { mapOrganisationMemoryRecords } from "@/leo/knowledge/organisationMemoryService";
@@ -11,7 +13,7 @@ import {
 export const runtime = "nodejs";
 
 type SearchKnowledgeRequest = {
-  organisationId: string;
+  organisationId?: string;
   query: string;
   maximumResults?: number;
 };
@@ -53,7 +55,7 @@ function createServerSupabaseClient() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
   }
 
-  return createClient(supabaseUrl, secretKey, {
+  return createAdminClient(supabaseUrl, secretKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -61,22 +63,97 @@ function createServerSupabaseClient() {
   });
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as Partial<SearchKnowledgeRequest>;
+async function requireAuthorisedContext(permissionKey: string) {
+  const session = await createSessionClient();
 
-    const organisationId = body.organisationId?.trim();
-    const query = body.query?.trim();
+  const {
+    data: { user },
+    error: userError,
+  } = await session.auth.getUser();
 
-    if (!organisationId) {
-      return NextResponse.json(
+  if (userError || !user) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { success: false, error: "You are not signed in." },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const admin = createServerSupabaseClient();
+
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    allowedStatuses: ["active", "accepted"],
+  });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+
+  if (!organisationId) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
         {
           success: false,
-          error: "organisationId is required.",
+          error: "Your active organisation could not be resolved.",
         },
-        { status: 400 }
-      );
+        { status: 403 },
+      ),
+    };
+  }
+
+  const { data: allowed, error: permissionError } = await (session as any).rpc(
+    "leo_has_permission",
+    {
+      target_organisation_id: organisationId,
+      target_permission_key: permissionKey,
+      target_user_id: user.id,
+    },
+  );
+
+  if (permissionError) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your permission to access knowledge could not be verified.",
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  if (!allowed) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { success: false, error: "You do not have permission to access this resource." },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ok: true as const,
+    supabase: admin,
+    organisationId: String(organisationId),
+  };
+}
+
+export async function POST(request: Request) {
+  try {
+    const access = await requireAuthorisedContext("hr_resources.view");
+
+    if (!access.ok) {
+      return access.response;
     }
+
+    const { supabase, organisationId } = access;
+
+    const body = (await request.json()) as Partial<SearchKnowledgeRequest>;
+    const query = body.query?.trim();
 
     if (!query) {
       return NextResponse.json(
@@ -92,8 +169,6 @@ export async function POST(request: Request) {
       typeof body.maximumResults === "number"
         ? Math.min(Math.max(body.maximumResults, 1), 20)
         : 8;
-
-    const supabase = createServerSupabaseClient();
 
     const { data: storedChunks, error: chunksError } = await supabase
       .from("knowledge_chunks")
@@ -202,16 +277,6 @@ export async function POST(request: Request) {
       companyDocuments = (data || []) as CompanyDocumentRecord[];
     }
 
-    const memoryResponse = await fetch(
-      new URL("/api/knowledge/organisation-memory", getBaseUrl()),
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
-
     let organisationMemoryRecords: Array<{
       id: string;
       organisation_id: string;
@@ -224,13 +289,28 @@ export async function POST(request: Request) {
       is_active: boolean;
     }> = [];
 
-    if (memoryResponse.ok) {
-      const memoryPayload = await memoryResponse.json().catch(() => null);
-      if (memoryPayload?.success) {
-        organisationMemoryRecords = Array.isArray(memoryPayload.records)
-          ? memoryPayload.records
-          : [];
-      }
+    const { data: memoryRows, error: memoryError } = await supabase
+      .from("leo_organisation_memory_records")
+      .select(
+        "id, organisation_id, title, content, category, keywords, source, status, is_active",
+      )
+      .eq("organisation_id", organisationId)
+      .order("updated_at", { ascending: false });
+
+    if (!memoryError) {
+      organisationMemoryRecords = Array.isArray(memoryRows)
+        ? (memoryRows as Array<{
+            id: string;
+            organisation_id: string;
+            title: string;
+            content: string;
+            category: string | null;
+            keywords: string[] | null;
+            source: string | null;
+            status: string | null;
+            is_active: boolean;
+          }>)
+        : [];
     }
 
     const memoryItems = mapOrganisationMemoryRecords(
@@ -331,10 +411,6 @@ export async function POST(request: Request) {
   }
 }
 
-function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-}
-
 function toKnowledgeSourceType(value: string): KnowledgeSourceType {
   const normalised = value
     .trim()
@@ -392,7 +468,6 @@ export async function GET(request: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      organisationId: "default-organisation",
       query,
       maximumResults: 5,
     }),

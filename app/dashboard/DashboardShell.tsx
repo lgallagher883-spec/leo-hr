@@ -192,7 +192,7 @@ const employeeMainLinks: NavigationLink[] = [
   },
   {
     label: "DBS & Safeguarding",
-    href: "/dashboard/my-employment/dbs",
+    href: "/dashboard/my-employment/dbs-safeguarding",
     icon: BadgeCheck,
   },
   {

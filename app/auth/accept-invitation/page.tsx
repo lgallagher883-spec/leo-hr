@@ -21,6 +21,15 @@ function roleLabel(role: string) {
     .join(" ");
 }
 
+function getPasswordChecks(password: string) {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /\d/.test(password),
+  };
+}
+
 export default function AcceptInvitationPage() {
   const router = useRouter();
 
@@ -174,8 +183,13 @@ export default function AcceptInvitationPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Create a password containing at least 8 characters.");
+    const passwordChecks = getPasswordChecks(password);
+    const passwordIsValid = Object.values(passwordChecks).every(Boolean);
+
+    if (!passwordIsValid) {
+      setError(
+        "Use at least 8 characters, including uppercase, lowercase and a number.",
+      );
       return;
     }
 

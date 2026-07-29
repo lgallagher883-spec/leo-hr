@@ -90,7 +90,7 @@ export async function GET() {
 
     const { supabase, organisationId } = access;
 
-    const [sarResult, employeeResult, matterResult] = await Promise.all([
+    const [sarResult, employeeResult] = await Promise.all([
       supabase
         .from("employee_sars")
         .select(
@@ -123,10 +123,6 @@ export async function GET() {
         .order("name", {
           ascending: true,
         }),
-
-      supabase
-        .from("matters")
-        .select("id,title,subject"),
     ]);
 
     if (sarResult.error) {
@@ -156,6 +152,15 @@ export async function GET() {
         { status: 500 },
       );
     }
+
+    const employeeIds = (employeeResult.data || []).map(({ id }) => id);
+
+    const matterResult = employeeIds.length
+      ? await supabase
+          .from("matters")
+          .select("id,title,subject,employee_id")
+          .in("employee_id", employeeIds)
+      : { data: [], error: null };
 
     if (matterResult.error) {
       console.error("Error loading SAR matters:", matterResult.error);

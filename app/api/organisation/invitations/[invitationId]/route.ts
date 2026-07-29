@@ -71,10 +71,14 @@ async function authoriseInvitationManager(
     .maybeSingle();
 
   if (invitationError) {
+    console.error(
+      "Organisation invitation authorisation lookup failed:",
+      invitationError,
+    );
     return {
       ok: false as const,
       response: NextResponse.json(
-        { error: invitationError.message },
+        { error: "The invitation could not be loaded." },
         { status: 500 },
       ),
     };
@@ -206,7 +210,11 @@ export async function POST(request: Request, context: RouteContext) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Organisation invitation resend update failed:", error);
+      return NextResponse.json(
+        { error: "The invitation could not be resent." },
+        { status: 500 },
+      );
     }
 
     const origin = new URL(request.url).origin;
@@ -233,9 +241,7 @@ export async function POST(request: Request, context: RouteContext) {
 
       return NextResponse.json(
         {
-          error:
-            inviteEmailError.message ||
-            "The invitation email could not be resent.",
+          error: "The invitation email could not be resent.",
         },
         { status: 502 },
       );
@@ -261,10 +267,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "The invitation could not be resent.",
+        error: "The invitation could not be resent.",
       },
       { status: 500 },
     );
@@ -326,7 +329,14 @@ export async function DELETE(request: Request, context: RouteContext) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error(
+        "Organisation invitation cancellation update failed:",
+        error,
+      );
+      return NextResponse.json(
+        { error: "The invitation could not be cancelled." },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json(
@@ -349,10 +359,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "The invitation could not be cancelled.",
+        error: "The invitation could not be cancelled.",
       },
       { status: 500 },
     );

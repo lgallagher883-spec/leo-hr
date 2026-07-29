@@ -114,7 +114,11 @@ export async function GET() {
     const { invitation, error } = await findInvitation(admin, user);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Invitation details lookup failed:", error);
+      return NextResponse.json(
+        { error: "The invitation could not be loaded." },
+        { status: 500 },
+      );
     }
 
     if (!invitation) {
@@ -178,10 +182,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "The invitation could not be loaded.",
+        error: "The invitation could not be loaded.",
       },
       { status: 500 },
     );
@@ -228,8 +229,9 @@ export async function POST(request: Request) {
       await findInvitation(admin, user);
 
     if (invitationError) {
+      console.error("Invitation acceptance lookup failed:", invitationError);
       return NextResponse.json(
-        { error: invitationError.message },
+        { error: "The invitation could not be loaded." },
         { status: 500 },
       );
     }
@@ -297,8 +299,9 @@ export async function POST(request: Request) {
       .or(`organisation_id.is.null,organisation_id.eq.${invitation.organisation_id}`);
 
     if (roleLookupError) {
+      console.error("Invitation acceptance role lookup failed:", roleLookupError);
       return NextResponse.json(
-        { error: roleLookupError.message },
+        { error: "The requested invitation role could not be verified." },
         { status: 500 },
       );
     }
@@ -337,8 +340,9 @@ export async function POST(request: Request) {
       );
 
     if (identityError) {
+      console.error("Invitation acceptance identity profile upsert failed:", identityError);
       return NextResponse.json(
-        { error: identityError.message },
+        { error: "Your profile could not be updated." },
         { status: 500 },
       );
     }
@@ -364,8 +368,9 @@ export async function POST(request: Request) {
       );
 
     if (profileError) {
+      console.error("Invitation acceptance user profile upsert failed:", profileError);
       return NextResponse.json(
-        { error: profileError.message },
+        { error: "Your organisation profile could not be updated." },
         { status: 500 },
       );
     }
@@ -398,8 +403,9 @@ export async function POST(request: Request) {
       .single();
 
     if (membershipError) {
+      console.error("Invitation acceptance membership upsert failed:", membershipError);
       return NextResponse.json(
-        { error: membershipError.message },
+        { error: "Your organisation membership could not be updated." },
         { status: 500 },
       );
     }
@@ -426,8 +432,12 @@ export async function POST(request: Request) {
         .eq("membership_id", membershipRecord.id);
 
     if (existingAssignmentsError) {
+      console.error(
+        "Invitation acceptance existing role assignments lookup failed:",
+        existingAssignmentsError,
+      );
       return NextResponse.json(
-        { error: existingAssignmentsError.message },
+        { error: "Role assignments could not be verified." },
         { status: 500 },
       );
     }
@@ -463,8 +473,12 @@ export async function POST(request: Request) {
         .eq("id", selectedTargetAssignment.id);
 
       if (activateTargetError) {
+        console.error(
+          "Invitation acceptance role assignment activation failed:",
+          activateTargetError,
+        );
         return NextResponse.json(
-          { error: activateTargetError.message },
+          { error: "The role assignment could not be activated." },
           { status: 500 },
         );
       }
@@ -490,11 +504,15 @@ export async function POST(request: Request) {
           .single();
 
       if (insertAssignmentError || !insertedAssignment) {
+        if (insertAssignmentError) {
+          console.error(
+            "Invitation acceptance role assignment insert failed:",
+            insertAssignmentError,
+          );
+        }
         return NextResponse.json(
           {
-            error:
-              insertAssignmentError?.message ||
-              "The role assignment could not be created.",
+            error: "The role assignment could not be created.",
           },
           { status: 500 },
         );
@@ -527,8 +545,12 @@ export async function POST(request: Request) {
         .in("id", conflictingPrimaryIds);
 
       if (clearConflictingPrimaryError) {
+        console.error(
+          "Invitation acceptance role assignment cleanup failed:",
+          clearConflictingPrimaryError,
+        );
         return NextResponse.json(
-          { error: clearConflictingPrimaryError.message },
+          { error: "Conflicting role assignments could not be updated." },
           { status: 500 },
         );
       }
@@ -546,8 +568,12 @@ export async function POST(request: Request) {
       .eq("invitation_status", "pending");
 
     if (invitationUpdateError) {
+      console.error(
+        "Invitation acceptance status update failed:",
+        invitationUpdateError,
+      );
       return NextResponse.json(
-        { error: invitationUpdateError.message },
+        { error: "The invitation status could not be updated." },
         { status: 500 },
       );
     }
@@ -576,10 +602,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "The invitation could not be accepted.",
+        error: "The invitation could not be accepted.",
       },
       { status: 500 },
     );

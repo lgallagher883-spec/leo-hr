@@ -260,7 +260,11 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Organisation invitations GET query failed:", error);
+      return NextResponse.json(
+        { error: "Invitations could not be loaded." },
+        { status: 500 },
+      );
     }
 
     const invitations = await mapInvitations(
@@ -280,10 +284,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Invitations could not be loaded.",
+        error: "Invitations could not be loaded.",
       },
       { status: 500 },
     );
@@ -353,7 +354,11 @@ export async function POST(request: Request) {
       ]);
 
     if (roleError) {
-      return NextResponse.json({ error: roleError.message }, { status: 500 });
+      console.error("Organisation invitations POST role lookup failed:", roleError);
+      return NextResponse.json(
+        { error: "The selected permission could not be verified." },
+        { status: 500 },
+      );
     }
 
     if (
@@ -367,8 +372,12 @@ export async function POST(request: Request) {
     }
 
     if (employeeResult.error) {
+      console.error(
+        "Organisation invitations POST employee lookup failed:",
+        employeeResult.error,
+      );
       return NextResponse.json(
-        { error: employeeResult.error.message },
+        { error: "The selected employee could not be verified." },
         { status: 500 },
       );
     }
@@ -421,8 +430,12 @@ export async function POST(request: Request) {
         .maybeSingle();
 
     if (pendingInvitationError) {
+      console.error(
+        "Organisation invitations POST pending invitation check failed:",
+        pendingInvitationError,
+      );
       return NextResponse.json(
-        { error: pendingInvitationError.message },
+        { error: "Existing invitations could not be checked." },
         { status: 500 },
       );
     }
@@ -445,8 +458,12 @@ export async function POST(request: Request) {
         .neq("membership_status", "ended");
 
     if (membershipsError) {
+      console.error(
+        "Organisation invitations POST membership lookup failed:",
+        membershipsError,
+      );
       return NextResponse.json(
-        { error: membershipsError.message },
+        { error: "Organisation memberships could not be checked." },
         { status: 500 },
       );
     }
@@ -516,7 +533,11 @@ export async function POST(request: Request) {
         );
       }
 
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Organisation invitations POST insert failed:", error);
+      return NextResponse.json(
+        { error: "The invitation could not be created." },
+        { status: 500 },
+      );
     }
 
     const origin = new URL(request.url).origin;
@@ -548,9 +569,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error:
-            inviteEmailError.message ||
-            "The invitation email could not be sent.",
+          error: "The invitation email could not be sent.",
         },
         { status: 502 },
       );
@@ -567,10 +586,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "The invitation could not be created.",
+        error: "The invitation could not be created.",
       },
       { status: 500 },
     );

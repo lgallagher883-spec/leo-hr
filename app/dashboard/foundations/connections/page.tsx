@@ -627,6 +627,7 @@ export default function ConnectionsPage() {
         {
           method: "PATCH",
           body: JSON.stringify({
+            action: "update_settings",
             connection_name:
               connectionName.trim() || selectedProvider.name,
             account_display_name:
@@ -682,18 +683,24 @@ export default function ConnectionsPage() {
 
     try {
       const result = await requestConnectionApi<{
-        success: boolean;
-        connection?: OrganisationConnection;
-        message?: string;
-      }>(
-        `/api/foundations/connections/${selectedConnection.id}/actions`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            action: "begin_secure_connection",
-          }),
-        }
-      );
+  success: boolean;
+  connection?: OrganisationConnection;
+  message?: string;
+  redirectUrl?: string;
+}>(
+  `/api/foundations/connections/${selectedConnection.id}/actions`,
+  {
+    method: "POST",
+    body: JSON.stringify({
+      action: "begin_connection",
+    }),
+  }
+);
+
+if (result.redirectUrl) {
+  window.location.assign(result.redirectUrl);
+  return;
+}
 
       setMessage(
         result.message ||
@@ -769,9 +776,9 @@ export default function ConnectionsPage() {
         connection?: OrganisationConnection;
         message?: string;
       }>(
-        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        `/api/foundations/connections/${selectedConnection.id}`,
         {
-          method: "POST",
+          method: "PATCH",
           body: JSON.stringify({
             action: "suspend",
           }),
@@ -805,9 +812,9 @@ export default function ConnectionsPage() {
         connection?: OrganisationConnection;
         message?: string;
       }>(
-        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        `/api/foundations/connections/${selectedConnection.id}`,
         {
-          method: "POST",
+          method: "PATCH",
           body: JSON.stringify({
             action: "restore",
           }),
@@ -847,9 +854,9 @@ export default function ConnectionsPage() {
         connection?: OrganisationConnection;
         message?: string;
       }>(
-        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        `/api/foundations/connections/${selectedConnection.id}`,
         {
-          method: "POST",
+          method: "PATCH",
           body: JSON.stringify({
             action: "disconnect",
           }),
@@ -885,11 +892,11 @@ export default function ConnectionsPage() {
       }>(
         `/api/foundations/connections/${selectedConnection.id}/controls`,
         {
-          method: "POST",
+          method: "PATCH",
           body: JSON.stringify({
-            control: "capability",
+            action: "update_capability",
             provider_capability_id: capability.id,
-            is_enabled: enabled,
+            enabled,
           }),
         }
       );
@@ -921,11 +928,11 @@ export default function ConnectionsPage() {
       }>(
         `/api/foundations/connections/${selectedConnection.id}/controls`,
         {
-          method: "POST",
+          method: "PATCH",
           body: JSON.stringify({
-            control: "module",
+            action: "update_module",
             module_key: moduleKey,
-            is_enabled: enabled,
+            enabled,
           }),
         }
       );
@@ -964,11 +971,11 @@ export default function ConnectionsPage() {
       }>(
         `/api/foundations/connections/${selectedConnection.id}/controls`,
         {
-          method: "POST",
+          method: "PATCH",
           body: JSON.stringify({
-            control: "role_permission",
+            action: "update_permission",
             role_key: roleKey,
-            field,
+            permission_field: field,
             value,
           }),
         }
@@ -1037,40 +1044,10 @@ export default function ConnectionsPage() {
   ) {
     if (!selectedProvider || !selectedConnection) return;
 
-    const confirmed = window.confirm(
-      `Unlink "${resource.external_name || resource.external_resource_type}"?\n\nThe external item will not be deleted.`
+    setMessage("");
+    setErrorMessage(
+      `Unlinking "${resource.external_name || resource.external_resource_type}" is not active yet because the secure external-resource unlink route has not been implemented.`
     );
-
-    if (!confirmed) return;
-
-    setErrorMessage("");
-
-    try {
-      await requestConnectionApi<{
-        success: boolean;
-      }>(
-        `/api/foundations/connections/${selectedConnection.id}/controls`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            control: "external_resource",
-            resource_id: resource.id,
-            action: "unlink",
-          }),
-        }
-      );
-
-      await loadConnectionWorkspace(
-        selectedConnection,
-        selectedProvider
-      );
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "The external resource could not be unlinked."
-      );
-    }
   }
 
   async function refreshSelectedConnection() {

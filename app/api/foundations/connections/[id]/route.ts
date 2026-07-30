@@ -1,9 +1,28 @@
 import { NextResponse } from "next/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+function getAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Supabase administrator credentials are not configured.",
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
@@ -151,7 +170,7 @@ async function getAuthorisedContext(
 }
 
 async function getOrganisationConnection(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: any,
   connectionId: number,
   organisationId: string,
 ) {
@@ -165,7 +184,7 @@ async function getOrganisationConnection(
 }
 
 async function recordActivity(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: any,
   {
     organisationId,
     userId,
@@ -235,8 +254,10 @@ export async function GET(
       return access.response;
     }
 
+    const admin = getAdminClient();
+
     const connectionResult = await getOrganisationConnection(
-      supabase,
+      admin,
       connectionId,
       access.organisationId,
     );
@@ -276,7 +297,7 @@ export async function GET(
       resourcesResult,
       activityResult,
     ] = await Promise.all([
-      (supabase as any)
+      (admin as any)
         .from("connection_providers")
         .select("*")
         .eq("id", connection.provider_id)
@@ -284,7 +305,7 @@ export async function GET(
         .eq("is_archived", false)
         .maybeSingle(),
 
-      (supabase as any)
+      (admin as any)
         .from("connection_provider_capabilities")
         .select("*")
         .eq("provider_id", connection.provider_id)
@@ -292,38 +313,38 @@ export async function GET(
         .order("capability_group")
         .order("name"),
 
-      (supabase as any)
+      (admin as any)
         .from("organisation_connection_capabilities")
         .select("*")
         .eq("connection_id", connectionId),
 
-      (supabase as any)
+      (admin as any)
         .from("organisation_connection_modules")
         .select("*")
         .eq("connection_id", connectionId)
         .order("module_key"),
 
-      (supabase as any)
+      (admin as any)
         .from("organisation_connection_role_permissions")
         .select("*")
         .eq("connection_id", connectionId)
         .order("role_key"),
 
-      (supabase as any)
+      (admin as any)
         .from("connection_health_checks")
         .select("*")
         .eq("connection_id", connectionId)
         .order("checked_at", { ascending: false })
         .limit(20),
 
-      (supabase as any)
+      (admin as any)
         .from("connection_jobs")
         .select("*")
         .eq("connection_id", connectionId)
         .order("requested_at", { ascending: false })
         .limit(50),
 
-      (supabase as any)
+      (admin as any)
         .from("connection_external_resources")
         .select("*")
         .eq("connection_id", connectionId)
@@ -331,7 +352,7 @@ export async function GET(
         .order("updated_at", { ascending: false })
         .limit(50),
 
-      (supabase as any)
+      (admin as any)
         .from("connection_activity_history")
         .select("*")
         .eq("connection_id", connectionId)
@@ -422,6 +443,8 @@ export async function PATCH(
       return access.response;
     }
 
+    const admin = getAdminClient();
+
     let body: UpdateBody;
 
     try {
@@ -449,7 +472,7 @@ export async function PATCH(
     }
 
     const connectionResult = await getOrganisationConnection(
-      supabase,
+      admin,
       connectionId,
       access.organisationId,
     );
@@ -478,7 +501,7 @@ export async function PATCH(
 
     const connection = connectionResult.data;
 
-    const providerResult = await (supabase as any)
+    const providerResult = await (admin as any)
       .from("connection_providers")
       .select("*")
       .eq("id", connection.provider_id)
@@ -617,7 +640,7 @@ export async function PATCH(
         `${provider.name} has been disconnected.`;
     }
 
-    const updateResult = await (supabase as any)
+    const updateResult = await (admin as any)
       .from("organisation_connections")
       .update(updateValues)
       .eq("id", connectionId)
@@ -637,7 +660,7 @@ export async function PATCH(
       );
     }
 
-    await recordActivity(supabase, {
+    await recordActivity(admin, {
       organisationId: access.organisationId,
       userId: access.user.id,
       providerId: connection.provider_id,

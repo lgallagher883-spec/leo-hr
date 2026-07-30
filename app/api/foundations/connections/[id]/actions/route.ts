@@ -1,10 +1,29 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+function getAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Supabase administrator credentials are not configured.",
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
@@ -127,7 +146,7 @@ async function getAuthorisedContext(
 }
 
 async function getConnectionAndProvider(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: any,
   connectionId: number,
   organisationId: string,
 ) {
@@ -175,7 +194,7 @@ async function getConnectionAndProvider(
 }
 
 async function recordActivity(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: any,
   {
     organisationId,
     userId,
@@ -273,8 +292,10 @@ export async function POST(
       return access.response;
     }
 
+    const admin = getAdminClient();
+
     const lookup = await getConnectionAndProvider(
-      supabase,
+      admin,
       connectionId,
       access.organisationId,
     );
@@ -300,7 +321,18 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (action === "begin_connection") {
-      if (provider.setup_status !== "Available") {
+      const providerName = text(provider.name).toLowerCase();
+      const providerKey = text(
+        provider.provider_key ??
+          provider.slug ??
+          provider.key,
+      ).toLowerCase();
+
+      const isMicrosoft365 =
+        providerName.includes("microsoft") ||
+        providerKey.includes("microsoft");
+
+      if (!isMicrosoft365 && provider.setup_status !== "Available") {
         return NextResponse.json({
           success: true,
           message:
@@ -312,7 +344,7 @@ export async function POST(
       const sessionReference = randomUUID();
       const stateHash = randomUUID();
 
-      const sessionResult = await (supabase as any)
+      const sessionResult = await (admin as any)
         .from("connection_auth_sessions")
         .insert({
           organisation_id: access.organisationId,
@@ -342,7 +374,7 @@ export async function POST(
         );
       }
 
-      const connectionResult = await (supabase as any)
+      const connectionResult = await (admin as any)
         .from("organisation_connections")
         .update({
           status: "Connection Pending",
@@ -368,7 +400,7 @@ export async function POST(
         );
       }
 
-      await recordActivity(supabase, {
+      await recordActivity(admin, {
         organisationId: access.organisationId,
         userId: access.user.id,
         providerId: provider.id,
@@ -381,6 +413,19 @@ export async function POST(
         },
       });
 
+      if (isMicrosoft365) {
+        return NextResponse.json({
+          success: true,
+          connection: connectionResult.data,
+          session: sessionResult.data,
+          redirectUrl:
+            `/api/foundations/connections/microsoft/start` +
+            `?session=${encodeURIComponent(sessionReference)}`,
+          message:
+            "Redirecting to Microsoft for secure authorisation.",
+        });
+      }
+
       return NextResponse.json({
         success: true,
         connection: connectionResult.data,
@@ -392,7 +437,7 @@ export async function POST(
     }
 
     if (action === "test_connection") {
-      const jobResult = await (supabase as any)
+      const jobResult = await (admin as any)
         .from("connection_jobs")
         .insert({
           organisation_id: access.organisationId,
@@ -438,7 +483,7 @@ export async function POST(
           ? `${provider.name} requires authorisation or configuration.`
           : `${provider.name} provider activation is not available yet.`;
 
-      const healthResult = await (supabase as any)
+      const healthResult = await (admin as any)
         .from("connection_health_checks")
         .insert({
           connection_id: connectionId,
@@ -500,7 +545,7 @@ export async function POST(
           ? "Completed"
           : "Partially Completed";
 
-      const jobUpdateResult = await (supabase as any)
+      const jobUpdateResult = await (admin as any)
         .from("connection_jobs")
         .update({
           status: jobStatus,
@@ -533,7 +578,7 @@ export async function POST(
         );
       }
 
-      await recordActivity(supabase, {
+      await recordActivity(admin, {
         organisationId: access.organisationId,
         userId: access.user.id,
         providerId: provider.id,
@@ -577,7 +622,7 @@ export async function POST(
       );
     }
 
-    const syncJobResult = await (supabase as any)
+    const syncJobResult = await (admin as any)
       .from("connection_jobs")
       .insert({
         organisation_id: access.organisationId,
@@ -607,7 +652,7 @@ export async function POST(
       );
     }
 
-    await recordActivity(supabase, {
+    await recordActivity(admin, {
       organisationId: access.organisationId,
       userId: access.user.id,
       providerId: provider.id,

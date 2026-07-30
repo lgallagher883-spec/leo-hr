@@ -167,7 +167,7 @@ async function getAuthorisedContext(
 }
 
 async function writeActivity(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: any,
   {
     organisationId,
     userId,
@@ -235,7 +235,7 @@ export async function GET() {
     .order("display_order", { ascending: true })
     .order("name", { ascending: true }),
 
-  (supabase as any)
+  (admin as any)
     .from("organisation_connections")
     .select("*")
     .eq("organisation_id", access.organisationId)
@@ -397,9 +397,9 @@ export async function POST(request: Request) {
 
     const provider = providerResult.data;
 
-    const existingResult = await (supabase as any)
+    const existingResult = await (admin as any)
       .from("organisation_connections")
-      .select("id")
+      .select("*")
       .eq("organisation_id", access.organisationId)
       .eq("provider_id", providerId)
       .eq("is_archived", false)
@@ -420,14 +420,12 @@ export async function POST(request: Request) {
       existingResult.data &&
       !provider.supports_multiple_connections
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "This organisation already has a connection record for this provider.",
-        },
-        { status: 409 },
-      );
+      return NextResponse.json({
+        success: true,
+        connection: existingResult.data,
+        message:
+          "The existing connection record has been opened.",
+      });
     }
 
     const initialStatus =
@@ -436,7 +434,7 @@ export async function POST(request: Request) {
         ? "Connection Pending"
         : "Not Connected";
 
-    const connectionResult = await (supabase as any)
+    const connectionResult = await (admin as any)
       .from("organisation_connections")
       .insert({
         organisation_id: access.organisationId,
@@ -495,7 +493,7 @@ export async function POST(request: Request) {
       !capabilitiesResult.error &&
       capabilitiesResult.data?.length
     ) {
-      const capabilitySeedResult = await (supabase as any)
+      const capabilitySeedResult = await (admin as any)
         .from("organisation_connection_capabilities")
         .upsert(
           capabilitiesResult.data.map(
@@ -528,7 +526,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const moduleSeedResult = await (supabase as any)
+    const moduleSeedResult = await (admin as any)
       .from("organisation_connection_modules")
       .upsert(
         moduleKeys.map((moduleKey) => {
@@ -563,7 +561,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const roleSeedResult = await (supabase as any)
+    const roleSeedResult = await (admin as any)
       .from("organisation_connection_role_permissions")
       .upsert(
         roleKeys.map((roleKey) => {
@@ -603,7 +601,7 @@ export async function POST(request: Request) {
       );
     }
 
-    await writeActivity(supabase, {
+    await writeActivity(admin as any, {
       organisationId: access.organisationId,
       userId: access.user.id,
       providerId,

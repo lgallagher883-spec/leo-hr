@@ -1,13 +1,7 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Provider = {
   id: number;
@@ -276,6 +270,9 @@ export default function ConnectionsPage() {
     ProviderCapability[]
   >([]);
 
+  const [allProviderCapabilities, setAllProviderCapabilities] =
+    useState<ProviderCapability[]>([]);
+
   const [connectionCapabilities, setConnectionCapabilities] =
     useState<ConnectionCapability[]>([]);
 
@@ -342,62 +339,86 @@ export default function ConnectionsPage() {
     }
   }, [selectedProvider?.id, connections]);
 
+  async function requestConnectionApi<T>(
+    url: string,
+    options?: RequestInit
+  ): Promise<T> {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options?.headers || {}),
+      },
+    });
+
+    const result = (await response.json()) as T & {
+      success?: boolean;
+      error?: string;
+    };
+
+    if (!response.ok || result.success === false) {
+      throw new Error(
+        result.error || "The connection request could not be completed."
+      );
+    }
+
+    return result;
+  }
+
   async function loadConnectionsPage() {
     setLoading(true);
     setErrorMessage("");
 
-    const [providersResult, connectionsResult] = await Promise.all([
-      supabase
-        .from("connection_providers")
-        .select("*")
-        .eq("is_active", true)
-        .eq("is_archived", false)
-        .order("display_order")
-        .order("name"),
-
-      supabase
-        .from("organisation_connections")
-        .select("*")
-        .eq("is_archived", false)
-        .order("updated_at", { ascending: false }),
-    ]);
-
-    if (providersResult.error || connectionsResult.error) {
-      console.error(
-        "Error loading Connections:",
-        providersResult.error || connectionsResult.error
+    try {
+      const response = await fetch(
+        "/api/foundations/connections",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
       );
 
-      setErrorMessage("Connections could not be loaded.");
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        providers?: Provider[];
+        connections?: OrganisationConnection[];
+        providerCapabilities?: ProviderCapability[];
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Connections could not be loaded."
+        );
+      }
+
+      setProviders(result.providers || []);
+      setConnections(result.connections || []);
+      setAllProviderCapabilities(
+        result.providerCapabilities || []
+      );
+    } catch (error) {
+      console.error("Error loading Connections:", error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Connections could not be loaded."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setProviders((providersResult.data || []) as Provider[]);
-    setConnections(
-      (connectionsResult.data || []) as OrganisationConnection[]
-    );
-
-    setLoading(false);
   }
 
-  async function loadProviderCapabilities(providerId: number) {
-    const { data, error } = await supabase
-      .from("connection_provider_capabilities")
-      .select("*")
-      .eq("provider_id", providerId)
-      .eq("is_active", true)
-      .order("capability_group")
-      .order("name");
-
-    if (error) {
-      console.error("Error loading provider capabilities:", error);
-      setErrorMessage("Provider capabilities could not be loaded.");
-      return;
-    }
-
+  async function loadProviderCapabilities(
+    providerId: number
+  ) {
     setProviderCapabilities(
-      (data || []) as ProviderCapability[]
+      allProviderCapabilities.filter(
+        (capability) =>
+          capability.provider_id === providerId &&
+          capability.is_active
+      )
     );
 
     setConnectionCapabilities([]);
@@ -416,125 +437,88 @@ export default function ConnectionsPage() {
     setWorkspaceLoading(true);
     setErrorMessage("");
 
-    const [
-      providerCapabilitiesResult,
-      connectionCapabilitiesResult,
-      moduleResult,
-      permissionsResult,
-      healthResult,
-      jobsResult,
-      resourcesResult,
-      activityResult,
-    ] = await Promise.all([
-      supabase
-        .from("connection_provider_capabilities")
-        .select("*")
-        .eq("provider_id", provider.id)
-        .eq("is_active", true)
-        .order("capability_group")
-        .order("name"),
+    try {
+      const response = await fetch(
+        `/api/foundations/connections/${connection.id}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
-      supabase
-        .from("organisation_connection_capabilities")
-        .select("*")
-        .eq("connection_id", connection.id),
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        connection?: OrganisationConnection;
+        providerCapabilities?: ProviderCapability[];
+        connectionCapabilities?: ConnectionCapability[];
+        modules?: ConnectionModule[];
+        connectionModules?: ConnectionModule[];
+        permissions?: RolePermission[];
+        rolePermissions?: RolePermission[];
+        healthChecks?: HealthCheck[];
+        jobs?: ConnectionJob[];
+        externalResources?: ExternalResource[];
+        resources?: ExternalResource[];
+        activity?: ConnectionActivity[];
+      };
 
-      supabase
-        .from("organisation_connection_modules")
-        .select("*")
-        .eq("connection_id", connection.id)
-        .order("module_key"),
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "The connection workspace could not be loaded."
+        );
+      }
 
-      supabase
-        .from("organisation_connection_role_permissions")
-        .select("*")
-        .eq("connection_id", connection.id)
-        .order("role_key"),
+      const currentConnection =
+        result.connection || connection;
 
-      supabase
-        .from("connection_health_checks")
-        .select("*")
-        .eq("connection_id", connection.id)
-        .order("checked_at", { ascending: false })
-        .limit(20),
+      setSelectedConnection(currentConnection);
+      populateConnection(currentConnection);
 
-      supabase
-        .from("connection_jobs")
-        .select("*")
-        .eq("connection_id", connection.id)
-        .order("requested_at", { ascending: false })
-        .limit(50),
+      setProviderCapabilities(
+        result.providerCapabilities ||
+          allProviderCapabilities.filter(
+            (capability) =>
+              capability.provider_id === provider.id &&
+              capability.is_active
+          )
+      );
 
-      supabase
-        .from("connection_external_resources")
-        .select("*")
-        .eq("connection_id", connection.id)
-        .eq("is_archived", false)
-        .order("updated_at", { ascending: false })
-        .limit(50),
+      setConnectionCapabilities(
+        result.connectionCapabilities || []
+      );
 
-      supabase
-        .from("connection_activity_history")
-        .select("*")
-        .eq("connection_id", connection.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-    ]);
+      setConnectionModules(
+        result.connectionModules || result.modules || []
+      );
 
-    const firstError =
-      providerCapabilitiesResult.error ||
-      connectionCapabilitiesResult.error ||
-      moduleResult.error ||
-      permissionsResult.error ||
-      healthResult.error ||
-      jobsResult.error ||
-      resourcesResult.error ||
-      activityResult.error;
+      setRolePermissions(
+        result.rolePermissions || result.permissions || []
+      );
 
-    if (firstError) {
+      setHealthChecks(result.healthChecks || []);
+      setJobs(result.jobs || []);
+
+      setExternalResources(
+        result.externalResources || result.resources || []
+      );
+
+      setActivity(result.activity || []);
+    } catch (error) {
       console.error(
         "Error loading connection workspace:",
-        firstError
+        error
       );
 
       setErrorMessage(
-        "The connection workspace could not be loaded."
+        error instanceof Error
+          ? error.message
+          : "The connection workspace could not be loaded."
       );
-
+    } finally {
       setWorkspaceLoading(false);
-      return;
     }
-
-    setProviderCapabilities(
-      (providerCapabilitiesResult.data ||
-        []) as ProviderCapability[]
-    );
-
-    setConnectionCapabilities(
-      (connectionCapabilitiesResult.data ||
-        []) as ConnectionCapability[]
-    );
-
-    setConnectionModules(
-      (moduleResult.data || []) as ConnectionModule[]
-    );
-
-    setRolePermissions(
-      (permissionsResult.data || []) as RolePermission[]
-    );
-
-    setHealthChecks((healthResult.data || []) as HealthCheck[]);
-    setJobs((jobsResult.data || []) as ConnectionJob[]);
-
-    setExternalResources(
-      (resourcesResult.data || []) as ExternalResource[]
-    );
-
-    setActivity(
-      (activityResult.data || []) as ConnectionActivity[]
-    );
-
-    setWorkspaceLoading(false);
   }
 
   function populateConnection(connection: OrganisationConnection) {
@@ -572,176 +556,59 @@ export default function ConnectionsPage() {
     setMessage("");
     setErrorMessage("");
 
-    const initialStatus =
-      selectedProvider.setup_status === "Available" ||
-      selectedProvider.authentication_type === "Manual"
-        ? "Connection Pending"
-        : "Not Connected";
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection: OrganisationConnection;
+      }>("/api/foundations/connections", {
+        method: "POST",
+        body: JSON.stringify({
+          provider_id: selectedProvider.id,
+          connection_name:
+            connectionName.trim() || selectedProvider.name,
+          account_display_name:
+            accountDisplayName.trim() || null,
+          external_account_id:
+            externalAccountId.trim() || null,
+          external_tenant_id:
+            externalTenantId.trim() || null,
+          external_workspace_id:
+            externalWorkspaceId.trim() || null,
+          sync_enabled: syncEnabled,
+          sync_frequency: syncEnabled
+            ? syncFrequency
+            : "Manual",
+        }),
+      });
 
-    const { data, error } = await supabase
-      .from("organisation_connections")
-      .insert({
-        provider_id: selectedProvider.id,
-        connection_name:
-          connectionName.trim() || selectedProvider.name,
-        account_display_name:
-          accountDisplayName.trim() || null,
-        external_account_id:
-          externalAccountId.trim() || null,
-        external_tenant_id:
-          externalTenantId.trim() || null,
-        external_workspace_id:
-          externalWorkspaceId.trim() || null,
-        authentication_type:
-          selectedProvider.authentication_type,
-        status: initialStatus,
-        health_status:
-          selectedProvider.setup_status === "Available"
-            ? "Configuration Required"
-            : "Not Checked",
-        sync_enabled: syncEnabled,
-        sync_frequency: syncEnabled ? syncFrequency : "Manual",
-      })
-      .select("*")
-      .single();
+      setSelectedConnection(result.connection);
+      populateConnection(result.connection);
 
-    if (error || !data) {
-      console.error("Error creating connection record:", error);
+      setMessage(
+        selectedProvider.setup_status === "Available"
+          ? `${selectedProvider.name} is ready for secure authorisation.`
+          : `${selectedProvider.name} has been added to Connections. The live provider authorisation route is not enabled yet.`
+      );
+
+      await loadConnectionsPage();
+      await loadConnectionWorkspace(
+        result.connection,
+        selectedProvider
+      );
+    } catch (error) {
+      console.error(
+        "Error creating connection record:",
+        error
+      );
 
       setErrorMessage(
-        "The connection record could not be created."
+        error instanceof Error
+          ? error.message
+          : "The connection record could not be created."
       );
-
+    } finally {
       setSaving(false);
-      return;
     }
-
-    await seedConnectionControls(
-      data as OrganisationConnection,
-      selectedProvider
-    );
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: data.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Connection Requested",
-      summary: `${selectedProvider.name} connection created.`,
-      details: {
-        authentication_type:
-          selectedProvider.authentication_type,
-        provider_setup_status:
-          selectedProvider.setup_status,
-      },
-    });
-
-    setSelectedConnection(data as OrganisationConnection);
-
-    setMessage(
-      selectedProvider.setup_status === "Available"
-        ? `${selectedProvider.name} is ready for secure authorisation.`
-        : `${selectedProvider.name} has been added to Connections. The live provider authorisation route is not enabled yet.`
-    );
-
-    setSaving(false);
-    await loadConnectionsPage();
-  }
-
-  async function seedConnectionControls(
-    connection: OrganisationConnection,
-    provider: Provider
-  ) {
-    const { data: capabilities } = await supabase
-      .from("connection_provider_capabilities")
-      .select("*")
-      .eq("provider_id", provider.id)
-      .eq("is_active", true);
-
-    if (capabilities && capabilities.length > 0) {
-      await supabase
-        .from("organisation_connection_capabilities")
-        .upsert(
-          capabilities.map((capability) => ({
-            connection_id: connection.id,
-            provider_capability_id: capability.id,
-            is_enabled: capability.default_enabled,
-            approval_status: capability.default_enabled
-              ? "Approved"
-              : "Not Requested",
-          })),
-          {
-            onConflict:
-              "connection_id,provider_capability_id",
-          }
-        );
-    }
-
-    await supabase
-      .from("organisation_connection_modules")
-      .upsert(
-        moduleKeys.map((moduleKey) => ({
-          connection_id: connection.id,
-          module_key: moduleKey,
-          is_enabled:
-            moduleKey === "Foundations" ||
-            (provider.category === "Design" &&
-              moduleKey === "AI Studio") ||
-            (provider.category === "Voice" &&
-              moduleKey === "AI Studio"),
-          allowed_actions: [],
-        })),
-        {
-          onConflict: "connection_id,module_key",
-        }
-      );
-
-    await supabase
-      .from("organisation_connection_role_permissions")
-      .upsert(
-        roleKeys.map((roleKey) => ({
-          connection_id: connection.id,
-          role_key: roleKey,
-          can_view:
-            roleKey === "Owner" ||
-            roleKey === "HR" ||
-            roleKey === "Platform Administrator",
-          can_use:
-            roleKey === "Owner" ||
-            roleKey === "HR" ||
-            roleKey === "Platform Administrator",
-          can_export:
-            roleKey === "Owner" ||
-            roleKey === "HR" ||
-            roleKey === "Platform Administrator",
-          can_import:
-            roleKey === "Owner" ||
-            roleKey === "HR" ||
-            roleKey === "Platform Administrator",
-          can_sync:
-            roleKey === "Owner" ||
-            roleKey === "Platform Administrator",
-          can_manage_settings:
-            roleKey === "Owner" ||
-            roleKey === "Platform Administrator",
-          can_reconnect:
-            roleKey === "Owner" ||
-            roleKey === "Platform Administrator",
-          can_disconnect:
-            roleKey === "Owner" ||
-            roleKey === "Platform Administrator",
-          can_view_activity:
-            roleKey === "Owner" ||
-            roleKey === "HR" ||
-            roleKey === "Platform Administrator",
-          can_view_errors:
-            roleKey === "Owner" ||
-            roleKey === "Platform Administrator",
-        })),
-        {
-          onConflict: "connection_id,role_key",
-        }
-      );
   }
 
   async function saveConnectionOverview() {
@@ -751,51 +618,53 @@ export default function ConnectionsPage() {
     setMessage("");
     setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("organisation_connections")
-      .update({
-        connection_name:
-          connectionName.trim() || selectedProvider.name,
-        account_display_name:
-          accountDisplayName.trim() || null,
-        external_account_id:
-          externalAccountId.trim() || null,
-        external_tenant_id:
-          externalTenantId.trim() || null,
-        external_workspace_id:
-          externalWorkspaceId.trim() || null,
-        sync_enabled: syncEnabled,
-        sync_frequency: syncEnabled ? syncFrequency : "Manual",
-      })
-      .eq("id", selectedConnection.id)
-      .select("*")
-      .single();
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection: OrganisationConnection;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            connection_name:
+              connectionName.trim() || selectedProvider.name,
+            account_display_name:
+              accountDisplayName.trim() || null,
+            external_account_id:
+              externalAccountId.trim() || null,
+            external_tenant_id:
+              externalTenantId.trim() || null,
+            external_workspace_id:
+              externalWorkspaceId.trim() || null,
+            sync_enabled: syncEnabled,
+            sync_frequency: syncEnabled
+              ? syncFrequency
+              : "Manual",
+          }),
+        }
+      );
 
-    if (error || !data) {
+      setSelectedConnection(result.connection);
+      populateConnection(result.connection);
+      setMessage("Connection settings updated.");
+
+      await loadConnectionsPage();
+      await loadConnectionWorkspace(
+        result.connection,
+        selectedProvider
+      );
+    } catch (error) {
       console.error("Error updating connection:", error);
-      setErrorMessage("The connection could not be updated.");
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The connection could not be updated."
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Settings Updated",
-      summary: `${selectedProvider.name} connection settings updated.`,
-      details: {
-        sync_enabled: syncEnabled,
-        sync_frequency: syncEnabled ? syncFrequency : "Manual",
-      },
-    });
-
-    setSelectedConnection(data as OrganisationConnection);
-    setMessage("Connection settings updated.");
-    setSaving(false);
-
-    await loadConnectionsPage();
   }
 
   async function beginSecureConnection() {
@@ -808,147 +677,78 @@ export default function ConnectionsPage() {
       return;
     }
 
-    const sessionReference = crypto.randomUUID();
-    const stateHash = crypto.randomUUID();
+    setMessage("");
+    setErrorMessage("");
 
-    const { error } = await supabase
-      .from("connection_auth_sessions")
-      .insert({
-        provider_id: selectedProvider.id,
-        connection_id: selectedConnection.id,
-        session_reference: sessionReference,
-        state_hash: stateHash,
-        requested_scopes: [],
-        status: "Created",
-        expires_at: new Date(
-          Date.now() + 15 * 60 * 1000
-        ).toISOString(),
-      });
-
-    if (error) {
-      setErrorMessage(
-        "The secure connection session could not be created."
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection?: OrganisationConnection;
+        message?: string;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action: "begin_secure_connection",
+          }),
+        }
       );
-      return;
+
+      setMessage(
+        result.message ||
+          `The secure ${selectedProvider.name} connection session has been prepared.`
+      );
+
+      if (result.connection) {
+        setSelectedConnection(result.connection);
+        populateConnection(result.connection);
+      }
+
+      await refreshSelectedConnection();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The secure connection session could not be created."
+      );
     }
-
-    await supabase
-      .from("organisation_connections")
-      .update({
-        status: "Connection Pending",
-        health_status: "Configuration Required",
-      })
-      .eq("id", selectedConnection.id);
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Connection Started",
-      summary: `Secure connection started for ${selectedProvider.name}.`,
-      details: {
-        session_reference: sessionReference,
-      },
-    });
-
-    setMessage(
-      `The secure ${selectedProvider.name} connection session has been prepared. The provider-specific server authorisation route is the next implementation step.`
-    );
-
-    await refreshSelectedConnection();
   }
 
   async function testConnection() {
     if (!selectedProvider || !selectedConnection) return;
 
-    const { data: job, error: jobError } = await supabase
-      .from("connection_jobs")
-      .insert({
-        connection_id: selectedConnection.id,
-        module_key: "Foundations",
-        action_key: "test_connection",
-        direction: "Test",
-        title: `Test ${selectedProvider.name} connection`,
-        status: "Preparing",
-        progress_percent: 10,
-      })
-      .select("*")
-      .single();
+    setMessage("");
+    setErrorMessage("");
 
-    if (jobError || !job) {
-      setErrorMessage("The connection test could not be started.");
-      return;
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection?: OrganisationConnection;
+        message?: string;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action: "test_connection",
+          }),
+        }
+      );
+
+      setMessage(
+        result.message ||
+          `${selectedProvider.name} connection test completed.`
+      );
+
+      await refreshSelectedConnection();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The connection test could not be started."
+      );
     }
-
-    const liveConnection =
-      selectedConnection.status === "Connected";
-
-    const healthStatus = liveConnection
-      ? "Healthy"
-      : selectedProvider.setup_status === "Available"
-        ? "Configuration Required"
-        : "Unavailable";
-
-    const summary = liveConnection
-      ? `${selectedProvider.name} connection is available.`
-      : selectedProvider.setup_status === "Available"
-        ? `${selectedProvider.name} requires authorisation or configuration.`
-        : `${selectedProvider.name} provider activation is not available yet.`;
-
-    await supabase.from("connection_health_checks").insert({
-      connection_id: selectedConnection.id,
-      check_type: "Connection",
-      status: healthStatus,
-      summary,
-      diagnostic_details: {
-        provider_setup_status: selectedProvider.setup_status,
-        connection_status: selectedConnection.status,
-      },
-    });
-
-    await supabase
-      .from("organisation_connections")
-      .update({
-        health_status: healthStatus,
-        last_health_check_at: new Date().toISOString(),
-        last_error_message:
-          healthStatus === "Healthy" ? null : summary,
-        last_error_at:
-          healthStatus === "Healthy"
-            ? null
-            : new Date().toISOString(),
-      })
-      .eq("id", selectedConnection.id);
-
-    await supabase
-      .from("connection_jobs")
-      .update({
-        status:
-          healthStatus === "Healthy"
-            ? "Completed"
-            : "Partially Completed",
-        progress_percent: 100,
-        completed_at: new Date().toISOString(),
-        error_message:
-          healthStatus === "Healthy" ? null : summary,
-      })
-      .eq("id", job.id);
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: job.id,
-      moduleKey: "Foundations",
-      activityType: "Connection Tested",
-      summary,
-      details: {
-        health_status: healthStatus,
-      },
-    });
-
-    setMessage(summary);
-    await refreshSelectedConnection();
   }
 
   async function suspendConnection() {
@@ -960,57 +760,73 @@ export default function ConnectionsPage() {
 
     if (!confirmed) return;
 
-    await supabase
-      .from("organisation_connections")
-      .update({
-        status: "Suspended",
-        health_status: "Unavailable",
-        suspended_at: new Date().toISOString(),
-        sync_enabled: false,
-      })
-      .eq("id", selectedConnection.id);
+    setMessage("");
+    setErrorMessage("");
 
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Suspended",
-      summary: `${selectedProvider.name} connection suspended.`,
-      details: null,
-    });
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection?: OrganisationConnection;
+        message?: string;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action: "suspend",
+          }),
+        }
+      );
 
-    setMessage(`${selectedProvider.name} has been suspended.`);
-    await refreshSelectedConnection();
+      setMessage(
+        result.message ||
+          `${selectedProvider.name} has been suspended.`
+      );
+
+      await refreshSelectedConnection();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The connection could not be suspended."
+      );
+    }
   }
 
   async function restoreConnection() {
     if (!selectedProvider || !selectedConnection) return;
 
-    await supabase
-      .from("organisation_connections")
-      .update({
-        status:
-          selectedConnection.connected_at
-            ? "Connected"
-            : "Connection Pending",
-        health_status: "Not Checked",
-        suspended_at: null,
-      })
-      .eq("id", selectedConnection.id);
+    setMessage("");
+    setErrorMessage("");
 
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Reconnected",
-      summary: `${selectedProvider.name} connection restored.`,
-      details: null,
-    });
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection?: OrganisationConnection;
+        message?: string;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action: "restore",
+          }),
+        }
+      );
 
-    setMessage(`${selectedProvider.name} has been restored.`);
-    await refreshSelectedConnection();
+      setMessage(
+        result.message ||
+          `${selectedProvider.name} has been restored.`
+      );
+
+      await refreshSelectedConnection();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The connection could not be restored."
+      );
+    }
   }
 
   async function disconnectConnection() {
@@ -1022,30 +838,37 @@ export default function ConnectionsPage() {
 
     if (!confirmed) return;
 
-    await supabase
-      .from("organisation_connections")
-      .update({
-        status: "Disconnected",
-        health_status: "Unavailable",
-        disconnected_at: new Date().toISOString(),
-        sync_enabled: false,
-        token_expires_at: null,
-        authorised_scopes: [],
-      })
-      .eq("id", selectedConnection.id);
+    setMessage("");
+    setErrorMessage("");
 
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Disconnected",
-      summary: `${selectedProvider.name} disconnected.`,
-      details: null,
-    });
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        connection?: OrganisationConnection;
+        message?: string;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action: "disconnect",
+          }),
+        }
+      );
 
-    setMessage(`${selectedProvider.name} has been disconnected.`);
-    await refreshSelectedConnection();
+      setMessage(
+        result.message ||
+          `${selectedProvider.name} has been disconnected.`
+      );
+
+      await refreshSelectedConnection();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The connection could not be disconnected."
+      );
+    }
   }
 
   async function toggleCapability(
@@ -1054,51 +877,34 @@ export default function ConnectionsPage() {
   ) {
     if (!selectedProvider || !selectedConnection) return;
 
-    const existing = connectionCapabilities.find(
-      (item) =>
-        item.provider_capability_id === capability.id
-    );
+    setErrorMessage("");
 
-    const payload = {
-      connection_id: selectedConnection.id,
-      provider_capability_id: capability.id,
-      is_enabled: enabled,
-      approval_status: enabled ? "Approved" : "Not Requested",
-      approved_at: enabled ? new Date().toISOString() : null,
-    };
+    try {
+      await requestConnectionApi<{
+        success: boolean;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/controls`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            control: "capability",
+            provider_capability_id: capability.id,
+            is_enabled: enabled,
+          }),
+        }
+      );
 
-    const result = existing
-      ? await supabase
-          .from("organisation_connection_capabilities")
-          .update(payload)
-          .eq("id", existing.id)
-      : await supabase
-          .from("organisation_connection_capabilities")
-          .insert(payload);
-
-    if (result.error) {
-      setErrorMessage("The capability could not be updated.");
-      return;
+      await loadConnectionWorkspace(
+        selectedConnection,
+        selectedProvider
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The capability could not be updated."
+      );
     }
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: enabled
-        ? "Capability Enabled"
-        : "Capability Disabled",
-      summary: `${capability.name} ${enabled ? "enabled" : "disabled"}.`,
-      details: {
-        capability_key: capability.capability_key,
-      },
-    });
-
-    await loadConnectionWorkspace(
-      selectedConnection,
-      selectedProvider
-    );
   }
 
   async function toggleModule(
@@ -1107,50 +913,34 @@ export default function ConnectionsPage() {
   ) {
     if (!selectedProvider || !selectedConnection) return;
 
-    const existing = connectionModules.find(
-      (item) => item.module_key === moduleKey
-    );
+    setErrorMessage("");
 
-    const payload = {
-      connection_id: selectedConnection.id,
-      module_key: moduleKey,
-      is_enabled: enabled,
-      approved_at: enabled ? new Date().toISOString() : null,
-    };
+    try {
+      await requestConnectionApi<{
+        success: boolean;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/controls`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            control: "module",
+            module_key: moduleKey,
+            is_enabled: enabled,
+          }),
+        }
+      );
 
-    const result = existing
-      ? await supabase
-          .from("organisation_connection_modules")
-          .update(payload)
-          .eq("id", existing.id)
-      : await supabase
-          .from("organisation_connection_modules")
-          .insert({
-            ...payload,
-            allowed_actions: [],
-          });
-
-    if (result.error) {
-      setErrorMessage("Module access could not be updated.");
-      return;
+      await loadConnectionWorkspace(
+        selectedConnection,
+        selectedProvider
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Module access could not be updated."
+      );
     }
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey,
-      activityType: enabled
-        ? "Module Enabled"
-        : "Module Disabled",
-      summary: `${selectedProvider.name} ${enabled ? "enabled" : "disabled"} for ${moduleKey}.`,
-      details: null,
-    });
-
-    await loadConnectionWorkspace(
-      selectedConnection,
-      selectedProvider
-    );
   }
 
   async function updateRolePermission(
@@ -1166,72 +956,35 @@ export default function ConnectionsPage() {
   ) {
     if (!selectedProvider || !selectedConnection) return;
 
-    const existing = rolePermissions.find(
-      (item) => item.role_key === roleKey
-    );
+    setErrorMessage("");
 
-    const current: Partial<RolePermission> = existing || {
-      can_view: false,
-      can_use: false,
-      can_export: false,
-      can_import: false,
-      can_sync: false,
-      can_manage_settings: false,
-      can_reconnect: false,
-      can_disconnect: false,
-      can_view_activity: false,
-      can_view_errors: false,
-    };
+    try {
+      await requestConnectionApi<{
+        success: boolean;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/controls`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            control: "role_permission",
+            role_key: roleKey,
+            field,
+            value,
+          }),
+        }
+      );
 
-    const payload = {
-      connection_id: selectedConnection.id,
-      role_key: roleKey,
-      can_view: current.can_view || false,
-      can_use: current.can_use || false,
-      can_export: current.can_export || false,
-      can_import: current.can_import || false,
-      can_sync: current.can_sync || false,
-      can_manage_settings:
-        current.can_manage_settings || false,
-      can_reconnect: current.can_reconnect || false,
-      can_disconnect: current.can_disconnect || false,
-      can_view_activity:
-        current.can_view_activity || false,
-      can_view_errors: current.can_view_errors || false,
-      [field]: value,
-    };
-
-    const result = existing
-      ? await supabase
-          .from("organisation_connection_role_permissions")
-          .update(payload)
-          .eq("id", existing.id)
-      : await supabase
-          .from("organisation_connection_role_permissions")
-          .insert(payload);
-
-    if (result.error) {
-      setErrorMessage("The role permission could not be updated.");
-      return;
+      await loadConnectionWorkspace(
+        selectedConnection,
+        selectedProvider
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The role permission could not be updated."
+      );
     }
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: "Foundations",
-      activityType: "Permission Updated",
-      summary: `${roleKey} permission ${String(field)} updated.`,
-      details: {
-        field,
-        value,
-      },
-    });
-
-    await loadConnectionWorkspace(
-      selectedConnection,
-      selectedProvider
-    );
   }
 
   async function queueManualSync() {
@@ -1244,45 +997,39 @@ export default function ConnectionsPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("connection_jobs")
-      .insert({
-        connection_id: selectedConnection.id,
-        module_key: "Foundations",
-        action_key: "manual_sync",
-        direction: "Synchronise",
-        title: `Synchronise ${selectedProvider.name}`,
-        status: "Queued",
-        progress_percent: 0,
-      })
-      .select("*")
-      .single();
+    setMessage("");
+    setErrorMessage("");
 
-    if (error || !data) {
-      setErrorMessage(
-        "The synchronisation job could not be created."
+    try {
+      const result = await requestConnectionApi<{
+        success: boolean;
+        message?: string;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/actions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action: "manual_sync",
+          }),
+        }
       );
-      return;
+
+      setMessage(
+        result.message ||
+          `${selectedProvider.name} synchronisation has been queued.`
+      );
+
+      await loadConnectionWorkspace(
+        selectedConnection,
+        selectedProvider
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The synchronisation job could not be created."
+      );
     }
-
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: data.id,
-      moduleKey: "Foundations",
-      activityType: "Synchronisation Started",
-      summary: `${selectedProvider.name} synchronisation queued.`,
-      details: null,
-    });
-
-    setMessage(
-      `${selectedProvider.name} synchronisation has been queued. A provider worker will process it once that integration is active.`
-    );
-
-    await loadConnectionWorkspace(
-      selectedConnection,
-      selectedProvider
-    );
   }
 
   async function archiveExternalResource(
@@ -1296,88 +1043,56 @@ export default function ConnectionsPage() {
 
     if (!confirmed) return;
 
-    await supabase
-      .from("connection_external_resources")
-      .update({
-        sync_status: "Unlinked",
-        is_archived: true,
-        archived_at: new Date().toISOString(),
-      })
-      .eq("id", resource.id);
+    setErrorMessage("");
 
-    await recordActivity({
-      providerId: selectedProvider.id,
-      connectionId: selectedConnection.id,
-      jobId: null,
-      moduleKey: resource.module_key,
-      activityType: "Resource Unlinked",
-      summary: `${resource.external_name || resource.external_resource_type} unlinked.`,
-      details: {
-        external_resource_id:
-          resource.external_resource_id,
-      },
-    });
+    try {
+      await requestConnectionApi<{
+        success: boolean;
+      }>(
+        `/api/foundations/connections/${selectedConnection.id}/controls`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            control: "external_resource",
+            resource_id: resource.id,
+            action: "unlink",
+          }),
+        }
+      );
 
-    await loadConnectionWorkspace(
-      selectedConnection,
-      selectedProvider
-    );
+      await loadConnectionWorkspace(
+        selectedConnection,
+        selectedProvider
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The external resource could not be unlinked."
+      );
+    }
   }
 
   async function refreshSelectedConnection() {
     if (!selectedProvider || !selectedConnection) return;
 
-    const { data } = await supabase
-      .from("organisation_connections")
-      .select("*")
-      .eq("id", selectedConnection.id)
-      .single();
-
-    if (data) {
-      setSelectedConnection(data as OrganisationConnection);
-      populateConnection(data as OrganisationConnection);
+    try {
       await loadConnectionWorkspace(
-        data as OrganisationConnection,
+        selectedConnection,
         selectedProvider
       );
-    }
 
-    await loadConnectionsPage();
-  }
-
-  async function recordActivity({
-    providerId,
-    connectionId,
-    jobId,
-    moduleKey,
-    activityType,
-    summary,
-    details,
-  }: {
-    providerId: number | null;
-    connectionId: number | null;
-    jobId: number | null;
-    moduleKey: string | null;
-    activityType: string;
-    summary: string;
-    details: Record<string, unknown> | null;
-  }) {
-    const { error } = await supabase
-      .from("connection_activity_history")
-      .insert({
-        provider_id: providerId,
-        connection_id: connectionId,
-        job_id: jobId,
-        module_key: moduleKey,
-        activity_type: activityType,
-        activity_summary: summary,
-        activity_details: details || {},
-      });
-
-    if (error) {
+      await loadConnectionsPage();
+    } catch (error) {
       console.error(
-        "Error recording connection activity:",
+        "Error refreshing selected connection:",
         error
+      );
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The connection could not be refreshed."
       );
     }
   }

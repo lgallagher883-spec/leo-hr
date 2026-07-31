@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { synchroniseTalentInterview } from "@/lib/connections/microsoft/talent-interview-sync";
 
 type RouteContext = {
   params: Promise<{
@@ -383,8 +384,15 @@ export async function PATCH(
         throw new Error(statusResult.error.message);
       }
 
+      const calendarResult = await synchroniseTalentInterview(
+        interviewId,
+        access.organisationId,
+      );
+
       return NextResponse.json({
         success: true,
+        calendarSyncStatus: calendarResult.status,
+        calendarWarning: calendarResult.warning,
       });
     }
 
@@ -607,8 +615,15 @@ export async function PATCH(
       }
     }
 
+    const calendarResult = await synchroniseTalentInterview(
+      interviewId,
+      access.organisationId,
+    );
+
     return NextResponse.json({
       success: true,
+      calendarSyncStatus: calendarResult.status,
+      calendarWarning: calendarResult.warning,
     });
   } catch (error) {
     console.error("Interview update failed:", error);

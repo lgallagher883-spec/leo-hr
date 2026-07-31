@@ -11,6 +11,11 @@ const MICROSOFT_SCOPES = [
   "email",
   "offline_access",
   "User.Read",
+  "Calendars.ReadWrite",
+  "Mail.Read",
+  "Mail.Send",
+  "Files.ReadWrite",
+  "OnlineMeetings.ReadWrite",
 ];
 
 function getAdminClient() {

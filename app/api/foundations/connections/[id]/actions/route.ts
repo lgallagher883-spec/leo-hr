@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { getGoogleProfile } from "@/lib/google/auth";
+import { getGoogleAccessToken } from "@/lib/google/connection";
+import { microsoftGraphRequest } from "@/lib/microsoft/graph";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +80,34 @@ function parseConnectionId(value: string): number | null {
   }
 
   return id;
+}
+
+function getProviderIdentity(provider: any) {
+  const providerName = text(provider?.name).toLowerCase();
+  const providerKey = text(
+    provider?.provider_key ??
+      provider?.slug ??
+      provider?.key,
+  ).toLowerCase();
+
+  return {
+    isMicrosoft365:
+      providerName.includes("microsoft") ||
+      providerKey.includes("microsoft"),
+    isGoogleWorkspace:
+      providerName.includes("google") ||
+      providerKey.includes("google"),
+  };
+}
+
+async function getGoogleConnectionProfile(connection: any) {
+  const accessToken = await getGoogleAccessToken(connection);
+  const profile = await getGoogleProfile(accessToken);
+
+  return {
+    profile,
+    tokenRefreshed: true,
+  };
 }
 
 async function getAuthorisedContext(
@@ -321,18 +352,14 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (action === "begin_connection") {
-      const providerName = text(provider.name).toLowerCase();
-      const providerKey = text(
-        provider.provider_key ??
-          provider.slug ??
-          provider.key,
-      ).toLowerCase();
+      const { isMicrosoft365, isGoogleWorkspace } =
+        getProviderIdentity(provider);
 
-      const isMicrosoft365 =
-        providerName.includes("microsoft") ||
-        providerKey.includes("microsoft");
-
-      if (!isMicrosoft365 && provider.setup_status !== "Available") {
+      if (
+        !isMicrosoft365 &&
+        !isGoogleWorkspace &&
+        provider.setup_status !== "Available"
+      ) {
         return NextResponse.json({
           success: true,
           message:
@@ -426,6 +453,19 @@ export async function POST(
         });
       }
 
+      if (isGoogleWorkspace) {
+        return NextResponse.json({
+          success: true,
+          connection: connectionResult.data,
+          session: sessionResult.data,
+          redirectUrl:
+            `/api/foundations/connections/google/start` +
+            `?session=${encodeURIComponent(sessionReference)}`,
+          message:
+            "Redirecting to Google for secure authorisation.",
+        });
+      }
+
       return NextResponse.json({
         success: true,
         connection: connectionResult.data,
@@ -470,18 +510,43 @@ export async function POST(
 
       const liveConnection =
         connection.status === "Connected";
+      const { isGoogleWorkspace } =
+        getProviderIdentity(provider);
 
-      const healthStatus = liveConnection
+      let healthStatus = liveConnection
         ? "Healthy"
         : provider.setup_status === "Available"
           ? "Configuration Required"
           : "Unavailable";
 
-      const summary = liveConnection
+      let summary = liveConnection
         ? `${provider.name} connection is available.`
         : provider.setup_status === "Available"
           ? `${provider.name} requires authorisation or configuration.`
           : `${provider.name} provider activation is not available yet.`;
+
+      let googleProfile: Record<string, unknown> | null = null;
+
+      if (liveConnection && isGoogleWorkspace) {
+        try {
+          const googleResult =
+            await getGoogleConnectionProfile(connection);
+
+          googleProfile = googleResult.profile as Record<
+            string,
+            unknown
+          >;
+          healthStatus = "Healthy";
+          summary =
+            "Google Workspace connection is healthy and authorised.";
+        } catch (error) {
+          healthStatus = "Authentication Failed";
+          summary =
+            error instanceof Error
+              ? error.message
+              : "Google Workspace could not be reached.";
+        }
+      }
 
       const healthResult = await (admin as any)
         .from("connection_health_checks")
@@ -493,6 +558,10 @@ export async function POST(
           diagnostic_details: {
             provider_setup_status: provider.setup_status,
             connection_status: connection.status,
+            google_profile_id:
+              typeof googleProfile?.sub === "string"
+                ? googleProfile.sub
+                : null,
           },
         });
 
@@ -509,7 +578,7 @@ export async function POST(
       }
 
       const connectionUpdateResult = await (
-        supabase as any
+        admin as any
       )
         .from("organisation_connections")
         .update({
@@ -622,31 +691,156 @@ export async function POST(
       );
     }
 
-    const syncJobResult = await (admin as any)
-      .from("connection_jobs")
-      .insert({
-        organisation_id: access.organisationId,
-        requested_by_user_id: access.user.id,
-        connection_id: connectionId,
-        module_key: "Foundations",
-        action_key: "manual_sync",
-        direction: "Synchronise",
-        title: `Synchronise ${provider.name}`,
-        status: "Queued",
-        progress_percent: 0,
-        request_payload: {},
-        response_payload: {},
-      })
-      .select("*")
-      .single();
+    type MicrosoftProfile = {
+      id?: string;
+      displayName?: string;
+      mail?: string | null;
+      userPrincipalName?: string;
+    };
 
-    if (syncJobResult.error || !syncJobResult.data) {
+    const { isMicrosoft365, isGoogleWorkspace } =
+      getProviderIdentity(provider);
+
+    if (!isMicrosoft365 && !isGoogleWorkspace) {
       return NextResponse.json(
         {
           success: false,
           error:
-            syncJobResult.error?.message ||
-            "The synchronisation job could not be created.",
+            `${provider.name} does not yet have an active synchronisation connector.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    if (isGoogleWorkspace) {
+      const googleResult =
+        await getGoogleConnectionProfile(connection);
+      const profile = googleResult.profile as {
+        sub?: string;
+        name?: string;
+        email?: string;
+      };
+
+      const accountDisplayName =
+        profile.name ||
+        profile.email ||
+        connection.account_display_name ||
+        "Google Workspace";
+
+      const connectionUpdateResult = await (admin as any)
+        .from("organisation_connections")
+        .update({
+          account_display_name: accountDisplayName,
+          external_account_id:
+            profile.sub ||
+            connection.external_account_id,
+          status: "Connected",
+          health_status: "Healthy",
+          last_sync_at: now,
+          last_successful_use_at: now,
+          last_health_check_at: now,
+          last_failed_use_at: null,
+          reconnect_required_at: null,
+          last_error_code: null,
+          last_error_message: null,
+          last_error_at: null,
+        })
+        .eq("id", connectionId)
+        .eq(
+          "organisation_id",
+          access.organisationId,
+        )
+        .select("*")
+        .single();
+
+      if (
+        connectionUpdateResult.error ||
+        !connectionUpdateResult.data
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              connectionUpdateResult.error?.message ||
+              "The Google Workspace connection could not be updated.",
+          },
+          { status: 500 },
+        );
+      }
+
+      await recordActivity(admin, {
+        organisationId: access.organisationId,
+        userId: access.user.id,
+        providerId: provider.id,
+        connectionId,
+        activityType: "Synchronisation Completed",
+        summary:
+          "Google Workspace connection details were synchronised successfully.",
+        details: {
+          account_display_name: accountDisplayName,
+          external_account_id: profile.sub || null,
+          token_refreshed: googleResult.tokenRefreshed,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        connection: connectionUpdateResult.data,
+        message:
+          "Google Workspace synchronisation completed successfully.",
+      });
+    }
+
+    const graphResult =
+      await microsoftGraphRequest<MicrosoftProfile>(
+        connectionId,
+        "/me?$select=id,displayName,mail,userPrincipalName",
+      );
+
+    const profile = graphResult.data;
+
+    const accountDisplayName =
+      profile.displayName ||
+      profile.mail ||
+      profile.userPrincipalName ||
+      connection.account_display_name ||
+      "Microsoft 365";
+
+    const connectionUpdateResult = await (admin as any)
+      .from("organisation_connections")
+      .update({
+        account_display_name: accountDisplayName,
+        external_account_id:
+          profile.id ||
+          connection.external_account_id,
+        status: "Connected",
+        health_status: "Healthy",
+        last_successful_use_at: now,
+        last_health_check_at: now,
+        last_failed_use_at: null,
+        reconnect_required_at: null,
+        last_error_code: null,
+        last_error_message: null,
+        last_error_at: null,
+      })
+      .eq("id", connectionId)
+      .eq(
+        "organisation_id",
+        access.organisationId,
+      )
+      .select("*")
+      .single();
+
+    if (
+      connectionUpdateResult.error ||
+      !connectionUpdateResult.data
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            connectionUpdateResult.error?.message ||
+            "The Microsoft connection could not be updated.",
         },
         { status: 500 },
       );
@@ -657,23 +851,25 @@ export async function POST(
       userId: access.user.id,
       providerId: provider.id,
       connectionId,
-      jobId: syncJobResult.data.id,
-      activityType: "Synchronisation Started",
+      activityType: "Synchronisation Completed",
       summary:
-        `${provider.name} synchronisation queued.`,
-      details: null,
+        "Microsoft 365 connection details were synchronised successfully.",
+      details: {
+        account_display_name: accountDisplayName,
+        external_account_id:
+          profile.id || null,
+        token_refreshed:
+          graphResult.tokenRefreshed,
+      },
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        job: syncJobResult.data,
-        message:
-          `${provider.name} synchronisation has been queued. ` +
-          "A provider worker will process it once that integration is active.",
-      },
-      { status: 201 },
-    );
+    return NextResponse.json({
+      success: true,
+      connection:
+        connectionUpdateResult.data,
+      message:
+        "Microsoft 365 synchronisation completed successfully.",
+    });
   } catch (error) {
     console.error("Connection action failed:", error);
 

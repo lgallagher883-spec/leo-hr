@@ -955,16 +955,6 @@ export default function InterviewsWorkspace() {
     }
 
     if (
-      form.interviewType === "video" &&
-      !form.meetingUrl.trim()
-    ) {
-      setFormError(
-        "Add the meeting link for a video interview.",
-      );
-      return;
-    }
-
-    if (
       ["in_person", "panel", "practical"].includes(
         form.interviewType,
       ) &&
@@ -1937,16 +1927,35 @@ function InterviewForm({
             disabled={saving}
           />
 
-          <TextField
-            label="Meeting link"
-            type="url"
-            value={form.meetingUrl}
-            onChange={(value) =>
-              onUpdate("meetingUrl", value)
-            }
-            placeholder="Video interview URL"
-            disabled={saving}
-          />
+          {form.interviewType === "video" ? (
+  <div style={fieldStyle}>
+    <span style={fieldLabelStyle}>Microsoft Teams</span>
+
+    <div
+      style={{
+        ...inputStyle,
+        background: "#F9FAFB",
+        color: "#6B7280",
+        minHeight: "42px",
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
+      A Microsoft Teams meeting will be created automatically when the interview is scheduled.
+    </div>
+  </div>
+) : (
+  <TextField
+    label="Meeting link (optional)"
+    type="url"
+    value={form.meetingUrl}
+    onChange={(value) =>
+      onUpdate("meetingUrl", value)
+    }
+    placeholder="Optional Zoom, Google Meet or other link"
+    disabled={saving}
+  />
+)}
         </div>
       </FormSection>
 

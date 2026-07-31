@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import {
+  createMicrosoftCalendarEvent,
+  deleteMicrosoftCalendarEvent,
+  type MicrosoftEventAttendee,
+} from "@/lib/connections/microsoft/calendar";
 import { createClient } from "@/lib/supabase/server";
 
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
@@ -33,6 +39,60 @@ type InterviewInput = {
   outcomeReason?: unknown;
   panelMembers?: unknown;
 };
+
+type NormalisedPanelMember = {
+  member_name: string;
+  member_email: string | null;
+  panel_role: string;
+  attendance_status: string;
+  can_score: boolean;
+  display_order: number;
+};
+
+type CandidateDetails = {
+  first_name?: string | null;
+  last_name?: string | null;
+  preferred_name?: string | null;
+  email?: string | null;
+};
+
+type VacancyDetails = {
+  title?: string | null;
+  vacancy_reference?: string | null;
+  location_name?: string | null;
+};
+
+type ApplicationDetails = {
+  id: string;
+  organisation_id: string;
+  candidate_id: string;
+  vacancy_id: string;
+  application_reference?: string | null;
+  candidate?: CandidateDetails | CandidateDetails[] | null;
+  vacancy?: VacancyDetails | VacancyDetails[] | null;
+};
+
+type MicrosoftConnectionRow = {
+  id: number;
+};
+
+function getAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Supabase administrator credentials are not configured.",
+    );
+  }
+
+  return createAdminClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 const allowedRoles = new Set<PlatformRole>([
   "owner",
@@ -89,6 +149,13 @@ const attendanceStatuses = new Set([
   "absent",
 ]);
 
+const calendarEligibleStatuses = new Set([
+  "scheduled",
+  "invited",
+  "confirmed",
+  "reschedule_requested",
+]);
+
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -139,6 +206,110 @@ function normaliseRole(value: unknown): PlatformRole {
   return "employee";
 }
 
+function firstRelation<T>(
+  value: T | T[] | null | undefined,
+): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function candidateDisplayName(candidate: CandidateDetails | null): string {
+  if (!candidate) {
+    return "Candidate";
+  }
+
+  const preferredName = text(candidate.preferred_name);
+  const firstName = preferredName || text(candidate.first_name);
+  const lastName = text(candidate.last_name);
+
+  return [firstName, lastName].filter(Boolean).join(" ") || "Candidate";
+}
+
+function normaliseEmail(value: unknown): string | null {
+  const email = text(value).toLowerCase();
+
+  if (!email || !email.includes("@")) {
+    return null;
+  }
+
+  return email;
+}
+
+function buildEventAttendees(
+  candidate: CandidateDetails | null,
+  panelMembers: NormalisedPanelMember[],
+): MicrosoftEventAttendee[] {
+  const attendees = new Map<string, MicrosoftEventAttendee>();
+
+  const candidateEmail = normaliseEmail(candidate?.email);
+
+  if (candidateEmail) {
+    attendees.set(candidateEmail, {
+      name: candidateDisplayName(candidate),
+      address: candidateEmail,
+      type: "required",
+    });
+  }
+
+  for (const member of panelMembers) {
+    const memberEmail = normaliseEmail(member.member_email);
+
+    if (!memberEmail || attendees.has(memberEmail)) {
+      continue;
+    }
+
+    attendees.set(memberEmail, {
+      name: member.member_name,
+      address: memberEmail,
+      type: "required",
+    });
+  }
+
+  return Array.from(attendees.values());
+}
+
+function buildCalendarBody(options: {
+  candidateName: string;
+  vacancyTitle: string;
+  stageName: string;
+  applicationReference: string | null;
+  candidateInstructions: string | null;
+}) {
+  const instructions = options.candidateInstructions
+    ? `
+      <p><strong>Interview information</strong></p>
+      <p>${escapeHtml(options.candidateInstructions).replaceAll("\n", "<br />")}</p>
+    `
+    : "";
+
+  const reference = options.applicationReference
+    ? `<p><strong>Application reference:</strong> ${escapeHtml(
+        options.applicationReference,
+      )}</p>`
+    : "";
+
+  return `
+    <p>This interview was scheduled through LEO Talent.</p>
+    <p><strong>Candidate:</strong> ${escapeHtml(options.candidateName)}</p>
+    <p><strong>Vacancy:</strong> ${escapeHtml(options.vacancyTitle)}</p>
+    <p><strong>Stage:</strong> ${escapeHtml(options.stageName)}</p>
+    ${reference}
+    ${instructions}
+  `.trim();
+}
+
 async function getAuthorisedContext(supabase: any) {
   const {
     data: { user },
@@ -182,7 +353,9 @@ async function getAuthorisedContext(supabase: any) {
   };
 }
 
-function normalisePanelMembers(value: unknown) {
+function normalisePanelMembers(
+  value: unknown,
+): NormalisedPanelMember[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -192,14 +365,10 @@ function normalisePanelMembers(value: unknown) {
     const memberName = text(member.memberName);
     const memberEmail = optionalText(member.memberEmail);
     const panelRole = text(member.panelRole);
-    const attendanceStatus = text(
-      member.attendanceStatus,
-    );
+    const attendanceStatus = text(member.attendanceStatus);
 
     if (!memberName) {
-      throw new Error(
-        "Every panel member must have a name.",
-      );
+      throw new Error("Every panel member must have a name.");
     }
 
     if (!panelRoles.has(panelRole)) {
@@ -220,10 +389,9 @@ function normalisePanelMembers(value: unknown) {
       panel_role: panelRole,
       attendance_status: attendanceStatus,
       can_score: member.canScore !== false,
-      display_order:
-        Number.isInteger(Number(member.displayOrder))
-          ? Number(member.displayOrder)
-          : index,
+      display_order: Number.isInteger(Number(member.displayOrder))
+        ? Number(member.displayOrder)
+        : index,
     };
   });
 }
@@ -237,10 +405,7 @@ function getApplicationStageForInterview(
   if (outcome === "unsuccessful") return "unsuccessful";
   if (outcome === "withdrawn") return "withdrawn";
 
-  if (
-    outcome === "additional_stage" ||
-    outcome === "proceed"
-  ) {
+  if (outcome === "additional_stage" || outcome === "proceed") {
     return `interview_${stageNumber + 1}`;
   }
 
@@ -259,22 +424,240 @@ function getApplicationStageForInterview(
   return null;
 }
 
-function getApplicationStatusForOutcome(
-  outcome: string | null,
-) {
+function getApplicationStatusForOutcome(outcome: string | null) {
   if (outcome === "offer") return "offered";
   if (outcome === "unsuccessful") return "unsuccessful";
   if (outcome === "withdrawn") return "withdrawn";
 
   if (
-    ["proceed", "additional_stage", "hold"].includes(
-      outcome ?? "",
-    )
+    ["proceed", "additional_stage", "hold"].includes(outcome ?? "")
   ) {
     return "active";
   }
 
   return null;
+}
+
+async function findMicrosoft365Connection(
+  organisationId: string,
+): Promise<MicrosoftConnectionRow | null> {
+  const admin = getAdminClient();
+
+  const providerResult = await admin
+    .from("connection_providers")
+    .select("id, provider_key")
+    .in("provider_key", [
+      "microsoft-365",
+      "microsoft_365",
+      "microsoft365",
+    ])
+    .limit(1)
+    .maybeSingle();
+
+  if (providerResult.error || !providerResult.data) {
+    if (providerResult.error) {
+      console.warn(
+        "Microsoft 365 provider lookup failed:",
+        providerResult.error,
+      );
+    }
+
+    return null;
+  }
+
+  const connectionResult = await admin
+    .from("organisation_connections")
+    .select("id")
+    .eq("organisation_id", organisationId)
+    .eq("provider_id", providerResult.data.id)
+    .ilike("status", "connected")
+    .eq("is_archived", false)
+    .limit(1)
+    .maybeSingle();
+
+  if (connectionResult.error || !connectionResult.data) {
+    if (connectionResult.error) {
+      console.warn(
+        "Microsoft 365 connection lookup failed:",
+        connectionResult.error,
+      );
+    }
+
+    return null;
+  }
+
+  return {
+    id: Number(connectionResult.data.id),
+  };
+}
+
+async function syncNewInterviewToMicrosoft(options: {
+  supabase: any;
+  organisationId: string;
+  interviewId: string;
+  application: ApplicationDetails;
+  stageName: string;
+  interviewType: string;
+  status: string;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  timezoneName: string;
+  location: string | null;
+  meetingUrl: string | null;
+  candidateInstructions: string | null;
+  panelMembers: NormalisedPanelMember[];
+}) {
+  const {
+    supabase,
+    organisationId,
+    interviewId,
+    application,
+    stageName,
+    interviewType,
+    status,
+    scheduledStart,
+    scheduledEnd,
+    timezoneName,
+    location,
+    meetingUrl,
+    candidateInstructions,
+    panelMembers,
+  } = options;
+
+  if (
+    !calendarEligibleStatuses.has(status) ||
+    !scheduledStart ||
+    !scheduledEnd
+  ) {
+    return {
+      calendarSyncStatus: "not_synced",
+      calendarWarning: null as string | null,
+    };
+  }
+  const connection =
+    await findMicrosoft365Connection(organisationId);
+
+  if (!connection) {
+    return {
+      calendarSyncStatus: "not_synced",
+      calendarWarning:
+        "The interview was saved, but no connected Microsoft 365 account was available.",
+    };
+  }
+
+  await supabase
+    .from("leo_talent_interviews")
+    .update({
+      calendar_provider: "microsoft-365",
+      calendar_sync_status: "pending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", interviewId)
+    .eq("organisation_id", organisationId);
+
+  const candidate = firstRelation(application.candidate);
+  const vacancy = firstRelation(application.vacancy);
+  const candidateName = candidateDisplayName(candidate);
+  const vacancyTitle = text(vacancy?.title) || "Vacancy";
+  const createTeamsMeeting = interviewType === "video";
+
+  let createdEventId: string | null = null;
+
+  try {
+    const eventResult = await createMicrosoftCalendarEvent(
+      connection.id,
+      {
+        subject: `Interview: ${candidateName} — ${vacancyTitle}`,
+        body: buildCalendarBody({
+          candidateName,
+          vacancyTitle,
+          stageName,
+          applicationReference:
+            optionalText(application.application_reference),
+          candidateInstructions,
+        }),
+        bodyType: "HTML",
+        startDateTime: scheduledStart,
+        endDateTime: scheduledEnd,
+        timeZone: timezoneName,
+        location:
+          location ||
+          (createTeamsMeeting ? "Microsoft Teams" : undefined),
+        attendees: buildEventAttendees(candidate, panelMembers),
+        createTeamsMeeting,
+        transactionId: interviewId,
+      },
+    );
+
+    createdEventId = eventResult.data.id;
+
+    const teamsJoinUrl =
+      eventResult.data.onlineMeeting?.joinUrl ?? null;
+
+    const syncUpdateResult = await supabase
+      .from("leo_talent_interviews")
+      .update({
+        calendar_provider: "microsoft-365",
+        calendar_event_id: eventResult.data.id,
+        calendar_sync_status: "synced",
+        meeting_url: teamsJoinUrl || meetingUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", interviewId)
+      .eq("organisation_id", organisationId);
+
+    if (syncUpdateResult.error) {
+      throw new Error(syncUpdateResult.error.message);
+    }
+
+    return {
+      calendarSyncStatus: "synced",
+      calendarWarning: null as string | null,
+    };
+  } catch (error) {
+    if (createdEventId) {
+      try {
+        await deleteMicrosoftCalendarEvent(
+          connection.id,
+          createdEventId,
+        );
+      } catch (cleanupError) {
+        console.warn(
+          "Microsoft interview event cleanup failed:",
+          cleanupError,
+        );
+      }
+    }
+
+   const message =
+  error instanceof Error
+    ? error.message
+    : "Microsoft 365 calendar synchronisation failed.";
+
+console.error("Microsoft calendar sync error:", {
+  message,
+  error,
+});
+
+console.warn("Interview Microsoft sync failed:", error);
+
+    await supabase
+      .from("leo_talent_interviews")
+      .update({
+        calendar_provider: "microsoft-365",
+        calendar_event_id: null,
+        calendar_sync_status: "failed",
+        meeting_url: meetingUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", interviewId)
+      .eq("organisation_id", organisationId);
+
+    return {
+      calendarSyncStatus: "failed",
+      calendarWarning: `The interview was saved, but Microsoft 365 could not be updated: ${message}`,
+    };
+  }
 }
 
 export async function GET() {
@@ -481,10 +864,7 @@ export async function GET() {
       templates: templatesResult.data ?? [],
     });
   } catch (error) {
-    console.error(
-      "Interview workspace loader failed:",
-      error,
-    );
+    console.error("Interview workspace loader failed:", error);
 
     return NextResponse.json(
       {
@@ -538,10 +918,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      !Number.isInteger(stageNumber) ||
-      stageNumber < 1
-    ) {
+    if (!Number.isInteger(stageNumber) || stageNumber < 1) {
       return NextResponse.json(
         {
           success: false,
@@ -595,15 +972,31 @@ export async function POST(request: Request) {
 
     const applicationResult = await (supabase as any)
       .from("leo_talent_applications")
-      .select("id, organisation_id, candidate_id, vacancy_id")
+      .select(
+        `
+          id,
+          organisation_id,
+          application_reference,
+          candidate_id,
+          vacancy_id,
+          candidate:leo_talent_candidates (
+            first_name,
+            last_name,
+            preferred_name,
+            email
+          ),
+          vacancy:leo_talent_vacancies (
+            title,
+            vacancy_reference,
+            location_name
+          )
+        `,
+      )
       .eq("id", applicationId)
       .eq("organisation_id", access.organisationId)
       .maybeSingle();
 
-    if (
-      applicationResult.error ||
-      !applicationResult.data
-    ) {
+    if (applicationResult.error || !applicationResult.data) {
       return NextResponse.json(
         {
           success: false,
@@ -615,12 +1008,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const scheduledStart = optionalIsoDate(
-      body.scheduledStart,
-    );
-    const scheduledEnd = optionalIsoDate(
-      body.scheduledEnd,
-    );
+    const application =
+      applicationResult.data as ApplicationDetails;
+
+    const scheduledStart = optionalIsoDate(body.scheduledStart);
+    const scheduledEnd = optionalIsoDate(body.scheduledEnd);
 
     if (
       scheduledStart &&
@@ -638,19 +1030,37 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      calendarEligibleStatuses.has(status) &&
+      (!scheduledStart || !scheduledEnd)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A scheduled interview must have both a start and end time.",
+        },
+        { status: 400 },
+      );
+    }
+
     const now = new Date().toISOString();
-    const panelMembers = normalisePanelMembers(
-      body.panelMembers,
+    const panelMembers = normalisePanelMembers(body.panelMembers);
+    const timezoneName =
+      text(body.timezoneName) || "Europe/London";
+    const location = optionalText(body.location);
+    const manualMeetingUrl = optionalText(body.meetingUrl);
+    const candidateInstructions = optionalText(
+      body.candidateInstructions,
     );
 
     const insertResult = await (supabase as any)
       .from("leo_talent_interviews")
       .insert({
         organisation_id: access.organisationId,
-        application_id: applicationResult.data.id,
-        candidate_id:
-          applicationResult.data.candidate_id,
-        vacancy_id: applicationResult.data.vacancy_id,
+        application_id: application.id,
+        candidate_id: application.candidate_id,
+        vacancy_id: application.vacancy_id,
         template_id: optionalText(body.templateId),
         stage_number: stageNumber,
         stage_name: stageName,
@@ -658,30 +1068,27 @@ export async function POST(request: Request) {
         status,
         scheduled_start: scheduledStart,
         scheduled_end: scheduledEnd,
-        timezone_name:
-          text(body.timezoneName) || "Europe/London",
-        location: optionalText(body.location),
-        meeting_url: optionalText(body.meetingUrl),
-        candidate_instructions: optionalText(
-          body.candidateInstructions,
-        ),
+        timezone_name: timezoneName,
+        location,
+        meeting_url: manualMeetingUrl,
+        candidate_instructions: candidateInstructions,
         internal_instructions: optionalText(
           body.internalInstructions,
         ),
-        invitation_sent_at: ["invited", "confirmed"].includes(
-          status,
-        )
+        invitation_sent_at: ["invited", "confirmed"].includes(status)
           ? now
           : null,
         candidate_confirmed_at:
           status === "confirmed" ? now : null,
-        completed_at:
-          status === "completed" ? now : null,
+        completed_at: status === "completed" ? now : null,
         overall_score: optionalNumber(body.overallScore),
         outcome,
         outcome_reason: outcome
           ? optionalText(body.outcomeReason)
           : null,
+        calendar_provider: null,
+        calendar_event_id: null,
+        calendar_sync_status: "not_synced",
         created_at: now,
         updated_at: now,
       })
@@ -729,8 +1136,7 @@ export async function POST(request: Request) {
       outcome,
       stageNumber,
     );
-    const nextStatus =
-      getApplicationStatusForOutcome(outcome);
+    const nextStatus = getApplicationStatusForOutcome(outcome);
 
     if (nextStage) {
       applicationUpdate.current_stage_key = nextStage;
@@ -755,10 +1161,29 @@ export async function POST(request: Request) {
       }
     }
 
+    const calendarResult = await syncNewInterviewToMicrosoft({
+      supabase,
+      organisationId: access.organisationId,
+      interviewId,
+      application,
+      stageName,
+      interviewType,
+      status,
+      scheduledStart,
+      scheduledEnd,
+      timezoneName,
+      location,
+      meetingUrl: manualMeetingUrl,
+      candidateInstructions,
+      panelMembers,
+    });
+
     return NextResponse.json(
       {
         success: true,
         interviewId,
+        calendarSyncStatus: calendarResult.calendarSyncStatus,
+        calendarWarning: calendarResult.calendarWarning,
       },
       { status: 201 },
     );

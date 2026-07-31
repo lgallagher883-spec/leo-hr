@@ -1004,12 +1004,14 @@ if (result.redirectUrl) {
       return;
     }
 
+    setSaving(true);
     setMessage("");
     setErrorMessage("");
 
     try {
       const result = await requestConnectionApi<{
         success: boolean;
+        connection?: OrganisationConnection;
         message?: string;
       }>(
         `/api/foundations/connections/${selectedConnection.id}/actions`,
@@ -1021,21 +1023,25 @@ if (result.redirectUrl) {
         }
       );
 
+      if (result.connection) {
+        setSelectedConnection(result.connection);
+        populateConnection(result.connection);
+      }
+
       setMessage(
         result.message ||
-          `${selectedProvider.name} synchronisation has been queued.`
+          `${selectedProvider.name} synchronisation completed successfully.`
       );
 
-      await loadConnectionWorkspace(
-        selectedConnection,
-        selectedProvider
-      );
+      await refreshSelectedConnection();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "The synchronisation job could not be created."
+          : "The synchronisation could not be completed."
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -1990,7 +1996,7 @@ if (result.redirectUrl) {
                       <div style={optionGridStyle}>
                         <ToggleCard
                           label="Enable scheduled synchronisation"
-                          description="Allow Leo to queue approved synchronisation work for this provider."
+                          description="Allow Leo to run approved synchronisation with this provider."
                           checked={syncEnabled}
                           onChange={setSyncEnabled}
                         />
@@ -2034,18 +2040,20 @@ if (result.redirectUrl) {
                           onClick={() =>
                             void queueManualSync()
                           }
+                          disabled={saving}
                           style={primaryButtonStyle}
                         >
-                          Run Manual Sync
+                          {saving
+                            ? "Synchronising..."
+                            : "Run Manual Sync"}
                         </button>
                       </div>
                     </div>
 
                     <div style={noticeStyle}>
-                      Synchronisation jobs are safely queued in
-                      Leo. A provider-specific server worker
-                      performs the external API work after that
-                      integration is activated.
+                      Manual synchronisation securely contacts the
+                      connected provider and refreshes the latest
+                      connection details in Leo.
                     </div>
                   </>
                 )}
@@ -2715,7 +2723,7 @@ if (result.redirectUrl) {
                             </span>
 
                             <span style={openLabelStyle}>
-                              Open →
+                              Manage →
                             </span>
                           </div>
                         </button>

@@ -97,6 +97,9 @@ function getProviderIdentity(provider: any) {
     isGoogleWorkspace:
       providerName.includes("google") ||
       providerKey.includes("google"),
+    isDocuSign:
+      providerName.includes("docusign") ||
+      providerKey.includes("docusign"),
   };
 }
 
@@ -352,12 +355,16 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (action === "begin_connection") {
-      const { isMicrosoft365, isGoogleWorkspace } =
-        getProviderIdentity(provider);
+      const {
+        isMicrosoft365,
+        isGoogleWorkspace,
+        isDocuSign,
+      } = getProviderIdentity(provider);
 
       if (
         !isMicrosoft365 &&
         !isGoogleWorkspace &&
+        !isDocuSign &&
         provider.setup_status !== "Available"
       ) {
         return NextResponse.json({
@@ -466,6 +473,19 @@ export async function POST(
         });
       }
 
+      if (isDocuSign) {
+        return NextResponse.json({
+          success: true,
+          connection: connectionResult.data,
+          session: sessionResult.data,
+          redirectUrl:
+            `/api/foundations/connections/docusign/start` +
+            `?session=${encodeURIComponent(sessionReference)}`,
+          message:
+            "Redirecting to DocuSign for secure authorisation.",
+        });
+      }
+
       return NextResponse.json({
         success: true,
         connection: connectionResult.data,
@@ -510,8 +530,82 @@ export async function POST(
 
       const liveConnection =
         connection.status === "Connected";
-      const { isGoogleWorkspace } =
+      const { isGoogleWorkspace, isDocuSign } =
         getProviderIdentity(provider);
+
+      if (liveConnection && isDocuSign) {
+        const healthUrl = new URL(
+          "/api/foundations/connections/docusign/health",
+          request.url,
+        );
+        healthUrl.searchParams.set(
+          "connectionId",
+          String(connectionId),
+        );
+
+        const docuSignResponse = await fetch(healthUrl, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const docuSignResult = (await docuSignResponse.json()) as {
+          success?: boolean;
+          error?: string;
+          message?: string;
+        };
+
+        const healthStatus = docuSignResult.success
+          ? "Healthy"
+          : "Authentication Failed";
+
+        const summary =
+          docuSignResult.message ||
+          docuSignResult.error ||
+          "DocuSign connection test completed.";
+
+        await (admin as any)
+          .from("connection_jobs")
+          .update({
+            status: docuSignResult.success
+              ? "Completed"
+              : "Partially Completed",
+            progress_percent: 100,
+            completed_at: now,
+            error_message: docuSignResult.success
+              ? null
+              : summary,
+            response_payload: {
+              health_status: healthStatus,
+              summary,
+            },
+          })
+          .eq("id", jobResult.data.id)
+          .eq("connection_id", connectionId);
+
+        await recordActivity(admin, {
+          organisationId: access.organisationId,
+          userId: access.user.id,
+          providerId: provider.id,
+          connectionId,
+          jobId: jobResult.data.id,
+          activityType: "Connection Tested",
+          summary,
+          details: {
+            health_status: healthStatus,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: docuSignResult.success === true,
+            healthStatus,
+            message: summary,
+          },
+          {
+            status: docuSignResult.success ? 200 : 502,
+          },
+        );
+      }
 
       let healthStatus = liveConnection
         ? "Healthy"
@@ -698,8 +792,22 @@ export async function POST(
       userPrincipalName?: string;
     };
 
-    const { isMicrosoft365, isGoogleWorkspace } =
-      getProviderIdentity(provider);
+    const {
+      isMicrosoft365,
+      isGoogleWorkspace,
+      isDocuSign,
+    } = getProviderIdentity(provider);
+
+    if (isDocuSign) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "DocuSign envelope synchronisation will be activated when the signing workflow is implemented.",
+        },
+        { status: 400 },
+      );
+    }
 
     if (!isMicrosoft365 && !isGoogleWorkspace) {
       return NextResponse.json(

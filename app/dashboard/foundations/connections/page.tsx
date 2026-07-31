@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import DefaultPlatformServices from "@/components/foundations/DefaultPlatformServices";
 
 type Provider = {
   id: number;
@@ -1004,14 +1005,12 @@ if (result.redirectUrl) {
       return;
     }
 
-    setSaving(true);
     setMessage("");
     setErrorMessage("");
 
     try {
       const result = await requestConnectionApi<{
         success: boolean;
-        connection?: OrganisationConnection;
         message?: string;
       }>(
         `/api/foundations/connections/${selectedConnection.id}/actions`,
@@ -1023,25 +1022,21 @@ if (result.redirectUrl) {
         }
       );
 
-      if (result.connection) {
-        setSelectedConnection(result.connection);
-        populateConnection(result.connection);
-      }
-
       setMessage(
         result.message ||
-          `${selectedProvider.name} synchronisation completed successfully.`
+          `${selectedProvider.name} synchronisation has been queued.`
       );
 
-      await refreshSelectedConnection();
+      await loadConnectionWorkspace(
+        selectedConnection,
+        selectedProvider
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "The synchronisation could not be completed."
+          : "The synchronisation job could not be created."
       );
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -1996,7 +1991,7 @@ if (result.redirectUrl) {
                       <div style={optionGridStyle}>
                         <ToggleCard
                           label="Enable scheduled synchronisation"
-                          description="Allow Leo to run approved synchronisation with this provider."
+                          description="Allow Leo to queue approved synchronisation work for this provider."
                           checked={syncEnabled}
                           onChange={setSyncEnabled}
                         />
@@ -2040,20 +2035,18 @@ if (result.redirectUrl) {
                           onClick={() =>
                             void queueManualSync()
                           }
-                          disabled={saving}
                           style={primaryButtonStyle}
                         >
-                          {saving
-                            ? "Synchronising..."
-                            : "Run Manual Sync"}
+                          Run Manual Sync
                         </button>
                       </div>
                     </div>
 
                     <div style={noticeStyle}>
-                      Manual synchronisation securely contacts the
-                      connected provider and refreshes the latest
-                      connection details in Leo.
+                      Synchronisation jobs are safely queued in
+                      Leo. A provider-specific server worker
+                      performs the external API work after that
+                      integration is activated.
                     </div>
                   </>
                 )}
@@ -2501,6 +2494,8 @@ if (result.redirectUrl) {
           value={String(plannedCount)}
         />
       </div>
+
+      <DefaultPlatformServices />
 
       <div style={toolbarStyle}>
         <input

@@ -27,6 +27,8 @@ function getAdminClient() {
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
 type CreateConnectionBody = {
+  action?: unknown;
+  preferences?: unknown;
   provider_id?: unknown;
   connection_name?: unknown;
   account_display_name?: unknown;
@@ -36,6 +38,24 @@ type CreateConnectionBody = {
   sync_enabled?: unknown;
   sync_frequency?: unknown;
 };
+
+type PreferenceCapability =
+  | "email"
+  | "calendar"
+  | "meetings"
+  | "documents";
+
+type PreferenceSelection = Record<
+  PreferenceCapability,
+  number | null
+>;
+
+const preferenceCapabilities: PreferenceCapability[] = [
+  "email",
+  "calendar",
+  "meetings",
+  "documents",
+];
 
 const roleRank: Record<PlatformRole, number> = {
   Employee: 1,
@@ -88,6 +108,36 @@ function text(value: unknown): string {
 function optionalText(value: unknown): string | null {
   const valueText = text(value);
   return valueText || null;
+}
+
+function parsePreferenceSelections(
+  value: unknown,
+): PreferenceSelection | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+  const selections = {} as PreferenceSelection;
+
+  for (const capability of preferenceCapabilities) {
+    const rawValue = source[capability];
+
+    if (rawValue === null || rawValue === undefined || rawValue === "") {
+      selections[capability] = null;
+      continue;
+    }
+
+    const connectionId = Number(rawValue);
+
+    if (!Number.isInteger(connectionId) || connectionId < 1) {
+      return null;
+    }
+
+    selections[capability] = connectionId;
+  }
+
+  return selections;
 }
 
 function normaliseRole(value: unknown): PlatformRole {
@@ -222,11 +272,12 @@ export async function GET() {
       return access.response;
     }
 
-   const [
-  providersResult,
-  connectionsResult,
-  providerCapabilitiesResult,
-] = await Promise.all([
+    const [
+      providersResult,
+      connectionsResult,
+      providerCapabilitiesResult,
+      preferencesResult,
+    ] = await Promise.all([
   (admin as any)
     .from("connection_providers")
     .select("*")
@@ -242,13 +293,19 @@ export async function GET() {
     .eq("is_archived", false)
     .order("updated_at", { ascending: false }),
 
-  (admin as any)
-    .from("connection_provider_capabilities")
-    .select("*")
-    .eq("is_active", true)
-    .order("capability_group", { ascending: true })
-    .order("name", { ascending: true }),
-]);
+      (admin as any)
+        .from("connection_provider_capabilities")
+        .select("*")
+        .eq("is_active", true)
+        .order("capability_group", { ascending: true })
+        .order("name", { ascending: true }),
+
+      (admin as any)
+        .from("organisation_connection_preferences")
+        .select("*")
+        .eq("organisation_id", access.organisationId)
+        .order("capability_key", { ascending: true }),
+    ]);
 
     if (providersResult.error) {
       return NextResponse.json(
@@ -280,7 +337,19 @@ export async function GET() {
           success: false,
           error:
             providerCapabilitiesResult.error.message ||
-                       "Provider capabilities could not be loaded.",
+            "Provider capabilities could not be loaded.",
+        },
+        { status: 500 },
+      );
+    }
+
+    if (preferencesResult.error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            preferencesResult.error.message ||
+            "Primary provider preferences could not be loaded.",
         },
         { status: 500 },
       );
@@ -292,6 +361,7 @@ export async function GET() {
       connections: connectionsResult.data ?? [],
       providerCapabilities:
         providerCapabilitiesResult.data ?? [],
+      preferences: preferencesResult.data ?? [],
     });
   } catch (error) {
     console.error("Connections loader failed:", error);
@@ -335,6 +405,155 @@ export async function POST(request: Request) {
         },
         { status: 400 },
       );
+    }
+
+    const requestedAction = text(body.action);
+
+    if (requestedAction === "save_preferences") {
+      const selections = parsePreferenceSelections(
+        body.preferences,
+      );
+
+      if (!selections) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "The primary provider selections are invalid.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const selectedConnectionIds = Array.from(
+        new Set(
+          preferenceCapabilities
+            .map((capability) => selections[capability])
+            .filter((connectionId): connectionId is number =>
+              typeof connectionId === "number",
+            ),
+        ),
+      );
+
+      if (selectedConnectionIds.length > 0) {
+        const eligibleConnectionsResult = await (admin as any)
+          .from("organisation_connections")
+          .select("id, provider_id, status, is_archived")
+          .eq("organisation_id", access.organisationId)
+          .eq("status", "Connected")
+          .eq("is_archived", false)
+          .in("id", selectedConnectionIds);
+
+        if (eligibleConnectionsResult.error) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                eligibleConnectionsResult.error.message ||
+                "The selected connections could not be validated.",
+            },
+            { status: 500 },
+          );
+        }
+
+        const eligibleIds = new Set(
+          (eligibleConnectionsResult.data ?? []).map(
+            (connection: { id: number }) => Number(connection.id),
+          ),
+        );
+
+        const invalidConnectionId = selectedConnectionIds.find(
+          (connectionId) => !eligibleIds.has(connectionId),
+        );
+
+        if (invalidConnectionId) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Only active, connected providers from this organisation can be selected.",
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      for (const capability of preferenceCapabilities) {
+        const connectionId = selections[capability];
+
+        if (connectionId === null) {
+          const deleteResult = await (admin as any)
+            .from("organisation_connection_preferences")
+            .delete()
+            .eq("organisation_id", access.organisationId)
+            .eq("capability_key", capability);
+
+          if (deleteResult.error) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  deleteResult.error.message ||
+                  `The ${capability} preference could not be cleared.`,
+              },
+              { status: 500 },
+            );
+          }
+
+          continue;
+        }
+
+        const saveResult = await (admin as any)
+          .from("organisation_connection_preferences")
+          .upsert(
+            {
+              organisation_id: access.organisationId,
+              capability_key: capability,
+              connection_id: connectionId,
+              created_by_user_id: access.user.id,
+              updated_by_user_id: access.user.id,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: "organisation_id,capability_key",
+            },
+          );
+
+        if (saveResult.error) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                saveResult.error.message ||
+                `The ${capability} preference could not be saved.`,
+            },
+            { status: 500 },
+          );
+        }
+      }
+
+      const savedPreferencesResult = await (admin as any)
+        .from("organisation_connection_preferences")
+        .select("*")
+        .eq("organisation_id", access.organisationId)
+        .order("capability_key", { ascending: true });
+
+      if (savedPreferencesResult.error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              savedPreferencesResult.error.message ||
+              "The saved primary provider preferences could not be loaded.",
+          },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        preferences: savedPreferencesResult.data ?? [],
+        message: "Primary providers updated.",
+      });
     }
 
     const providerId = Number(body.provider_id);

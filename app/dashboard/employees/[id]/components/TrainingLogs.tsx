@@ -1,15 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import ProfileSection from "./ProfileSection";
-import Field from "./Field";
-import SaveButton from "./SaveButton";
+import { useCallback, useEffect, useState } from "react";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import Field from "./Field";
+import ProfileSection from "./ProfileSection";
+import SaveButton from "./SaveButton";
 
 type TrainingLogsProps = {
   employeeId: number;
@@ -22,9 +17,19 @@ type TrainingRecord = {
   refresh_or_expiry_date: string | null;
   notes: string | null;
   created_at: string;
+  updated_at?: string | null;
 };
 
-export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
+type TrainingResponse = {
+  success?: boolean;
+  records?: TrainingRecord[];
+  record?: TrainingRecord;
+  error?: string;
+};
+
+export default function TrainingLogs({
+  employeeId,
+}: TrainingLogsProps) {
   const [records, setRecords] = useState<TrainingRecord[]>([]);
 
   const [trainingName, setTrainingName] = useState("");
@@ -32,38 +37,66 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
   const [refreshOrExpiryDate, setRefreshOrExpiryDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
+  const [editingRecordId, setEditingRecordId] =
+    useState<number | null>(null);
   const [editTrainingName, setEditTrainingName] = useState("");
   const [editDateCompleted, setEditDateCompleted] = useState("");
-  const [editRefreshOrExpiryDate, setEditRefreshOrExpiryDate] = useState("");
+  const [editRefreshOrExpiryDate, setEditRefreshOrExpiryDate] =
+    useState("");
   const [editNotes, setEditNotes] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function loadTrainingLogs() {
-    const { data, error } = await supabase
-      .from("employee_training_logs")
-      .select(
-        "id, training_name, date_completed, refresh_or_expiry_date, notes, created_at"
-      )
-      .eq("employee_id", employeeId)
-      .order("date_completed", { ascending: false });
+  const loadTrainingLogs = useCallback(async () => {
+    setLoading(true);
+    setMessage("");
 
-    if (error) {
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/training`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | TrainingResponse
+        | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error || "Training logs could not be loaded.",
+        );
+      }
+
+      setRecords(
+        Array.isArray(result.records)
+          ? result.records
+          : [],
+      );
+    } catch (error) {
       console.error("Error loading training logs:", error);
+      setRecords([]);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Training logs could not be loaded.",
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setRecords(data || []);
-    setLoading(false);
-  }
+  }, [employeeId]);
 
   useEffect(() => {
-    loadTrainingLogs();
-  }, [employeeId]);
+    void loadTrainingLogs();
+  }, [loadTrainingLogs]);
 
   async function saveTrainingLog() {
     if (!trainingName.trim()) {
@@ -74,38 +107,65 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase.from("employee_training_logs").insert([
-      {
-        employee_id: employeeId,
-        training_name: trainingName.trim(),
-        date_completed: dateCompleted || null,
-        refresh_or_expiry_date: refreshOrExpiryDate || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/training`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            trainingName: trainingName.trim(),
+            dateCompleted,
+            refreshOrExpiryDate,
+            notes,
+          }),
+        },
+      );
 
-    if (error) {
+      const result = (await response.json().catch(() => null)) as
+        | TrainingResponse
+        | null;
+
+      if (!response.ok || !result?.success || !result.record) {
+        throw new Error(
+          result?.error || "The training log could not be saved.",
+        );
+      }
+
+      setRecords((current) => [
+        result.record as TrainingRecord,
+        ...current.filter(
+          (record) => record.id !== result.record?.id,
+        ),
+      ]);
+      setTrainingName("");
+      setDateCompleted("");
+      setRefreshOrExpiryDate("");
+      setNotes("");
+      setMessage("Training log saved.");
+    } catch (error) {
       console.error("Error saving training log:", error);
-      setMessage("Training log could not be saved.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The training log could not be saved.",
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setTrainingName("");
-    setDateCompleted("");
-    setRefreshOrExpiryDate("");
-    setNotes("");
-    setMessage("Training log saved.");
-    setSaving(false);
-    loadTrainingLogs();
   }
 
   function startEditing(record: TrainingRecord) {
     setEditingRecordId(record.id);
     setEditTrainingName(record.training_name || "");
     setEditDateCompleted(record.date_completed || "");
-    setEditRefreshOrExpiryDate(record.refresh_or_expiry_date || "");
+    setEditRefreshOrExpiryDate(
+      record.refresh_or_expiry_date || "",
+    );
     setEditNotes(record.notes || "");
     setMessage("");
   }
@@ -127,33 +187,66 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase
-      .from("employee_training_logs")
-      .update({
-        training_name: editTrainingName.trim(),
-        date_completed: editDateCompleted || null,
-        refresh_or_expiry_date: editRefreshOrExpiryDate || null,
-        notes: editNotes || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", recordId);
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/training`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            recordId,
+            trainingName: editTrainingName.trim(),
+            dateCompleted: editDateCompleted,
+            refreshOrExpiryDate: editRefreshOrExpiryDate,
+            notes: editNotes,
+          }),
+        },
+      );
 
-    if (error) {
+      const result = (await response.json().catch(() => null)) as
+        | TrainingResponse
+        | null;
+
+      if (!response.ok || !result?.success || !result.record) {
+        throw new Error(
+          result?.error || "The training log could not be updated.",
+        );
+      }
+
+      setRecords((current) =>
+        current.map((record) =>
+          record.id === result.record?.id
+            ? (result.record as TrainingRecord)
+            : record,
+        ),
+      );
+      cancelEditing();
+      setMessage("Training log updated.");
+    } catch (error) {
       console.error("Error updating training log:", error);
-      setMessage("Training log could not be updated.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The training log could not be updated.",
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    cancelEditing();
-    setMessage("Training log updated.");
-    setSaving(false);
-    loadTrainingLogs();
   }
 
   return (
     <ProfileSection title="Training Logs">
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+      <p
+        style={{
+          color: "#6B7280",
+          fontSize: "14px",
+          marginTop: 0,
+        }}
+      >
         Record training completed by this employee, including refresher or
         expiry dates for training that needs renewing.
       </p>
@@ -192,11 +285,17 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
         {saving ? "Saving..." : "Save training log"}
       </SaveButton>
 
-      {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+      {message ? (
+        <div
+          style={{
+            marginTop: "10px",
+            color: "#6B7280",
+            fontSize: "14px",
+          }}
+        >
           {message}
         </div>
-      )}
+      ) : null}
 
       <div style={{ marginTop: "24px" }}>
         <div style={{ fontWeight: 800, marginBottom: "10px" }}>
@@ -204,9 +303,13 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading training logs...</div>
+          <div style={{ color: "#6B7280" }}>
+            Loading training logs...
+          </div>
         ) : records.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No training logs yet.</div>
+          <div style={{ color: "#6B7280" }}>
+            No training logs yet.
+          </div>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {records.map((record) => (
@@ -245,14 +348,18 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
 
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
-                        onClick={() => saveEditedTrainingLog(record.id)}
+                        type="button"
+                        onClick={() =>
+                          void saveEditedTrainingLog(record.id)
+                        }
                         disabled={saving}
                         style={smallDarkButtonStyle}
                       >
-                        Save changes
+                        {saving ? "Saving..." : "Save changes"}
                       </button>
 
                       <button
+                        type="button"
                         onClick={cancelEditing}
                         disabled={saving}
                         style={smallLightButtonStyle}
@@ -269,20 +376,30 @@ export default function TrainingLogs({ employeeId }: TrainingLogsProps) {
 
                     <div style={metaStyle}>
                       Completed: {record.date_completed || "Not set"} · Refresh
-                      / expiry: {record.refresh_or_expiry_date || "Not set"}
+                      / expiry:{" "}
+                      {record.refresh_or_expiry_date || "Not set"}
                     </div>
 
-                    {record.notes && (
-                      <div style={{ marginTop: "10px", whiteSpace: "pre-wrap" }}>
+                    {record.notes ? (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
                         {record.notes}
                       </div>
-                    )}
+                    ) : null}
 
                     <div style={dateStyle}>
-                      Added {new Date(record.created_at).toLocaleString("en-GB")}
+                      Added{" "}
+                      {new Date(record.created_at).toLocaleString(
+                        "en-GB",
+                      )}
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => startEditing(record)}
                       style={smallLightButtonStyle}
                     >

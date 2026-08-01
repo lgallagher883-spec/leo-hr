@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ProfileSection from "./ProfileSection";
-import Field from "./Field";
-import SelectField from "./SelectField";
-import SaveButton from "./SaveButton";
+
 import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
+import Field from "./Field";
+import ProfileSection from "./ProfileSection";
+import SaveButton from "./SaveButton";
+import SelectField from "./SelectField";
 
 type EmploymentDetailsProps = {
   employeeId: number;
@@ -16,36 +17,37 @@ type EmploymentDetailsProps = {
   initialStartDate: string;
 };
 
-type EmploymentDetailsResponse = {
+type EmployeeRecord = {
+  id: number;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  status: string | null;
+  start_date: string | null;
+};
+
+type EmploymentDetailsRecord = {
+  id?: number;
+  employee_id?: number;
+  manager?: string | null;
+  probation_end_date?: string | null;
+  employment_end_date?: string | null;
+  reason_for_leaving?: string | null;
+  annual_leave_allowance?: string | null;
+};
+
+type EmploymentResponse = {
   success?: boolean;
-  employmentDetails?: {
-    manager?: string | null;
-    probation_end_date?: string | null;
-    employment_end_date?: string | null;
-    reason_for_leaving?: string | null;
-    annual_leave_allowance?: string | null;
-  };
+  employee?: EmployeeRecord;
+  employmentDetails?: EmploymentDetailsRecord;
   error?: string;
 };
 
-type EmploymentSaveResponse = {
-  success?: boolean;
-  employee?: {
-    name?: string | null;
-    email?: string | null;
-    role?: string | null;
-    status?: string | null;
-    start_date?: string | null;
-  };
-  employmentDetails?: {
-    manager?: string | null;
-    probation_end_date?: string | null;
-    employment_end_date?: string | null;
-    reason_for_leaving?: string | null;
-    annual_leave_allowance?: string | null;
-  };
-  error?: string;
-};
+function normaliseStatusForForm(value: string | null | undefined): string {
+  if (value === "Former Employee") return "Former";
+  if (value === "Archived") return "Archived";
+  return "Active";
+}
 
 export default function EmploymentDetails({
   employeeId,
@@ -58,7 +60,9 @@ export default function EmploymentDetails({
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [role, setRole] = useState(initialRole);
-  const [status, setStatus] = useState(initialStatus);
+  const [status, setStatus] = useState(
+    normaliseStatusForForm(initialStatus),
+  );
   const [startDate, setStartDate] = useState(initialStartDate);
 
   const [manager, setManager] = useState("");
@@ -72,34 +76,48 @@ export default function EmploymentDetails({
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadEmploymentDetails() {
       setLoading(true);
       setMessage("");
 
       try {
         const response = await fetch(
-          `/api/employees/${employeeId}?include=employment_details`,
+          `/api/employees/${employeeId}/employment`,
           {
             method: "GET",
             cache: "no-store",
             credentials: "include",
-          }
+            headers: {
+              Accept: "application/json",
+            },
+          },
         );
 
-        const result =
-          (await response.json()) as EmploymentDetailsResponse;
+        const result = (await response.json().catch(() => null)) as
+          | EmploymentResponse
+          | null;
 
-        if (!response.ok || !result.success) {
+        if (!response.ok || !result?.success) {
           throw new Error(
-            result.error || "Employment details could not be loaded."
+            result?.error || "Employment details could not be loaded.",
           );
         }
 
-        const details = result.employmentDetails;
+        if (cancelled) return;
 
-        if (!details) {
-          throw new Error("Employment details could not be loaded.");
+        if (result.employee) {
+          setName(result.employee.name || "");
+          setEmail(result.employee.email || "");
+          setRole(result.employee.role || "");
+          setStatus(
+            normaliseStatusForForm(result.employee.status),
+          );
+          setStartDate(result.employee.start_date || "");
         }
+
+        const details = result.employmentDetails ?? {};
 
         setManager(details.manager || "");
         setProbationEndDate(details.probation_end_date || "");
@@ -108,17 +126,26 @@ export default function EmploymentDetails({
         setAnnualLeaveAllowance(details.annual_leave_allowance || "");
       } catch (error) {
         console.error("Error loading employment details:", error);
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Employment details could not be loaded."
-        );
+
+        if (!cancelled) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Employment details could not be loaded.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     void loadEmploymentDetails();
+
+    return () => {
+      cancelled = true;
+    };
   }, [employeeId]);
 
   async function saveEmploymentDetails() {
@@ -131,35 +158,39 @@ export default function EmploymentDetails({
     setMessage("");
 
     try {
-      const response = await fetch(`/api/employees/${employeeId}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "update_employment",
-          updates: {
-            name: name.trim(),
-            email,
-            role,
-            status,
-            start_date: startDate,
-            manager,
-            probation_end_date: probationEndDate,
-            employment_end_date: employmentEndDate,
-            reason_for_leaving: reasonForLeaving,
-            annual_leave_allowance: annualLeaveAllowance,
+      const response = await fetch(
+        `/api/employees/${employeeId}/employment`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            updates: {
+              name: name.trim(),
+              email,
+              role,
+              status,
+              start_date: startDate,
+              manager,
+              probation_end_date: probationEndDate,
+              employment_end_date: employmentEndDate,
+              reason_for_leaving: reasonForLeaving,
+              annual_leave_allowance: annualLeaveAllowance,
+            },
+          }),
+        },
+      );
 
-      const result =
-        (await response.json()) as EmploymentSaveResponse;
+      const result = (await response.json().catch(() => null)) as
+        | EmploymentResponse
+        | null;
 
-      if (!response.ok || !result.success) {
+      if (!response.ok || !result?.success) {
         throw new Error(
-          result.error || "Employment details could not be saved."
+          result?.error || "Employment details could not be saved.",
         );
       }
 
@@ -167,23 +198,25 @@ export default function EmploymentDetails({
         setName(result.employee.name || "");
         setEmail(result.employee.email || "");
         setRole(result.employee.role || "");
-        setStatus(result.employee.status || "Active");
+        setStatus(
+          normaliseStatusForForm(result.employee.status),
+        );
         setStartDate(result.employee.start_date || "");
       }
 
       if (result.employmentDetails) {
         setManager(result.employmentDetails.manager || "");
         setProbationEndDate(
-          result.employmentDetails.probation_end_date || ""
+          result.employmentDetails.probation_end_date || "",
         );
         setEmploymentEndDate(
-          result.employmentDetails.employment_end_date || ""
+          result.employmentDetails.employment_end_date || "",
         );
         setReasonForLeaving(
-          result.employmentDetails.reason_for_leaving || ""
+          result.employmentDetails.reason_for_leaving || "",
         );
         setAnnualLeaveAllowance(
-          result.employmentDetails.annual_leave_allowance || ""
+          result.employmentDetails.annual_leave_allowance || "",
         );
       }
 
@@ -193,7 +226,7 @@ export default function EmploymentDetails({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Employment details could not be saved."
+          : "Employment details could not be saved.",
       );
     } finally {
       setSaving(false);
@@ -291,11 +324,11 @@ export default function EmploymentDetails({
         {loading
           ? "Loading..."
           : saving
-          ? "Saving..."
-          : "Save employment details"}
+            ? "Saving..."
+            : "Save employment details"}
       </SaveButton>
 
-      {message && (
+      {message ? (
         <div
           style={{
             marginTop: "10px",
@@ -305,7 +338,7 @@ export default function EmploymentDetails({
         >
           {message}
         </div>
-      )}
+      ) : null}
     </ProfileSection>
   );
 }

@@ -1,15 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import ProfileSection from "./ProfileSection";
-import Field from "./Field";
-import SaveButton from "./SaveButton";
+import { useCallback, useEffect, useState } from "react";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import Field from "./Field";
+import ProfileSection from "./ProfileSection";
+import SaveButton from "./SaveButton";
 
 type EmergencyContactsProps = {
   employeeId: number;
@@ -23,6 +18,25 @@ type ContactForm = {
   address: string;
 };
 
+type EmergencyContactRecord = {
+  id: number;
+  employee_id: number;
+  contact_number: number;
+  full_name: string | null;
+  relationship: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type EmergencyContactsResponse = {
+  success?: boolean;
+  contacts?: EmergencyContactRecord[];
+  error?: string;
+};
+
 const emptyContact: ContactForm = {
   fullName: "",
   relationship: "",
@@ -31,64 +45,109 @@ const emptyContact: ContactForm = {
   address: "",
 };
 
+function recordToForm(
+  record: EmergencyContactRecord | undefined,
+): ContactForm {
+  return {
+    fullName: record?.full_name || "",
+    relationship: record?.relationship || "",
+    phone: record?.phone || "",
+    email: record?.email || "",
+    address: record?.address || "",
+  };
+}
+
 export default function EmergencyContacts({
   employeeId,
 }: EmergencyContactsProps) {
-  const [contactOne, setContactOne] = useState<ContactForm>(emptyContact);
-  const [contactTwo, setContactTwo] = useState<ContactForm>(emptyContact);
+  const [contactOne, setContactOne] =
+    useState<ContactForm>(emptyContact);
+  const [contactTwo, setContactTwo] =
+    useState<ContactForm>(emptyContact);
+
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    async function loadContacts() {
-      const { data, error } = await supabase
-        .from("employee_emergency_contacts")
-        .select(
-          "contact_number, full_name, relationship, phone, email, address"
-        )
-        .eq("employee_id", employeeId)
-        .order("contact_number", { ascending: true });
+  const loadContacts = useCallback(async () => {
+    setLoading(true);
+    setMessage("");
 
-      if (error) {
-        console.error("Error loading emergency contacts:", error);
-        return;
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/emergency-contacts`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | EmergencyContactsResponse
+        | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error || "Emergency contacts could not be loaded.",
+        );
       }
 
-      const first = data?.find((contact) => contact.contact_number === 1);
-      const second = data?.find((contact) => contact.contact_number === 2);
+      const contacts = Array.isArray(result.contacts)
+        ? result.contacts
+        : [];
 
-      if (first) {
-        setContactOne({
-          fullName: first.full_name || "",
-          relationship: first.relationship || "",
-          phone: first.phone || "",
-          email: first.email || "",
-          address: first.address || "",
-        });
-      }
+      setContactOne(
+        recordToForm(
+          contacts.find(
+            (contact) => contact.contact_number === 1,
+          ),
+        ),
+      );
 
-      if (second) {
-        setContactTwo({
-          fullName: second.full_name || "",
-          relationship: second.relationship || "",
-          phone: second.phone || "",
-          email: second.email || "",
-          address: second.address || "",
-        });
-      }
+      setContactTwo(
+        recordToForm(
+          contacts.find(
+            (contact) => contact.contact_number === 2,
+          ),
+        ),
+      );
+    } catch (error) {
+      console.error("Error loading emergency contacts:", error);
+
+      setContactOne(emptyContact);
+      setContactTwo(emptyContact);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Emergency contacts could not be loaded.",
+      );
+    } finally {
+      setLoading(false);
     }
-
-    loadContacts();
   }, [employeeId]);
 
-  function updateContactOne(field: keyof ContactForm, value: string) {
+  useEffect(() => {
+    void loadContacts();
+  }, [loadContacts]);
+
+  function updateContactOne(
+    field: keyof ContactForm,
+    value: string,
+  ) {
     setContactOne((current) => ({
       ...current,
       [field]: value,
     }));
   }
 
-  function updateContactTwo(field: keyof ContactForm, value: string) {
+  function updateContactTwo(
+    field: keyof ContactForm,
+    value: string,
+  ) {
     setContactTwo((current) => ({
       ...current,
       [field]: value,
@@ -99,47 +158,91 @@ export default function EmergencyContacts({
     setSaving(true);
     setMessage("");
 
-    const rows = [
-      {
-        employee_id: employeeId,
-        contact_number: 1,
-        full_name: contactOne.fullName || null,
-        relationship: contactOne.relationship || null,
-        phone: contactOne.phone || null,
-        email: contactOne.email || null,
-        address: contactOne.address || null,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        employee_id: employeeId,
-        contact_number: 2,
-        full_name: contactTwo.fullName || null,
-        relationship: contactTwo.relationship || null,
-        phone: contactTwo.phone || null,
-        email: contactTwo.email || null,
-        address: contactTwo.address || null,
-        updated_at: new Date().toISOString(),
-      },
-    ];
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/emergency-contacts`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            contacts: [
+              {
+                contactNumber: 1,
+                fullName: contactOne.fullName,
+                relationship: contactOne.relationship,
+                phone: contactOne.phone,
+                email: contactOne.email,
+                address: contactOne.address,
+              },
+              {
+                contactNumber: 2,
+                fullName: contactTwo.fullName,
+                relationship: contactTwo.relationship,
+                phone: contactTwo.phone,
+                email: contactTwo.email,
+                address: contactTwo.address,
+              },
+            ],
+          }),
+        },
+      );
 
-    const { error } = await supabase
-      .from("employee_emergency_contacts")
-      .upsert(rows, { onConflict: "employee_id,contact_number" });
+      const result = (await response.json().catch(() => null)) as
+        | EmergencyContactsResponse
+        | null;
 
-    if (error) {
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error || "Emergency contacts could not be saved.",
+        );
+      }
+
+      const contacts = Array.isArray(result.contacts)
+        ? result.contacts
+        : [];
+
+      setContactOne(
+        recordToForm(
+          contacts.find(
+            (contact) => contact.contact_number === 1,
+          ),
+        ),
+      );
+
+      setContactTwo(
+        recordToForm(
+          contacts.find(
+            (contact) => contact.contact_number === 2,
+          ),
+        ),
+      );
+
+      setMessage("Emergency contacts saved.");
+    } catch (error) {
       console.error("Error saving emergency contacts:", error);
-      setMessage("Emergency contacts could not be saved.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Emergency contacts could not be saved.",
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setMessage("Emergency contacts saved.");
-    setSaving(false);
   }
 
   return (
     <ProfileSection title="Emergency Contacts">
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+      <p
+        style={{
+          color: "#6B7280",
+          fontSize: "14px",
+          marginTop: 0,
+        }}
+      >
         Store up to two emergency contacts for genuine emergencies and welfare
         events.
       </p>
@@ -158,15 +261,28 @@ export default function EmergencyContacts({
         />
       </div>
 
-      <SaveButton onClick={saveContacts} disabled={saving}>
-        {saving ? "Saving..." : "Save emergency contacts"}
+      <SaveButton
+        onClick={saveContacts}
+        disabled={saving || loading}
+      >
+        {loading
+          ? "Loading..."
+          : saving
+            ? "Saving..."
+            : "Save emergency contacts"}
       </SaveButton>
 
-      {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+      {message ? (
+        <div
+          style={{
+            marginTop: "10px",
+            color: "#6B7280",
+            fontSize: "14px",
+          }}
+        >
           {message}
         </div>
-      )}
+      ) : null}
     </ProfileSection>
   );
 }
@@ -178,44 +294,64 @@ function ContactCard({
 }: {
   title: string;
   contact: ContactForm;
-  onChange: (field: keyof ContactForm, value: string) => void;
+  onChange: (
+    field: keyof ContactForm,
+    value: string,
+  ) => void;
 }) {
   return (
     <div style={cardStyle}>
-      <div style={{ fontWeight: 800, marginBottom: "12px" }}>{title}</div>
+      <div
+        style={{
+          fontWeight: 800,
+          marginBottom: "12px",
+        }}
+      >
+        {title}
+      </div>
 
       <Field
         label="Full Name"
         value={contact.fullName}
-        onChange={(value) => onChange("fullName", value)}
+        onChange={(value) =>
+          onChange("fullName", value)
+        }
         placeholder="Contact full name"
       />
 
       <Field
         label="Relationship"
         value={contact.relationship}
-        onChange={(value) => onChange("relationship", value)}
+        onChange={(value) =>
+          onChange("relationship", value)
+        }
         placeholder="Partner, parent, friend..."
       />
 
       <Field
         label="Phone"
         value={contact.phone}
-        onChange={(value) => onChange("phone", value)}
+        onChange={(value) =>
+          onChange("phone", value)
+        }
         placeholder="Phone number"
       />
 
       <Field
         label="Email"
         value={contact.email}
-        onChange={(value) => onChange("email", value)}
+        onChange={(value) =>
+          onChange("email", value)
+        }
         placeholder="Optional"
       />
 
       <Field
         label="Address"
         value={contact.address}
-        onChange={(value) => onChange("address", value)}
+        onChange={(value) =>
+          onChange("address", value)
+        }
         placeholder="Optional"
       />
     </div>
@@ -224,7 +360,8 @@ function ContactCard({
 
 const cardsStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns:
+    "repeat(2, minmax(0, 1fr))",
   gap: "16px",
   marginBottom: "16px",
 };

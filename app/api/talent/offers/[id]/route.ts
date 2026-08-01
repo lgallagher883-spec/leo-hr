@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { transferCompletedSignaturesForOffer } from "@/lib/docusign/envelopes";
 import { createClient } from "@/lib/supabase/server";
 import { convertAppointmentToEmployee } from "@/lib/talent/conversion";
 
@@ -21,6 +23,24 @@ function normaliseRole(value: unknown): PlatformRole {
   if (role === "senior" || role === "hr") return "senior";
   if (role === "manager") return "manager";
   return "employee";
+}
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "Supabase administrator credentials are not configured.",
+    );
+  }
+
+  return createAdminClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 async function getAuthorisedContext(supabase: any) {
@@ -554,11 +574,22 @@ export async function PATCH(request: Request, context: RouteContext) {
         onboardingResolution: appointmentResolution,
       });
 
+      const signatureTransfer =
+        conversion.employeeId
+          ? await transferCompletedSignaturesForOffer(
+              getAdminClient(),
+              access.organisationId,
+              id,
+              Number(conversion.employeeId),
+            )
+          : [];
+
       return NextResponse.json({
         success: true,
         employeeId: conversion.employeeId,
         appointment: conversion.appointment,
         conversion,
+        signatureTransfer,
       });
     }
 

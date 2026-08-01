@@ -1,6 +1,5 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
 import {
   type CSSProperties,
   type ReactNode,
@@ -12,11 +11,6 @@ import {
 
 import ProfileSection from "./ProfileSection";
 import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type LeaveAbsenceProps = {
   employeeId: number;
@@ -95,6 +89,17 @@ type DecisionMode = "approve" | "decline" | "return" | null;
 type LeaveView = "Requests" | "Upcoming" | "History";
 
 type MessageTone = "success" | "error" | "information";
+
+type LeaveApiResponse = {
+  success?: boolean;
+  records?: LeaveRecord[];
+  record?: LeaveRecord;
+  annualLeaveAllowance?: string | number | null;
+  platformRole?: PlatformRole;
+  currentUserId?: string | null;
+  error?: string;
+};
+
 
 const metadataPrefix = "LEO_LEAVE_METADATA_V1:";
 
@@ -344,102 +349,60 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     [editForm.leaveType]
   );
 
-  const loadCurrentUser = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setPlatformRole("Employee");
-        setCurrentUserId(null);
-        return;
-      }
-
-      setCurrentUserId(user.id);
-
-      const { data: profile, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error || !profile) {
-        setPlatformRole("Employee");
-        return;
-      }
-
-      const rawRole =
-        readString(profile.platform_role) ||
-        readString(profile.role) ||
-        readString(profile.access_level);
-
-      setPlatformRole(normalisePlatformRole(rawRole));
-    } catch (error) {
-      console.warn("User role could not be loaded:", error);
-      setPlatformRole("Employee");
-      setCurrentUserId(null);
-    }
-  }, []);
-
   const loadRecords = useCallback(async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("employee_leave_records")
-      .select("*")
-      .eq("employee_id", employeeId)
-      .order("start_date", { ascending: false });
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/leave`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
 
-    if (error) {
+      const result = (await response.json().catch(() => null)) as
+        | LeaveApiResponse
+        | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error ||
+            "Leave and absence records could not be loaded."
+        );
+      }
+
+      const parsedRecords = (result.records || []).map((record) =>
+        parseLeaveRecord(record)
+      );
+
+      setRecords(parsedRecords);
+      setPlatformRole(result.platformRole || "Employee");
+      setCurrentUserId(result.currentUserId || null);
+      setAnnualLeaveAllowance(
+        Number(result.annualLeaveAllowance || 0) || 0
+      );
+    } catch (error) {
       console.error("Error loading leave records:", error);
       showMessage(
-        "Leave and absence records could not be loaded.",
+        error instanceof Error
+          ? error.message
+          : "Leave and absence records could not be loaded.",
         "error"
       );
       setRecords([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const parsedRecords = (data || []).map((record) =>
-      parseLeaveRecord(record as LeaveRecord)
-    );
-
-    setRecords(parsedRecords);
-    setLoading(false);
-  }, [employeeId]);
-
-  const loadAnnualLeaveAllowance = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("employee_employment_details")
-      .select("annual_leave_allowance")
-      .eq("employee_id", employeeId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error loading annual leave allowance:", error);
-      return;
-    }
-
-    const allowance = Number(data?.annual_leave_allowance || 0);
-
-    setAnnualLeaveAllowance(
-      Number.isNaN(allowance) ? 0 : allowance
-    );
   }, [employeeId]);
 
   useEffect(() => {
-    void Promise.all([
-      loadCurrentUser(),
-      loadRecords(),
-      loadAnnualLeaveAllowance(),
-    ]);
-  }, [
-    loadCurrentUser,
-    loadRecords,
-    loadAnnualLeaveAllowance,
-  ]);
+    void loadRecords();
+  }, [loadRecords]);
 
   useEffect(() => {
     const calculatedDays = calculateRequestedDays(
@@ -755,60 +718,39 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       futureCalendarSync: false,
     };
 
-    const { data, error } = await supabase
-      .from("employee_leave_records")
-      .insert({
-        employee_id: employeeId,
-        leave_type: form.leaveType,
-        status: newStatus,
-        start_date: form.startDate,
-        end_date: form.endDate || form.startDate,
-        days_taken: effectiveDays,
-        notes: serialiseLeaveMetadata(metadata),
-        updated_at: now,
-      })
-      .select("*")
-      .single();
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          leaveType: form.leaveType,
+          status: newStatus,
+          startDate: form.startDate,
+          endDate: form.endDate || form.startDate,
+          daysTaken: effectiveDays,
+          notes: serialiseLeaveMetadata(metadata),
+        }),
+      }
+    );
 
-    if (error) {
-      console.error("Error submitting leave request:", error);
+    const result = (await response.json().catch(() => null)) as
+      | LeaveApiResponse
+      | null;
+
+    if (!response.ok || !result?.success || !result.record) {
+      console.error("Error submitting leave request:", result?.error);
       showMessage(
-        "The leave request could not be submitted.",
+        result?.error || "The leave request could not be submitted.",
         "error"
       );
       setSaving(false);
       return;
     }
-
-    await recordLeaveAuditEvent(
-      employeeId,
-      "Leave request submitted",
-      `${form.leaveType} was submitted for ${formatDateRange(
-        form.startDate,
-        form.endDate || form.startDate
-      )}.`,
-      {
-        leave_record_id: data?.id,
-        status: newStatus,
-        days: effectiveDays,
-        future_calendar_sync: false,
-      }
-    );
-
-    await recordTimelineEvent(
-      employeeId,
-      data?.id,
-      newStatus === "Approved"
-        ? "Leave recorded"
-        : "Leave requested",
-      `${form.leaveType} · ${formatDateRange(
-        form.startDate,
-        form.endDate || form.startDate
-      )} · ${formatDays(effectiveDays)}.`,
-      newStatus === "Approved"
-        ? "Leave approved"
-        : "Awaiting manager review"
-    );
 
     resetRequestForm();
     setActiveView(
@@ -899,56 +841,42 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
 
     setSaving(true);
 
-    const { error } = await supabase
-      .from("employee_leave_records")
-      .update({
-        leave_type: editForm.leaveType,
-        status: nextStatus,
-        start_date: editForm.startDate,
-        end_date:
-          editForm.endDate || editForm.startDate,
-        days_taken: effectiveDays,
-        notes: serialiseLeaveMetadata(metadata),
-        updated_at: now,
-      })
-      .eq("id", record.id)
-      .eq("employee_id", employeeId);
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: "update",
+          recordId: record.id,
+          leaveType: editForm.leaveType,
+          status: nextStatus,
+          startDate: editForm.startDate,
+          endDate:
+            editForm.endDate || editForm.startDate,
+          daysTaken: effectiveDays,
+          notes: serialiseLeaveMetadata(metadata),
+        }),
+      }
+    );
 
-    if (error) {
-      console.error("Error updating leave record:", error);
+    const result = (await response.json().catch(() => null)) as
+      | LeaveApiResponse
+      | null;
+
+    if (!response.ok || !result?.success) {
+      console.error("Error updating leave record:", result?.error);
       showMessage(
-        "The leave record could not be updated.",
+        result?.error || "The leave record could not be updated.",
         "error"
       );
       setSaving(false);
       return;
     }
-
-    await recordLeaveAuditEvent(
-      employeeId,
-      "Leave record updated",
-      `${editForm.leaveType} was updated for ${formatDateRange(
-        editForm.startDate,
-        editForm.endDate || editForm.startDate
-      )}.`,
-      {
-        leave_record_id: record.id,
-        previous_status: record.normalisedStatus,
-        new_status: nextStatus,
-        days: effectiveDays,
-      }
-    );
-
-    await recordTimelineEvent(
-      employeeId,
-      record.id,
-      "Leave record updated",
-      `${editForm.leaveType} · ${formatDateRange(
-        editForm.startDate,
-        editForm.endDate || editForm.startDate
-      )} · ${formatDays(effectiveDays)}.`,
-      nextStatus
-    );
 
     cancelEditing();
     showMessage(
@@ -1023,60 +951,37 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
 
     setActionInProgress(record.id);
 
-    const { error } = await supabase
-      .from("employee_leave_records")
-      .update({
-        status: nextStatus,
-        notes: serialiseLeaveMetadata(metadata),
-        updated_at: now,
-      })
-      .eq("id", record.id)
-      .eq("employee_id", employeeId);
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: decisionMode,
+          recordId: record.id,
+          notes: serialiseLeaveMetadata(metadata),
+        }),
+      }
+    );
 
-    if (error) {
-      console.error("Error updating leave decision:", error);
+    const result = (await response.json().catch(() => null)) as
+      | LeaveApiResponse
+      | null;
+
+    if (!response.ok || !result?.success) {
+      console.error("Error updating leave decision:", result?.error);
       showMessage(
-        "The leave request decision could not be saved.",
+        result?.error ||
+          "The leave request decision could not be saved.",
         "error"
       );
       setActionInProgress(null);
       return;
     }
-
-    const actionTitle =
-      nextStatus === "Approved"
-        ? "Leave request approved"
-        : nextStatus === "Declined"
-        ? "Leave request declined"
-        : "Leave request returned";
-
-    await recordLeaveAuditEvent(
-      employeeId,
-      actionTitle,
-      `${record.leave_type} for ${formatDateRange(
-        record.start_date,
-        record.end_date || record.start_date
-      )} was ${nextStatus.toLowerCase()}.`,
-      {
-        leave_record_id: record.id,
-        previous_status: record.normalisedStatus,
-        new_status: nextStatus,
-        comments: decisionComments.trim(),
-      }
-    );
-
-    await recordTimelineEvent(
-      employeeId,
-      record.id,
-      actionTitle,
-      `${record.leave_type} · ${formatDateRange(
-        record.start_date,
-        record.end_date || record.start_date
-      )} · ${formatDays(
-        Number(record.days_taken || 0)
-      )}.`,
-      nextStatus
-    );
 
     closeDecision();
     showMessage(
@@ -1138,51 +1043,36 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
 
     setActionInProgress(record.id);
 
-    const { error } = await supabase
-      .from("employee_leave_records")
-      .update({
-        status: "Cancelled",
-        notes: serialiseLeaveMetadata(metadata),
-        updated_at: now,
-      })
-      .eq("id", record.id)
-      .eq("employee_id", employeeId);
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: "cancel",
+          recordId: record.id,
+          notes: serialiseLeaveMetadata(metadata),
+        }),
+      }
+    );
 
-    if (error) {
-      console.error("Error cancelling leave record:", error);
+    const result = (await response.json().catch(() => null)) as
+      | LeaveApiResponse
+      | null;
+
+    if (!response.ok || !result?.success) {
+      console.error("Error cancelling leave record:", result?.error);
       showMessage(
-        "The leave record could not be cancelled.",
+        result?.error || "The leave record could not be cancelled.",
         "error"
       );
       setActionInProgress(null);
       return;
     }
-
-    await recordLeaveAuditEvent(
-      employeeId,
-      "Leave record cancelled",
-      `${record.leave_type} for ${formatDateRange(
-        record.start_date,
-        record.end_date || record.start_date
-      )} was cancelled.`,
-      {
-        leave_record_id: record.id,
-        previous_status: record.normalisedStatus,
-        new_status: "Cancelled",
-        cancellation_reason: cancellationReason.trim(),
-      }
-    );
-
-    await recordTimelineEvent(
-      employeeId,
-      record.id,
-      "Leave cancelled",
-      `${record.leave_type} · ${formatDateRange(
-        record.start_date,
-        record.end_date || record.start_date
-      )}.`,
-      "Cancelled"
-    );
 
     closeCancellation();
     showMessage(
@@ -1212,49 +1102,36 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
 
     const now = new Date().toISOString();
 
-    const { error } = await supabase
-      .from("employee_leave_records")
-      .update({
-        status: "Completed",
-        updated_at: now,
-      })
-      .eq("id", record.id)
-      .eq("employee_id", employeeId);
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: "complete",
+          recordId: record.id,
+        }),
+      }
+    );
 
-    if (error) {
-      console.error("Error completing leave record:", error);
+    const result = (await response.json().catch(() => null)) as
+      | LeaveApiResponse
+      | null;
+
+    if (!response.ok || !result?.success) {
+      console.error("Error completing leave record:", result?.error);
       showMessage(
-        "The leave record could not be marked as completed.",
+        result?.error ||
+          "The leave record could not be marked as completed.",
         "error"
       );
       setActionInProgress(null);
       return;
     }
-
-    await recordLeaveAuditEvent(
-      employeeId,
-      "Leave completed",
-      `${record.leave_type} for ${formatDateRange(
-        record.start_date,
-        record.end_date || record.start_date
-      )} was marked as completed.`,
-      {
-        leave_record_id: record.id,
-        previous_status: "Approved",
-        new_status: "Completed",
-      }
-    );
-
-    await recordTimelineEvent(
-      employeeId,
-      record.id,
-      "Leave completed",
-      `${record.leave_type} · ${formatDateRange(
-        record.start_date,
-        record.end_date || record.start_date
-      )}.`,
-      "Completed"
-    );
 
     showMessage(
       "The leave record has been marked as completed.",
@@ -2740,87 +2617,6 @@ function readString(value: unknown): string {
   if (typeof value === "number") return String(value);
 
   return "";
-}
-
-async function recordLeaveAuditEvent(
-  employeeId: number,
-  actionTitle: string,
-  description: string,
-  metadata: Record<string, unknown>
-) {
-  try {
-    const { error } = await supabase
-      .from("audit_logs")
-      .insert({
-        employee_id: employeeId,
-        action_title: actionTitle,
-        description,
-        category: "Employee",
-        source_module: "Leave & Absence",
-        metadata,
-        created_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.warn(
-        "Leave audit event was not written:",
-        error
-      );
-    }
-  } catch (error) {
-    console.warn(
-      "Leave audit event was not written:",
-      error
-    );
-  }
-}
-
-async function recordTimelineEvent(
-  employeeId: number,
-  leaveRecordId: number | null | undefined,
-  title: string,
-  description: string,
-  status: string
-) {
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const { error } = await supabase
-      .from("employee_timeline")
-      .insert({
-        organisation_id: null,
-        employee_id: employeeId,
-        event_type: "Leave & Absence",
-        title,
-        description,
-        status,
-        source_module: "Leave & Absence",
-        source_record_id: leaveRecordId
-          ? String(leaveRecordId)
-          : null,
-        metadata: {
-          leave_record_id: leaveRecordId || null,
-          leave_status: status,
-        },
-        event_date: new Date().toISOString(),
-        created_by: user?.id || null,
-        created_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.warn(
-        "Employee timeline event was not written:",
-        error
-      );
-    }
-  } catch (error) {
-    console.warn(
-      "Employee timeline event was not written:",
-      error
-    );
-  }
 }
 
 function exportLeaveRecords(

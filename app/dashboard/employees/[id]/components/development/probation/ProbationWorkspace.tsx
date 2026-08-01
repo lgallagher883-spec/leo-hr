@@ -1,6 +1,5 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import {
   FinalOutcome,
@@ -17,13 +16,17 @@ import {
 import ProbationDocuments from "./ProbationDocuments";
 import EmployeeLifecycleIntelligence from "../../EmployeeLifecycleIntelligence";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 type Props = {
   employeeId: number;
+};
+
+type ProbationApiResponse = {
+  success?: boolean;
+  employee?: EmployeeSummary;
+  probation?: ProbationRecord | null;
+  reviews?: ProbationReview[];
+  review?: ProbationReview;
+  error?: string;
 };
 
 export default function ProbationWorkspace({
@@ -55,111 +58,54 @@ export default function ProbationWorkspace({
     setLoading(true);
     setErrorMessage("");
 
-    const { data: employeeData, error: employeeError } =
-      await supabase
-        .from("employees")
-        .select("id, name, start_date")
-        .eq("id", employeeId)
-        .single();
-
-    if (employeeError) {
-      console.error("Error loading employee:", employeeError);
-      setErrorMessage(
-        "The employee record could not be loaded."
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/probation`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        }
       );
-      setLoading(false);
-      return;
-    }
 
-    setEmployee(employeeData);
+      const result = (await response.json().catch(() => null)) as
+        | ProbationApiResponse
+        | null;
 
-    if (employeeData.start_date) {
-      setStartDate(employeeData.start_date);
-    }
+      if (!response.ok || !result?.success || !result.employee) {
+        throw new Error(
+          result?.error ||
+            "The probation workspace could not be loaded."
+        );
+      }
 
-    const { data: probationData, error: probationError } =
-      await supabase
-        .from("employee_probations")
-        .select(
-          `
-          id,
-          employee_id,
-          status,
-          probation_start_date,
-          standard_end_date,
-          current_end_date,
-          final_decision_deadline,
-          extension_reason,
-          extension_start_date,
-          extension_end_date,
-          final_outcome,
-          final_outcome_date
-        `
-        )
-        .eq("employee_id", employeeId)
-        .eq("is_archived", false)
-        .maybeSingle();
-
-    if (probationError) {
-      console.error(
-        "Error loading probation:",
-        probationError
+      setEmployee(result.employee);
+      setProbation(result.probation || null);
+      setReviews(
+        Array.isArray(result.reviews)
+          ? result.reviews
+          : []
       );
-      setErrorMessage(
-        "The probation record could not be loaded."
-      );
-      setLoading(false);
-      return;
-    }
 
-    setProbation(probationData);
-
-    if (!probationData) {
+      if (result.employee.start_date) {
+        setStartDate(result.employee.start_date);
+      }
+    } catch (error) {
+      console.error("Error loading probation workspace:", error);
+      setEmployee(null);
+      setProbation(null);
       setReviews([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data: reviewData, error: reviewError } =
-      await supabase
-        .from("probation_reviews")
-        .select(
-          `
-          id,
-          probation_id,
-          employee_id,
-          review_type,
-          review_week,
-          scheduled_date,
-          completed_date,
-          status,
-          manager_name,
-          attendees,
-          employee_comments,
-          manager_comments,
-          progress_summary,
-          support_required,
-          agreed_actions
-        `
-        )
-        .eq("probation_id", probationData.id)
-        .eq("is_archived", false)
-        .order("scheduled_date", { ascending: true });
-
-    if (reviewError) {
-      console.error(
-        "Error loading probation reviews:",
-        reviewError
-      );
       setErrorMessage(
-        "The probation reviews could not be loaded."
+        error instanceof Error
+          ? error.message
+          : "The probation workspace could not be loaded."
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setReviews(reviewData || []);
-    setLoading(false);
   }
 
   async function startProbation() {
@@ -174,96 +120,50 @@ export default function ProbationWorkspace({
     const standardEndDate = addMonths(startDate, 3);
     const finalDecisionDeadline = addMonths(startDate, 5);
 
-    const {
-      data: createdProbation,
-      error: probationError,
-    } = await supabase
-      .from("employee_probations")
-      .insert({
-        employee_id: employeeId,
-        status: "Active",
-        probation_start_date: startDate,
-        standard_end_date: standardEndDate,
-        current_end_date: standardEndDate,
-        final_decision_deadline: finalDecisionDeadline,
-      })
-      .select()
-      .single();
-
-    if (probationError || !createdProbation) {
-      console.error(
-        "Error creating probation:",
-        probationError
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/probation`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            action: "start",
+            startDate,
+            standardEndDate,
+            finalDecisionDeadline,
+          }),
+        }
       );
+
+      const result = (await response.json().catch(() => null)) as
+        | ProbationApiResponse
+        | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error ||
+            "The probation record could not be created."
+        );
+      }
+
+      setShowStartForm(false);
+      await loadProbationWorkspace();
+    } catch (error) {
+      console.error("Error creating probation:", error);
       setErrorMessage(
-        probationError?.message ||
-          "The probation record could not be created."
+        error instanceof Error
+          ? error.message
+          : "The probation record could not be created."
       );
+    } finally {
       setStarting(false);
-      return;
     }
-
-    const reviewRecords = [
-      {
-        probation_id: createdProbation.id,
-        employee_id: employeeId,
-        review_type: "Initial Check-in",
-        review_week: 2,
-        scheduled_date: addDays(startDate, 14),
-        status: "Scheduled",
-      },
-      {
-        probation_id: createdProbation.id,
-        employee_id: employeeId,
-        review_type: "First Review",
-        review_week: 4,
-        scheduled_date: addDays(startDate, 28),
-        status: "Scheduled",
-      },
-      {
-        probation_id: createdProbation.id,
-        employee_id: employeeId,
-        review_type: "Progress Review",
-        review_week: 8,
-        scheduled_date: addDays(startDate, 56),
-        status: "Scheduled",
-      },
-      {
-        probation_id: createdProbation.id,
-        employee_id: employeeId,
-        review_type: "Final Review",
-        review_week: 12,
-        scheduled_date: addDays(startDate, 84),
-        status: "Scheduled",
-      },
-    ];
-
-    const { error: reviewError } = await supabase
-      .from("probation_reviews")
-      .insert(reviewRecords);
-
-    if (reviewError) {
-      console.error(
-        "Error creating probation reviews:",
-        reviewError
-      );
-
-      await supabase
-        .from("employee_probations")
-        .delete()
-        .eq("id", createdProbation.id);
-
-      setErrorMessage(
-        "The probation record was not saved because the review schedule could not be created."
-      );
-      setStarting(false);
-      return;
-    }
-
-    setShowStartForm(false);
-    setStarting(false);
-    await loadProbationWorkspace();
   }
+
 
   if (loading) {
     return (
@@ -511,6 +411,7 @@ export default function ProbationWorkspace({
         {selectedReview &&
   selectedReview.review_type !== "Final Review" && (
     <StandardProbationReviewForm
+      employeeId={employeeId}
       review={selectedReview}
       onClose={() => setSelectedReview(null)}
       onSaved={async () => {
@@ -523,6 +424,7 @@ export default function ProbationWorkspace({
 {selectedReview &&
   selectedReview.review_type === "Final Review" && (
     <FinalProbationReviewForm
+      employeeId={employeeId}
       review={selectedReview}
       probation={probation}
       employeeName={employee?.name || "Employee"}
@@ -546,10 +448,12 @@ export default function ProbationWorkspace({
 }
 
 function StandardProbationReviewForm({
+  employeeId,
   review,
   onClose,
   onSaved,
 }: {
+  employeeId: number;
   review: ProbationReview;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -607,41 +511,55 @@ function StandardProbationReviewForm({
     setSaving(true);
     setErrorMessage("");
 
-    const { error } = await supabase
-      .from("probation_reviews")
-      .update({
-        completed_date: actualReviewDate,
-        status: "Completed",
-        manager_name: managerName.trim(),
-        attendees: attendees.trim() || null,
-        progress_summary:
-          progressSummary.trim(),
-        employee_comments:
-          employeeComments.trim() || null,
-        manager_comments:
-          managerComments.trim() || null,
-        support_required:
-          supportRequired.trim() || null,
-        agreed_actions:
-          agreedActions.trim() || null,
-      })
-      .eq("id", review.id);
-
-    if (error) {
-      console.error(
-        "Error saving probation review:",
-        error
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/probation`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            action: "save_review",
+            reviewId: review.id,
+            completedDate: actualReviewDate,
+            managerName: managerName.trim(),
+            attendees,
+            progressSummary: progressSummary.trim(),
+            employeeComments,
+            managerComments,
+            supportRequired,
+            agreedActions,
+          }),
+        }
       );
+
+      const result = (await response.json().catch(() => null)) as
+        | ProbationApiResponse
+        | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error ||
+            "The probation review could not be saved."
+        );
+      }
+
+      await onSaved();
+    } catch (error) {
+      console.error("Error saving probation review:", error);
       setErrorMessage(
-        "The probation review could not be saved."
+        error instanceof Error
+          ? error.message
+          : "The probation review could not be saved."
       );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setSaving(false);
-    await onSaved();
   }
+
 
   return (
     <div style={reviewFormPanelStyle}>
@@ -763,12 +681,14 @@ function StandardProbationReviewForm({
 }
 
 function FinalProbationReviewForm({
+  employeeId,
   review,
   probation,
   employeeName,
   onClose,
   onSaved,
 }: {
+  employeeId: number;
   review: ProbationReview;
   probation: ProbationRecord;
   employeeName: string;
@@ -880,253 +800,69 @@ function FinalProbationReviewForm({
     setSaving(true);
     setErrorMessage("");
 
-    if (
-      finalOutcome === "Terminate Contract"
-    ) {
-      const { count, error: documentError } =
-        await supabase
-          .from("probation_documents")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("probation_id", probation.id)
-          .eq("is_archived", false);
+    const extensionEndDate = addMonths(
+      probation.standard_end_date,
+      1
+    );
 
-      if (documentError) {
-        console.error(
-          "Error checking probation documents:",
-          documentError
-        );
-        setErrorMessage(
-          "Leo could not confirm whether the probation documents have been uploaded."
-        );
-        setSaving(false);
-        return;
-      }
-
-      if (!count || count < 1) {
-        setErrorMessage(
-          "Probation documents must be uploaded before Terminate Contract can be recorded."
-        );
-        setSaving(false);
-        return;
-      }
-    }
-
-    const { error: reviewError } =
-      await supabase
-        .from("probation_reviews")
-        .update({
-          completed_date: actualReviewDate,
-          status: "Completed",
-          manager_name: managerName.trim(),
-          attendees: attendees.trim() || null,
-          progress_summary:
-            progressSummary.trim(),
-          employee_comments:
-            employeeComments.trim() || null,
-          manager_comments:
-            managerComments.trim() || null,
-          support_required:
-            finalOutcome === "Extend Probation"
-              ? extensionSupport.trim()
-              : null,
-          agreed_actions:
-            finalOutcome === "Extend Probation"
-              ? "Probation extended for four weeks."
-              : null,
-        })
-        .eq("id", review.id);
-
-    if (reviewError) {
-      console.error(
-        "Error saving Final Review:",
-        reviewError
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/probation`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            action: "final_outcome",
+            probationId: probation.id,
+            reviewId: review.id,
+            completedDate: actualReviewDate,
+            managerName: managerName.trim(),
+            attendees,
+            progressSummary: progressSummary.trim(),
+            employeeComments,
+            managerComments,
+            finalOutcome,
+            extensionReason,
+            extensionSupport,
+            extensionEndDate,
+            terminationReason,
+            supportSummary,
+            evidenceSummary,
+            employeeResponse,
+            noticeArrangements,
+            employeeName,
+          }),
+        }
       );
+
+      const result = (await response.json().catch(() => null)) as
+        | ProbationApiResponse
+        | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error ||
+            "The Final Review could not be saved."
+        );
+      }
+
+      await onSaved();
+    } catch (error) {
+      console.error("Error saving Final Review:", error);
       setErrorMessage(
-        "The Final Review could not be saved."
+        error instanceof Error
+          ? error.message
+          : "The Final Review could not be saved."
       );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    if (
-      finalOutcome ===
-      "Permanent Employment"
-    ) {
-      const { error } = await supabase
-        .from("employee_probations")
-        .update({
-          status: "Passed",
-          final_outcome: "Pass Probation",
-          final_outcome_date:
-            actualReviewDate,
-          current_end_date:
-            probation.standard_end_date,
-        })
-        .eq("id", probation.id);
-
-      if (error) {
-        console.error(
-          "Error confirming permanent employment:",
-          error
-        );
-        setErrorMessage(
-          "Permanent employment could not be confirmed."
-        );
-        setSaving(false);
-        return;
-      }
-    }
-
-    if (
-      finalOutcome === "Extend Probation"
-    ) {
-      const extensionEndDate = addMonths(
-        probation.standard_end_date,
-        1
-      );
-
-      const { error: probationError } =
-        await supabase
-          .from("employee_probations")
-          .update({
-            status: "Extended",
-            current_end_date:
-              extensionEndDate,
-            extension_start_date:
-              probation.standard_end_date,
-            extension_end_date:
-              extensionEndDate,
-            extension_reason:
-              extensionReason.trim(),
-            final_outcome:
-              "Extend Probation",
-            final_outcome_date:
-              actualReviewDate,
-          })
-          .eq("id", probation.id);
-
-      if (probationError) {
-        console.error(
-          "Error extending probation:",
-          probationError
-        );
-        setErrorMessage(
-          "Probation could not be extended."
-        );
-        setSaving(false);
-        return;
-      }
-
-      const { error: extensionReviewError } =
-        await supabase
-          .from("probation_reviews")
-          .insert({
-            probation_id: probation.id,
-            employee_id:
-              probation.employee_id,
-            review_type: "Extension Review",
-            scheduled_date:
-              extensionEndDate,
-            status: "Scheduled",
-            support_required:
-              extensionSupport.trim(),
-            agreed_actions:
-              extensionReason.trim(),
-          });
-
-      if (extensionReviewError) {
-        console.error(
-          "Error creating extension review:",
-          extensionReviewError
-        );
-        setErrorMessage(
-          "Probation was extended, but the Extension Review could not be created."
-        );
-        setSaving(false);
-        return;
-      }
-    }
-
-    if (
-      finalOutcome === "Terminate Contract"
-    ) {
-      const { error: decisionError } =
-        await supabase
-          .from("probation_decisions")
-          .insert({
-            probation_id: probation.id,
-            employee_id:
-              probation.employee_id,
-            decision:
-              "Terminate Contract",
-            decision_date:
-              actualReviewDate,
-            effective_date:
-              actualReviewDate,
-            decision_maker:
-              managerName.trim(),
-            review_meeting_date:
-              actualReviewDate,
-            attendees:
-              attendees.trim() || null,
-            decision_reason:
-              terminationReason.trim(),
-            support_provided:
-              supportSummary.trim(),
-            evidence_considered:
-              evidenceSummary.trim(),
-            employee_response:
-              employeeResponse.trim(),
-            notice_arrangements:
-              noticeArrangements.trim(),
-            final_summary: `${employeeName}'s contract was terminated following the Final Review.`,
-            approved_at:
-              new Date().toISOString(),
-          });
-
-      if (decisionError) {
-        console.error(
-          "Error saving termination decision:",
-          decisionError
-        );
-        setErrorMessage(
-          "The termination decision record could not be saved."
-        );
-        setSaving(false);
-        return;
-      }
-
-      const { error: probationError } =
-        await supabase
-          .from("employee_probations")
-          .update({
-            status: "Contract Terminated",
-            final_outcome:
-              "Terminate Contract",
-            final_outcome_date:
-              actualReviewDate,
-          })
-          .eq("id", probation.id);
-
-      if (probationError) {
-        console.error(
-          "Error updating probation outcome:",
-          probationError
-        );
-        setErrorMessage(
-          "The decision was recorded, but the probation status could not be updated."
-        );
-        setSaving(false);
-        return;
-      }
-    }
-
-    setSaving(false);
-    await onSaved();
   }
+
 
   const extensionEndDate = addMonths(
     probation.standard_end_date,

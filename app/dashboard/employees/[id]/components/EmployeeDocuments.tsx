@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import ProfileSection from "./ProfileSection";
-import Field from "./Field";
-import SelectField from "./SelectField";
-import SaveButton from "./SaveButton";
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
+import { useCallback, useEffect, useState } from "react";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
+import Field from "./Field";
+import ProfileSection from "./ProfileSection";
+import SaveButton from "./SaveButton";
+import SelectField from "./SelectField";
 
 type EmployeeDocumentsProps = {
   employeeId: number;
@@ -51,38 +46,68 @@ export default function EmployeeDocuments({
   employeeId,
 }: EmployeeDocumentsProps) {
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
-
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState("Contract");
   const [notes, setNotes] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [openingId, setOpeningId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
-  async function loadDocuments() {
-    const { data, error } = await supabase
-      .from("employee_documents")
-      .select(
-        "id, title, document_type, file_name, file_path, file_type, notes, created_at"
-      )
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false });
+  const loadDocuments = useCallback(async () => {
+    setLoading(true);
+    setMessage("");
 
-    if (error) {
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/documents`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            documents?: EmployeeDocument[];
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(
+          payload?.error || "Employee documents could not be loaded.",
+        );
+      }
+
+      setDocuments(
+        Array.isArray(payload.documents)
+          ? payload.documents
+          : [],
+      );
+    } catch (error) {
       console.error("Error loading employee documents:", error);
+      setDocuments([]);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Employee documents could not be loaded.",
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setDocuments(data || []);
-    setLoading(false);
-  }
+  }, [employeeId]);
 
   useEffect(() => {
-    loadDocuments();
-  }, [employeeId]);
+    void loadDocuments();
+  }, [loadDocuments]);
 
   async function uploadDocument() {
     if (!selectedFile) {
@@ -91,66 +116,114 @@ export default function EmployeeDocuments({
     }
 
     const documentTitle = title.trim() || selectedFile.name;
+    const formData = new FormData();
+
+    formData.append("title", documentTitle);
+    formData.append("documentType", documentType);
+    formData.append("notes", notes);
+    formData.append("file", selectedFile);
 
     setSaving(true);
     setMessage("");
 
-    const safeFileName = selectedFile.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-    const filePath = `${employeeId}/${Date.now()}-${safeFileName}`;
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/documents`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        },
+      );
 
-    const upload = await supabase.storage
-      .from("employee-documents")
-      .upload(filePath, selectedFile);
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            document?: EmployeeDocument;
+            error?: string;
+          }
+        | null;
 
-    if (upload.error) {
-      console.error("Error uploading document:", upload.error);
-      setMessage("Document file could not be uploaded.");
+      if (!response.ok || !payload?.success || !payload.document) {
+        throw new Error(
+          payload?.error || "The employee document could not be uploaded.",
+        );
+      }
+
+      setDocuments((current) => [
+        payload.document as EmployeeDocument,
+        ...current.filter(
+          (document) => document.id !== payload.document?.id,
+        ),
+      ]);
+      setTitle("");
+      setDocumentType("Contract");
+      setNotes("");
+      setSelectedFile(null);
+      setFileInputKey((current) => current + 1);
+      setMessage("Document uploaded.");
+    } catch (error) {
+      console.error("Error uploading employee document:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The employee document could not be uploaded.",
+      );
+    } finally {
       setSaving(false);
-      return;
     }
-
-    const { error } = await supabase.from("employee_documents").insert([
-      {
-        employee_id: employeeId,
-        title: documentTitle,
-        document_type: documentType,
-        file_name: selectedFile.name,
-        file_path: filePath,
-        file_type: selectedFile.type || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
-      console.error("Error saving document record:", error);
-      setMessage("Document record could not be saved.");
-      setSaving(false);
-      return;
-    }
-
-    setTitle("");
-    setDocumentType("Contract");
-    setNotes("");
-    setSelectedFile(null);
-    setMessage("Document uploaded.");
-    setSaving(false);
-    loadDocuments();
   }
 
-  async function openDocument(filePath: string) {
-    const { data, error } = await supabase.storage
-      .from("employee-documents")
-      .createSignedUrl(filePath, 60);
+  async function openDocument(document: EmployeeDocument) {
+    setOpeningId(document.id);
+    setMessage("");
 
-    if (error) {
-      console.error("Error opening document:", error);
-      setMessage("Document could not be opened.");
-      return;
-    }
+    try {
+      const query = new URLSearchParams({
+        action: "open",
+        documentId: String(document.id),
+      });
 
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, "_blank");
+      const response = await fetch(
+        `/api/employees/${employeeId}/documents?${query.toString()}`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            signedUrl?: string;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !payload?.success || !payload.signedUrl) {
+        throw new Error(
+          payload?.error || "The document could not be opened.",
+        );
+      }
+
+      window.open(
+        payload.signedUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    } catch (error) {
+      console.error("Error opening employee document:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The document could not be opened.",
+      );
+    } finally {
+      setOpeningId(null);
     }
   }
 
@@ -162,7 +235,13 @@ export default function EmployeeDocuments({
         defaultPrompt="Draft a professional request that lists missing employee documents and asks for submission by a clear date."
       />
 
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+      <p
+        style={{
+          color: "#6B7280",
+          fontSize: "14px",
+          marginTop: 0,
+        }}
+      >
         Upload documents linked to this employee, such as contracts, right to
         work evidence, fit notes, DBS certificates, driving documents and HR
         letters.
@@ -202,10 +281,10 @@ export default function EmployeeDocuments({
         </label>
 
         <input
+          key={fileInputKey}
           type="file"
           onChange={(event) => {
-            const file = event.target.files?.[0] || null;
-            setSelectedFile(file);
+            setSelectedFile(event.target.files?.[0] || null);
           }}
         />
       </div>
@@ -214,11 +293,17 @@ export default function EmployeeDocuments({
         {saving ? "Uploading..." : "Upload document"}
       </SaveButton>
 
-      {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+      {message ? (
+        <div
+          style={{
+            marginTop: "10px",
+            color: "#6B7280",
+            fontSize: "14px",
+          }}
+        >
           {message}
         </div>
-      )}
+      ) : null}
 
       <div style={{ marginTop: "24px" }}>
         <div style={{ fontWeight: 800, marginBottom: "10px" }}>
@@ -226,9 +311,13 @@ export default function EmployeeDocuments({
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading documents...</div>
+          <div style={{ color: "#6B7280" }}>
+            Loading documents...
+          </div>
         ) : documents.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No documents uploaded yet.</div>
+          <div style={{ color: "#6B7280" }}>
+            No documents uploaded yet.
+          </div>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {documents.map((document) => (
@@ -241,7 +330,9 @@ export default function EmployeeDocuments({
                   background: "#F9FAFB",
                 }}
               >
-                <div style={{ fontWeight: 800 }}>{document.title}</div>
+                <div style={{ fontWeight: 800 }}>
+                  {document.title}
+                </div>
 
                 <div
                   style={{
@@ -250,17 +341,25 @@ export default function EmployeeDocuments({
                     marginTop: "4px",
                   }}
                 >
-                  {document.document_type || "Document"} · {document.file_name}
+                  {document.document_type || "Document"} ·{" "}
+                  {document.file_name}
                 </div>
 
-                {document.notes && (
-                  <div style={{ marginTop: "8px", whiteSpace: "pre-wrap" }}>
+                {document.notes ? (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
                     <strong>Notes:</strong> {document.notes}
                   </div>
-                )}
+                ) : null}
 
                 <button
-                  onClick={() => openDocument(document.file_path)}
+                  type="button"
+                  onClick={() => void openDocument(document)}
+                  disabled={openingId === document.id}
                   style={{
                     marginTop: "10px",
                     background: "#111827",
@@ -268,12 +367,21 @@ export default function EmployeeDocuments({
                     border: "none",
                     padding: "7px 10px",
                     borderRadius: "8px",
-                    cursor: "pointer",
+                    cursor:
+                      openingId === document.id
+                        ? "default"
+                        : "pointer",
                     fontWeight: 600,
                     fontSize: "13px",
+                    opacity:
+                      openingId === document.id
+                        ? 0.7
+                        : 1,
                   }}
                 >
-                  Open document
+                  {openingId === document.id
+                    ? "Opening..."
+                    : "Open document"}
                 </button>
 
                 <div
@@ -283,7 +391,10 @@ export default function EmployeeDocuments({
                     marginTop: "10px",
                   }}
                 >
-                  Uploaded {new Date(document.created_at).toLocaleString("en-GB")}
+                  Uploaded{" "}
+                  {new Date(document.created_at).toLocaleString(
+                    "en-GB",
+                  )}
                 </div>
               </div>
             ))}

@@ -2,8 +2,10 @@
 
 import {
   ArrowRight,
+  Ban,
   Check,
   Download,
+  FileSignature,
   FileText,
   Loader2,
   Mail,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import SendForSignatureModal from "@/components/docusign/SendForSignatureModal";
 import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 
 type Row = Record<string, unknown>;
@@ -126,6 +129,29 @@ type CandidateOption = {
   locationName: string;
   employmentType: string;
   managerName: string;
+};
+
+type SignatureEnvelope = {
+  id: string;
+  organisation_id: string;
+  connection_id: number;
+  provider_key: string;
+  provider_envelope_id: string;
+  source_module: string;
+  source_record_id: string;
+  source_document_id: string | null;
+  document_name: string;
+  status: string;
+  provider_status: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  completed_at: string | null;
+  declined_at: string | null;
+  voided_at: string | null;
+  expires_at: string | null;
+  last_status_checked_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 const OFFER_STATUSES: Array<{ value: OfferStatus; label: string }> = [
@@ -284,6 +310,154 @@ function csvCell(value: unknown): string {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function safeFilePart(value: string): string {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70) || "offer";
+}
+
+function displaySalary(offer: OfferRecord): string {
+  if (!offer.salary_amount) return "To be confirmed";
+
+  const amount = Number(offer.salary_amount);
+  const formatted = Number.isFinite(amount)
+    ? new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: offer.salary_currency || "GBP",
+        maximumFractionDigits: 2,
+      }).format(amount)
+    : offer.salary_amount;
+
+  const periodLabels: Record<string, string> = {
+    hour: "per hour",
+    day: "per day",
+    week: "per week",
+    month: "per month",
+    year: "per year",
+    fixed: "fixed amount",
+  };
+
+  return `${formatted} ${periodLabels[offer.salary_period] || offer.salary_period}`.trim();
+}
+
+function buildOfferLetterHtml(offer: OfferRecord): string {
+  const conditions = offer.conditions_text
+    .split("\\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const probation =
+    offer.probation_months === "0"
+      ? "No probationary period applies."
+      : `${offer.probation_months || "3"} month probationary period.`;
+
+  const conditionMarkup = conditions.length
+    ? `<ul>${conditions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : "<p>No additional conditions have been recorded.</p>";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(offer.offer_reference)} - Offer Letter</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #25212a; margin: 48px; line-height: 1.55; }
+    .brand { color: #6e5084; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { color: #3f2f4e; margin: 8px 0 24px; }
+    .reference { color: #6b7280; font-size: 13px; }
+    .terms { width: 100%; border-collapse: collapse; margin: 22px 0; }
+    .terms td { border-bottom: 1px solid #e5e7eb; padding: 9px 4px; vertical-align: top; }
+    .terms td:first-child { width: 34%; font-weight: 700; color: #514758; }
+    .signature { margin-top: 56px; }
+    .signature-line { margin-top: 48px; border-top: 1px solid #7b7280; width: 260px; padding-top: 7px; }
+  </style>
+</head>
+<body>
+  <div class="brand">LEO HR</div>
+  <h1>Offer of Employment</h1>
+  <p class="reference">Offer reference: ${escapeHtml(offer.offer_reference)}</p>
+  <p>Dear ${escapeHtml(offer.candidate_name)},</p>
+  <p>
+    We are pleased to offer you the position of <strong>${escapeHtml(offer.job_title)}</strong>
+    on the terms set out below. This letter records the proposed offer and should be read
+    alongside the formal employment contract and written particulars issued by the employer.
+  </p>
+
+  <table class="terms">
+    <tr><td>Position</td><td>${escapeHtml(offer.job_title)}</td></tr>
+    <tr><td>Employment type</td><td>${escapeHtml(humanise(offer.employment_type))}</td></tr>
+    <tr><td>Department</td><td>${escapeHtml(offer.department || "Not recorded")}</td></tr>
+    <tr><td>Location</td><td>${escapeHtml(offer.location_name || "Not recorded")}</td></tr>
+    <tr><td>Manager</td><td>${escapeHtml(offer.manager_name || "Not recorded")}</td></tr>
+    <tr><td>Proposed start date</td><td>${escapeHtml(offer.proposed_start_date || "To be agreed")}</td></tr>
+    <tr><td>Salary</td><td>${escapeHtml(displaySalary(offer))}</td></tr>
+    <tr><td>Hours per week</td><td>${escapeHtml(offer.hours_per_week || "To be confirmed")}</td></tr>
+    <tr><td>Working pattern</td><td>${escapeHtml(offer.work_pattern || "To be confirmed")}</td></tr>
+    <tr><td>Holiday allowance</td><td>${escapeHtml(offer.holiday_allowance_days || "To be confirmed")} days</td></tr>
+    <tr><td>Notice period</td><td>${escapeHtml(offer.notice_period || "To be confirmed")}</td></tr>
+    <tr><td>Probation</td><td>${escapeHtml(probation)}</td></tr>
+    <tr><td>Response deadline</td><td>${escapeHtml(offer.response_deadline || "Not specified")}</td></tr>
+  </table>
+
+  <h2>Conditions</h2>
+  ${conditionMarkup}
+
+  <p>
+    Please sign this letter to confirm that you accept the offer on the terms stated above.
+    Acceptance of this offer does not replace the employer's formal contract of employment.
+  </p>
+
+  <div class="signature">
+    <div class="signature-line">Candidate signature</div>
+    <div class="signature-line">Date</div>
+  </div>
+</body>
+</html>`;
+}
+
+
+function formatSignatureDate(value: string | null): string {
+  if (!value) return "Not recorded";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Not recorded";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function signatureStatusLabel(value: string): string {
+  const normalised = value.trim().toLowerCase();
+
+  if (normalised === "completed") return "Completed";
+  if (normalised === "delivered") return "Delivered";
+  if (normalised === "sent") return "Awaiting signature";
+  if (normalised === "created") return "Draft";
+  if (normalised === "declined") return "Declined";
+  if (normalised === "voided") return "Voided";
+  if (normalised === "expired") return "Expired";
+
+  return humanise(normalised || "unknown");
+}
+
 export default function OffersWorkspace() {
   const router = useRouter();
   const [offers, setOffers] = useState<OfferRecord[]>([]);
@@ -299,6 +473,10 @@ export default function OffersWorkspace() {
   const [working, setWorking] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signatureEnvelopes, setSignatureEnvelopes] = useState<SignatureEnvelope[]>([]);
+  const [signatureWorking, setSignatureWorking] = useState("");
 
   const loadData = useCallback(async (manual = false) => {
     manual ? setRefreshing(true) : setLoading(true);
@@ -306,14 +484,35 @@ export default function OffersWorkspace() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch("/api/talent/offers", {
-        method: "GET",
-        cache: "no-store",
-      });
-      const payload = await response.json().catch(() => ({}));
+      const [offersResponse, signaturesResponse] = await Promise.all([
+        fetch("/api/talent/offers", {
+          method: "GET",
+          cache: "no-store",
+        }),
+        fetch(
+          "/api/foundations/connections/docusign/envelopes?sourceModule=Talent",
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        ),
+      ]);
 
-      if (!response.ok || payload.success !== true) {
+      const payload = await offersResponse.json().catch(() => ({}));
+      const signaturePayload = await signaturesResponse.json().catch(() => ({}));
+
+      if (!offersResponse.ok || payload.success !== true) {
         throw new Error(payload.error || "Offers and appointments could not be loaded.");
+      }
+
+      if (signaturesResponse.ok && signaturePayload.success === true) {
+        setSignatureEnvelopes(
+          Array.isArray(signaturePayload.envelopes)
+            ? (signaturePayload.envelopes as SignatureEnvelope[])
+            : [],
+        );
+      } else {
+        setSignatureEnvelopes([]);
       }
 
       const candidateRows = (payload.candidates ?? []) as Row[];
@@ -373,6 +572,7 @@ export default function OffersWorkspace() {
       setOffers([]);
       setAppointments([]);
       setCandidates([]);
+      setSignatureEnvelopes([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -430,6 +630,16 @@ export default function OffersWorkspace() {
     }),
     [appointments, offers],
   );
+
+  const currentSignature = useMemo(() => {
+    if (!draft) return null;
+
+    return (
+      signatureEnvelopes
+        .filter((envelope) => envelope.source_record_id === draft.id)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null
+    );
+  }, [draft, signatureEnvelopes]);
 
   const updateDraft = <K extends keyof OfferRecord>(key: K, value: OfferRecord[K]) => {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
@@ -609,6 +819,177 @@ export default function OffersWorkspace() {
     } finally {
       setWorking("");
     }
+  };
+
+  const createOfferLetterFile = (offer: OfferRecord): File => {
+    const fileName = `${safeFilePart(offer.offer_reference || offer.candidate_name)}-offer-letter.html`;
+    return new File([buildOfferLetterHtml(offer)], fileName, {
+      type: "text/html;charset=utf-8",
+    });
+  };
+
+  const downloadOfferLetter = () => {
+    if (!draft) return;
+
+    const file = createOfferLetterFile(draft);
+    const url = URL.createObjectURL(file);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = file.name;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setSuccessMessage("Offer letter generated and downloaded.");
+  };
+
+  const openSignatureRequest = () => {
+    if (!draft) return;
+
+    if (!draft.candidate_email) {
+      setErrorMessage("Add the candidate email address before sending the offer for signature.");
+      return;
+    }
+
+    if (!draft.job_title.trim()) {
+      setErrorMessage("Add the job title before sending the offer for signature.");
+      return;
+    }
+
+    setErrorMessage("");
+    setSignatureFile(createOfferLetterFile(draft));
+    setSignatureOpen(true);
+  };
+
+
+  const refreshSignature = async (envelope: SignatureEnvelope) => {
+    setSignatureWorking("refresh");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/foundations/connections/docusign/envelopes/${encodeURIComponent(
+          envelope.provider_envelope_id,
+        )}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The signature status could not be refreshed.");
+      }
+
+      setSignatureEnvelopes((current) =>
+        current.map((item) =>
+          item.id === payload.envelope.id ? payload.envelope : item,
+        ),
+      );
+      setSuccessMessage("Electronic signature status refreshed.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The signature status could not be refreshed.",
+      );
+    } finally {
+      setSignatureWorking("");
+    }
+  };
+
+  const resendSignatureEmail = async (envelope: SignatureEnvelope) => {
+    setSignatureWorking("resend");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/foundations/connections/docusign/envelopes/${encodeURIComponent(
+          envelope.provider_envelope_id,
+        )}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "resend" }),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The signing email could not be resent.");
+      }
+
+      if (payload.envelope) {
+        setSignatureEnvelopes((current) =>
+          current.map((item) =>
+            item.id === payload.envelope.id ? payload.envelope : item,
+          ),
+        );
+      }
+
+      setSuccessMessage("The DocuSign signing email has been resent.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The signing email could not be resent.",
+      );
+    } finally {
+      setSignatureWorking("");
+    }
+  };
+
+  const voidSignature = async (envelope: SignatureEnvelope) => {
+    const reason = window.prompt(
+      "Enter the reason for voiding this signature request:",
+    );
+
+    if (!reason?.trim()) return;
+
+    setSignatureWorking("void");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/foundations/connections/docusign/envelopes/${encodeURIComponent(
+          envelope.provider_envelope_id,
+        )}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "void",
+            reason: reason.trim(),
+          }),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.success !== true) {
+        throw new Error(payload.error || "The signature request could not be voided.");
+      }
+
+      setSignatureEnvelopes((current) =>
+        current.map((item) =>
+          item.id === payload.envelope.id ? payload.envelope : item,
+        ),
+      );
+      setSuccessMessage("The signature request has been voided.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "The signature request could not be voided.",
+      );
+    } finally {
+      setSignatureWorking("");
+    }
+  };
+
+  const downloadSignedDocument = (envelope: SignatureEnvelope) => {
+    window.location.href =
+      `/api/foundations/connections/docusign/envelopes/${encodeURIComponent(
+        envelope.provider_envelope_id,
+      )}/documents`;
   };
 
   const exportCsv = () => {
@@ -1109,14 +1490,18 @@ export default function OffersWorkspace() {
               <button
               type="button"
               style={styles.secondaryButton}
-              onClick={() =>
-              setSuccessMessage(
-              "Offer letter generation is ready for connection to Leo Draft.",
-              )
-              }
+              onClick={downloadOfferLetter}
               >
               <FileText size={16} />
               Generate offer letter
+              </button>
+              <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={openSignatureRequest}
+              >
+              <FileSignature size={16} />
+              Send for Signature
               </button>
               <button
               type="button"
@@ -1159,6 +1544,103 @@ export default function OffersWorkspace() {
               Save offer
               </button>
               </div>
+
+              {currentSignature ? (
+              <div style={styles.signatureCard}>
+                <div style={styles.signatureCardHeader}>
+                  <div>
+                    <strong style={styles.signatureCardTitle}>
+                      Electronic Signature
+                    </strong>
+                    <span style={styles.signatureCardProvider}>DocuSign</span>
+                  </div>
+                  <span
+                    style={
+                      currentSignature.status === "completed"
+                        ? styles.signatureStatusComplete
+                        : ["sent", "delivered"].includes(currentSignature.status)
+                          ? styles.signatureStatusPending
+                          : styles.signatureStatusNeutral
+                    }
+                  >
+                    {signatureStatusLabel(currentSignature.status)}
+                  </span>
+                </div>
+
+                <div style={styles.signatureMetaGrid}>
+                  <div>
+                    <span style={styles.signatureMetaLabel}>Sent</span>
+                    <strong style={styles.signatureMetaValue}>
+                      {formatSignatureDate(currentSignature.sent_at)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={styles.signatureMetaLabel}>Completed</span>
+                    <strong style={styles.signatureMetaValue}>
+                      {formatSignatureDate(currentSignature.completed_at)}
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={styles.signatureActions}>
+                  {currentSignature.status === "completed" ? (
+                    <button
+                      type="button"
+                      style={styles.secondaryButton}
+                      onClick={() => downloadSignedDocument(currentSignature)}
+                    >
+                      <Download size={15} />
+                      Download PDF
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    onClick={() => void refreshSignature(currentSignature)}
+                    disabled={signatureWorking === "refresh"}
+                  >
+                    {signatureWorking === "refresh" ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={15} />
+                    )}
+                    Refresh
+                  </button>
+
+                  {["sent", "delivered"].includes(currentSignature.status) ? (
+                    <>
+                      <button
+                        type="button"
+                        style={styles.secondaryButton}
+                        onClick={() => void resendSignatureEmail(currentSignature)}
+                        disabled={signatureWorking === "resend"}
+                      >
+                        {signatureWorking === "resend" ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <Mail size={15} />
+                        )}
+                        Resend Email
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.signatureVoidButton}
+                        onClick={() => void voidSignature(currentSignature)}
+                        disabled={signatureWorking === "void"}
+                      >
+                        {signatureWorking === "void" ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <Ban size={15} />
+                        )}
+                        Void
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              ) : null}
               </section>
 
               {appointmentDraft ? (
@@ -1333,6 +1815,32 @@ export default function OffersWorkspace() {
           </div>
         )}
       </section>
+
+      {draft && signatureFile ? (
+        <SendForSignatureModal
+          open={signatureOpen}
+          onClose={() => setSignatureOpen(false)}
+          onSent={(envelope) => {
+            setSignatureOpen(false);
+            setSignatureEnvelopes((current) => [
+              envelope as SignatureEnvelope,
+              ...current.filter(
+                (item) => item.id !== String((envelope as SignatureEnvelope).id),
+              ),
+            ]);
+            setSuccessMessage(
+              `Offer letter sent to ${draft.candidate_name} for signature.`,
+            );
+          }}
+          sourceModule="Talent"
+          sourceRecordId={draft.id}
+          documentName={signatureFile.name}
+          documentFile={signatureFile}
+          defaultRecipientName={draft.candidate_name}
+          defaultRecipientEmail={draft.candidate_email}
+          emailSubject={`Offer of employment: ${draft.job_title}`}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1940,6 +2448,106 @@ const styles: Record<string, CSSProperties> = {
     background: "#F7F1FC",
     border: "1px solid #DCC9E9",
     color: "#5A416C",
+  },
+  signatureCard: {
+    marginTop: 14,
+    padding: 14,
+    border: "1px solid #E5E7EB",
+    borderRadius: 13,
+    background: "#FCFBFD",
+  },
+  signatureCardHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  signatureCardTitle: {
+    display: "block",
+    color: "#302638",
+    fontSize: 14,
+  },
+  signatureCardProvider: {
+    display: "block",
+    marginTop: 3,
+    color: "#7A7180",
+    fontSize: 11,
+  },
+  signatureStatusComplete: {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: 999,
+    padding: "5px 9px",
+    background: "#F5FFF9",
+    border: "1px solid #CDE5D6",
+    color: "#276749",
+    fontSize: 11,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  signatureStatusPending: {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: 999,
+    padding: "5px 9px",
+    background: "#FFF8E7",
+    border: "1px solid #EAD8A5",
+    color: "#7C5A18",
+    fontSize: 11,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  signatureStatusNeutral: {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: 999,
+    padding: "5px 9px",
+    background: "#F3F4F6",
+    border: "1px solid #D1D5DB",
+    color: "#5B6470",
+    fontSize: 11,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  signatureMetaGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: 12,
+    marginTop: 13,
+  },
+  signatureMetaLabel: {
+    display: "block",
+    color: "#8A8290",
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  },
+  signatureMetaValue: {
+    display: "block",
+    marginTop: 4,
+    color: "#4A414F",
+    fontSize: 12,
+  },
+  signatureActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 13,
+  },
+  signatureVoidButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    border: "1px solid #E3C8CE",
+    borderRadius: 10,
+    padding: "9px 12px",
+    background: "#FFFFFF",
+    color: "#81505B",
+    fontWeight: 700,
+    cursor: "pointer",
   },
   error: {
     marginBottom: 14,

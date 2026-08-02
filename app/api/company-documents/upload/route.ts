@@ -1,8 +1,10 @@
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type UploadDetails = {
@@ -56,10 +58,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: organisationId, error: organisationError } =
-      await supabase.rpc("leo_current_organisation_id");
+    const resolvedRole = await resolveAuthoritativeUserRole(
+      supabase as any,
+      {
+        userId: user.id,
+        allowedStatuses: ["active"],
+      },
+    );
 
-    if (organisationError || !organisationId) {
+    if (!resolvedRole) {
       return NextResponse.json(
         {
           success: false,
@@ -69,23 +76,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: allowed, error: permissionError } = await (
-      supabase as any
-    ).rpc("leo_has_permission", {
-      target_organisation_id: organisationId,
-      target_permission_key: "hr_resources.view",
-      target_user_id: user.id,
-    });
-
-    if (permissionError || !allowed) {
+    if (!["owner", "senior"].includes(resolvedRole.roleKey)) {
       return NextResponse.json(
         {
           success: false,
-          error: "You do not have permission to upload company documents.",
+          error:
+            "Only an Owner or Senior user can upload or replace company documents.",
         },
         { status: 403 },
       );
     }
+
+    const organisationId =
+      resolvedRole.membership.organisation_id;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -186,9 +189,6 @@ export async function POST(request: Request) {
 
       uploadedPaths.push(path);
 
-      const publicUrl = admin.storage
-        .from("company-documents")
-        .getPublicUrl(path).data.publicUrl;
       const groupId = current.document_group_id || crypto.randomUUID();
       const currentVersion = current.version_number || 1;
 
@@ -201,7 +201,7 @@ export async function POST(request: Request) {
           document_type: currentFolder,
           file_name: replacementFile.name,
           file_path: path,
-          file_url: publicUrl,
+          file_url: null,
           status: "active",
           document_group_id: groupId,
           version_number: currentVersion + 1,
@@ -332,9 +332,6 @@ export async function POST(request: Request) {
 
       uploadedPaths.push(path);
 
-      const publicUrl = admin.storage
-        .from("company-documents")
-        .getPublicUrl(path).data.publicUrl;
 
       rows.push({
         organisation_id: organisationId,
@@ -343,7 +340,7 @@ export async function POST(request: Request) {
         document_type: folder,
         file_name: file.name,
         file_path: path,
-        file_url: publicUrl,
+        file_url: null,
         status: "active",
         version_number: 1,
       });

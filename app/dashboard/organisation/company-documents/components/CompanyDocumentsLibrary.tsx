@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 
-import { createClient } from "@/lib/supabase/client";
 
 export type CompanyDocumentFolder =
   | "Policy"
@@ -31,7 +30,6 @@ type CompanyDocument = {
   document_type: CompanyDocumentFolder | string | null;
   file_name: string | null;
   file_path: string | null;
-  file_url: string | null;
   created_at: string | null;
   updated_at?: string | null;
   status?: string | null;
@@ -169,9 +167,6 @@ export default function CompanyDocumentsLibrary({
   description,
   iconLetter = title.charAt(0).toUpperCase(),
 }: CompanyDocumentsLibraryProps) {
-  const supabase = useMemo(() => createClient(), []);
-  const db = supabase as any;
-
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [documents, setDocuments] = useState<CompanyDocument[]>([]);
@@ -216,25 +211,38 @@ export default function CompanyDocumentsLibrary({
   async function loadDocuments() {
     setLoading(true);
 
-    const { data, error } = await db
-      .from("company_documents")
-      .select(
-        "id, name, notes, document_type, file_name, file_path, file_url, created_at, updated_at, status, archived_at, document_group_id, version_number, previous_version_id, replaced_by_id",
-      )
-      .eq("document_type", folder)
-      .or("status.is.null,status.eq.active")
-      .order("name", { ascending: true });
+    try {
+      const response = await fetch(
+        `/api/company-documents?folder=${encodeURIComponent(folder)}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
 
-    if (error) {
+      const payload = (await response.json()) as {
+        success?: boolean;
+        documents?: CompanyDocument[];
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "Company documents could not be loaded.",
+        );
+      }
+
+      setDocuments(payload.documents ?? []);
+    } catch (error) {
       console.error("Company documents could not be loaded:", error);
       setDocuments([]);
       setNotice({
         type: "error",
         message:
-          "Company documents could not be loaded. Run the Company Documents migration if this is the first time you are using the new library.",
+          error instanceof Error
+            ? error.message
+            : "Company documents could not be loaded.",
       });
-    } else {
-      setDocuments((data ?? []) as CompanyDocument[]);
     }
 
     setLoading(false);
@@ -303,70 +311,61 @@ export default function CompanyDocumentsLibrary({
     setWorking(true);
     setNotice(null);
 
-    let successful = 0;
-    const failures: string[] = [];
+    try {
+      const formData = new FormData();
+      formData.set("folder", folder);
+      formData.set("notes", uploadNotes.trim());
+      formData.set(
+        "documents",
+        JSON.stringify(
+          uploadItems.map((item) => ({
+            name: item.name.trim(),
+            originalFileName: item.file.name,
+          })),
+        ),
+      );
 
-    for (const item of uploadItems) {
-      const path = `${folder
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")}/${Date.now()}-${crypto.randomUUID()}-${safeFileName(
-        item.file.name,
-      )}`;
-
-      const uploadResult = await supabase.storage
-        .from("company-documents")
-        .upload(path, item.file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadResult.error) {
-        failures.push(item.file.name);
-        continue;
-      }
-
-      const publicUrl = supabase.storage
-        .from("company-documents")
-        .getPublicUrl(path).data.publicUrl;
-
-      const { error: insertError } = await db.from("company_documents").insert({
-        name: item.name.trim(),
-        notes: uploadNotes.trim() || null,
-        document_type: folder,
-        file_name: item.file.name,
-        file_path: path,
-        file_url: publicUrl,
-        status: "active",
-        version_number: 1,
+      uploadItems.forEach((item) => {
+        formData.append("files", item.file);
       });
 
-      if (insertError) {
-        await supabase.storage.from("company-documents").remove([path]);
-        failures.push(item.file.name);
-      } else {
-        successful += 1;
+      const response = await fetch("/api/company-documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json()) as {
+        success?: boolean;
+        uploaded?: number;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "The company documents could not be uploaded.",
+        );
       }
-    }
 
-    setWorking(false);
-
-    if (successful > 0) {
+      const uploaded = payload.uploaded ?? uploadItems.length;
       resetUpload();
       await loadDocuments();
-    }
 
-    if (failures.length === 0) {
       setNotice({
         type: "success",
-        message: `${successful} ${successful === 1 ? singularLabel : pluralLabel} uploaded successfully.`,
+        message: `${uploaded} ${
+          uploaded === 1 ? singularLabel : pluralLabel
+        } uploaded successfully.`,
       });
-    } else {
+    } catch (error) {
       setNotice({
-        type: successful > 0 ? "success" : "error",
-        message: `${successful} uploaded successfully. ${failures.length} failed: ${failures.join(
-          ", ",
-        )}.`,
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The company documents could not be uploaded.",
       });
+    } finally {
+      setWorking(false);
     }
   }
 
@@ -394,33 +393,52 @@ export default function CompanyDocumentsLibrary({
 
   async function updateDocument(
     document: CompanyDocument,
+    action: "rename" | "edit" | "move" | "archive",
     changes: Record<string, unknown>,
     successMessage: string,
   ) {
     setWorking(true);
 
-    const { error } = await db
-      .from("company_documents")
-      .update({
-        ...changes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", document.id);
+    try {
+      const response = await fetch(
+        `/api/company-documents/${document.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action,
+            ...changes,
+          }),
+        },
+      );
 
-    setWorking(false);
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
 
-    if (error) {
-      console.error("Company document update failed:", error);
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "The document could not be updated.",
+        );
+      }
+
+      closeDialog();
+      setNotice({ type: "success", message: successMessage });
+      await loadDocuments();
+    } catch (error) {
       setNotice({
         type: "error",
-        message: "The document could not be updated.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The document could not be updated.",
       });
-      return;
+    } finally {
+      setWorking(false);
     }
-
-    closeDialog();
-    setNotice({ type: "success", message: successMessage });
-    await loadDocuments();
   }
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
@@ -430,7 +448,7 @@ export default function CompanyDocumentsLibrary({
     const name = dialogName.trim();
     if (!name) return;
 
-    await updateDocument(dialog.document, { name }, "Document renamed.");
+    await updateDocument(dialog.document, "rename", { name }, "Document renamed.");
   }
 
   async function handleEdit(event: FormEvent<HTMLFormElement>) {
@@ -442,6 +460,7 @@ export default function CompanyDocumentsLibrary({
 
     await updateDocument(
       dialog.document,
+      "edit",
       {
         name,
         notes: dialogNotes.trim() || null,
@@ -456,7 +475,8 @@ export default function CompanyDocumentsLibrary({
 
     await updateDocument(
       dialog.document,
-      { document_type: dialogFolder },
+      "move",
+      { folder: dialogFolder },
       `Document moved to ${dialogFolder}.`,
     );
   }
@@ -466,10 +486,8 @@ export default function CompanyDocumentsLibrary({
 
     await updateDocument(
       dialog.document,
-      {
-        status: "archived",
-        archived_at: new Date().toISOString(),
-      },
+      "archive",
+      {},
       "Document moved to the archive.",
     );
   }
@@ -479,34 +497,39 @@ export default function CompanyDocumentsLibrary({
 
     setWorking(true);
 
-    if (dialog.document.file_path) {
-      const { error: storageError } = await supabase.storage
-        .from("company-documents")
-        .remove([dialog.document.file_path]);
+    try {
+      const response = await fetch(
+        `/api/company-documents/${dialog.document.id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
-      if (storageError) {
-        console.error("Stored document could not be removed:", storageError);
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "The document could not be deleted.",
+        );
       }
-    }
 
-    const { error } = await db
-      .from("company_documents")
-      .delete()
-      .eq("id", dialog.document.id);
-
-    setWorking(false);
-
-    if (error) {
+      closeDialog();
+      setNotice({ type: "success", message: "Document deleted." });
+      await loadDocuments();
+    } catch (error) {
       setNotice({
         type: "error",
-        message: "The document could not be deleted.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The document could not be deleted.",
       });
-      return;
+    } finally {
+      setWorking(false);
     }
-
-    closeDialog();
-    setNotice({ type: "success", message: "Document deleted." });
-    await loadDocuments();
   }
 
   async function handleReplace(event: FormEvent<HTMLFormElement>) {
@@ -522,96 +545,47 @@ export default function CompanyDocumentsLibrary({
     }
 
     setWorking(true);
-    const current = dialog.document;
 
-    const path = `${folder
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")}/${Date.now()}-${crypto.randomUUID()}-${safeFileName(
-      replacementFile.name,
-    )}`;
+    try {
+      const formData = new FormData();
+      formData.set("action", "replace");
+      formData.set("documentId", String(dialog.document.id));
+      formData.set("file", replacementFile);
 
-    const uploadResult = await supabase.storage
-      .from("company-documents")
-      .upload(path, replacementFile, {
-        cacheControl: "3600",
-        upsert: false,
+      const response = await fetch("/api/company-documents/upload", {
+        method: "POST",
+        body: formData,
       });
 
-    if (uploadResult.error) {
-      setWorking(false);
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "The document could not be replaced.",
+        );
+      }
+
+      closeDialog();
       setNotice({
-        type: "error",
-        message: "The replacement document could not be uploaded.",
+        type: "success",
+        message:
+          "Document replaced. The previous version has been retained in the archive.",
       });
-      return;
-    }
-
-    const publicUrl = supabase.storage
-      .from("company-documents")
-      .getPublicUrl(path).data.publicUrl;
-
-    const groupId = current.document_group_id ?? crypto.randomUUID();
-    const nextVersion = (current.version_number ?? 1) + 1;
-
-    const { data: replacement, error: insertError } = await db
-      .from("company_documents")
-      .insert({
-        name: current.name,
-        notes: current.notes,
-        document_type: current.document_type ?? folder,
-        file_name: replacementFile.name,
-        file_path: path,
-        file_url: publicUrl,
-        status: "active",
-        document_group_id: groupId,
-        version_number: nextVersion,
-        previous_version_id: current.id,
-      })
-      .select("id")
-      .single();
-
-    if (insertError || !replacement) {
-      await supabase.storage.from("company-documents").remove([path]);
-      setWorking(false);
-      setNotice({
-        type: "error",
-        message: "The replacement document record could not be created.",
-      });
-      return;
-    }
-
-    const { error: archiveError } = await db
-      .from("company_documents")
-      .update({
-        status: "archived",
-        archived_at: new Date().toISOString(),
-        document_group_id: groupId,
-        version_number: current.version_number ?? 1,
-        replaced_by_id: replacement.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", current.id);
-
-    if (archiveError) {
-      await db.from("company_documents").delete().eq("id", replacement.id);
-      await supabase.storage.from("company-documents").remove([path]);
-      setWorking(false);
+      await loadDocuments();
+    } catch (error) {
       setNotice({
         type: "error",
         message:
-          "The existing document could not be archived, so no replacement was made.",
+          error instanceof Error
+            ? error.message
+            : "The document could not be replaced.",
       });
-      return;
+    } finally {
+      setWorking(false);
     }
-
-    setWorking(false);
-    closeDialog();
-    setNotice({
-      type: "success",
-      message:
-        "Document replaced. The previous version has been retained in the archive.",
-    });
-    await loadDocuments();
   }
 
   async function loadVersionHistory(document: CompanyDocument) {
@@ -622,23 +596,39 @@ export default function CompanyDocumentsLibrary({
       return;
     }
 
-    const { data, error } = await db
-      .from("company_documents")
-      .select(
-        "id, name, notes, document_type, file_name, file_path, file_url, created_at, updated_at, status, archived_at, document_group_id, version_number, previous_version_id, replaced_by_id",
-      )
-      .eq("document_group_id", document.document_group_id)
-      .order("version_number", { ascending: false });
+    try {
+      const response = await fetch(
+        `/api/company-documents?groupId=${encodeURIComponent(
+          document.document_group_id,
+        )}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
 
-    if (error) {
+      const payload = (await response.json()) as {
+        success?: boolean;
+        documents?: CompanyDocument[];
+        error?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.error || "Version history could not be loaded.",
+        );
+      }
+
+      setVersions(payload.documents ?? []);
+    } catch (error) {
       setNotice({
         type: "error",
-        message: "Version history could not be loaded.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Version history could not be loaded.",
       });
-      return;
     }
-
-    setVersions((data ?? []) as CompanyDocument[]);
   }
 
   const visibleDocuments = useMemo(() => {
@@ -850,10 +840,10 @@ export default function CompanyDocumentsLibrary({
                   </div>
 
                   <div className="document-actions">
-                    {document.file_url ? (
+                    {document.file_path ? (
                       <a
                         className="document-action"
-                        href={document.file_url}
+                        href={`/api/company-documents/${document.id}/open`}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -865,11 +855,10 @@ export default function CompanyDocumentsLibrary({
                       </button>
                     )}
 
-                    {document.file_url && isWord(document.file_name) ? (
+                    {document.file_path && isWord(document.file_name) ? (
                       <a
                         className="document-action"
-                        href={document.file_url}
-                        download={document.file_name ?? undefined}
+                        href={`/api/company-documents/${document.id}/open?download=1`}
                       >
                         Word
                       </a>
@@ -879,10 +868,10 @@ export default function CompanyDocumentsLibrary({
                       </button>
                     )}
 
-                    {document.file_url && isPdf(document.file_name) ? (
+                    {document.file_path && isPdf(document.file_name) ? (
                       <a
                         className="document-action"
-                        href={document.file_url}
+                        href={`/api/company-documents/${document.id}/open`}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -1163,9 +1152,9 @@ export default function CompanyDocumentsLibrary({
                           {formatDate(version.updated_at ?? version.created_at)}
                         </span>
                       </div>
-                      {version.file_url ? (
+                      {version.file_path ? (
                         <a
-                          href={version.file_url}
+                          href={`/api/company-documents/${version.id}/open`}
                           target="_blank"
                           rel="noreferrer"
                         >

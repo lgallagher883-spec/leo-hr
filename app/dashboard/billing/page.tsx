@@ -183,11 +183,6 @@ function capacityFromBand(value: string | null) {
   }
 }
 
-function getBillingPortalUrl(metadata: JsonRecord | null) {
-  const value = asObject(metadata).billing_portal_url;
-  return typeof value === "string" && /^https?:\/\//i.test(value) ? value : null;
-}
-
 export default function BillingPage() {
   const supabase = useMemo(() => createClient(), []);
 
@@ -203,6 +198,8 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [pageError, setPageError] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -376,6 +373,77 @@ export default function BillingPage() {
     void loadBilling();
   }, [loadBilling]);
 
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get("stripe");
+
+    if (result === "success") {
+      setNotice({
+        type: "success",
+        message: "Your payment was completed. Stripe is confirming the subscription and LEO will update shortly.",
+      });
+    } else if (result === "cancelled") {
+      setNotice({
+        type: "error",
+        message: "Stripe Checkout was cancelled. No payment was taken.",
+      });
+    }
+  }, []);
+
+  async function handleCheckout(planKey: string) {
+    setCheckoutPlan(planKey);
+    setNotice(null);
+
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey }),
+      });
+
+      const result = (await response.json()) as { url?: string; error?: string };
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Stripe Checkout could not be started.");
+      }
+
+      window.location.assign(result.url);
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Stripe Checkout could not be started.",
+      });
+      setCheckoutPlan(null);
+    }
+  }
+
+  async function handleOpenPortal() {
+    setOpeningPortal(true);
+    setNotice(null);
+
+    try {
+      const response = await fetch("/api/stripe/portal", { method: "POST" });
+      const result = (await response.json()) as { url?: string; error?: string };
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "The Stripe customer portal could not be opened.");
+      }
+
+      window.location.assign(result.url);
+    } catch (error) {
+      setNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The Stripe customer portal could not be opened.",
+      });
+      setOpeningPortal(false);
+    }
+  }
+
   async function handleSaveBillingDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -509,7 +577,7 @@ export default function BillingPage() {
     capacityFromBand(organisation.employee_count_band);
 
   const planName = planFromCapacity(capacity, Boolean(trialActive));
-  const billingPortalUrl = getBillingPortalUrl(subscription?.metadata ?? null);
+  const hasStripeCustomer = Boolean(subscription?.provider_customer_reference);
   const nearLimit =
     capacity !== null && capacity > 0 && activeEmployeeCount >= capacity * 0.95;
   const atLimit = capacity !== null && activeEmployeeCount >= capacity;
@@ -642,19 +710,23 @@ export default function BillingPage() {
           </dl>
 
           <div className="button-row">
-            {billingPortalUrl ? (
-              <a href={billingPortalUrl} target="_blank" rel="noreferrer" className="primary-button">
-                Manage subscription
-              </a>
-            ) : (
-              <button type="button" className="primary-button" disabled title="A payment provider portal has not yet been connected.">
-                Manage subscription
-              </button>
-            )}
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void handleOpenPortal()}
+              disabled={!hasStripeCustomer || openingPortal}
+              title={
+                hasStripeCustomer
+                  ? undefined
+                  : "Choose a paid subscription before opening the Stripe customer portal."
+              }
+            >
+              {openingPortal ? "Opening Stripe…" : "Manage subscription"}
+            </button>
             <span className="button-help">
-              {billingPortalUrl
-                ? "Subscription and payment changes open securely with the billing provider."
-                : "Subscription changes will be available here when the secure payment provider is connected."}
+              {hasStripeCustomer
+                ? "Manage your subscription, payment method and cancellation securely in Stripe."
+                : "Choose a paid subscription below when you are ready to continue after your trial."}
             </span>
           </div>
         </section>
@@ -679,15 +751,14 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {billingPortalUrl ? (
-            <a href={billingPortalUrl} target="_blank" rel="noreferrer" className="secondary-button full-width-button">
-              Update payment method
-            </a>
-          ) : (
-            <button type="button" className="secondary-button full-width-button" disabled>
-              Update payment method
-            </button>
-          )}
+          <button
+            type="button"
+            className="secondary-button full-width-button"
+            onClick={() => void handleOpenPortal()}
+            disabled={!hasStripeCustomer || openingPortal}
+          >
+            {openingPortal ? "Opening Stripe…" : "Update payment method"}
+          </button>
         </section>
       </div>
 
@@ -926,11 +997,11 @@ export default function BillingPage() {
 
         <div className="plans-grid">
           {[
-            { name: "Free trial", detail: "7 days", capacityValue: "trial" },
-            { name: "Up to 50", detail: "Up to 50 employees", capacityValue: 50 },
-            { name: "Up to 150", detail: "Up to 150 employees", capacityValue: 150 },
-            { name: "Up to 250", detail: "Up to 250 employees", capacityValue: 250 },
-            { name: "Over 250", detail: "Tailored organisation pricing", capacityValue: null },
+            { name: "Free trial", detail: "7 days", capacityValue: "trial", planKey: null, price: "Free" },
+            { name: "Up to 50", detail: "Up to 50 employees", capacityValue: 50, planKey: "organisation_50", price: "£75 per month" },
+            { name: "Up to 150", detail: "Up to 150 employees", capacityValue: 150, planKey: "organisation_150", price: "£125 per month" },
+            { name: "Up to 250", detail: "Up to 250 employees", capacityValue: 250, planKey: "organisation_250", price: "£175 per month" },
+            { name: "Over 250", detail: "Tailored organisation pricing", capacityValue: null, planKey: null, price: "Contact LEO HR" },
           ].map((plan) => {
             const current =
               (plan.capacityValue === "trial" && trialActive) ||
@@ -940,8 +1011,28 @@ export default function BillingPage() {
               <article key={plan.name} className={`plan-card ${current ? "current-plan" : ""}`}>
                 {current ? <span className="current-badge">Current subscription</span> : null}
                 <h3>{plan.name}</h3>
+                <strong className="plan-price">{plan.price}</strong>
                 <p>{plan.detail}</p>
                 <span>Complete platform included</span>
+                {plan.planKey && !current && !hasStripeCustomer ? (
+                  <button
+                    type="button"
+                    className="plan-select-button"
+                    onClick={() => void handleCheckout(plan.planKey)}
+                    disabled={checkoutPlan !== null}
+                  >
+                    {checkoutPlan === plan.planKey
+                      ? "Opening Stripe…"
+                      : trialActive
+                        ? "Choose subscription"
+                        : "Subscribe"}
+                  </button>
+                ) : null}
+                {plan.capacityValue === null ? (
+                  <Link href="/contact?enquiry=enterprise" className="plan-contact-link">
+                    Contact us
+                  </Link>
+                ) : null}
               </article>
             );
           })}
@@ -1108,6 +1199,42 @@ const styles = `
   .summary-card,
   .panel,
   .state-card,
+
+  .plan-price {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--leo-purple-dark);
+    font-size: 14px;
+  }
+
+  .plan-select-button,
+  .plan-contact-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 38px;
+    margin-top: 16px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .plan-select-button {
+    border: 1px solid var(--leo-purple);
+    background: var(--leo-purple);
+    color: white;
+    cursor: pointer;
+  }
+
+  .plan-contact-link {
+    border: 1px solid var(--leo-border);
+    background: white;
+    color: var(--leo-purple-dark);
+  }
+
   .loading-card {
     border: 1px solid var(--leo-border);
     border-radius: 18px;
@@ -1517,6 +1644,42 @@ const styles = `
     color: var(--leo-purple-dark);
     font-size: 12px;
     font-weight: 800;
+  }
+
+
+  .plan-price {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--leo-purple-dark);
+    font-size: 14px;
+  }
+
+  .plan-select-button,
+  .plan-contact-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 38px;
+    margin-top: 16px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .plan-select-button {
+    border: 1px solid var(--leo-purple);
+    background: var(--leo-purple);
+    color: white;
+    cursor: pointer;
+  }
+
+  .plan-contact-link {
+    border: 1px solid var(--leo-border);
+    background: white;
+    color: var(--leo-purple-dark);
   }
 
   .loading-card {

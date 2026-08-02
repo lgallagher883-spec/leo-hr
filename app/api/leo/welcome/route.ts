@@ -1,5 +1,8 @@
 import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { createClient } from "@/lib/supabase/server";
 
 import {
   FOUNDATION_NUMBER_WORDS,
@@ -13,11 +16,6 @@ import {
 } from "@/leo/knowledge/foundationSchema";
 
 import { applyKnowledgeUpdates } from "@/leo/reasoning/knowledgeUpdate";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -42,8 +40,55 @@ type KnowledgeDecision = {
   action: string;
 };
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        {
+          reply: "You must be signed in to use the Welcome Brief.",
+          facts: [],
+        },
+        { status: 401 },
+      );
+    }
+
+    const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {
+      userId: user.id,
+      allowedStatuses: ["active"],
+    });
+
+    if (!resolvedRole) {
+      return NextResponse.json(
+        {
+          reply: "No active organisation is linked to your account.",
+          facts: [],
+        },
+        { status: 403 },
+      );
+    }
+
+    if (!["owner", "senior", "manager"].includes(resolvedRole.roleKey)) {
+      return NextResponse.json(
+        {
+          reply:
+            "You do not have permission to update the organisation Welcome Brief.",
+          facts: [],
+        },
+        { status: 403 },
+      );
+    }
+
+    const organisationId = resolvedRole.membership.organisation_id;
     const body = await req.json();
 
     const message =
@@ -67,7 +112,10 @@ export async function POST(req: Request) {
     }
 
     const existingFacts =
-      await loadExistingFoundationFacts();
+      await loadExistingFoundationFacts(
+        supabase,
+        organisationId,
+      );
 
     const completion =
       await client.chat.completions.create({
@@ -138,10 +186,12 @@ export async function POST(req: Request) {
           decision.action !== "ignore"
       )
       .map((decision) => ({
+        organisation_id: organisationId,
         section: decision.section,
         key: decision.key,
         value: decision.value,
         source: "Welcome Brief",
+        updated_by: user.id,
       }));
 
     for (const fact of factsToSave) {
@@ -150,7 +200,7 @@ export async function POST(req: Request) {
           "organisation_foundations"
         )
         .upsert(fact, {
-          onConflict: "section,key",
+          onConflict: "organisation_id,section,key",
         });
 
       if (error) {
@@ -203,12 +253,14 @@ export async function POST(req: Request) {
   }
 }
 
-async function loadExistingFoundationFacts(): Promise<
-  ExistingFact[]
-> {
+async function loadExistingFoundationFacts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organisationId: string,
+): Promise<ExistingFact[]> {
   const { data, error } = await supabase
     .from("organisation_foundations")
-    .select("section,key,value");
+    .select("section,key,value")
+    .eq("organisation_id", organisationId);
 
   if (error) {
     console.error(

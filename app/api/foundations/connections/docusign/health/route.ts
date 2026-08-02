@@ -7,6 +7,10 @@ import {
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { createClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type DocuSignTokenPayload = {
@@ -155,6 +159,72 @@ function getConnectionId(requestUrl: URL): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+
+async function authoriseConnectionAccess(
+  organisationId: string,
+) {
+  const sessionClient = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await sessionClient.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You must be signed in.",
+        },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const admin = getAdminClient();
+
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    organisationId,
+    allowedStatuses: ["active"],
+  });
+
+  if (!resolvedRole) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You do not have access to this organisation.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  if (!["owner", "senior"].includes(resolvedRole.roleKey)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error:
+            "Only an Owner or Senior user can verify organisation connections.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ok: true as const,
+    user,
+    admin,
+  };
+}
+
 function tokenIsExpired(payload: DocuSignTokenPayload) {
   if (!payload.expires_at) return false;
 
@@ -248,6 +318,16 @@ export async function GET(request: Request) {
     }
 
     const connection = result.data;
+
+    const authorisation = await authoriseConnectionAccess(
+      connection.organisation_id,
+    );
+
+    if (!authorisation.ok) {
+      return authorisation.response;
+    }
+
+    const { user } = authorisation;
 
     if (
       connection.status !== "Connected" ||
@@ -416,6 +496,7 @@ export async function GET(request: Request) {
       .from("connection_activity_history")
       .insert({
         organisation_id: connection.organisation_id,
+        performed_by_user_id: user.id,
         provider_id: connection.provider_id,
         connection_id: connection.id,
         job_id: null,

@@ -75,8 +75,6 @@ const plans: Plan[] = [
   },
 ];
 
-const PILOT_ACCESS_CODE = "LEOPILOT2026!";
-
 function getPasswordChecks(password: string) {
   return {
     length: password.length >= 8,
@@ -109,6 +107,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pilotCode, setPilotCode] = useState("");
+  const [pilotCodeValid, setPilotCodeValid] = useState(false);
+  const [checkingPilotCode, setCheckingPilotCode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -121,7 +121,7 @@ export default function RegisterPage() {
   const passwordChecks = getPasswordChecks(password);
   const passwordIsValid = Object.values(passwordChecks).every(Boolean);
   const trimmedPilotCode = pilotCode.trim();
-  const isPilotRegistration = trimmedPilotCode === PILOT_ACCESS_CODE;
+  const isPilotRegistration = pilotCodeValid;
 
   function selectPlan(plan: Plan) {
     if (plan.contactOnly) {
@@ -165,11 +165,6 @@ export default function RegisterPage() {
         "Use at least 8 characters, including uppercase, lowercase and a number.";
     }
 
-    if (trimmedPilotCode && !isPilotRegistration) {
-      errors.pilotCode =
-        "That pilot code is not recognised. Check the code and try again.";
-    }
-
     if (!acceptedTerms) {
       errors.acceptedTerms = "You must accept the terms and policies.";
     }
@@ -178,12 +173,81 @@ export default function RegisterPage() {
     return Object.keys(errors).length === 0;
   }
 
+  async function validatePilotCode() {
+    const code = pilotCode.trim();
+
+    if (!code) {
+      setPilotCodeValid(false);
+      setFieldErrors((current) => ({
+        ...current,
+        pilotCode: "Enter your pilot access code.",
+      }));
+      return false;
+    }
+
+    setCheckingPilotCode(true);
+
+    try {
+      const response = await fetch("/api/register/pilot-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code }),
+      });
+
+      const payload = (await response.json()) as {
+        valid?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.valid) {
+        setPilotCodeValid(false);
+        setFieldErrors((current) => ({
+          ...current,
+          pilotCode:
+            payload.error ||
+            "That pilot code is not recognised. Check the code and try again.",
+        }));
+        return false;
+      }
+
+      setPilotCodeValid(true);
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next.pilotCode;
+        return next;
+      });
+
+      return true;
+    } catch {
+      setPilotCodeValid(false);
+      setFieldErrors((current) => ({
+        ...current,
+        pilotCode: "The pilot code could not be checked. Try again.",
+      }));
+      return false;
+    } finally {
+      setCheckingPilotCode(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
     setSuccessMessage("");
 
     if (!validateForm()) return;
+
+    if (trimmedPilotCode) {
+      const validPilotCode = await validatePilotCode();
+
+      if (!validPilotCode) {
+        return;
+      }
+    } else {
+      setPilotCodeValid(false);
+    }
 
     if (selectedPlanDetails.contactOnly) {
       router.push("/contact?enquiry=enterprise");
@@ -539,6 +603,7 @@ export default function RegisterPage() {
                   value={pilotCode}
                   onChange={(event) => {
                     setPilotCode(event.target.value);
+                    setPilotCodeValid(false);
                     if (fieldErrors.pilotCode) {
                       setFieldErrors((current) => {
                         const next = { ...current };
@@ -559,6 +624,14 @@ export default function RegisterPage() {
                   A valid pilot code gives your organisation full access to Leo
                   HR free for six months.
                 </p>
+                <button
+                  type="button"
+                  className="pilot-check-button"
+                  onClick={() => void validatePilotCode()}
+                  disabled={checkingPilotCode || !trimmedPilotCode}
+                >
+                  {checkingPilotCode ? "Checking…" : "Check pilot code"}
+                </button>
                 {isPilotRegistration ? (
                   <div className="pilot-confirmation" role="status">
                     <SmallCheckIcon />
@@ -1140,6 +1213,31 @@ export default function RegisterPage() {
           color: #747b89;
           font-size: 10.5px;
           line-height: 1.4;
+        }
+
+        :global(.pilot-check-button) {
+          min-height: 34px;
+          margin-top: 8px;
+          padding: 0 12px;
+          border: 1px solid #cbb8dc;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #6e5084;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        :global(.pilot-check-button:hover:not(:disabled)),
+        :global(.pilot-check-button:focus-visible) {
+          border-color: #6e5084;
+          background: #f7f1fc;
+          outline: none;
+        }
+
+        :global(.pilot-check-button:disabled) {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         :global(.pilot-confirmation) {

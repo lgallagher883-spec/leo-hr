@@ -27,11 +27,9 @@ type ManageResourceRequest = {
   organisationId?: string;
 
   fileName?: string | null;
-  fileUrl?: string | null;
   filePath?: string | null;
 
   newFileName?: string | null;
-  newFileUrl?: string | null;
   newFilePath?: string | null;
 
   documentId?: string | null;
@@ -260,8 +258,8 @@ export async function POST(request: Request) {
         documentId,
         fileName:
           body.fileName || null,
-        fileUrl:
-          body.fileUrl || null,
+        filePath:
+          body.filePath || null,
       });
     }
 
@@ -276,8 +274,6 @@ export async function POST(request: Request) {
           body.newFileName || null,
         newFilePath:
           body.newFilePath || null,
-        newFileUrl:
-          body.newFileUrl || null,
       });
     }
 
@@ -332,14 +328,14 @@ async function prepareResource({
   sourceRecordId,
   documentId,
   fileName,
-  fileUrl,
+  filePath,
 }: {
   organisationId: string;
   sourceTable: SourceTable;
   sourceRecordId: number;
   documentId: string;
   fileName: string | null;
-  fileUrl: string | null;
+  filePath: string | null;
 }) {
   if (!fileName) {
     return NextResponse.json(
@@ -354,12 +350,12 @@ async function prepareResource({
     );
   }
 
-  if (!fileUrl) {
+  if (!filePath) {
     return NextResponse.json(
       {
         success: false,
         error:
-          "The resource does not have an accessible file URL.",
+          "The resource does not have a stored file path.",
       },
       {
         status: 400,
@@ -391,7 +387,7 @@ async function prepareResource({
       sourceRecordId,
       documentId,
       fileName,
-      fileUrl,
+      filePath,
     });
 
   if (!processResult.success) {
@@ -424,7 +420,6 @@ async function replaceResource({
   documentId,
   newFileName,
   newFilePath,
-  newFileUrl,
 }: {
   supabase: ReturnType<
     typeof createServerSupabaseClient
@@ -437,12 +432,10 @@ async function replaceResource({
 
   newFileName: string | null;
   newFilePath: string | null;
-  newFileUrl: string | null;
 }) {
   if (
     !newFileName ||
-    !newFilePath ||
-    !newFileUrl
+    !newFilePath
   ) {
     return NextResponse.json(
       {
@@ -531,7 +524,7 @@ async function replaceResource({
     .update({
       file_name: newFileName,
       file_path: newFilePath,
-      file_url: newFileUrl,
+      file_url: null,
       version_number: nextVersion,
       updated_at: updatedAt,
     })
@@ -568,7 +561,7 @@ async function replaceResource({
         sourceRecordId,
         documentId,
         fileName: newFileName,
-        fileUrl: newFileUrl,
+        filePath: newFilePath,
       });
 
     if (processResult.success) {
@@ -1056,14 +1049,14 @@ async function processResourceKnowledge({
   sourceRecordId,
   documentId,
   fileName,
-  fileUrl,
+  filePath,
 }: {
   organisationId: string;
   sourceTable: SourceTable;
   sourceRecordId: number;
   documentId: string;
   fileName: string;
-  fileUrl: string;
+  filePath: string;
 }): Promise<
   | {
       success: true;
@@ -1075,17 +1068,27 @@ async function processResourceKnowledge({
       error: string;
     }
 > {
-  const fileResponse = await fetch(fileUrl);
+  const supabase = createServerSupabaseClient();
+  const bucket =
+    sourceTable === "policy_register"
+      ? "policy-documents"
+      : "company-documents";
 
-  if (!fileResponse.ok) {
+  const downloadResult = await supabase.storage
+    .from(bucket)
+    .download(filePath);
+
+  if (downloadResult.error || !downloadResult.data) {
     return {
       success: false,
       status: 400,
-      error: `The uploaded file could not be downloaded. Status: ${fileResponse.status}.`,
+      error:
+        downloadResult.error?.message ||
+        "The stored file could not be downloaded.",
     };
   }
 
-  const arrayBuffer = await fileResponse.arrayBuffer();
+  const arrayBuffer = await downloadResult.data.arrayBuffer();
   const fileBuffer = Buffer.from(arrayBuffer);
 
   const processResult = await processKnowledgeDocument({
@@ -1136,4 +1139,3 @@ function buildDocumentId(
 
   return `company-document-${sourceRecordId}`;
 }
-

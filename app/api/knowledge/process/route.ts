@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import { processKnowledgeDocument } from "@/leo/knowledge/processor";
 import { storeKnowledgeChunks } from "@/leo/knowledge/store";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type ProcessDocumentRequest = {
   documentId: string;
   organisationId?: string;
   fileName: string;
-  fileUrl: string;
+  filePath?: string;
   sourceTable?: "policy_register" | "company_documents" | null;
   sourceRecordId?: number | null;
 };
@@ -102,7 +104,10 @@ async function requireAuthorisedContext(permissionKey: string) {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { success: false, error: "You do not have permission to access this resource." },
+        {
+          success: false,
+          error: "You do not have permission to access this resource.",
+        },
         { status: 403 },
       ),
     };
@@ -115,7 +120,7 @@ async function requireAuthorisedContext(permissionKey: string) {
   };
 }
 
-async function ensureOwnedSourceResource(args: {
+async function loadOwnedSourceResource(args: {
   supabase: ReturnType<typeof createServerSupabaseClient>;
   organisationId: string;
   sourceTable: "policy_register" | "company_documents";
@@ -125,20 +130,40 @@ async function ensureOwnedSourceResource(args: {
 
   const { data, error } = await supabase
     .from(sourceTable)
-    .select("id")
+    .select("id, file_name, file_path")
     .eq("id", sourceRecordId)
     .eq("organisation_id", organisationId)
     .maybeSingle();
 
   if (error) {
-    return { ok: false as const, error: error.message, status: 500 };
+    return {
+      ok: false as const,
+      error: error.message,
+      status: 500,
+    };
   }
 
   if (!data) {
-    return { ok: false as const, error: "The resource could not be found.", status: 404 };
+    return {
+      ok: false as const,
+      error: "The resource could not be found.",
+      status: 404,
+    };
   }
 
-  return { ok: true as const };
+  if (!data.file_path) {
+    return {
+      ok: false as const,
+      error: "The resource does not have a stored file path.",
+      status: 400,
+    };
+  }
+
+  return {
+    ok: true as const,
+    fileName: data.file_name as string | null,
+    filePath: data.file_path as string,
+  };
 }
 
 export async function POST(request: Request) {
@@ -150,12 +175,10 @@ export async function POST(request: Request) {
     }
 
     const { supabase, organisationId } = access;
-
     const body = (await request.json()) as Partial<ProcessDocumentRequest>;
 
     const documentId = body.documentId?.trim();
     const fileName = body.fileName?.trim();
-    const fileUrl = body.fileUrl?.trim();
 
     if (!documentId) {
       return NextResponse.json(
@@ -163,7 +186,7 @@ export async function POST(request: Request) {
           success: false,
           error: "documentId is required.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -173,7 +196,7 @@ export async function POST(request: Request) {
           success: false,
           error: "fileName is required.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -181,7 +204,10 @@ export async function POST(request: Request) {
     const sourceRecordId =
       typeof body.sourceRecordId === "number" ? body.sourceRecordId : null;
 
-    if (sourceTable !== null && sourceTable !== "policy_register" && sourceTable !== "company_documents") {
+    if (
+      sourceTable !== "policy_register" &&
+      sourceTable !== "company_documents"
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -191,64 +217,62 @@ export async function POST(request: Request) {
       );
     }
 
-    if (sourceTable !== null) {
-      if (sourceRecordId === null || !Number.isFinite(sourceRecordId)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "A valid source record ID is required.",
-          },
-          { status: 400 },
-        );
-      }
-
-      const ownership = await ensureOwnedSourceResource({
-        supabase,
-        organisationId,
-        sourceTable,
-        sourceRecordId,
-      });
-
-      if (!ownership.ok) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: ownership.error,
-          },
-          { status: ownership.status },
-        );
-      }
-    }
-
-    if (!fileUrl) {
+    if (sourceRecordId === null || !Number.isFinite(sourceRecordId)) {
       return NextResponse.json(
         {
           success: false,
-          error: "fileUrl is required.",
+          error: "A valid source record ID is required.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const fileResponse = await fetch(fileUrl);
+    const resource = await loadOwnedSourceResource({
+      supabase,
+      organisationId,
+      sourceTable,
+      sourceRecordId,
+    });
 
-    if (!fileResponse.ok) {
+    if (!resource.ok) {
       return NextResponse.json(
         {
           success: false,
-          error: `The uploaded file could not be downloaded. Status: ${fileResponse.status}.`,
+          error: resource.error,
         },
-        { status: 400 }
+        { status: resource.status },
       );
     }
 
-    const arrayBuffer = await fileResponse.arrayBuffer();
+    const bucket =
+      sourceTable === "policy_register"
+        ? "policy-documents"
+        : "company-documents";
+
+    const downloadResult = await supabase.storage
+      .from(bucket)
+      .download(resource.filePath);
+
+    if (downloadResult.error || !downloadResult.data) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            downloadResult.error?.message ||
+            "The stored file could not be downloaded.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const arrayBuffer = await downloadResult.data.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
+    const trustedFileName = resource.fileName?.trim() || fileName;
 
     const processResult = await processKnowledgeDocument({
       documentId,
       organisationId,
-      fileName,
+      fileName: trustedFileName,
       fileBuffer,
     });
 
@@ -263,7 +287,7 @@ export async function POST(request: Request) {
             processResult.error ||
             "The resource could not be processed.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -288,16 +312,15 @@ export async function POST(request: Request) {
             storeResult.error ||
             "The knowledge chunks could not be stored.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     return NextResponse.json({
       success: true,
-      message:
-        "The resource was read and added to LEO Knowledge.",
+      message: "The resource was read and added to LEO Knowledge.",
       documentId,
-      fileName,
+      fileName: trustedFileName,
       extractedTextLength:
         processResult.readResult?.text.length || 0,
       generatedChunkCount: processResult.chunks.length,
@@ -313,7 +336,7 @@ export async function POST(request: Request) {
             ? error.message
             : "Unknown document processing error.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

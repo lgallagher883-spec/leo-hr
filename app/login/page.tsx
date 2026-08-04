@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -116,30 +115,19 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <div className="top-bar">
-        <Link href="/" className="logo-link" aria-label="LEO HR home">
-          <Image
-            src="/leo-logo.png"
-            alt="LEO HR"
-            width={150}
-            height={68}
-            priority
-            className="leo-logo"
-          />
-        </Link>
-
-        <p className="register-prompt">
-          New to LEO™?{" "}
-          <Link href="/register" className="text-link">
-            Create an account
-          </Link>
-        </p>
-      </div>
+     <div className="top-bar">
+  <p className="register-prompt">
+    New to Leo HR™?{" "}
+    <Link href="/register" className="text-link">
+      Create an account
+    </Link>
+  </p>
+</div>
 
       <section className="login-shell">
         <div className="welcome-panel">
           <div className="welcome-content">
-            <div className="eyebrow">LEO HR</div>
+            <div className="eyebrow">Leo HR™</div>
 
             <h1>Welcome back</h1>
 
@@ -157,7 +145,7 @@ export default function LoginPage() {
                 <strong>Secure access to your organisation</strong>
                 <p>
                   Your account and organisation data remain protected by
-                  LEO™ platform security controls.
+                  Leo HR™ platform security controls.
                 </p>
               </div>
             </div>
@@ -172,9 +160,9 @@ export default function LoginPage() {
 
         <div className="form-panel">
           <div className="form-heading">
-            <span className="form-kicker">Account access</span>
-            <h2>Sign in to LEO™</h2>
-            <p>Enter the details linked to your LEO™ account.</p>
+            <span className="form-kicker">Secure sign in</span>
+            <h2>Sign in to Leo HR™</h2>
+            <p>Enter the details linked to your Leo HR™ account.</p>
           </div>
 
           <form onSubmit={signIn} noValidate>
@@ -198,12 +186,7 @@ export default function LoginPage() {
             </div>
 
             <div className="field">
-              <div className="password-label-row">
-                <label htmlFor="password">Password</label>
-                <Link href="/forgot-password" className="forgot-link">
-                  Forgot password?
-                </Link>
-              </div>
+              <label htmlFor="password">Password</label>
 
               <div className="password-field">
                 <input
@@ -232,6 +215,12 @@ export default function LoginPage() {
                   <EyeIcon open={showPassword} />
                 </button>
               </div>
+
+              <div className="forgot-row">
+                <Link href="/forgot-password" className="forgot-link">
+                  Forgot your password?
+                </Link>
+              </div>
             </div>
 
             {error ? (
@@ -250,12 +239,12 @@ export default function LoginPage() {
 
             <p className="security-note">
               <ShieldIcon />
-              Secure access powered by LEO™ HR
+              Protected by Leo HR™ platform security
             </p>
           </form>
 
           <div className="mobile-register">
-            New to LEO™?{" "}
+            New to Leo HR™?{" "}
             <Link href="/register" className="text-link">
               Create an account
             </Link>
@@ -264,7 +253,7 @@ export default function LoginPage() {
       </section>
 
       <footer className="legal-footer">
-        <span>© 2026 LEO HR LTD</span>
+        <span>© 2026 Leo HR™ LTD</span>
         <Link href="/privacy" className="footer-link">
           Privacy
         </Link>
@@ -295,6 +284,11 @@ export default function LoginPage() {
             ),
             #f8f5fb;
           color: #172036;
+          font-family:
+            "Segoe UI",
+            "Helvetica Neue",
+            Arial,
+            sans-serif;
         }
 
         .top-bar {
@@ -303,20 +297,34 @@ export default function LoginPage() {
           margin: 0 auto 10px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
         }
 
-        .logo-link {
+        .brand-link {
           display: inline-flex;
           align-items: center;
+          color: #172036;
           text-decoration: none;
-          line-height: 0;
         }
 
-        .leo-logo {
-          width: 118px;
-          height: auto;
-          object-fit: contain;
+        .brand-name {
+          display: inline-flex;
+          align-items: flex-start;
+          color: inherit;
+          font-size: 25px;
+          font-weight: 800;
+          line-height: 1;
+          letter-spacing: -0.035em;
+          white-space: nowrap;
+        }
+
+        .trade-mark {
+          position: relative;
+          top: -0.15em;
+          margin-left: 2px;
+          font-size: 0.48em;
+          font-weight: 800;
+          letter-spacing: 0;
         }
 
         .register-prompt {
@@ -545,16 +553,32 @@ export default function LoginPage() {
           font-weight: 700;
         }
 
-        .password-label-row {
+        .forgot-row {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
+          justify-content: flex-end;
+          margin-top: 9px;
         }
 
         .forgot-link {
-          margin-bottom: 8px;
+          display: inline-flex;
+          align-items: center;
+          min-height: 30px;
+          padding: 0 11px;
+          border: 1px solid transparent;
+          border-radius: 999px;
+          background: #f7f1fc;
+          color: #684095;
           font-size: 12px;
+          font-weight: 700;
+          text-decoration: none;
+        }
+
+        .forgot-link:hover,
+        .forgot-link:focus-visible {
+          border-color: #d8c6e8;
+          background: #f1e8f8;
+          color: #4f2d74;
+          outline: none;
         }
 
         input {
@@ -712,7 +736,9 @@ export default function LoginPage() {
           margin: 10px auto 0;
           display: flex;
           justify-content: center;
-          gap: 16px;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px 18px;
           color: #8a91a0;
           font-size: 11px;
         }
@@ -771,8 +797,8 @@ export default function LoginPage() {
             justify-content: center;
           }
 
-          .leo-logo {
-            width: 104px;
+          .brand-name {
+            font-size: 23px;
           }
 
           .register-prompt {

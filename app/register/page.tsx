@@ -41,7 +41,7 @@ const plans: Plan[] = [
     number: 2,
     title: "Up to 50 Employees",
     priceLabel: "£75 per month",
-    description: "Complete Leo HR platform for organisations of this size.",
+    description: "Subscribe to the Leo HR platform for organisations of this size.",
     actionLabel: "Continue",
     icon: <PeopleIcon />,
   },
@@ -50,7 +50,7 @@ const plans: Plan[] = [
     number: 3,
     title: "Up to 150 Employees",
     priceLabel: "£125 per month",
-    description: "Complete Leo HR platform for organisations of this size.",
+    description: "Subscribe to Leo HR platform for organisations of this size.",
     actionLabel: "Continue",
     icon: <GroupIcon />,
   },
@@ -59,7 +59,7 @@ const plans: Plan[] = [
     number: 4,
     title: "Up to 250 Employees",
     priceLabel: "£175 per month",
-    description: "Complete Leo HR platform for organisations of this size.",
+    description: "Subscribe to the Leo HR platform for organisations of this size.",
     actionLabel: "Continue",
     icon: <GroupIcon />,
   },
@@ -148,8 +148,11 @@ export default function RegisterPage() {
       errors.organisationName = "Enter your organisation name.";
     }
 
-    if (!isValidWebsite(website)) {
-      errors.website = "Enter a complete website address beginning with http:// or https://.";
+    if (!website.trim()) {
+      errors.website = "Enter your organisation website.";
+    } else if (!isValidWebsite(website)) {
+      errors.website =
+        "Enter a complete website address beginning with http:// or https://.";
     }
 
     if (!email.trim()) {
@@ -335,8 +338,7 @@ export default function RegisterPage() {
             <h1 id="register-title">
               Start using Leo HR<sup>™</sup>
             </h1>
-            <p>Choose how you’d like to get started.</p>
-          </div>
+                      </div>
 
           <div className="plan-intro">
             Every subscription includes the complete Leo HR platform. Pricing is
@@ -424,8 +426,7 @@ export default function RegisterPage() {
           <div className="account-heading">
             <div>
               <h2>Create your account</h2>
-              <p>Enter your details to start using Leo HR.</p>
-            </div>
+                          </div>
             <span className="plan-pill" aria-live="polite">
               {isPilotRegistration
                 ? "Pilot Programme · 6 months free"
@@ -512,7 +513,7 @@ export default function RegisterPage() {
 
               <Field
                 id="website"
-                label="Website (optional)"
+                label="Business website"
                 error={fieldErrors.website}
               >
                 <input
@@ -523,7 +524,7 @@ export default function RegisterPage() {
                   inputMode="url"
                   value={website}
                   onChange={(event) => setWebsite(event.target.value)}
-                  placeholder="https://yourorganisation.co.uk"
+                  placeholder="https://yourorganisation.co.uk" required
                   aria-invalid={Boolean(fieldErrors.website)}
                   aria-describedby={
                     fieldErrors.website ? "website-error" : undefined
@@ -592,7 +593,7 @@ export default function RegisterPage() {
 
               <Field
                 id="pilotCode"
-                label="Pilot Code? (if you have one)"
+                label="Pilot access code (optional)"
                 error={fieldErrors.pilotCode}
               >
                 <input
@@ -620,17 +621,13 @@ export default function RegisterPage() {
                       : "pilotCode-help"
                   }
                 />
-                <p className="pilot-help" id="pilotCode-help">
-                  A valid pilot code gives your organisation full access to Leo
-                  HR free for six months.
-                </p>
                 <button
                   type="button"
                   className="pilot-check-button"
                   onClick={() => void validatePilotCode()}
                   disabled={checkingPilotCode || !trimmedPilotCode}
                 >
-                  {checkingPilotCode ? "Checking…" : "Check pilot code"}
+                  {checkingPilotCode ? "Checking…" : "Validate code"}
                 </button>
                 {isPilotRegistration ? (
                   <div className="pilot-confirmation" role="status">
@@ -658,15 +655,15 @@ export default function RegisterPage() {
                 />
                 <label htmlFor="acceptedTerms">
                   I agree to the{" "}
-                  <Link href="/terms" target="_blank">
+                  <Link href="/legal/terms-and-conditions.pdf" target="_blank">
                     Terms of Service
                   </Link>
                   ,{" "}
-                  <Link href="/privacy" target="_blank">
+                  <Link href="/legal/privacy-policy.pdf" target="_blank">
                     Privacy Policy
                   </Link>
                   , and{" "}
-                  <Link href="/acceptable-use" target="_blank">
+                  <Link href="/legal/acceptable-use-policy.pdf" target="_blank">
                     Acceptable Use Policy
                   </Link>
                   .
@@ -710,9 +707,9 @@ export default function RegisterPage() {
 
       <footer className="legal-footer">
         By creating an account, you agree to our{" "}
-        <Link href="/terms">Terms of Service</Link>,{" "}
-        <Link href="/privacy">Privacy Policy</Link>, and{" "}
-        <Link href="/acceptable-use">Acceptable Use Policy</Link>.
+        <Link href="/terms">Terms &amp; Conditions</Link>,{" "}
+        <Link href="/legal/privacy-policy.pdf">Privacy Policy</Link>, and{" "}
+        <Link href="/legal/acceptable-use-policy.pdf">Acceptable Use Policy</Link>.
       </footer>
 
       <style jsx>{`

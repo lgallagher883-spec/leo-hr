@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import styles from "./register.module.css";
 
 type PlanId = "trial" | "up_to_50" | "up_to_150" | "up_to_250" | "over_250";
 
@@ -321,64 +322,64 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="register-page">
-      <header className="top-bar">
+    <main className={styles["register-page"]}>
+      <header className={styles["top-bar"]}>
         <div aria-hidden="true" />
         <p>
           Already have an account?{" "}
-          <Link href="/login" className="top-login-link">
+          <Link href="/login" className={styles["top-login-link"]}>
             Log in
           </Link>
         </p>
       </header>
 
-      <section className="register-shell" aria-labelledby="register-title">
-        <div className="plan-panel">
-          <div className="plan-heading">
+      <section className={styles["register-shell"]} aria-labelledby="register-title">
+        <div className={styles["plan-panel"]}>
+          <div className={styles["plan-heading"]}>
             <h1 id="register-title">
               Start using Leo HR<sup>™</sup>
             </h1>
                       </div>
 
-          <div className="plan-intro">
+          <div className={styles["plan-intro"]}>
             Every subscription includes the complete Leo HR platform. Pricing is
             based solely on the size of your organisation.
           </div>
 
-          <div className="plans-grid">
+          <div className={styles["plans-grid"]}>
             {plans.map((plan) => {
               const isSelected = selectedPlan === plan.id;
 
               return (
                 <article
-                  className={`plan-card ${isSelected ? "selected" : ""}`}
+                  className={`${styles["plan-card"]} ${isSelected ? styles.selected : ""}`}
                   key={plan.id}
                   aria-label={plan.title}
                 >
                   <span
-                    className={`plan-number ${isSelected ? "selected" : ""}`}
+                    className={`${styles["plan-number"]} ${isSelected ? styles.selected : ""}`}
                     aria-hidden="true"
                   >
                     {plan.number}
                   </span>
 
                   {isSelected ? (
-                    <span className="selected-check" aria-label="Selected plan">
+                    <span className={styles["selected-check"]} aria-label="Selected plan">
                       <CheckIcon />
                     </span>
                   ) : null}
 
-                  <div className="plan-icon" aria-hidden="true">
+                  <div className={styles["plan-icon"]} aria-hidden="true">
                     {plan.icon}
                   </div>
 
                   <h2>{plan.title}</h2>
 
                   {plan.priceLabel ? (
-                    <strong className="price-label">{plan.priceLabel}</strong>
+                    <strong className={styles["price-label"]}>{plan.priceLabel}</strong>
                   ) : null}
 
-                  <p className="plan-description">
+                  <p className={styles["plan-description"]}>
                     {plan.description.split("\n").map((line, index) => (
                       <span key={`${plan.id}-${line}`}>
                         {line}
@@ -390,7 +391,7 @@ export default function RegisterPage() {
                   </p>
 
                   {plan.features ? (
-                    <ul className="feature-list">
+                    <ul className={styles["feature-list"]}>
                       {plan.features.map((feature) => (
                         <li key={feature}>
                           <span aria-hidden="true">
@@ -405,7 +406,7 @@ export default function RegisterPage() {
                   {plan.id === "trial" && isSelected ? null : (
                     <button
                       type="button"
-                      className="plan-action"
+                      className={styles["plan-action"]}
                       onClick={() => selectPlan(plan)}
                       aria-pressed={!plan.contactOnly && isSelected}
                     >
@@ -420,14 +421,14 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="form-divider" aria-hidden="true" />
+        <div className={styles["form-divider"]} aria-hidden="true" />
 
-        <div className="account-panel" id="account-form">
-          <div className="account-heading">
+        <div className={styles["account-panel"]} id="account-form">
+          <div className={styles["account-heading"]}>
             <div>
               <h2>Create your account</h2>
                           </div>
-            <span className="plan-pill" aria-live="polite">
+            <span className={styles["plan-pill"]} aria-live="polite">
               {isPilotRegistration
                 ? "Pilot Programme · 6 months free"
                 : selectedPlanDetails.title}
@@ -435,8 +436,8 @@ export default function RegisterPage() {
           </div>
 
           {successMessage ? (
-            <div className="success-message" role="status">
-              <div className="success-icon" aria-hidden="true">
+            <div className={styles["success-message"]} role="status">
+              <div className={styles["success-icon"]} aria-hidden="true">
                 <CheckIcon />
               </div>
               <div>
@@ -447,7 +448,7 @@ export default function RegisterPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} noValidate>
-              <div className="name-grid">
+              <div className={styles["name-grid"]}>
                 <Field
                   id="firstName"
                   label="First name"
@@ -556,7 +557,7 @@ export default function RegisterPage() {
                 label="Password"
                 error={fieldErrors.password}
               >
-                <div className="password-field">
+                <div className={styles["password-field"]}>
                   <input
                     id="password"
                     name="password"
@@ -570,7 +571,7 @@ export default function RegisterPage() {
                   />
                   <button
                     type="button"
-                    className="show-password"
+                    className={styles["show-password"]}
                     onClick={() => setShowPassword((current) => !current)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
@@ -578,14 +579,14 @@ export default function RegisterPage() {
                   </button>
                 </div>
 
-                <div className="password-strength" aria-hidden="true">
-                  <span className={passwordChecks.length ? "complete" : ""} />
-                  <span className={passwordChecks.uppercase ? "complete" : ""} />
-                  <span className={passwordChecks.lowercase ? "complete" : ""} />
-                  <span className={passwordChecks.number ? "complete" : ""} />
+                <div className={styles["password-strength"]} aria-hidden="true">
+                  <span className={passwordChecks.length ? styles.complete : ""} />
+                  <span className={passwordChecks.uppercase ? styles.complete : ""} />
+                  <span className={passwordChecks.lowercase ? styles.complete : ""} />
+                  <span className={passwordChecks.number ? styles.complete : ""} />
                 </div>
 
-                <p className="password-help" id="password-help">
+                <p className={styles["password-help"]} id="password-help">
                   Password must be at least 8 characters and include uppercase,
                   lowercase and a number.
                 </p>
@@ -623,14 +624,14 @@ export default function RegisterPage() {
                 />
                 <button
                   type="button"
-                  className="pilot-check-button"
+                  className={styles["pilot-check-button"]}
                   onClick={() => void validatePilotCode()}
                   disabled={checkingPilotCode || !trimmedPilotCode}
                 >
                   {checkingPilotCode ? "Checking…" : "Validate code"}
                 </button>
                 {isPilotRegistration ? (
-                  <div className="pilot-confirmation" role="status">
+                  <div className={styles["pilot-confirmation"]} role="status">
                     <SmallCheckIcon />
                     <span>
                       Pilot code accepted — your six-month free pilot will be
@@ -640,7 +641,7 @@ export default function RegisterPage() {
                 ) : null}
               </Field>
 
-              <div className="terms-row">
+              <div className={styles["terms-row"]}>
                 <input
                   id="acceptedTerms"
                   type="checkbox"
@@ -671,20 +672,23 @@ export default function RegisterPage() {
               </div>
 
               {fieldErrors.acceptedTerms ? (
-                <p className="field-error terms-error" id="acceptedTerms-error">
+                <p
+                  className={`${styles["field-error"]} ${styles["terms-error"]}`}
+                  id="acceptedTerms-error"
+                >
                   {fieldErrors.acceptedTerms}
                 </p>
               ) : null}
 
               {formError ? (
-                <div className="form-error" role="alert">
+                <div className={styles["form-error"]} role="alert">
                   {formError}
                 </div>
               ) : null}
 
               <button
                 type="submit"
-                className="create-account-button"
+                className={styles["create-account-button"]}
                 disabled={loading}
               >
                 {loading
@@ -696,7 +700,7 @@ export default function RegisterPage() {
                       : "Create account"}
               </button>
 
-              <div className="security-note">
+              <div className={styles["security-note"]}>
                 <LockIcon />
                 <span>Your data is secure and encrypted</span>
               </div>
@@ -705,935 +709,12 @@ export default function RegisterPage() {
         </div>
       </section>
 
-      <footer className="legal-footer">
+      <footer className={styles["legal-footer"]}>
         By creating an account, you agree to our{" "}
         <Link href="/terms">Terms &amp; Conditions</Link>,{" "}
         <Link href="/legal/privacy-policy.pdf">Privacy Policy</Link>, and{" "}
         <Link href="/legal/acceptable-use-policy.pdf">Acceptable Use Policy</Link>.
       </footer>
-
-      <style jsx>{`
-        :global(*) {
-          box-sizing: border-box;
-        }
-
-        :global(html) {
-          background: #f7fbf9;
-        }
-
-        :global(body) {
-          margin: 0;
-          background:
-            radial-gradient(circle at 50% 5%, rgba(247, 241, 252, 0.88), transparent 34%),
-            linear-gradient(135deg, #f7fbf9 0%, #f8f4fc 48%, #f5fff9 100%);
-          color: #131c31;
-        }
-
-        :global(a) {
-          color: inherit;
-        }
-
-        :global(button),
-        :global(input) {
-          font: inherit;
-        }
-
-        .register-page {
-          height: 100dvh;
-          min-height: 720px;
-          padding: 14px 38px 12px;
-          overflow: auto;
-          font-family:
-            Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-            "Segoe UI", sans-serif;
-        }
-
-        .top-bar {
-          min-height: 26px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          max-width: 1440px;
-          margin: 0 auto 10px;
-        }
-
-        .top-bar p {
-          margin: 0 0 0 auto;
-          font-size: 11px;
-          color: #172036;
-        }
-
-        .top-login-link {
-          margin-left: 8px;
-          color: #64409a;
-          text-underline-offset: 3px;
-        }
-
-        .register-shell {
-          display: grid;
-          min-height: calc(100dvh - 76px);
-          max-height: none;
-          grid-template-columns: minmax(0, 1.08fr) 1px minmax(420px, 0.92fr);
-          gap: 0;
-          max-width: 1440px;
-          margin: 0 auto;
-          padding: 22px 30px;
-          border: 1px solid rgba(116, 128, 145, 0.18);
-          border-radius: 18px;
-          background: rgba(255, 255, 255, 0.94);
-          box-shadow:
-            0 18px 45px rgba(45, 58, 74, 0.09),
-            0 2px 8px rgba(45, 58, 74, 0.05);
-          backdrop-filter: blur(12px);
-        }
-
-        .plan-panel {
-          padding: 0 30px 0 12px;
-          min-height: 0;
-        }
-
-        .plan-heading {
-          padding-bottom: 12px;
-          border-bottom: 1px solid #d9dee7;
-        }
-
-        .plan-heading h1 {
-          margin: 0;
-          font-size: clamp(30px, 2.25vw, 38px);
-          line-height: 1.04;
-          letter-spacing: -1.3px;
-          color: #121c30;
-        }
-
-        .plan-heading sup {
-          margin-left: 3px;
-          font-size: 11px;
-          vertical-align: top;
-          letter-spacing: 0;
-        }
-
-        .plan-heading p {
-          margin: 4px 0 0;
-          color: #626b7c;
-          font-size: 15px;
-        }
-
-        .plan-intro {
-          max-width: 465px;
-          margin: 11px 0 12px;
-          font-size: 13.5px;
-          line-height: 1.45;
-          color: #161f32;
-        }
-
-        .plans-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 11px;
-          align-items: stretch;
-        }
-
-        .plan-card {
-          position: relative;
-          min-height: 226px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 31px 13px 12px;
-          border: 1px solid #d8dee8;
-          border-radius: 9px;
-          background: linear-gradient(180deg, #ffffff 0%, #fefefe 100%);
-          text-align: center;
-          transition:
-            border-color 160ms ease,
-            box-shadow 160ms ease,
-            transform 160ms ease;
-        }
-
-        .plan-card:hover {
-          transform: translateY(-2px);
-          border-color: #c8b3dd;
-          box-shadow: 0 12px 24px rgba(92, 58, 135, 0.08);
-        }
-
-        .plan-card.selected {
-          border: 1.5px solid #6e3da4;
-          background:
-            radial-gradient(circle at 50% 28%, rgba(247, 241, 252, 0.78), transparent 42%),
-            #fff;
-          box-shadow: 0 0 0 1px rgba(110, 61, 164, 0.04);
-        }
-
-        .plan-number,
-        .selected-check {
-          position: absolute;
-          top: 10px;
-          width: 24px;
-          height: 24px;
-          display: grid;
-          place-items: center;
-          border-radius: 999px;
-        }
-
-        .plan-number {
-          left: 10px;
-          background: #edf0f4;
-          color: #192236;
-          font-size: 12px;
-          font-weight: 650;
-        }
-
-        .plan-number.selected {
-          color: #fff;
-          background: #69409d;
-        }
-
-        .selected-check {
-          right: 10px;
-          color: #fff;
-          background: #69409d;
-        }
-
-        .selected-check :global(svg) {
-          width: 17px;
-          height: 17px;
-        }
-
-        .plan-icon {
-          width: 48px;
-          height: 48px;
-          display: grid;
-          place-items: center;
-          margin: 0 0 8px;
-          border-radius: 999px;
-          color: #6e3da4;
-          background: #f5f0fa;
-        }
-
-        .plan-icon :global(svg) {
-          width: 29px;
-          height: 29px;
-        }
-
-        .plan-card h2 {
-          min-height: 37px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0;
-          font-size: 11px;
-          line-height: 1.32;
-          letter-spacing: -0.25px;
-          color: #121a2d;
-        }
-
-        .plan-card.selected h2 {
-          color: #65359c;
-        }
-
-        .price-label {
-          display: block;
-          margin-top: -3px;
-          color: #6e5084;
-          font-size: 11.5px;
-          font-weight: 600;
-          line-height: 1.35;
-        }
-
-        .plan-card:first-child .price-label {
-          color: #08a94f;
-        }
-
-        .plan-description {
-          min-height: 34px;
-          margin: 4px 0 0;
-          color: #30384a;
-          font-size: 11.5px;
-          line-height: 1.4;
-          white-space: normal;
-        }
-
-        .feature-list {
-          width: 100%;
-          display: grid;
-          gap: 5px;
-          margin: 8px 0 0;
-          padding: 0 0 0 3px;
-          list-style: none;
-          text-align: left;
-          color: #283144;
-          font-size: 11px;
-        }
-
-        .feature-list li {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .feature-list span {
-          width: 15px;
-          height: 15px;
-          display: grid;
-          place-items: center;
-          color: #0bab55;
-          flex: 0 0 auto;
-        }
-
-        .feature-list :global(svg) {
-          width: 15px;
-          height: 15px;
-        }
-
-        .plan-action {
-          width: min(150px, 100%);
-          min-height: 34px;
-          margin-top: auto;
-          border: 1.5px solid #6e3da4;
-          border-radius: 7px;
-          background: #fff;
-          color: #613897;
-          font-weight: 700;
-          cursor: pointer;
-          transition:
-            color 160ms ease,
-            background 160ms ease,
-            box-shadow 160ms ease;
-        }
-
-        .plan-action:hover,
-        .plan-action:focus-visible {
-          color: #fff;
-          background: #6e3da4;
-          box-shadow: 0 6px 14px rgba(110, 61, 164, 0.2);
-          outline: none;
-        }
-
-        .plan-card.selected .plan-action {
-          color: #fff;
-          background: #6e3da4;
-        }
-
-        .form-divider {
-          width: 1px;
-          min-height: 100%;
-          background: #d8dde5;
-        }
-
-        .account-panel {
-          padding: 4px 18px 0 32px;
-          min-height: 0;
-          scroll-margin-top: 24px;
-        }
-
-        .account-panel form {
-          padding: 0;
-        }
-
-        .account-heading {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 18px;
-          margin-bottom: 14px;
-        }
-
-        .account-heading h2 {
-          margin: 0;
-          font-size: 23px;
-          line-height: 1.2;
-          letter-spacing: -0.7px;
-          color: #131c30;
-        }
-
-        .account-heading p {
-          margin: 4px 0 0;
-          color: #697285;
-          font-size: 12px;
-          line-height: 1.5;
-        }
-
-        .plan-pill {
-          display: inline-flex;
-          align-items: center;
-          min-height: 31px;
-          padding: 0 11px;
-          border: 1px solid #dfd4ea;
-          border-radius: 10px;
-          background: linear-gradient(180deg, #fbf8fe 0%, #f7f1fc 100%);
-          color: #633b91;
-          font-size: 11px;
-          font-weight: 750;
-          white-space: nowrap;
-          box-shadow: 0 2px 8px rgba(76, 48, 104, 0.04);
-        }
-
-        form {
-          display: grid;
-          gap: 12px;
-        }
-
-        .name-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-        }
-
-        :global(.field) {
-          min-width: 0;
-        }
-
-        :global(.field label) {
-          display: block;
-          margin-bottom: 5px;
-          color: #172036;
-          font-size: 12px;
-          font-weight: 650;
-          letter-spacing: -0.01em;
-        }
-
-        :global(.field input[type="text"]),
-        :global(.field input[type="email"]),
-        :global(.field input[type="url"]),
-        :global(.field input[type="password"]) {
-          width: 100%;
-          min-height: 43px;
-          padding: 0 16px;
-          border: 1px solid #d9cee7;
-          border-radius: 9px;
-          background: #ffffff;
-          color: #172036;
-          font-size: 11px;
-          line-height: 1.2;
-          outline: none;
-          box-shadow:
-            0 1px 2px rgba(36, 28, 52, 0.02),
-            inset 0 0 0 1px rgba(255, 255, 255, 0.55);
-          transition:
-            border-color 150ms ease,
-            box-shadow 150ms ease,
-            background 150ms ease;
-        }
-
-        :global(.field input::placeholder) {
-          color: #8a91a1;
-          opacity: 1;
-        }
-
-        :global(.field input:hover) {
-          border-color: #c8b5dd;
-          background: #fff;
-        }
-
-        :global(.field input:focus) {
-          border-color: #7444a6;
-          background: #fff;
-          box-shadow:
-            0 0 0 4px rgba(110, 80, 132, 0.11),
-            0 5px 14px rgba(64, 43, 87, 0.05);
-        }
-
-        :global(.field input[aria-invalid="true"]) {
-          border-color: #b84b59;
-          background: #fffafb;
-          box-shadow: 0 0 0 4px rgba(184, 75, 89, 0.08);
-        }
-
-        :global(.password-field) {
-          position: relative;
-        }
-
-        :global(.password-field input) {
-          padding-right: 50px !important;
-        }
-
-        :global(.show-password) {
-          position: absolute;
-          top: 50%;
-          right: 12px;
-          width: 34px;
-          height: 34px;
-          display: grid;
-          place-items: center;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          color: #7d8493;
-          transform: translateY(-50%);
-          cursor: pointer;
-          border-radius: 8px;
-        }
-
-        :global(.show-password:hover),
-        :global(.show-password:focus-visible) {
-          color: #613897;
-          background: #f4eef9;
-          outline: none;
-        }
-
-        :global(.show-password svg) {
-          width: 22px;
-          height: 22px;
-        }
-
-        :global(.password-strength) {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 7px;
-          width: 190px;
-          margin-top: 7px;
-        }
-
-        :global(.password-strength span) {
-          height: 5px;
-          border-radius: 999px;
-          background: #dde1e8;
-          transition:
-            background 160ms ease,
-            transform 160ms ease;
-        }
-
-        :global(.password-strength span.complete) {
-          background: #70419f;
-          transform: scaleY(1.05);
-        }
-
-        :global(.password-help) {
-          margin: 5px 0 0;
-          color: #747b89;
-          font-size: 10.5px;
-          line-height: 1.35;
-        }
-
-        :global(.pilot-help) {
-          margin: 5px 0 0;
-          color: #747b89;
-          font-size: 10.5px;
-          line-height: 1.4;
-        }
-
-        :global(.pilot-check-button) {
-          min-height: 34px;
-          margin-top: 8px;
-          padding: 0 12px;
-          border: 1px solid #cbb8dc;
-          border-radius: 8px;
-          background: #ffffff;
-          color: #6e5084;
-          font-size: 11px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        :global(.pilot-check-button:hover:not(:disabled)),
-        :global(.pilot-check-button:focus-visible) {
-          border-color: #6e5084;
-          background: #f7f1fc;
-          outline: none;
-        }
-
-        :global(.pilot-check-button:disabled) {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        :global(.pilot-confirmation) {
-          display: flex;
-          align-items: flex-start;
-          gap: 7px;
-          margin-top: 7px;
-          padding: 8px 10px;
-          border: 1px solid #bfe4cf;
-          border-radius: 8px;
-          background: #f3fcf7;
-          color: #17623a;
-          font-size: 10.5px;
-          line-height: 1.4;
-        }
-
-        :global(.pilot-confirmation svg) {
-          width: 15px;
-          height: 15px;
-          flex: 0 0 auto;
-          margin-top: 1px;
-        }
-
-        :global(.field-error) {
-          margin: 6px 0 0;
-          color: #a52d3c;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-
-        .terms-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 13px;
-          margin-top: 2px;
-          padding: 10px 12px;
-          border: 1px solid #ddd3e8;
-          border-radius: 9px;
-          background: #fcfafd;
-        }
-
-        .terms-row input {
-          appearance: none;
-          -webkit-appearance: none;
-          width: 17px;
-          height: 17px;
-          margin: 1px 0 0;
-          border: 1.5px solid #b9afc6;
-          border-radius: 5px;
-          background: #fff;
-          flex: 0 0 auto;
-          cursor: pointer;
-          display: grid;
-          place-items: center;
-          transition:
-            border-color 150ms ease,
-            background 150ms ease,
-            box-shadow 150ms ease;
-        }
-
-        .terms-row input::before {
-          content: "";
-          width: 9px;
-          height: 5px;
-          border-left: 2px solid #fff;
-          border-bottom: 2px solid #fff;
-          transform: rotate(-45deg) scale(0);
-          transform-origin: center;
-          transition: transform 120ms ease;
-          margin-top: -2px;
-        }
-
-        .terms-row input:checked {
-          border-color: #6e3da4;
-          background: #6e3da4;
-          box-shadow: 0 0 0 3px rgba(110, 61, 164, 0.1);
-        }
-
-        .terms-row input:checked::before {
-          transform: rotate(-45deg) scale(1);
-        }
-
-        .terms-row input:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 4px rgba(110, 61, 164, 0.14);
-        }
-
-        .terms-row label {
-          color: #354055;
-          font-size: 11px;
-          line-height: 1.65;
-        }
-
-        .terms-row a,
-        .legal-footer a,
-        .success-message a {
-          color: #663b94;
-          text-underline-offset: 2px;
-        }
-
-        .terms-error {
-          margin-top: -11px;
-        }
-
-        .form-error {
-          padding: 12px 14px;
-          border: 1px solid #edc5ca;
-          border-radius: 8px;
-          background: #fff6f7;
-          color: #972d3b;
-          font-size: 11px;
-          line-height: 1.5;
-        }
-
-        .create-account-button {
-          width: 100%;
-          min-height: 43px;
-          border: 0;
-          border-radius: 10px;
-          background: linear-gradient(90deg, #7440a5 0%, #5f3492 100%);
-          color: #fff;
-          font-size: 14px;
-          font-weight: 750;
-          cursor: pointer;
-          box-shadow: 0 7px 16px rgba(103, 56, 151, 0.16);
-          transition:
-            transform 150ms ease,
-            box-shadow 150ms ease,
-            opacity 150ms ease;
-        }
-
-        .create-account-button:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 10px 20px rgba(103, 56, 151, 0.22);
-        }
-
-        .create-account-button:focus-visible {
-          outline: 3px solid rgba(110, 80, 132, 0.22);
-          outline-offset: 3px;
-        }
-
-        .create-account-button:disabled {
-          opacity: 0.68;
-          cursor: wait;
-        }
-
-        .security-note {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding-left: 2px;
-          color: #6f788a;
-          font-size: 12px;
-        }
-
-        .security-note :global(svg) {
-          width: 23px;
-          height: 23px;
-          flex: 0 0 auto;
-        }
-
-        .success-message {
-          display: flex;
-          gap: 11px;
-          padding: 18px;
-          border: 1px solid #bfe4cf;
-          border-radius: 10px;
-          background: #f3fcf7;
-          color: #1c5534;
-        }
-
-        .success-message strong {
-          display: block;
-          margin-bottom: 5px;
-          color: #16462b;
-        }
-
-        .success-message p {
-          margin: 0 0 12px;
-          font-size: 10.5px;
-          line-height: 1.35;
-        }
-
-        .success-icon {
-          width: 34px;
-          height: 34px;
-          display: grid;
-          place-items: center;
-          border-radius: 999px;
-          background: #1fa35b;
-          color: #fff;
-          flex: 0 0 auto;
-        }
-
-        .success-icon :global(svg) {
-          width: 19px;
-          height: 19px;
-        }
-
-        .legal-footer {
-          max-width: 1440px;
-          margin: 9px auto 0;
-          text-align: center;
-          color: #586174;
-          font-size: 11px;
-          line-height: 1.6;
-        }
-
-
-        @media (min-width: 861px) and (max-height: 820px) {
-          .register-page {
-            padding-top: 8px;
-            padding-bottom: 8px;
-          }
-
-          .top-bar {
-            margin-bottom: 6px;
-          }
-
-          .register-shell {
-            height: calc(100dvh - 54px);
-            padding-top: 16px;
-            padding-bottom: 16px;
-          }
-
-          .plan-heading h1 {
-            font-size: 29px;
-          }
-
-          .plan-heading p {
-            font-size: 13px;
-          }
-
-          .plan-intro {
-            margin-block: 8px;
-            font-size: 12px;
-          }
-
-          .plan-card {
-            min-height: 205px;
-            padding-top: 28px;
-          }
-
-          .plan-icon {
-            width: 42px;
-            height: 42px;
-          }
-
-          .plan-icon :global(svg) {
-            width: 25px;
-            height: 25px;
-          }
-
-          .account-heading {
-            margin-bottom: 10px;
-          }
-
-          form {
-            gap: 9px;
-          }
-
-          :global(.field input[type="text"]),
-          :global(.field input[type="email"]),
-          :global(.field input[type="url"]),
-          :global(.field input[type="password"]) {
-            min-height: 39px;
-          }
-
-          .terms-row {
-            padding-block: 8px;
-          }
-
-          .create-account-button {
-            min-height: 40px;
-          }
-
-          .legal-footer {
-            display: none;
-          }
-        }
-
-        @media (max-width: 1180px) {
-          .register-page {
-            padding-inline: 24px;
-          }
-
-          .register-shell {
-            grid-template-columns: minmax(0, 1fr) 1px minmax(390px, 0.86fr);
-            padding-inline: 24px;
-          }
-
-          .plan-panel {
-            padding-left: 6px;
-            padding-right: 28px;
-          }
-
-          .account-panel {
-            padding-right: 8px;
-            padding-left: 34px;
-          }
-
-          .plans-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        @media (max-width: 860px) {
-          .register-page {
-            height: auto;
-            min-height: 100vh;
-            padding: 20px 16px;
-            overflow: visible;
-          }
-
-          .top-bar {
-            margin-bottom: 14px;
-          }
-
-          .register-shell {
-            display: block;
-            height: auto;
-            max-height: none;
-            padding: 24px;
-          }
-
-          .plan-panel,
-          .account-panel {
-            padding: 0;
-          }
-
-          .form-divider {
-            width: 100%;
-            height: 1px;
-            min-height: 1px;
-            margin: 34px 0;
-          }
-
-          .account-panel {
-            scroll-margin-top: 16px;
-          }
-        }
-
-        @media (max-width: 560px) {
-          .register-page {
-            padding: 16px 10px;
-          }
-
-          .top-bar {
-            padding-inline: 4px;
-          }
-
-          .top-bar p {
-            font-size: 11px;
-          }
-
-          .register-shell {
-            padding: 22px 16px;
-            border-radius: 16px;
-          }
-
-          .plan-heading h1 {
-            font-size: 34px;
-          }
-
-          .plan-heading p {
-            font-size: 14px;
-          }
-
-          .plans-grid,
-          .name-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .plan-card {
-            min-height: 285px;
-          }
-
-          .account-heading {
-            flex-direction: column;
-            margin-bottom: 22px;
-          }
-
-          .account-heading h2 {
-            font-size: 25px;
-          }
-
-          .plan-pill {
-            white-space: normal;
-          }
-
-          :global(.password-strength) {
-            grid-template-columns: repeat(4, 1fr);
-          }
-
-          .legal-footer {
-            padding-inline: 8px;
-          }
-        }
-      `}</style>
     </main>
   );
 }
@@ -1650,11 +731,11 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="field">
+    <div className={styles.field}>
       <label htmlFor={id}>{label}</label>
       {children}
       {error ? (
-        <p className="field-error" id={`${id}-error`}>
+        <p className={styles["field-error"]} id={`${id}-error`}>
           {error}
         </p>
       ) : null}

@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -202,6 +209,7 @@ export default function BillingPage() {
   const [openingPortal, setOpeningPortal] = useState(false);
   const [pageError, setPageError] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
+  const autostartAttemptedRef = useRef(false);
 
   const loadBilling = useCallback(
     async (isRefresh = false) => {
@@ -517,6 +525,45 @@ export default function BillingPage() {
     });
     setSaving(false);
   }
+
+  const hasLiveStripeSubscription =
+    Boolean(subscription?.provider_subscription_reference) &&
+    ["active", "trialing", "past_due"].includes(subscription?.status ?? "");
+  const canStartCheckout = !hasLiveStripeSubscription;
+
+  useEffect(() => {
+    if (autostartAttemptedRef.current) {
+      return;
+    }
+
+    const autostartPlan = new URLSearchParams(window.location.search).get(
+      "autostart",
+    );
+
+    if (!autostartPlan) {
+      return;
+    }
+
+    if (
+      autostartPlan !== "organisation_50" &&
+      autostartPlan !== "organisation_150" &&
+      autostartPlan !== "organisation_250"
+    ) {
+      return;
+    }
+
+    if (checkoutPlan !== null || !canStartCheckout) {
+      return;
+    }
+
+    autostartAttemptedRef.current = true;
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("autostart");
+    window.history.replaceState({}, "", nextUrl.toString());
+
+    void handleCheckout(autostartPlan);
+  }, [canStartCheckout, checkoutPlan]);
 
   if (loading) {
     return (
@@ -1014,7 +1061,7 @@ export default function BillingPage() {
                 <strong className="plan-price">{plan.price}</strong>
                 <p>{plan.detail}</p>
                 <span>Complete platform included</span>
-                {plan.planKey && !current && !hasStripeCustomer ? (
+                {plan.planKey && !current && canStartCheckout ? (
                   <button
                     type="button"
                     className="plan-select-button"

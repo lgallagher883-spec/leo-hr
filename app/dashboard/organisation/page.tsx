@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { normaliseOrganisationWebsite } from "@/lib/url/organisationWebsite";
 import { createClient } from "@/lib/supabase/client";
 import PeopleAccessWorkspace from "./components/PeopleAccessWorkspace";
 import SecurityWorkspace from "./components/SecurityWorkspace";
@@ -90,13 +91,6 @@ function formatStatus(value: string | null) {
   return value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function normaliseWebsite(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 export default function OrganisationPage() {
@@ -209,19 +203,17 @@ export default function OrganisationPage() {
       return;
     }
 
-    const normalisedWebsite = normaliseWebsite(websiteUrl);
+    const websiteResult = normaliseOrganisationWebsite(websiteUrl);
 
-    if (normalisedWebsite) {
-      try {
-        new URL(normalisedWebsite);
-      } catch {
-        setNotice({
-          type: "error",
-          message: "Enter a valid website address.",
-        });
-        return;
-      }
+    if (!websiteResult.isValid) {
+      setNotice({
+        type: "error",
+        message: "Enter a valid website address.",
+      });
+      return;
     }
+
+    const normalisedWebsite = websiteResult.canonicalUrl;
 
     setSaving(true);
     setNotice(null);

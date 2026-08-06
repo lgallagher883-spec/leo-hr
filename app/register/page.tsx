@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  useEffect,
   useMemo,
   useState,
   type CSSProperties,
@@ -9,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { normaliseOrganisationWebsite } from "@/lib/url/organisationWebsite";
 import { createClient } from "@/lib/supabase/client";
 import styles from "./register.module.css";
 
@@ -85,22 +87,11 @@ function getPasswordChecks(password: string) {
   };
 }
 
-function isValidWebsite(value: string) {
-  if (!value.trim()) return true;
-
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export default function RegisterPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>("trial");
+  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [organisationName, setOrganisationName] = useState("");
@@ -118,11 +109,28 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
 
-  const selectedPlanDetails = plans.find((plan) => plan.id === selectedPlan) ?? plans[0];
+  const selectedPlanDetails =
+    plans.find((plan) => plan.id === selectedPlan) ?? null;
   const passwordChecks = getPasswordChecks(password);
   const passwordIsValid = Object.values(passwordChecks).every(Boolean);
   const trimmedPilotCode = pilotCode.trim();
   const isPilotRegistration = pilotCodeValid;
+
+  useEffect(() => {
+    const requestedPlan = new URLSearchParams(window.location.search).get(
+      "plan",
+    );
+
+    if (
+      requestedPlan === "trial" ||
+      requestedPlan === "up_to_50" ||
+      requestedPlan === "up_to_150" ||
+      requestedPlan === "up_to_250" ||
+      requestedPlan === "over_250"
+    ) {
+      setSelectedPlan(requestedPlan);
+    }
+  }, []);
 
   function selectPlan(plan: Plan) {
     if (plan.contactOnly) {
@@ -143,6 +151,11 @@ export default function RegisterPage() {
   function validateForm() {
     const errors: Record<string, string> = {};
 
+    if (!selectedPlan) {
+      errors.plan =
+        "Select either Free 7 Day Trial or a paid subscription to continue.";
+    }
+
     if (!firstName.trim()) errors.firstName = "Enter your first name.";
     if (!lastName.trim()) errors.lastName = "Enter your last name.";
     if (!organisationName.trim()) {
@@ -151,9 +164,9 @@ export default function RegisterPage() {
 
     if (!website.trim()) {
       errors.website = "Enter your organisation website.";
-    } else if (!isValidWebsite(website)) {
+    } else if (!normaliseOrganisationWebsite(website).isValid) {
       errors.website =
-        "Enter a complete website address beginning with http:// or https://.";
+        "Enter a valid website address, such as leohr.co.uk.";
     }
 
     if (!email.trim()) {
@@ -243,6 +256,10 @@ export default function RegisterPage() {
 
     if (!validateForm()) return;
 
+    if (!selectedPlan) {
+      return;
+    }
+
     if (trimmedPilotCode) {
       const validPilotCode = await validatePilotCode();
 
@@ -253,7 +270,7 @@ export default function RegisterPage() {
       setPilotCodeValid(false);
     }
 
-    if (selectedPlanDetails.contactOnly) {
+    if (selectedPlanDetails?.contactOnly) {
       router.push("/contact?enquiry=enterprise");
       return;
     }
@@ -261,7 +278,17 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const normalizedWebsite = website.trim() ? website.trim() : null;
+      const websiteResult = normaliseOrganisationWebsite(website);
+
+      if (!websiteResult.isValid || !websiteResult.canonicalUrl) {
+        setFieldErrors((current) => ({
+          ...current,
+          website: "Enter a valid website address, such as leohr.co.uk.",
+        }));
+        return;
+      }
+
+      const normalizedWebsite = websiteResult.canonicalUrl;
 
       const planCode = isPilotRegistration
         ? "pilot_6_month"
@@ -272,6 +299,15 @@ export default function RegisterPage() {
             : selectedPlan === "up_to_150"
               ? "organisation_150"
               : "organisation_250";
+
+      const registrationPlanKey =
+        selectedPlan === "up_to_50"
+          ? "organisation_50"
+          : selectedPlan === "up_to_150"
+            ? "organisation_150"
+            : selectedPlan === "up_to_250"
+              ? "organisation_250"
+              : null;
 
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
@@ -285,6 +321,14 @@ export default function RegisterPage() {
             organisation_name: organisationName.trim(),
             website_url: normalizedWebsite,
             plan_code: planCode,
+            registration_plan_id: selectedPlan,
+            registration_plan_code: planCode,
+            registration_plan_key: registrationPlanKey,
+            registration_intent: isPilotRegistration
+              ? "pilot_programme"
+              : selectedPlan === "trial"
+                ? "free_trial"
+                : "paid_subscription",
             pilot_access_code: isPilotRegistration
               ? trimmedPilotCode
               : null,
@@ -310,7 +354,9 @@ export default function RegisterPage() {
       }
 
       setSuccessMessage(
-        "Your account has been created. Check your email to confirm your address, then log in to start using Leo HR."
+        isPilotRegistration || selectedPlan === "trial"
+          ? "Your account has been created. Check your email to confirm your address, then sign in to start your access period."
+          : "Your account has been created. Check your email to confirm your address, then sign in to continue to secure billing and activate your subscription."
       );
     } catch {
       setFormError(
@@ -345,6 +391,12 @@ export default function RegisterPage() {
             Every subscription includes the complete Leo HR platform. Pricing is
             based solely on the size of your organisation.
           </div>
+
+          {fieldErrors.plan ? (
+            <p className={styles["field-error"]} role="alert">
+              {fieldErrors.plan}
+            </p>
+          ) : null}
 
           <div className={styles["plans-grid"]}>
             {plans.map((plan) => {
@@ -431,7 +483,7 @@ export default function RegisterPage() {
             <span className={styles["plan-pill"]} aria-live="polite">
               {isPilotRegistration
                 ? "Pilot Programme · 6 months free"
-                : selectedPlanDetails.title}
+                : selectedPlanDetails?.title ?? "Select a plan to continue"}
             </span>
           </div>
 
@@ -525,6 +577,12 @@ export default function RegisterPage() {
                   inputMode="url"
                   value={website}
                   onChange={(event) => setWebsite(event.target.value)}
+                  onBlur={() => {
+                    const result = normaliseOrganisationWebsite(website);
+                    if (result.isValid && result.canonicalUrl) {
+                      setWebsite(result.canonicalUrl);
+                    }
+                  }}
                   placeholder="https://yourorganisation.co.uk" required
                   aria-invalid={Boolean(fieldErrors.website)}
                   aria-describedby={
@@ -689,7 +747,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className={styles["create-account-button"]}
-                disabled={loading}
+                disabled={loading || !selectedPlan}
               >
                 {loading
                   ? "Creating account…"
@@ -697,7 +755,9 @@ export default function RegisterPage() {
                     ? "Create account and start 6-month pilot"
                     : selectedPlan === "trial"
                       ? "Create account and start free trial"
-                      : "Create account"}
+                      : selectedPlan
+                        ? "Create account"
+                        : "Select a plan to continue"}
               </button>
 
               <div className={styles["security-note"]}>

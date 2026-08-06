@@ -29,7 +29,10 @@ export default function VerifyEmailPage() {
             <li>Open the verification email.</li>
             <li>Click the verification link.</li>
             <li>Your LEO organisation will be created automatically.</li>
-            <li>You'll be taken straight into your dashboard.</li>
+            <li>
+              You will then be routed to either your platform access window or
+              secure billing, depending on your selected registration plan.
+            </li>
           </ol>
         </div>
 

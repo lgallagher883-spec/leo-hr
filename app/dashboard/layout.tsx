@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
+import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
 import { createClient } from "@/lib/supabase/server";
 import DashboardShell, {
+  type DashboardBillingGuard,
   type DashboardAccessRole,
 } from "./DashboardShell";
 
@@ -14,6 +16,43 @@ type MembershipRoleRow = {
   is_default_organisation?: boolean | null;
   organisation_id?: string | null;
 };
+
+type TrialRecord = {
+  status: string;
+  starts_at: string | null;
+  ends_at: string | null;
+};
+
+type SubscriptionRecord = {
+  status: string;
+  current_period_starts_at: string | null;
+  current_period_ends_at: string | null;
+};
+
+type EntitlementRecord = {
+  access_status: string;
+  effective_from: string | null;
+  effective_until: string | null;
+};
+
+function isCurrentlyEffective(
+  effectiveFrom: string | null,
+  effectiveUntil: string | null,
+  now: number,
+) {
+  const startsAt = effectiveFrom ? new Date(effectiveFrom).getTime() : null;
+  const endsAt = effectiveUntil ? new Date(effectiveUntil).getTime() : null;
+
+  if (startsAt !== null && (Number.isNaN(startsAt) || startsAt > now)) {
+    return false;
+  }
+
+  if (endsAt !== null && (Number.isNaN(endsAt) || endsAt <= now)) {
+    return false;
+  }
+
+  return true;
+}
 
 function normaliseRole(value: string | null | undefined): DashboardAccessRole {
   const role = value?.trim().toLowerCase();
@@ -44,6 +83,10 @@ export default async function DashboardLayout({
 
   let activeRole: DashboardAccessRole = "employee";
   let organisationId: string | null = null;
+  let billingGuard: DashboardBillingGuard = {
+    hasPlatformAccess: true,
+    billingRedirectPlanKey: null,
+  };
 
   const membershipResult = await (supabase as any)
     .from("organisation_memberships")
@@ -94,11 +137,83 @@ export default async function DashboardLayout({
     activeRole = "owner";
   }
 
+  if (organisationId) {
+    const registrationIntent = resolveRegistrationIntent(user.user_metadata);
+
+    const [trialResult, subscriptionResult, entitlementResult] =
+      await Promise.all([
+        supabase
+          .from("leo_organisation_trials")
+          .select("status, starts_at, ends_at")
+          .eq("organisation_id", organisationId)
+          .maybeSingle(),
+        supabase
+          .from("leo_organisation_subscriptions")
+          .select("status, current_period_starts_at, current_period_ends_at")
+          .eq("organisation_id", organisationId)
+          .maybeSingle(),
+        supabase
+          .from("leo_organisation_entitlements")
+          .select("access_status, effective_from, effective_until")
+          .eq("organisation_id", organisationId)
+          .maybeSingle(),
+      ]);
+
+    if (!trialResult.error && !subscriptionResult.error && !entitlementResult.error) {
+      const trial = trialResult.data as TrialRecord | null;
+      const subscription = subscriptionResult.data as SubscriptionRecord | null;
+      const entitlement = entitlementResult.data as EntitlementRecord | null;
+      const now = Date.now();
+
+      const hasActiveTrial =
+        registrationIntent.allowsPlatformTrialAccess &&
+        trial?.status === "active" &&
+        isCurrentlyEffective(trial.starts_at, trial.ends_at, now);
+
+      const hasActiveSubscription =
+        Boolean(subscription) &&
+        ["active", "trialing", "grace"].includes(subscription?.status ?? "") &&
+        isCurrentlyEffective(
+          subscription?.current_period_starts_at ?? null,
+          subscription?.current_period_ends_at ?? null,
+          now,
+        );
+
+      const hasActiveEntitlement =
+        Boolean(entitlement) &&
+        ["active", "trial", "trialing", "grace"].includes(
+          entitlement?.access_status ?? "",
+        ) &&
+        isCurrentlyEffective(
+          entitlement?.effective_from ?? null,
+          entitlement?.effective_until ?? null,
+          now,
+        );
+
+      const hasPlatformAccess =
+        hasActiveTrial || hasActiveSubscription || hasActiveEntitlement;
+
+      const canAutoStartCheckout =
+        activeRole === "owner" &&
+        registrationIntent.pendingPlanKey &&
+        !hasActiveSubscription &&
+        !hasActiveEntitlement;
+
+      billingGuard = {
+        hasPlatformAccess,
+        billingRedirectPlanKey: canAutoStartCheckout
+          ? registrationIntent.pendingPlanKey
+          : null,
+      };
+    }
+  }
+
   return (
     <DashboardShell
       accessRole={activeRole}
       organisationId={organisationId}
       userId={user.id}
+      billingGuard={billingGuard}
     >
       {children}
     </DashboardShell>

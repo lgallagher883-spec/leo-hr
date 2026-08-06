@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
+import { normaliseOrganisationWebsite } from "@/lib/url/organisationWebsite";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -141,11 +144,45 @@ export async function GET(request: Request) {
   }
 
   const organisationId = await resolveOrganisationId(supabase, user.id);
+  const registrationIntent = resolveRegistrationIntent(user.user_metadata);
 
   if (!organisationId) {
     return NextResponse.redirect(
       new URL("/login?error=registration_profile_missing", requestUrl.origin),
     );
+  }
+
+  const websiteFromMetadataRaw = user.user_metadata?.website_url;
+  const websiteFromMetadata =
+    typeof websiteFromMetadataRaw === "string" ? websiteFromMetadataRaw : "";
+
+  if (websiteFromMetadata.trim()) {
+    const websiteResult = normaliseOrganisationWebsite(websiteFromMetadata);
+
+    if (!websiteResult.isValid || !websiteResult.canonicalUrl) {
+      return NextResponse.redirect(
+        new URL(
+          "/login?error=invalid_organisation_website",
+          requestUrl.origin,
+        ),
+      );
+    }
+
+    const { error: websiteUpdateError } = await supabase
+      .from("organisations")
+      .update({ website_url: websiteResult.canonicalUrl })
+      .eq("id", organisationId);
+
+    if (websiteUpdateError) {
+      console.error(
+        "Auth callback organisation website normalisation failed:",
+        websiteUpdateError,
+      );
+
+      return NextResponse.redirect(
+        new URL("/login?error=organisation_website_unavailable", requestUrl.origin),
+      );
+    }
   }
 
   const [trialResult, subscriptionResult, entitlementResult] =
@@ -191,6 +228,7 @@ export async function GET(request: Request) {
   const now = Date.now();
 
   const hasActiveTrial =
+    registrationIntent.allowsPlatformTrialAccess &&
     trial?.status === "active" &&
     isCurrentlyEffective(trial.starts_at, trial.ends_at, now);
 
@@ -223,6 +261,27 @@ export async function GET(request: Request) {
   ) {
     return NextResponse.redirect(
       new URL("/dashboard", requestUrl.origin),
+    );
+  }
+
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {
+    userId: user.id,
+    organisationId,
+    allowedStatuses: ["active", "accepted"],
+  });
+
+  const shouldAutoStartCheckout =
+    resolvedRole?.roleKey === "owner" &&
+    registrationIntent.pendingPlanKey &&
+    !hasActiveSubscription &&
+    !hasActiveEntitlement;
+
+  if (shouldAutoStartCheckout) {
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard/billing?autostart=${registrationIntent.pendingPlanKey}`,
+        requestUrl.origin,
+      ),
     );
   }
 

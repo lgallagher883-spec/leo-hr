@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { normaliseOrganisationWebsite } from "@/lib/url/organisationWebsite";
 import { createClient } from "@/lib/supabase/client";
 
 type BrandWorkspaceProps = { organisationId: string };
@@ -445,13 +446,14 @@ export default function BrandWorkspace({ organisationId }: BrandWorkspaceProps) 
       setNotice({ type: "error", message: "Brand colours must use six-digit hex codes." });
       return;
     }
-    try {
-      const website = normaliseUrl(websiteUrl);
-      if (website) new URL(website);
-    } catch {
+    const websiteResult = normaliseOrganisationWebsite(websiteUrl);
+
+    if (!websiteResult.isValid) {
       setNotice({ type: "error", message: "Check the website address before saving." });
       return;
     }
+
+    const website = websiteResult.canonicalUrl;
 
     setSaving(true);
     setNotice(null);
@@ -497,7 +499,7 @@ export default function BrandWorkspace({ organisationId }: BrandWorkspaceProps) 
         display_name: displayName.trim(),
         logo_url: logoUrl || null,
         hero_image_url: null,
-        website_url: normaliseUrl(websiteUrl),
+        website_url: website,
         careers_email: documentSettings.email.trim() || null,
         careers_phone: documentSettings.telephone.trim() || null,
         primary_colour: primaryColour.toUpperCase(),

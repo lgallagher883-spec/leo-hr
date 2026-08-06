@@ -15,6 +15,23 @@ type Membership = {
   organisation_id: string;
 };
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function readText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalised = value.trim();
+  return normalised.length > 0 ? normalised : null;
+}
+
 async function resolveOrganisationId(userId: string) {
   const admin = createAdminClient();
 
@@ -158,6 +175,45 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
+    const existingMetadata = asRecord(currentSubscription?.metadata);
+    const existingCheckoutSessionId = readText(
+      existingMetadata.stripe_checkout_session_id,
+    );
+    const existingCheckoutPlanKey = readText(existingMetadata.stripe_plan_key);
+
+    if (
+      currentSubscription?.status === "pending" &&
+      existingCheckoutSessionId &&
+      existingCheckoutPlanKey === selectedPlan.planKey
+    ) {
+      try {
+        const existingCheckoutSession =
+          await stripe.checkout.sessions.retrieve(existingCheckoutSessionId);
+
+        if (
+          existingCheckoutSession.status === "open" &&
+          existingCheckoutSession.url
+        ) {
+          return NextResponse.json(
+            {
+              url: existingCheckoutSession.url,
+            },
+            {
+              status: 200,
+              headers: {
+                "Cache-Control": "no-store",
+              },
+            },
+          );
+        }
+      } catch (error) {
+        console.warn(
+          "Existing Stripe checkout session could not be reused:",
+          error,
+        );
+      }
+    }
+
     let customerId =
       currentSubscription?.provider_customer_reference ?? null;
 
@@ -211,13 +267,6 @@ export async function POST(request: Request) {
       cancel_url: `${appUrl}/dashboard/billing?stripe=cancelled`,
     });
 
-    const existingMetadata =
-      currentSubscription?.metadata &&
-      typeof currentSubscription.metadata === "object" &&
-      !Array.isArray(currentSubscription.metadata)
-        ? currentSubscription.metadata
-        : {};
-
     const subscriptionPayload = {
       organisation_id: organisationId,
       plan_id: catalogueResult.data.id,
@@ -231,6 +280,7 @@ export async function POST(request: Request) {
         ...existingMetadata,
         stripe_checkout_session_id: checkoutSession.id,
         stripe_plan_key: selectedPlan.planKey,
+        stripe_checkout_session_created_at: new Date().toISOString(),
       },
     };
 

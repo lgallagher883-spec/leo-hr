@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { normaliseOrganisationWebsite } from "@/lib/url/organisationWebsite";
 import { createClient } from "@/lib/supabase/client";
 
 type CareersWorkspaceProps = {
@@ -330,14 +331,19 @@ export default function CareersWorkspace({
       return;
     }
 
-    const urlValues = [
-      websiteUrl,
-      logoUrl,
-      heroImageUrl,
-      linkedinUrl,
-      facebookUrl,
-      instagramUrl,
-    ];
+    const websiteResult = normaliseOrganisationWebsite(websiteUrl);
+
+    if (!websiteResult.isValid) {
+      setNotice({
+        type: "error",
+        message: "Check the website, image and social links before saving.",
+      });
+      return;
+    }
+
+    const canonicalWebsiteUrl = websiteResult.canonicalUrl;
+
+    const urlValues = [logoUrl, heroImageUrl, linkedinUrl, facebookUrl, instagramUrl];
 
     try {
       for (const value of urlValues) {
@@ -380,7 +386,7 @@ export default function CareersWorkspace({
         benefits_summary: benefitsSummary.trim() || null,
         logo_url: normaliseUrl(logoUrl),
         hero_image_url: normaliseUrl(heroImageUrl),
-        website_url: normaliseUrl(websiteUrl),
+        website_url: canonicalWebsiteUrl,
         careers_email: careersEmail.trim() || null,
         careers_phone: careersPhone.trim() || null,
         linkedin_url: normaliseUrl(linkedinUrl),

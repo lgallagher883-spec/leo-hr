@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { MatterProvider } from "./matters/MatterContext";
 
 const SIDEBAR_WIDTH = 260;
 
@@ -45,6 +44,11 @@ export type DashboardAccessRole =
   | "senior"
   | "manager"
   | "employee";
+
+export type DashboardBillingGuard = {
+  hasPlatformAccess: boolean;
+  billingRedirectPlanKey: "organisation_50" | "organisation_150" | "organisation_250" | null;
+};
 
 type NavigationIcon = ComponentType<{
   size?: number | string;
@@ -217,6 +221,11 @@ const employeeAllowedRoutes = [
   "/dashboard/my-account",
 ];
 
+const billingAllowedRoutes = [
+  "/dashboard/billing",
+  "/dashboard/my-account",
+];
+
 function routeIsWithin(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
@@ -227,14 +236,22 @@ function isEmployeeRouteAllowed(pathname: string) {
   );
 }
 
+function isBillingRouteAllowed(pathname: string) {
+  return billingAllowedRoutes.some((route) =>
+    routeIsWithin(pathname, route),
+  );
+}
+
 export default function DashboardShell({
   children,
   accessRole,
+  billingGuard,
   organisationId: _organisationId,
   userId: _userId,
 }: {
   children: ReactNode;
   accessRole: DashboardAccessRole;
+  billingGuard: DashboardBillingGuard;
   organisationId: string | null;
   userId: string;
 }) {
@@ -252,6 +269,15 @@ export default function DashboardShell({
     : managementAccountLinks;
 
   useEffect(() => {
+    if (!billingGuard.hasPlatformAccess && !isBillingRouteAllowed(pathname)) {
+      const target = billingGuard.billingRedirectPlanKey
+        ? `/dashboard/billing?autostart=${billingGuard.billingRedirectPlanKey}`
+        : "/dashboard/billing";
+
+      router.replace(target);
+      return;
+    }
+
     if (isEmployee) {
       if (
         pathname === "/dashboard" ||
@@ -271,7 +297,7 @@ export default function DashboardShell({
     }
 
     setIsResolvingRoute(false);
-  }, [isEmployee, pathname, router]);
+  }, [billingGuard, isEmployee, pathname, router]);
 
   function isActive(href: string) {
     if (href === "/dashboard") {
@@ -317,16 +343,15 @@ export default function DashboardShell({
   }
 
   return (
-    <MatterProvider>
-      <div
-        style={{
-          minHeight: "100vh",
-          fontFamily:
-            '"Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif',
-          background: "#F5FFF9",
-          color: "#2F2635",
-        }}
-      >
+    <div
+      style={{
+        minHeight: "100vh",
+        fontFamily:
+          '"Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif',
+        background: "#F5FFF9",
+        color: "#2F2635",
+      }}
+    >
         <aside
           aria-label={
             isEmployee
@@ -633,7 +658,6 @@ export default function DashboardShell({
             children
           )}
         </main>
-      </div>
-    </MatterProvider>
+    </div>
   );
 }

@@ -9,7 +9,10 @@ import {
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
-import { useMatters } from "./matters/MatterContext";
+import {
+  MatterProvider,
+  useMatters,
+} from "./matters/MatterContext";
 
 type InsightRecommendation = {
   title?: string;
@@ -200,6 +203,14 @@ function buildPriority(params: {
 }
 
 export default function DashboardPage() {
+  return (
+    <MatterProvider>
+      <DashboardPageContent />
+    </MatterProvider>
+  );
+}
+
+function DashboardPageContent() {
   const router = useRouter();
   const { matters } = useMatters();
 

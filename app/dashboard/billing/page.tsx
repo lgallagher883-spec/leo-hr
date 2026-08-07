@@ -1310,7 +1310,10 @@ const styles = `
     align-items: center;
     justify-content: center;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 38px;
+    box-sizing: border-box;
     margin-top: 16px;
     padding: 8px 10px;
     border-radius: 10px;
@@ -1755,6 +1758,8 @@ const styles = `
   .plan-card {
     position: relative;
     min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
     min-height: 150px;
     padding: 18px;
     border: 1px solid var(--leo-border);

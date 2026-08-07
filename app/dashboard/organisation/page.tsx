@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import PeopleAccessWorkspace from "./components/PeopleAccessWorkspace";
 import SecurityWorkspace from "./components/SecurityWorkspace";
 import AuditWorkspace from "./components/AuditWorkspace";
-import SubscriptionBillingWorkspace from "./components/SubscriptionBillingWorkspace";
 import BrandWorkspace from "./components/BrandWorkspace";
 import CompanyDocumentsWorkspace from "./components/CompanyDocumentsWorkspace";
 
@@ -305,6 +304,12 @@ export default function OrganisationPage() {
             }
             onClick={() => {
               setNotice(null);
+
+              if (workspace.key === "billing") {
+                window.location.assign("/dashboard/billing");
+                return;
+              }
+
               setActiveWorkspace(workspace.key);
             }}
           >
@@ -510,12 +515,6 @@ export default function OrganisationPage() {
         </section>
       ) : null}
 
-      {!pageError && organisation && activeWorkspace === "billing" ? (
-        <div className="billing-workspace-container">
-          <SubscriptionBillingWorkspace organisationId={organisation.id} />
-        </div>
-      ) : null}
-
       {!pageError && organisation && activeWorkspace === "people" ? (
         <section className="workspace-panel">
           <PeopleAccessWorkspace organisationId={organisation.id} />
@@ -553,16 +552,16 @@ h1{margin-bottom:8px;color:#2d2332;font-size:clamp(2rem,4vw,3rem);line-height:1.
 .organisation-nav-button.active{background:#6e5084;color:#fff}
 .organisation-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:18px}
 .organisation-card,.workspace-panel,.error-card,.loading-card{border:1px solid #e5dce8;border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(70,51,79,.06)}
-.organisation-card{padding:24px}
+.organisation-card{min-width:0;padding:24px}
 .organisation-card-wide{grid-column:1/-1}
 .workspace-panel{padding:24px}
 .billing-workspace-container{min-width:0}
 .card-heading h2{margin-bottom:8px;font-size:1.35rem}
 .card-heading p:not(.card-eyebrow){margin-bottom:0;color:#746a78;line-height:1.6}
 .form-stack{display:grid;gap:18px;margin-top:24px}
-.field{display:grid;gap:8px}
+.field{display:grid;gap:8px;min-width:0}
 .field>span{font-size:.9rem;font-weight:800}
-.field input{width:100%;min-height:46px;border:1px solid #d9cedd;border-radius:12px;background:#fff;padding:0 13px;color:#312837;font:inherit}
+.field input{width:100%;max-width:100%;min-width:0;min-height:46px;box-sizing:border-box;border:1px solid #d9cedd;border-radius:12px;background:#fff;padding:0 13px;color:#312837;font:inherit}
 .field input:focus{outline:3px solid rgba(110,80,132,.12);border-color:#6e5084}
 .field input:disabled{background:#f7f4f8;color:#837a86}
 .field small{color:#7a707e;line-height:1.45}

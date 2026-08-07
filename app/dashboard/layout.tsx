@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
@@ -35,6 +36,8 @@ type EntitlementRecord = {
   effective_until: string | null;
 };
 
+const billingAllowedRoutes = ["/dashboard/billing", "/dashboard/my-account"];
+
 function isCurrentlyEffective(
   effectiveFrom: string | null,
   effectiveUntil: string | null,
@@ -63,6 +66,14 @@ function normaliseRole(value: string | null | undefined): DashboardAccessRole {
   if (role === "owner") return "owner";
 
   return "employee";
+}
+
+function routeIsWithin(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+function isBillingRouteAllowed(pathname: string) {
+  return billingAllowedRoutes.some((route) => routeIsWithin(pathname, route));
 }
 
 export default async function DashboardLayout({
@@ -206,6 +217,17 @@ export default async function DashboardLayout({
           : null,
       };
     }
+  }
+
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get("x-leo-pathname") ?? "/dashboard";
+
+  if (!billingGuard.hasPlatformAccess && !isBillingRouteAllowed(pathname)) {
+    const target = billingGuard.billingRedirectPlanKey
+      ? `/dashboard/billing?autostart=${billingGuard.billingRedirectPlanKey}`
+      : "/dashboard/billing";
+
+    redirect(target);
   }
 
   return (

@@ -78,6 +78,9 @@ const plans: Plan[] = [
   },
 ];
 
+const registrationVerificationMessage =
+  "We've sent a verification email to the email address you provided.";
+
 function getPasswordChecks(password: string) {
   return {
     length: password.length >= 8,
@@ -309,11 +312,13 @@ export default function RegisterPage() {
               ? "organisation_250"
               : null;
 
+      const confirmationRedirectTo = `${window.location.origin}/auth/confirm`;
+
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: confirmationRedirectTo,
           data: {
             registration_source: "self_service",
             first_name: firstName.trim(),
@@ -353,11 +358,7 @@ export default function RegisterPage() {
         return;
       }
 
-      setSuccessMessage(
-        isPilotRegistration || selectedPlan === "trial"
-          ? "Your account has been created. Check your email to confirm your address, then sign in to start your access period."
-          : "Your account has been created. Check your email to confirm your address, then sign in to continue to secure billing and activate your subscription."
-      );
+      setSuccessMessage(registrationVerificationMessage);
     } catch {
       setFormError(
         "Leo HR could not create your account. Please check your connection and try again."
@@ -493,9 +494,16 @@ export default function RegisterPage() {
                 <CheckIcon />
               </div>
               <div>
-                <strong>Account created</strong>
+                <strong>Verify your email</strong>
                 <p>{successMessage}</p>
-                <Link href="/login">Go to log in</Link>
+                <p>
+                  Please confirm your email address to continue setting up your
+                  Leo HR account.
+                </p>
+                <p>
+                  Once you've verified your email, you'll be able to continue
+                  with your chosen plan.
+                </p>
               </div>
             </div>
           ) : (

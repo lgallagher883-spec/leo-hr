@@ -209,6 +209,8 @@ export default function BillingPage() {
   const [openingPortal, setOpeningPortal] = useState(false);
   const [pageError, setPageError] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
+  const [autostartingCheckout, setAutostartingCheckout] = useState(false);
+  const [autostartError, setAutostartError] = useState("");
   const autostartAttemptedRef = useRef(false);
 
   const loadBilling = useCallback(
@@ -400,6 +402,8 @@ export default function BillingPage() {
   async function handleCheckout(planKey: string) {
     setCheckoutPlan(planKey);
     setNotice(null);
+    setAutostartError("");
+    setAutostartingCheckout(false);
 
     try {
       const response = await fetch("/api/stripe/checkout", {
@@ -416,14 +420,18 @@ export default function BillingPage() {
 
       window.location.assign(result.url);
     } catch (error) {
+      const nextMessage =
+        error instanceof Error
+          ? error.message
+          : "Stripe Checkout could not be started.";
+
       setNotice({
         type: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Stripe Checkout could not be started.",
+        message: nextMessage,
       });
       setCheckoutPlan(null);
+      setAutostartingCheckout(false);
+      setAutostartError(nextMessage);
     }
   }
 
@@ -557,6 +565,8 @@ export default function BillingPage() {
     }
 
     autostartAttemptedRef.current = true;
+    setAutostartingCheckout(true);
+    setAutostartError("");
 
     const nextUrl = new URL(window.location.href);
     nextUrl.searchParams.delete("autostart");
@@ -564,6 +574,22 @@ export default function BillingPage() {
 
     void handleCheckout(autostartPlan);
   }, [canStartCheckout, checkoutPlan]);
+
+  if (autostartingCheckout) {
+    return (
+      <main className="billing-page transition-page">
+        <div className="transition-card" role="status" aria-live="polite">
+          <div className="transition-spinner" aria-hidden="true" />
+          <h1>Taking you to secure payment…</h1>
+          <p>Your Leo HR subscription is being prepared. You'll be redirected to Stripe securely.</p>
+          <p className="transition-note">
+            Payments are processed securely by Stripe. Leo HR never stores your card details.
+          </p>
+        </div>
+        <style jsx>{styles}</style>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
@@ -608,6 +634,30 @@ export default function BillingPage() {
             </div>
           </div>
         </section>
+        <style jsx>{styles}</style>
+      </main>
+    );
+  }
+
+  if (autostartError) {
+    return (
+      <main className="billing-page transition-page">
+        <div className="transition-card" role="alert">
+          <h1>We couldn’t start secure payment</h1>
+          <p>{autostartError}</p>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => {
+              setAutostartError("");
+              setAutostartingCheckout(false);
+              setCheckoutPlan(null);
+              void loadBilling(true);
+            }}
+          >
+            Try again
+          </button>
+        </div>
         <style jsx>{styles}</style>
       </main>
     );
@@ -1287,6 +1337,54 @@ const styles = `
     border-radius: 18px;
     background: white;
     box-shadow: 0 9px 28px rgba(77, 55, 90, 0.055);
+  }
+
+  .transition-page {
+    display: grid;
+    place-items: center;
+    min-height: 70vh;
+  }
+
+  .transition-card {
+    max-width: 560px;
+    padding: 36px;
+    border: 1px solid var(--leo-border);
+    border-radius: 24px;
+    background: white;
+    box-shadow: 0 18px 48px rgba(77, 55, 90, 0.08);
+    text-align: center;
+  }
+
+  .transition-spinner {
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 20px;
+    border: 4px solid rgba(110, 80, 132, 0.16);
+    border-top-color: var(--leo-purple);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+
+  .transition-card h1 {
+    margin-bottom: 12px;
+    font-size: clamp(24px, 3vw, 32px);
+  }
+
+  .transition-card p {
+    margin-bottom: 10px;
+    color: var(--leo-muted);
+    line-height: 1.6;
+  }
+
+  .transition-note {
+    font-size: 14px;
+    color: var(--leo-purple-dark);
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .summary-card {

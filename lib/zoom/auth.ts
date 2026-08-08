@@ -217,23 +217,6 @@ export function decryptZoomTokenPayload(
   ) as ZoomTokenPayload;
 }
 
-export function buildZoomPkceVerifier(
-  sessionReference: string,
-  stateHash: string,
-) {
-  return createHash("sha256")
-    .update(`zoom-pkce:${sessionReference}:${stateHash}`)
-    .digest("base64url");
-}
-
-export function buildZoomPkceChallenge(
-  codeVerifier: string,
-) {
-  return createHash("sha256")
-    .update(codeVerifier)
-    .digest("base64url");
-}
-
 export function buildZoomState(
   sessionReference: string,
   stateHash: string,
@@ -307,11 +290,9 @@ async function readZoomTokenResponse(
 
 export async function exchangeZoomAuthorizationCode({
   code,
-  codeVerifier,
   redirectUri,
 }: {
   code: string;
-  codeVerifier: string;
   redirectUri: string;
 }): Promise<ZoomTokenResponse> {
   const response = await fetch(
@@ -328,7 +309,6 @@ export async function exchangeZoomAuthorizationCode({
         grant_type: "authorization_code",
         code,
         redirect_uri: redirectUri,
-        code_verifier: codeVerifier,
       }),
       cache: "no-store",
     },

@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import {
-  buildZoomPkceChallenge,
-  buildZoomPkceVerifier,
   buildZoomState,
   getZoomClientId,
   getZoomRedirectUri,
@@ -136,14 +134,6 @@ export async function GET(request: Request) {
       session.state_hash,
     );
 
-    const codeVerifier = buildZoomPkceVerifier(
-      session.session_reference,
-      session.state_hash,
-    );
-
-    const codeChallenge =
-      buildZoomPkceChallenge(codeVerifier);
-
     const sessionUpdate = await admin
       .from("connection_auth_sessions")
       .update({
@@ -177,14 +167,6 @@ export async function GET(request: Request) {
     authorisationUrl.searchParams.set(
       "redirect_uri",
       redirectUri,
-    );
-    authorisationUrl.searchParams.set(
-      "code_challenge",
-      codeChallenge,
-    );
-    authorisationUrl.searchParams.set(
-      "code_challenge_method",
-      "S256",
     );
     authorisationUrl.searchParams.set(
       "state",

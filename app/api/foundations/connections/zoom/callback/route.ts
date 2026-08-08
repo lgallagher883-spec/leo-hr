@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import {
-  buildZoomPkceVerifier,
   encryptZoomTokenPayload,
   exchangeZoomAuthorizationCode,
   verifyZoomState,
@@ -230,12 +229,6 @@ export async function GET(request: Request) {
       );
     }
 
-    const codeVerifier =
-      buildZoomPkceVerifier(
-        session.session_reference,
-        session.state_hash,
-      );
-
     await admin
       .from("connection_auth_sessions")
       .update({
@@ -249,7 +242,6 @@ export async function GET(request: Request) {
       tokenData =
         await exchangeZoomAuthorizationCode({
           code,
-          codeVerifier,
           redirectUri,
         });
     } catch (error) {

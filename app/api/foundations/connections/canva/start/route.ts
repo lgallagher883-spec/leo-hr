@@ -7,7 +7,6 @@ import {
   buildCanvaPkceVerifier,
   buildCanvaState,
   getCanvaClientId,
-  getCanvaRedirectUri,
 } from "@/lib/canva/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -63,7 +62,7 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.redirect(new URL("/auth/login", requestUrl.origin));
+      return NextResponse.redirect(new URL("/login", requestUrl.origin));
     }
 
     const admin = getAdminClient();
@@ -107,7 +106,10 @@ export async function GET(request: Request) {
       return redirectToConnections(requestUrl.origin, "session-expired");
     }
 
-    const redirectUri = getCanvaRedirectUri();
+    const redirectUri = new URL(
+      "/api/foundations/connections/canva/callback",
+      requestUrl.origin,
+    ).toString();
     const state = buildCanvaState(
       session.session_reference,
       session.state_hash,

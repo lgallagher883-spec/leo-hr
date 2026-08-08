@@ -154,23 +154,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Canva connection start failed:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "The Canva connection start route failed for an unknown reason.";
-
-    /*
-     * Do not silently redirect while Canva is being commissioned.
-     * Returning the server-side failure here makes the real configuration
-     * or database error visible to an authorised LEO user instead of
-     * disguising every failure as "Connection Pending".
-     */
-    return NextResponse.json(
-      {
-        success: false,
-        error: message,
-      },
-      { status: 500 },
-    );
+    const requestUrl = new URL(request.url);
+    return redirectToConnections(requestUrl.origin, "start-failed");
   }
 }

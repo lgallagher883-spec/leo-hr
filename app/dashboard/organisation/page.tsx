@@ -9,6 +9,7 @@ import SecurityWorkspace from "./components/SecurityWorkspace";
 import AuditWorkspace from "./components/AuditWorkspace";
 import BrandWorkspace from "./components/BrandWorkspace";
 import CompanyDocumentsWorkspace from "./components/CompanyDocumentsWorkspace";
+import SubscriptionBillingWorkspace from "./components/SubscriptionBillingWorkspace";
 
 
 type OrganisationRecord = {
@@ -304,12 +305,6 @@ export default function OrganisationPage() {
             }
             onClick={() => {
               setNotice(null);
-
-              if (workspace.key === "billing") {
-                window.location.assign("/dashboard/billing");
-                return;
-              }
-
               setActiveWorkspace(workspace.key);
             }}
           >
@@ -499,6 +494,12 @@ export default function OrganisationPage() {
         </div>
       ) : null}
 
+
+      {!pageError && organisation && activeWorkspace === "billing" ? (
+        <section className="workspace-panel billing-workspace-container">
+          <SubscriptionBillingWorkspace organisationId={organisation.id} />
+        </section>
+      ) : null}
 
       {!pageError && organisation && activeWorkspace === "brand" ? (
         <section className="workspace-panel">

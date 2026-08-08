@@ -255,39 +255,12 @@ function LearnDashboard({
       </div>
 
       <div style={dashboardGridStyle}>
-        <div style={panelStyle}>
-          <h3 style={panelTitleStyle}>
-            Leo Recommendations
-          </h3>
-
-          {intelligence ? (
-            <div style={intelligencePanelStyle}>
-              <p style={intelligenceSummaryStyle}>
-                {intelligence.summary}
-              </p>
-
-              <div style={intelligenceLabelStyle}>Next step</div>
-              <p style={intelligenceNextStepStyle}>{intelligence.nextStep}</p>
-
-              <div style={intelligenceLabelStyle}>Top recommendations</div>
-              <ul style={intelligenceListStyle}>
-                {intelligence.recommendations.slice(0, 3).map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <div style={emptyPanelStyle}>
-              <div style={starStyle}>✦</div>
-
-              <p style={emptyPanelTextStyle}>
-                Leo is preparing contextual learning recommendations.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div style={panelStyle}>
+        <div
+          style={{
+            ...panelStyle,
+            gridColumn: "1 / -1",
+          }}
+        >
           <h3 style={panelTitleStyle}>
             Quick Actions
           </h3>
@@ -519,7 +492,7 @@ function getSectionDescription(
 ): string {
   switch (section) {
     case "Dashboard":
-      return "Learning activity, recommendations and quick actions.";
+      return "Learning activity and quick actions.";
 
     case "Learning Library":
       return "The single source of truth for learning content.";

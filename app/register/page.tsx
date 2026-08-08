@@ -312,7 +312,24 @@ export default function RegisterPage() {
               ? "organisation_250"
               : null;
 
-      const confirmationRedirectTo = `${window.location.origin}/auth/confirm`;
+          const confirmationRedirectTo = (() => {
+        const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+
+        if (configuredOrigin) {
+          return `${configuredOrigin}/auth/confirm`;
+        }
+
+        const currentOrigin = window.location.origin;
+
+        if (
+          currentOrigin === "https://leohr.co.uk" ||
+          currentOrigin === "https://www.leohr.co.uk"
+        ) {
+          return "https://app.leohr.co.uk/auth/confirm";
+        }
+
+        return `${currentOrigin}/auth/confirm`;
+      })();
 
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),

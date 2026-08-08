@@ -103,6 +103,9 @@ function getProviderIdentity(provider: any) {
     isCanva:
       providerName.includes("canva") ||
       providerKey.includes("canva"),
+    isZoom:
+      providerName.includes("zoom") ||
+      providerKey.includes("zoom"),
   };
 }
 
@@ -363,6 +366,7 @@ export async function POST(
         isGoogleWorkspace,
         isDocuSign,
         isCanva,
+        isZoom,
       } = getProviderIdentity(provider);
 
       if (
@@ -370,6 +374,7 @@ export async function POST(
         !isGoogleWorkspace &&
         !isDocuSign &&
         !isCanva &&
+        !isZoom &&
         provider.setup_status !== "Available"
       ) {
         return NextResponse.json({
@@ -504,6 +509,19 @@ export async function POST(
         });
       }
 
+      if (isZoom) {
+        return NextResponse.json({
+          success: true,
+          connection: connectionResult.data,
+          session: sessionResult.data,
+          redirectUrl:
+            `/api/foundations/connections/zoom/start` +
+            `?session=${encodeURIComponent(sessionReference)}`,
+          message:
+            "Redirecting to Zoom for secure authorisation.",
+        });
+      }
+
       return NextResponse.json({
         success: true,
         connection: connectionResult.data,
@@ -548,8 +566,12 @@ export async function POST(
 
       const liveConnection =
         connection.status === "Connected";
-      const { isGoogleWorkspace, isDocuSign, isCanva } =
-        getProviderIdentity(provider);
+      const {
+        isGoogleWorkspace,
+        isDocuSign,
+        isCanva,
+        isZoom,
+      } = getProviderIdentity(provider);
 
       if (liveConnection && isDocuSign) {
         const healthUrl = new URL(
@@ -698,6 +720,83 @@ export async function POST(
           },
           {
             status: canvaResult.success ? 200 : 502,
+          },
+        );
+      }
+
+      if (liveConnection && isZoom) {
+        const healthUrl = new URL(
+          "/api/foundations/connections/zoom/health",
+          request.url,
+        );
+        healthUrl.searchParams.set(
+          "connectionId",
+          String(connectionId),
+        );
+
+        const zoomResponse = await fetch(healthUrl, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            cookie: request.headers.get("cookie") || "",
+          },
+        });
+
+        const zoomResult = (await zoomResponse.json()) as {
+          success?: boolean;
+          error?: string;
+          message?: string;
+        };
+
+        const healthStatus = zoomResult.success
+          ? "Healthy"
+          : "Authentication Failed";
+
+        const summary =
+          zoomResult.message ||
+          zoomResult.error ||
+          "Zoom connection test completed.";
+
+        await (admin as any)
+          .from("connection_jobs")
+          .update({
+            status: zoomResult.success
+              ? "Completed"
+              : "Partially Completed",
+            progress_percent: 100,
+            completed_at: now,
+            error_message: zoomResult.success
+              ? null
+              : summary,
+            response_payload: {
+              health_status: healthStatus,
+              summary,
+            },
+          })
+          .eq("id", jobResult.data.id)
+          .eq("connection_id", connectionId);
+
+        await recordActivity(admin, {
+          organisationId: access.organisationId,
+          userId: access.user.id,
+          providerId: provider.id,
+          connectionId,
+          jobId: jobResult.data.id,
+          activityType: "Connection Tested",
+          summary,
+          details: {
+            health_status: healthStatus,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: zoomResult.success === true,
+            healthStatus,
+            message: summary,
+          },
+          {
+            status: zoomResult.success ? 200 : 502,
           },
         );
       }

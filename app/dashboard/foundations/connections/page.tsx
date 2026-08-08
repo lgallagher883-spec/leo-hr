@@ -586,7 +586,7 @@ export default function ConnectionsPage() {
       populateConnection(result.connection);
 
       setMessage(
-        selectedProvider.setup_status === "Available"
+        providerHasLiveAuthorisationRoute(selectedProvider)
           ? `${selectedProvider.name} is ready for secure authorisation.`
           : `${selectedProvider.name} has been added to Connections. The live provider authorisation route is not enabled yet.`
       );
@@ -669,10 +669,31 @@ export default function ConnectionsPage() {
     }
   }
 
+  function providerHasLiveAuthorisationRoute(
+    provider: Provider
+  ) {
+    const providerName = provider.name.trim().toLowerCase();
+    const providerKey = provider.provider_key.trim().toLowerCase();
+
+    return (
+      provider.setup_status === "Available" ||
+      providerName.includes("microsoft") ||
+      providerKey.includes("microsoft") ||
+      providerName.includes("google") ||
+      providerKey.includes("google") ||
+      providerName.includes("docusign") ||
+      providerKey.includes("docusign") ||
+      providerName.includes("canva") ||
+      providerKey.includes("canva") ||
+      providerName.includes("zoom") ||
+      providerKey.includes("zoom")
+    );
+  }
+
   async function beginSecureConnection() {
     if (!selectedProvider || !selectedConnection) return;
 
-    if (selectedProvider.setup_status !== "Available") {
+    if (!providerHasLiveAuthorisationRoute(selectedProvider)) {
       setMessage(
         `${selectedProvider.name} is prepared in the Connections framework, but its secure provider authorisation route has not been activated yet.`
       );
@@ -1277,8 +1298,9 @@ if (result.redirectUrl) {
                 {!selectedConnection ? (
                   <div>
                     <div style={noticeStyle}>
-                      {selectedProvider.setup_status ===
-                      "Available"
+                      {providerHasLiveAuthorisationRoute(
+                        selectedProvider
+                      )
                         ? `${selectedProvider.name} is available to connect. Create the organisation connection record before authorising the account.`
                         : `${selectedProvider.name} is included in the Connections framework. Its live provider authorisation route is not active yet, but you can prepare the organisation settings now.`}
                     </div>
@@ -2633,7 +2655,9 @@ if (result.redirectUrl) {
                                   providerCardTitleStyle
                                 }
                               >
-                                {provider.name}
+                                {provider.name === "Microsoft 365"
+                                  ? "Microsoft 365 including Teams"
+                                  : provider.name}
                               </h3>
                             </div>
 

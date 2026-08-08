@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { formsCatalogue } from "./formsCatalogue";
 
 type FormResource = {
   id: string;
@@ -29,17 +30,7 @@ const topics = [
 ];
 
 // Published LEO form resources will be supplied here by the library API.
-const publishedForms: FormResource[] = [
-  {
-    id: "return-to-work-form",
-    title: "Return to Work Form",
-    summary:
-      "Record a return-to-work discussion following sickness absence, including the reason for absence, current fitness for work and any support or follow-up required.",
-    topic: "Sickness & absence",
-    lastUpdated: "July 2026",
-    tags: ["return to work", "sickness", "absence", "wellbeing"],
-  },
-];
+const publishedForms: FormResource[] = formsCatalogue;
 
 export default function FormsPage() {
   const [search, setSearch] = useState("");
@@ -135,16 +126,16 @@ export default function FormsPage() {
           <h2>Reason for absence</h2>
           <table>
             <tr><th>Employee's explanation</th><td class="large"></td></tr>
-            <tr><th>Was the absence work-related?</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ Unsure</td></tr>
-            <tr><th>Was an accident involved?</th><td>☐ Yes &nbsp;&nbsp; ☐ No</td></tr>
-            <tr><th>If yes, was it recorded?</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ Not applicable</td></tr>
+            <tr><th>Was the absence work-related?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ Unsure</td></tr>
+            <tr><th>Was an accident involved?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No</td></tr>
+            <tr><th>If yes, was it recorded?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ Not applicable</td></tr>
           </table>
 
           <h2>Medical information and current fitness</h2>
           <table>
-            <tr><th>Fit note provided?</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ Not required</td></tr>
+            <tr><th>Fit note provided?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ Not required</td></tr>
             <tr><th>Medical advice or restrictions</th><td class="large"></td></tr>
-            <tr><th>Employee considers themselves fit for work</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ With support or adjustments</td></tr>
+            <tr><th>Employee considers themselves fit for work</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ With support or adjustments</td></tr>
             <tr><th>Medication or treatment affecting work</th><td class="large"></td></tr>
           </table>
 
@@ -153,14 +144,14 @@ export default function FormsPage() {
             <tr><th>Support requested by employee</th><td class="large"></td></tr>
             <tr><th>Temporary adjustments agreed</th><td class="large"></td></tr>
             <tr><th>Reasonable adjustment considerations</th><td class="large"></td></tr>
-            <tr><th>Occupational health or medical advice required?</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ To be reviewed</td></tr>
+            <tr><th>Occupational health or medical advice required?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ To be reviewed</td></tr>
           </table>
 
           <h2>Attendance review</h2>
           <table>
-            <tr><th>Previous sickness absence discussed?</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ Not applicable</td></tr>
+            <tr><th>Previous sickness absence discussed?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ Not applicable</td></tr>
             <tr><th>Any pattern or concern identified?</th><td class="large"></td></tr>
-            <tr><th>Relevant attendance procedure explained?</th><td>☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ Not required</td></tr>
+            <tr><th>Relevant attendance procedure explained?</th><td>â˜ Yes &nbsp;&nbsp; â˜ No &nbsp;&nbsp; â˜ Not required</td></tr>
           </table>
 
           <h2>Agreed action and follow-up</h2>
@@ -720,7 +711,7 @@ export default function FormsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          ← Back to HR Resources
+          â† Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -740,7 +731,7 @@ export default function FormsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">âŒ•</span>
             <input
               className="search-input"
               value={search}
@@ -751,7 +742,7 @@ export default function FormsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">✦</span>
+            <span aria-hidden="true">âœ¦</span>
             Ask Leo
           </Link>
         </div>
@@ -862,7 +853,7 @@ export default function FormsPage() {
         </div>
 
         <section className="current-note">
-          <span>↻</span>
+          <span>â†»</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>
@@ -874,3 +865,4 @@ export default function FormsPage() {
     </main>
   );
 }
+

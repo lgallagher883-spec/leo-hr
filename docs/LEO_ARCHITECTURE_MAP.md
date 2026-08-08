@@ -2,6 +2,14 @@
 
 *Last Updated: July 2026*
 
+## Related Architecture Documents
+
+- [LEO System Architecture](LEO_SYSTEM_ARCHITECTURE.md)
+- [LEO Architecture Map](LEO_ARCHITECTURE_MAP.md)
+- [LEO Development Rules](LEO_DEVELOPMENT_RULES.md)
+- [LEO Reporting Audit and Strategy](LEO_REPORTING_AUDIT_AND_STRATEGY.md)
+- [LEO Architecture Decisions](DECISIONS.md)
+
 ---
 
 # Purpose
@@ -293,6 +301,50 @@ Matter / Draft / Insight
 
 ---
 
+# Reminder and Expiry Intelligence
+
+## Purpose
+
+Reminder and Expiry Intelligence provides proactive, milestone-based in-app reminders using existing source dates, without duplicating domain logic.
+
+## Ownership Model
+
+- Domain modules own source dates and completion state.
+- Reminder orchestration owns milestone emission and deduplication.
+- Operational workspaces own unresolved-item visibility after reminder delivery.
+- Audit Logs own reminder lifecycle evidence.
+
+## Implemented in Phase 1
+
+- Compliance reminders
+- SAR deadline reminders
+- Leo Learn due and expiry reminders
+- In-app delivery only
+- Stateless-first source calculation
+- Minimal persistence for dedupe, dismiss, snooze, natural read/ack, and audit evidence
+
+## Milestone Rules
+
+- Standard reminders: T-30, T-7, T0
+- SAR reminders: T-14, T-7, T-1, T0
+- Each milestone is sent once only
+- Daily repeated reminders are prohibited
+
+## Trust and Isolation Rules
+
+- All organisation and recipient scope is resolved server-side.
+- Browser-supplied organisation, employee, and manager scope is never trusted.
+- Reminder content must not expose restricted medical, Occupational Health, or sensitive document content.
+
+## Deferred to Later Phases
+
+- Email and other non in-app channels
+- Advanced escalation chains
+- Universal reminder ledger
+- Cross-channel orchestration and adaptive reminder intelligence
+
+---
+
 # Development Principle
 
 The architecture must always be respected.
@@ -309,6 +361,40 @@ The four LEO components should remain separated:
 * Knowledge = information
 * Draft = creation
 * Insight = intelligence
+
+---
+
+# Reporting Ownership Map
+
+Reporting is delivered through existing platform components, not a separate reporting workspace.
+
+Ownership boundaries:
+
+* Dashboard = command centre and navigation to reporting surfaces
+* Compliance = compliance metrics and compliance operations reporting
+* Insights = cross-domain interpretation, period-aware analysis, and Executive Insight Brief
+* Audit Logs = evidence plane for report creation, viewing, and download lifecycle events
+* Domain modules = source metric definitions and domain-specific joins
+
+Executive Insight Brief location:
+
+* Produced in Insights
+* Uses period-aware Insights data
+* Writes lifecycle events to Audit Logs
+
+---
+
+# Tenant Isolation Boundary
+
+All reporting surfaces must enforce organisation isolation on the server.
+
+Rules:
+
+* Resolve active organisation using server-side membership context
+* Validate permissions with organisation-aware RPC checks
+* Apply explicit organisation filters on all tables that include organisation_id
+* Where a table does not include organisation_id, scope through organisation-owned linked IDs
+* Never trust client-provided organisation identifiers for reporting or audit writes
 
 ---
 

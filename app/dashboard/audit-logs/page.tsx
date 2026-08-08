@@ -1099,6 +1099,14 @@ function resolveAuditLog({
       "/dashboard/foundations";
   }
 
+  if (
+    log.entity_type ===
+    "Insight Brief"
+  ) {
+    destinationPath =
+      "/dashboard/insights";
+  }
+
   const relatedPerson =
     metadataEmployeeName ||
     (employeeId !== null &&
@@ -1547,6 +1555,17 @@ function getActivityVerb(
 
   if (
     normalised.includes(
+      "downloaded"
+    ) ||
+    normalised.includes(
+      "exported"
+    )
+  ) {
+    return "Downloaded";
+  }
+
+  if (
+    normalised.includes(
       "changed"
     ) ||
     normalised.includes(
@@ -1579,6 +1598,13 @@ function getActivityStyle(
     return {
       background: "#EFF6FF",
       color: "#1D4ED8",
+    };
+  }
+
+  if (activity === "Downloaded") {
+    return {
+      background: "#F5F3FF",
+      color: "#6D28D9",
     };
   }
 

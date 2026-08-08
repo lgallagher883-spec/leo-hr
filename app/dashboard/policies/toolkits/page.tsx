@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toolkitsCatalogue } from "./toolkitsCatalogue";
 
 type ToolkitResource = {
   id: string;
@@ -30,17 +31,7 @@ const topics = [
 ];
 
 // Published LEO toolkit resources will be supplied here by the library API.
-const publishedToolkits: ToolkitResource[] = [
-  {
-    id: "disciplinary-toolkit",
-    title: "Disciplinary Toolkit",
-    summary:
-      "A complete resource pack for managing a disciplinary process, bringing together practical guidance, letters, forms and checklists from investigation through to outcome.",
-    topic: "Disciplinary",
-    lastUpdated: "July 2026",
-    tags: ["disciplinary", "investigation", "hearing", "outcome", "manager toolkit"],
-  },
-];
+const publishedToolkits: ToolkitResource[] = toolkitsCatalogue;
 
 export default function ToolkitsPage() {
   const [search, setSearch] = useState("");
@@ -200,14 +191,14 @@ export default function ToolkitsPage() {
           <h2>2. Investigation planning checklist</h2>
           <table>
             <tr><th>Done</th><th>Action</th><th>Owner</th><th>Date</th></tr>
-            <tr><td>☐</td><td>Define the allegation or concern clearly</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Appoint an appropriate investigator</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Identify relevant evidence and witnesses</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Preserve documents, records and system data</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Plan witness and employee meetings</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Consider confidentiality and data protection</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Review whether suspension is necessary</td><td></td><td></td></tr>
-            <tr><td>☐</td><td>Record findings and whether there is a case to answer</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Define the allegation or concern clearly</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Appoint an appropriate investigator</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Identify relevant evidence and witnesses</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Preserve documents, records and system data</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Plan witness and employee meetings</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Consider confidentiality and data protection</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Review whether suspension is necessary</td><td></td><td></td></tr>
+            <tr><td>â˜</td><td>Record findings and whether there is a case to answer</td><td></td><td></td></tr>
           </table>
 
           <h2>3. Investigation meeting record</h2>
@@ -258,15 +249,15 @@ export default function ToolkitsPage() {
           <h2>5. Disciplinary hearing checklist</h2>
           <table>
             <tr><th>Done</th><th>Action</th></tr>
-            <tr><td>☐</td><td>Invitation gave reasonable notice</td></tr>
-            <tr><td>☐</td><td>Allegations were set out clearly</td></tr>
-            <tr><td>☐</td><td>Evidence was supplied in advance</td></tr>
-            <tr><td>☐</td><td>Right to be accompanied was confirmed</td></tr>
-            <tr><td>☐</td><td>Possible outcomes were explained</td></tr>
-            <tr><td>☐</td><td>Employee was allowed to respond fully</td></tr>
-            <tr><td>☐</td><td>Mitigation and relevant context were considered</td></tr>
-            <tr><td>☐</td><td>Further investigation was completed where required</td></tr>
-            <tr><td>☐</td><td>Decision was adjourned and considered objectively</td></tr>
+            <tr><td>â˜</td><td>Invitation gave reasonable notice</td></tr>
+            <tr><td>â˜</td><td>Allegations were set out clearly</td></tr>
+            <tr><td>â˜</td><td>Evidence was supplied in advance</td></tr>
+            <tr><td>â˜</td><td>Right to be accompanied was confirmed</td></tr>
+            <tr><td>â˜</td><td>Possible outcomes were explained</td></tr>
+            <tr><td>â˜</td><td>Employee was allowed to respond fully</td></tr>
+            <tr><td>â˜</td><td>Mitigation and relevant context were considered</td></tr>
+            <tr><td>â˜</td><td>Further investigation was completed where required</td></tr>
+            <tr><td>â˜</td><td>Decision was adjourned and considered objectively</td></tr>
           </table>
 
           <h2>6. Hearing notes form</h2>
@@ -932,7 +923,7 @@ export default function ToolkitsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          ← Back to HR Resources
+          â† Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -952,7 +943,7 @@ export default function ToolkitsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">âŒ•</span>
             <input
               className="search-input"
               value={search}
@@ -963,7 +954,7 @@ export default function ToolkitsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">✦</span>
+            <span aria-hidden="true">âœ¦</span>
             Ask Leo
           </Link>
         </div>
@@ -1074,7 +1065,7 @@ export default function ToolkitsPage() {
         </div>
 
         <section className="current-note">
-          <span>↻</span>
+          <span>â†»</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>
@@ -1086,3 +1077,4 @@ export default function ToolkitsPage() {
     </main>
   );
 }
+

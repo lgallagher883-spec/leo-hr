@@ -1,5 +1,4 @@
 import { runLeoCore } from "../core/router";
-import { buildDecisionFramework } from "../reasoning/decisionFramework";
 import { runLeoReasoning } from "../reasoning/reasoner";
 import { searchKnowledge } from "../knowledge";
 
@@ -36,6 +35,7 @@ export type LeoInsightOutput = {
 
 type InsightInput = {
   periodLabel: string;
+  periodKey?: "30_days" | "quarter" | "6_months" | "12_months" | "all_time";
   employees?: Array<{ id: number; name: string; status?: string | null; start_date?: string | null }>;
   matters?: Array<{ id: number; title: string; subject?: string | null; status?: string | null; matter_type?: string | null; created_at?: string | null }>;
   sars?: Array<{ id: number; request_title: string; employee_id: number; matter_id?: number | null; status?: string; response_due_date?: string | null; extended_due_date?: string | null; created_at?: string | null }>;
@@ -44,11 +44,14 @@ type InsightInput = {
 };
 
 export function buildLeoInsight(input: InsightInput): LeoInsightOutput {
+  const periodStart = getPeriodStart(input.periodKey);
   const activeMatters = (input.matters || []).filter((matter) => !isClosedMatterStatus(matter.status));
   const activeSars = (input.sars || []).filter((sar) => sar.status !== "Completed" && sar.status !== "Closed");
   const dueSoonSars = activeSars.filter((sar) => isDueSoon(sar.response_due_date));
   const pastDueSars = activeSars.filter((sar) => isPastDue(sar.response_due_date));
-  const joiners = (input.employees || []).filter((employee) => isWithinPeriod(employee.start_date));
+  const periodMatters = (input.matters || []).filter((matter) => isWithinPeriod(matter.created_at, periodStart));
+  const periodSars = (input.sars || []).filter((sar) => isWithinPeriod(sar.created_at, periodStart));
+  const joiners = (input.employees || []).filter((employee) => isWithinPeriod(employee.start_date, periodStart));
   const knowledgeReady = (input.knowledgeSectionCount || 0) > 0;
 
   const message = [
@@ -63,7 +66,6 @@ export function buildLeoInsight(input: InsightInput): LeoInsightOutput {
 
   const core = runLeoCore(message);
   const reasoning = runLeoReasoning(core, message);
-  const framework = buildDecisionFramework(core, reasoning, message);
   const knowledge = searchKnowledge({ message, organisationKnowledge: [] });
 
   const risks: InsightRisk[] = [];
@@ -103,10 +105,22 @@ export function buildLeoInsight(input: InsightInput): LeoInsightOutput {
       detail: `${joiners.length} new starter${joiners.length === 1 ? "" : "s"} were recorded in the selected period.`,
     });
   }
+  if (periodMatters.length > 0) {
+    trends.push({
+      title: "Matter activity was recorded in the selected period",
+      detail: `${periodMatters.length} matter${periodMatters.length === 1 ? " was" : "s were"} opened during ${input.periodLabel.toLowerCase()}.`,
+    });
+  }
   if (activeMatters.length > 0) {
     trends.push({
       title: "Matter workload remains active",
       detail: `${activeMatters.length} open matter${activeMatters.length === 1 ? "" : "s"} indicate continuing operational demand.`,
+    });
+  }
+  if (periodSars.length > 0) {
+    trends.push({
+      title: "SAR demand remains visible",
+      detail: `${periodSars.length} subject access ${periodSars.length === 1 ? "request was" : "requests were"} recorded during ${input.periodLabel.toLowerCase()}.`,
     });
   }
   if (knowledge.sources.length > 0) {
@@ -174,12 +188,46 @@ export function buildLeoInsight(input: InsightInput): LeoInsightOutput {
   }
 
   return {
-    summary: `${framework.decisionSequence.join(" → ")} · ${reasoning.professionalRecommendation}`.slice(0, 240),
+    summary: `${input.periodLabel} summary: ${periodMatters.length} ${periodMatters.length === 1 ? "matter" : "matters"} opened, ${activeMatters.length} open ${activeMatters.length === 1 ? "matter" : "matters"}, ${activeSars.length} active ${activeSars.length === 1 ? "SAR" : "SARs"}. ${reasoning.professionalRecommendation}`.slice(0, 240),
     risks,
     trends,
     recommendations,
     earlyInterventions,
   };
+}
+
+function getPeriodStart(periodKey: InsightInput["periodKey"]): Date | null {
+  const now = new Date();
+
+  switch (periodKey) {
+    case "30_days": {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 30);
+      return start;
+    }
+    case "quarter": {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 3);
+      return start;
+    }
+    case "6_months": {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 6);
+      return start;
+    }
+    case "12_months": {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 12);
+      return start;
+    }
+    case "all_time":
+      return null;
+    default: {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 3);
+      return start;
+    }
+  }
 }
 
 function isClosedMatterStatus(status: string | null | undefined) {
@@ -201,11 +249,10 @@ function isPastDue(value: string | null | undefined) {
   return dueDate.getTime() < Date.now();
 }
 
-function isWithinPeriod(value: string | null | undefined) {
+function isWithinPeriod(value: string | null | undefined, periodStart: Date | null) {
   if (!value) return false;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return false;
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 3);
-  return date.getTime() >= cutoff.getTime();
+  if (!periodStart) return true;
+  return date.getTime() >= periodStart.getTime();
 }

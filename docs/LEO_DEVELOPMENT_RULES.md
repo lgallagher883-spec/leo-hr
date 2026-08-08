@@ -1,5 +1,13 @@
 # LEO Development Rules
 
+## Related Architecture Documents
+
+- [LEO System Architecture](LEO_SYSTEM_ARCHITECTURE.md)
+- [LEO Architecture Map](LEO_ARCHITECTURE_MAP.md)
+- [LEO Development Rules](LEO_DEVELOPMENT_RULES.md)
+- [LEO Reporting Audit and Strategy](LEO_REPORTING_AUDIT_AND_STRATEGY.md)
+- [LEO Architecture Decisions](DECISIONS.md)
+
 
 ## 1. Leo Identity
 
@@ -206,3 +214,60 @@ Current focus:
 6.Develop full AI reasoning layer.
 
 Leo should evolve from a working prototype into a reliable HR decision-support system.
+
+---
+
+# 11. Reporting and Isolation Guardrails
+
+These rules are mandatory for all reporting and insight work.
+
+1. Do not create a duplicate reporting workspace when the capability belongs in an existing workspace.
+2. Keep reporting ownership boundaries explicit:
+Dashboard for command-centre aggregation,
+Compliance for compliance reporting,
+Insights for narrative interpretation and Executive Insight Brief,
+Audit Logs for evidence.
+3. Keep domain metric logic in domain modules; shared reporting plumbing can be reused, but domain definitions must not be duplicated.
+4. Resolve active organisation and permissions on the server for every reporting endpoint.
+5. Apply explicit tenant scoping to every query where organisation_id exists.
+6. For tables without organisation_id, constrain access through already organisation-scoped linked IDs.
+7. Never trust organisation IDs from the browser for reporting reads or audit writes.
+8. Record audit events for sensitive report lifecycle actions such as generate and download.
+
+Any implementation that breaks these guardrails must be revised before merge.
+
+---
+
+# 12. Reminder and Expiry Intelligence Guardrails
+
+These rules are mandatory for all reminder and expiry work.
+
+1. Implement reminders as stateless-first calculations from existing source data wherever possible.
+2. Do not create duplicate reminders for the same recipient, source item, and milestone.
+3. Do not send daily repeated reminders.
+4. Send each configured milestone once only.
+5. Keep unresolved items visible in operational workspaces after milestone delivery.
+6. Recalculate and clear reminder state automatically when source records are renewed, completed, or changed.
+7. Resolve organisation, employee, and manager scope server-side only.
+8. Never trust organisation, employee, or manager scope supplied by the browser.
+9. Apply existing permission and role boundaries for Owner, Senior, Manager, and Employee reminder visibility.
+10. Do not expose restricted medical, Occupational Health, or sensitive document content in reminder payloads.
+11. Persist only the minimum reminder state required for deduplication, dismiss, snooze, natural read/ack, and audit evidence.
+12. Do not introduce a universal reminder ledger unless explicitly approved by architecture decision.
+
+## Implemented in Phase 1
+
+- Compliance reminders
+- SAR deadline reminders
+- Leo Learn due and expiry reminders
+- In-app delivery only
+- Milestones:
+        - Standard: T-30, T-7, T0
+        - SAR: T-14, T-7, T-1, T0
+
+## Deferred to later phases
+
+- Email and non in-app delivery channels
+- Advanced escalation chains
+- Universal reminder ledger
+- Cross-channel orchestration and adaptive reminder intelligence

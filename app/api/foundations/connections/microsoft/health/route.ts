@@ -7,6 +7,9 @@ import {
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { createClient } from "@/lib/supabase/server";
+
 export const dynamic = "force-dynamic";
 
 type MicrosoftTokenPayload = {
@@ -222,6 +225,71 @@ function getConnectionId(
   return connectionId;
 }
 
+async function requireConnectionHealthAccess() {
+  const sessionClient = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await sessionClient.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You must be signed in.",
+        },
+        { status: 401 },
+      ),
+    };
+  }
+
+  const admin = getAdminClient();
+
+  const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
+    userId: user.id,
+    allowedStatuses: ["active"],
+  });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+
+  if (!organisationId) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You do not have access to this organisation.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  if (!resolvedRole || !["owner", "senior"].includes(resolvedRole.roleKey)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error:
+            "Only an Owner or Senior user can verify organisation connections.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ok: true as const,
+    user,
+    admin,
+    organisationId,
+  };
+}
+
 function tokenIsExpired(
   tokenPayload: MicrosoftTokenPayload,
 ) {
@@ -317,8 +385,15 @@ async function refreshMicrosoftToken(
 }
 
 export async function GET(request: Request) {
-  const admin = getAdminClient();
   const requestUrl = new URL(request.url);
+
+  const access = await requireConnectionHealthAccess();
+
+  if (!access.ok) {
+    return access.response;
+  }
+
+  const { admin, organisationId } = access;
 
   const connectionId =
     getConnectionId(requestUrl);
@@ -351,6 +426,7 @@ export async function GET(request: Request) {
         `,
       )
       .eq("id", connectionId)
+      .eq("organisation_id", organisationId)
       .eq("is_archived", false)
       .maybeSingle();
 

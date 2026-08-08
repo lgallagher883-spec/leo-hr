@@ -59,9 +59,7 @@ function getConnectionId(requestUrl: URL) {
     : null;
 }
 
-async function authoriseConnectionAccess(
-  organisationId: string,
-) {
+async function requireConnectionHealthAccess() {
   const sessionClient = await createClient();
 
   const {
@@ -86,9 +84,23 @@ async function authoriseConnectionAccess(
 
   const resolvedRole = await resolveAuthoritativeUserRole(admin as any, {
     userId: user.id,
-    organisationId,
     allowedStatuses: ["active"],
   });
+
+  const organisationId = resolvedRole?.membership.organisation_id ?? null;
+
+  if (!organisationId) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You do not have access to this organisation.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
 
   if (!resolvedRole) {
     return {
@@ -121,6 +133,7 @@ async function authoriseConnectionAccess(
     ok: true as const,
     user,
     admin,
+    organisationId,
   };
 }
 
@@ -138,7 +151,13 @@ export async function GET(request: Request) {
     );
   }
 
-  const admin = getAdminClient();
+  const authorisation = await requireConnectionHealthAccess();
+
+  if (!authorisation.ok) {
+    return authorisation.response;
+  }
+
+  const { admin, user, organisationId } = authorisation;
 
   const connectionResult = await admin
     .from("organisation_connections")
@@ -160,6 +179,7 @@ export async function GET(request: Request) {
       `,
     )
     .eq("id", connectionId)
+    .eq("organisation_id", organisationId)
     .eq("is_archived", false)
     .maybeSingle();
 
@@ -196,16 +216,6 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
-
-  const authorisation = await authoriseConnectionAccess(
-    connection.organisation_id,
-  );
-
-  if (!authorisation.ok) {
-    return authorisation.response;
-  }
-
-  const { user } = authorisation;
 
   if (connection.status !== "Connected") {
     return NextResponse.json(

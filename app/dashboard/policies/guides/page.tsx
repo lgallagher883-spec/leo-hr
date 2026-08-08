@@ -1,7 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { guidesCatalogue } from "./guidesCatalogue";
 
 type GuideResource = {
   id: string;
@@ -16,6 +18,7 @@ const topics = [
   "All",
   "Recruitment",
   "Contracts & changes",
+  "Probation",
   "Managing performance",
   "Sickness & absence",
   "Disciplinary",
@@ -28,250 +31,23 @@ const topics = [
 ];
 
 // Published LEO guide resources will be supplied here by the library API.
-const publishedGuides: GuideResource[] = [
-  {
-    id: "managing-a-disciplinary-process",
-    title: "Managing a Disciplinary Process",
-    summary:
-      "A practical guide to planning and carrying out a fair disciplinary process, from investigation through to the hearing, decision and follow-up.",
-    topic: "Disciplinary",
-    lastUpdated: "July 2026",
-    tags: ["disciplinary", "investigation", "hearing", "fair process"],
-  },
-];
+const publishedGuides: GuideResource[] = guidesCatalogue;
 
 export default function GuidesPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [activeTopic, setActiveTopic] = useState("All");
 
-  function getGuideDocument(guide: GuideResource) {
-    if (guide.id !== "managing-a-disciplinary-process") {
-      return "";
-    }
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${guide.title}</title>
-          <style>
-            @page { size: A4; margin: 18mm; }
-            body {
-              max-width: 820px;
-              margin: 0 auto;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #334155;
-              line-height: 1.65;
-            }
-            h1, h2, h3 { color: #6e5084; }
-            h1 { font-size: 30px; margin-bottom: 24px; }
-            h2 { margin-top: 30px; margin-bottom: 10px; font-size: 21px; }
-            h3 { margin-top: 22px; margin-bottom: 8px; font-size: 16px; }
-            p, li { font-size: 11pt; }
-            li + li { margin-top: 6px; }
-            .notice {
-              margin-top: 28px;
-              padding: 14px;
-              border: 1px solid #dcece4;
-              background: #f5fff9;
-            }
-            .tip {
-              margin: 18px 0;
-              padding: 14px;
-              border-left: 4px solid #6e5084;
-              background: #f7f1fc;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Managing a Disciplinary Process</h1>
-
-          <h2>Purpose of this guide</h2>
-          <p>
-            This guide explains how to manage a fair and proportionate disciplinary
-            process, from the initial concern through investigation, hearing,
-            decision, appeal and record keeping.
-          </p>
-
-          <h2>Before you begin</h2>
-          <ul>
-            <li>Check the organisation's disciplinary policy and the employee's contract.</li>
-            <li>Identify the concern clearly and avoid deciding the outcome in advance.</li>
-            <li>Consider whether the matter is misconduct, capability, attendance or another issue.</li>
-            <li>Act promptly while allowing enough time for a fair process.</li>
-          </ul>
-
-          <h2>Step 1 – Decide whether formal action is necessary</h2>
-          <p>
-            Minor issues can often be resolved informally through a clear management
-            conversation, support, training or an agreed improvement plan. Formal
-            disciplinary action should be used where the concern is sufficiently
-            serious, repeated, or has not improved after appropriate informal action.
-          </p>
-
-          <h2>Step 2 – Investigate</h2>
-          <p>
-            Appoint an impartial investigator where possible. The investigation
-            should establish the facts rather than prove guilt.
-          </p>
-          <ul>
-            <li>Define the allegation or concern.</li>
-            <li>Gather relevant documents, records and other evidence.</li>
-            <li>Meet witnesses where necessary.</li>
-            <li>Give the employee an opportunity to explain their account.</li>
-            <li>Keep accurate notes and preserve relevant evidence.</li>
-          </ul>
-
-          <h2>Step 3 – Consider suspension carefully</h2>
-          <p>
-            Suspension is not a disciplinary sanction and should never be automatic.
-            Consider alternatives first, such as temporary duties, adjusted access,
-            a different reporting line or working from another location.
-          </p>
-          <p>
-            Where suspension is necessary, keep it on full pay, explain the reason,
-            confirm it in writing, maintain appropriate contact and review it regularly.
-          </p>
-
-          <h2>Step 4 – Decide whether there is a case to answer</h2>
-          <p>
-            Review the investigation objectively. A disciplinary hearing should only
-            be arranged where there is sufficient information to justify formal
-            consideration. If there is no case to answer, close the matter and confirm
-            this appropriately.
-          </p>
-
-          <h2>Step 5 – Invite the employee to the hearing</h2>
-          <p>The written invitation should include:</p>
-          <ul>
-            <li>The date, time and location or meeting arrangements.</li>
-            <li>Clear details of each allegation.</li>
-            <li>The evidence that will be considered.</li>
-            <li>The possible outcomes, including dismissal where relevant.</li>
-            <li>The right to be accompanied.</li>
-            <li>Reasonable notice to prepare.</li>
-          </ul>
-
-          <h2>Step 6 – Conduct the hearing fairly</h2>
-          <p>
-            The chair should explain the purpose of the meeting, set out the concerns,
-            review the evidence and allow the employee to respond fully. The employee
-            should be able to ask questions, challenge evidence, provide information
-            and raise relevant mitigating circumstances.
-          </p>
-          <p>
-            Keep the tone professional and avoid hostile or leading questions. Adjourn
-            if further investigation is required.
-          </p>
-
-          <h2>Step 7 – Reach a proportionate decision</h2>
-          <p>
-            The decision must be based on the evidence and the balance of probabilities.
-            Consider consistency, length of service, disciplinary record, mitigation,
-            the employee's explanation, the seriousness of the conduct and whether
-            alternatives to a warning or dismissal are appropriate.
-          </p>
-
-          <h3>Possible outcomes</h3>
-          <ul>
-            <li>No formal action.</li>
-            <li>Informal guidance or management instruction.</li>
-            <li>First written warning.</li>
-            <li>Final written warning.</li>
-            <li>Dismissal with notice.</li>
-            <li>Summary dismissal for gross misconduct.</li>
-            <li>Another contractual sanction, where the contract permits it.</li>
-          </ul>
-
-          <h2>Step 8 – Confirm the outcome</h2>
-          <p>
-            Confirm the decision in writing without unreasonable delay. Explain the
-            findings, the sanction, the required improvement or conduct, the review
-            period, the consequences of further concerns and the right of appeal.
-          </p>
-
-          <h2>Step 9 – Manage any appeal</h2>
-          <p>
-            The appeal should, where possible, be heard by someone not previously
-            involved and with appropriate authority. Consider the grounds raised,
-            review the process and evidence, and carry out further enquiries where
-            necessary. Confirm the final decision in writing.
-          </p>
-
-          <h2>Record keeping and confidentiality</h2>
-          <ul>
-            <li>Keep investigation notes, evidence, meeting records and decisions securely.</li>
-            <li>Restrict access to those who genuinely need it.</li>
-            <li>Record warnings accurately and remove or disregard them when expired, in line with policy.</li>
-            <li>Do not circulate sensitive details unnecessarily.</li>
-          </ul>
-
-          <h2>Common mistakes to avoid</h2>
-          <ul>
-            <li>Deciding the outcome before the hearing.</li>
-            <li>Using disciplinary action for a capability or health issue without proper consideration.</li>
-            <li>Failing to provide the employee with the evidence.</li>
-            <li>Automatically suspending the employee.</li>
-            <li>Relying on vague allegations.</li>
-            <li>Ignoring mitigation or inconsistent treatment.</li>
-            <li>Failing to offer an appeal.</li>
-          </ul>
-
-          <div class="tip">
-            <strong>Practical HR tip:</strong> Keep the allegation, evidence, finding
-            and sanction clearly separated. This helps demonstrate that the decision
-            was reasoned, proportionate and based on the information considered.
-          </div>
-
-          <div class="notice">
-            This guide provides general HR guidance for England and Wales. It should
-            be used alongside the organisation's own procedure and adapted to the
-            facts of the case. Seek specialist advice where dismissal, discrimination,
-            whistleblowing, health, trade union activity or another complex issue may arise.
-          </div>
-        </body>
-      </html>
-    `;
+  function getGuideHref(guide: GuideResource) {
+    return `/dashboard/policies/guides/${guide.id}`;
   }
 
-  function downloadWord(guide: GuideResource) {
-    const documentHtml = getGuideDocument(guide);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Managing-a-Disciplinary-Process.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  function openWord(guide: GuideResource) {
+    router.push(getGuideHref(guide));
   }
 
   function openPdf(guide: GuideResource) {
-    const documentHtml = getGuideDocument(guide);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    router.push(getGuideHref(guide));
   }
 
   function getAskLeoHref(guide: GuideResource) {
@@ -285,9 +61,7 @@ export default function GuidesPage() {
       `/dashboard/ask-leo?prompt=${encodeURIComponent(prompt)}` +
       `&resourceTitle=${encodeURIComponent(guide.title)}` +
       `&resourceType=${encodeURIComponent("Guide")}` +
-      `&returnUrl=${encodeURIComponent(
-        `/dashboard/policies/guides/${guide.id}`
-      )}`
+      `&returnUrl=${encodeURIComponent(getGuideHref(guide))}`
     );
   }
 
@@ -762,7 +536,7 @@ export default function GuidesPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          ← Back to HR Resources
+          â† Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -782,7 +556,7 @@ export default function GuidesPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">âŒ•</span>
             <input
               className="search-input"
               value={search}
@@ -793,7 +567,7 @@ export default function GuidesPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">✦</span>
+            <span aria-hidden="true">âœ¦</span>
             Ask Leo
           </Link>
         </div>
@@ -852,7 +626,7 @@ export default function GuidesPage() {
                     <div className="resource-actions">
                       <Link
                         className="resource-action"
-                        href={`/dashboard/policies/guides/${guide.id}`}
+                        href={getGuideHref(guide)}
                       >
                         Preview
                       </Link>
@@ -860,7 +634,7 @@ export default function GuidesPage() {
                       <button
                         className="resource-action"
                         type="button"
-                        onClick={() => downloadWord(guide)}
+                        onClick={() => openWord(guide)}
                       >
                         Word
                       </button>
@@ -904,7 +678,7 @@ export default function GuidesPage() {
         </div>
 
         <section className="current-note">
-          <span>↻</span>
+          <span>â†»</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>
@@ -916,3 +690,4 @@ export default function GuidesPage() {
     </main>
   );
 }
+

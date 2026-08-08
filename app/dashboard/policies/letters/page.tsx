@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { lettersCatalogue } from "./lettersCatalogue";
 
 type LetterResource = {
   id: string;
@@ -30,17 +31,7 @@ const topics = [
 ];
 
 // Published LEO letter resources will be supplied here by the library API.
-const publishedLetters: LetterResource[] = [
-  {
-    id: "invitation-to-disciplinary-hearing",
-    title: "Invitation to Disciplinary Hearing",
-    summary:
-      "Invite an employee to a disciplinary hearing, explaining the allegations, evidence, right to be accompanied and possible outcomes.",
-    topic: "Disciplinary",
-    lastUpdated: "July 2026",
-    tags: ["disciplinary", "misconduct", "hearing"],
-  },
-];
+const publishedLetters: LetterResource[] = lettersCatalogue;
 
 export default function LettersPage() {
   const [search, setSearch] = useState("");
@@ -677,7 +668,7 @@ export default function LettersPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          ← Back to HR Resources
+          â† Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -698,7 +689,7 @@ export default function LettersPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">âŒ•</span>
             <input
               className="search-input"
               value={search}
@@ -709,7 +700,7 @@ export default function LettersPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">✦</span>
+            <span aria-hidden="true">âœ¦</span>
             Ask Leo
           </Link>
         </div>
@@ -820,7 +811,7 @@ export default function LettersPage() {
         </div>
 
         <section className="current-note">
-          <span>↻</span>
+          <span>â†»</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>
@@ -832,3 +823,4 @@ export default function LettersPage() {
     </main>
   );
 }
+

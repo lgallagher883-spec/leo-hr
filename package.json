@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "npm run validate:hr-resources && next dev",
+    "build": "npm run validate:hr-resources && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "validate:hr-resources": "node scripts/validate-hr-resources.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

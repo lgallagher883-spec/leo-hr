@@ -70,6 +70,20 @@ type DashboardShortcut = {
   priorityRank: number;
 };
 
+type ReminderItem = {
+  id: string;
+  title: string;
+  message: string;
+  actionUrl: string | null;
+  createdAt: string;
+  isRead: boolean;
+  metadata?: {
+    module?: string;
+    milestone?: string;
+    status_band?: string;
+  };
+};
+
 function normalisePath(path: string | undefined): string | null {
   if (!path) return null;
   const trimmed = path.trim();
@@ -223,6 +237,10 @@ function DashboardPageContent() {
   const [complianceIntelligence, setComplianceIntelligence] =
     useState<ComplianceIntelligence | null>(null);
 
+  const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [remindersLoading, setRemindersLoading] = useState(true);
+  const [reminderActionInProgress, setReminderActionInProgress] = useState<string | null>(null);
+
   const liveMatters = matters.filter(
     (matter) => !isClosedMatter(matter.status),
   ).length;
@@ -362,6 +380,109 @@ function DashboardPageContent() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadReminders() {
+      setRemindersLoading(true);
+
+      try {
+        const response = await fetch("/api/reminders?limit=8", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              reminders?: ReminderItem[];
+            }
+          | null;
+
+        if (!response.ok || !payload?.success) {
+          throw new Error("Reminders could not be loaded.");
+        }
+
+        if (!active) return;
+
+        setReminders(Array.isArray(payload.reminders) ? payload.reminders : []);
+      } catch (error) {
+        console.error("Dashboard reminders could not be loaded:", error);
+        if (!active) return;
+        setReminders([]);
+      } finally {
+        if (active) {
+          setRemindersLoading(false);
+        }
+      }
+    }
+
+    void loadReminders();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function runReminderAction(
+    reminderId: string,
+    action: "dismiss" | "snooze" | "read",
+  ) {
+    setReminderActionInProgress(reminderId + action);
+
+    try {
+      const requestBody: Record<string, unknown> = {
+        action,
+      };
+
+      if (action === "snooze") {
+        const snoozeUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        requestBody.snoozeUntil = snoozeUntil.toISOString();
+      }
+
+      const response = await fetch(`/api/reminders/${encodeURIComponent(reminderId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "Reminder action failed.");
+      }
+
+      setReminders((current) =>
+        action === "dismiss" || action === "snooze"
+          ? current.filter((item) => item.id !== reminderId)
+          : current.map((item) =>
+              item.id === reminderId
+                ? {
+                    ...item,
+                    isRead: true,
+                  }
+                : item,
+            ),
+      );
+    } catch (error) {
+      console.error("Reminder action failed:", error);
+    } finally {
+      setReminderActionInProgress(null);
+    }
+  }
+
   function askLeo() {
     const prompt = leoPrompt.trim();
 
@@ -492,6 +613,68 @@ function DashboardPageContent() {
             onClick={shortcut.onClick}
           />
         ))}
+      </section>
+
+      <section style={remindersSectionStyle} aria-label="In-app reminders">
+        <div style={remindersHeaderStyle}>
+          <h2 style={remindersTitleStyle}>Reminder & expiry intelligence</h2>
+          <span style={remindersCountStyle}>{reminders.length}</span>
+        </div>
+
+        {remindersLoading ? (
+          <p style={reminderEmptyStyle}>Loading reminders...</p>
+        ) : reminders.length === 0 ? (
+          <p style={reminderEmptyStyle}>No active reminders in your current scope.</p>
+        ) : (
+          <div style={reminderListStyle}>
+            {reminders.map((reminder) => (
+              <article key={reminder.id} style={reminderCardStyle}>
+                <div style={reminderMetaStyle}>
+                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.module || "General")}</span>
+                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.milestone || "")}</span>
+                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.status_band || "")}</span>
+                </div>
+
+                <h3 style={reminderTitleStyle}>{reminder.title}</h3>
+                <p style={reminderMessageStyle}>{reminder.message}</p>
+
+                <div style={reminderActionsStyle}>
+                  {reminder.actionUrl ? (
+                    <button
+                      type="button"
+                      style={reminderActionButtonStyle}
+                      onClick={() => {
+                        void runReminderAction(reminder.id, "read");
+                        router.push(reminder.actionUrl as string);
+                      }}
+                      disabled={Boolean(reminderActionInProgress)}
+                    >
+                      Open
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    style={reminderSecondaryButtonStyle}
+                    onClick={() => void runReminderAction(reminder.id, "snooze")}
+                    disabled={reminderActionInProgress === reminder.id + "snooze"}
+                  >
+                    Snooze 3 days
+                  </button>
+
+                  <button
+                    type="button"
+                    style={reminderSecondaryButtonStyle}
+                    onClick={() => void runReminderAction(reminder.id, "dismiss")}
+                    disabled={reminderActionInProgress === reminder.id + "dismiss"}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
@@ -748,4 +931,121 @@ const summaryActionStyle: CSSProperties = {
   color: "#6E5084",
   fontSize: "14px",
   fontWeight: 700,
+};
+
+const remindersSectionStyle: CSSProperties = {
+  marginTop: "24px",
+  border: "1px solid #E5E7EB",
+  borderRadius: "18px",
+  background: "#FFFFFF",
+  padding: "20px",
+  boxShadow: "0 8px 22px rgba(17, 24, 39, 0.05)",
+};
+
+const remindersHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  marginBottom: "14px",
+};
+
+const remindersTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "18px",
+  lineHeight: 1.35,
+};
+
+const remindersCountStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: "30px",
+  height: "30px",
+  borderRadius: "999px",
+  background: "#F7F1FC",
+  color: "#6E5084",
+  fontWeight: 700,
+  fontSize: "13px",
+  padding: "0 10px",
+};
+
+const reminderListStyle: CSSProperties = {
+  display: "grid",
+  gap: "12px",
+};
+
+const reminderCardStyle: CSSProperties = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "12px",
+  padding: "14px",
+  background: "#FCFCFD",
+};
+
+const reminderMetaStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px",
+  marginBottom: "8px",
+};
+
+const reminderBadgeStyle: CSSProperties = {
+  borderRadius: "999px",
+  background: "#F3F4F6",
+  color: "#4B5563",
+  fontSize: "11px",
+  fontWeight: 700,
+  padding: "3px 9px",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const reminderTitleStyle: CSSProperties = {
+  margin: "0 0 4px",
+  color: "#111827",
+  fontSize: "15px",
+  lineHeight: 1.4,
+};
+
+const reminderMessageStyle: CSSProperties = {
+  margin: 0,
+  color: "#4B5563",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const reminderActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  marginTop: "10px",
+};
+
+const reminderActionButtonStyle: CSSProperties = {
+  background: "#6E5084",
+  border: "1px solid #6E5084",
+  color: "#FFFFFF",
+  borderRadius: "10px",
+  padding: "7px 11px",
+  fontWeight: 700,
+  fontSize: "12px",
+  cursor: "pointer",
+};
+
+const reminderSecondaryButtonStyle: CSSProperties = {
+  background: "#FFFFFF",
+  border: "1px solid #D1D5DB",
+  color: "#374151",
+  borderRadius: "10px",
+  padding: "7px 11px",
+  fontWeight: 600,
+  fontSize: "12px",
+  cursor: "pointer",
+};
+
+const reminderEmptyStyle: CSSProperties = {
+  margin: 0,
+  color: "#6B7280",
+  fontSize: "14px",
 };

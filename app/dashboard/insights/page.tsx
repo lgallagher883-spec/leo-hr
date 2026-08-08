@@ -60,6 +60,44 @@ type RouterLike = {
   push: (href: string) => void;
 };
 
+type InsightPayload = {
+  summary?: string;
+  risks?: Array<{ title: string; severity: string; detail: string }>;
+  trends?: Array<{ title: string; detail: string }>;
+  recommendations?: Array<{
+    title: string;
+    detail: string;
+    actionPath?: string;
+    askLeoPrompt?: string;
+  }>;
+  earlyInterventions?: Array<{ title: string; detail: string }>;
+};
+
+type ExecutiveBrief = {
+  title: string;
+  headlineSummary: string;
+  supportingCounts: Array<{
+    label: string;
+    value: string;
+  }>;
+  risks: Array<{
+    title: string;
+    detail: string;
+  }>;
+  trends: Array<{
+    title: string;
+    detail: string;
+  }>;
+  recommendations: Array<{
+    title: string;
+    detail: string;
+  }>;
+  earlyInterventions: Array<{
+    title: string;
+    detail: string;
+  }>;
+};
+
 const periodOptions: Array<{
   value: TimePeriod;
   label: string;
@@ -116,29 +154,32 @@ export default function InsightsPage() {
     useState<Date | null>(null);
 
   const [insightPayload, setInsightPayload] =
-    useState<{
-      summary?: string;
-      risks?: Array<{ title: string; severity: string; detail: string }>;
-      trends?: Array<{ title: string; detail: string }>;
-      recommendations?: Array<{
-        title: string;
-        detail: string;
-        actionPath?: string;
-        askLeoPrompt?: string;
-      }>;
-      earlyInterventions?: Array<{ title: string; detail: string }>;
-    } | null>(null);
+    useState<InsightPayload | null>(null);
+
+  const [briefGeneratedAt, setBriefGeneratedAt] =
+    useState<Date | null>(null);
+
+  const [briefActionState, setBriefActionState] =
+    useState<"idle" | "generating" | "downloading">("idle");
+
+  const [briefNotice, setBriefNotice] =
+    useState("");
 
   useEffect(() => {
-    loadInsightsData();
-  }, []);
+    void loadInsightsData();
+  }, [period]);
+
+  useEffect(() => {
+    setBriefGeneratedAt(null);
+    setBriefNotice("");
+  }, [period]);
 
   async function loadInsightsData() {
     setLoading(true);
 
     try {
       const response = await fetch(
-        "/api/insights",
+        `/api/insights?period=${encodeURIComponent(period)}`,
         {
           method: "GET",
           cache: "no-store",
@@ -418,6 +459,86 @@ export default function InsightsPage() {
       ]
     );
 
+  const executiveBrief = useMemo<ExecutiveBrief>(
+    () => ({
+      title: `Executive Insight Brief · ${periodLabel}`,
+      headlineSummary:
+        insightPayload?.summary ||
+        `${periodLabel} summary: ${periodMatters.length} ${periodMatters.length === 1 ? "matter" : "matters"} were opened, ${openMatters.length} remain open, and ${activeSars.length} active ${activeSars.length === 1 ? "SAR is" : "SARs are"} currently recorded.`,
+      supportingCounts: [
+        {
+          label: "Active employees",
+          value: String(activeEmployees.length),
+        },
+        {
+          label: `Joiners · ${periodLabel}`,
+          value: String(periodJoiners.length),
+        },
+        {
+          label: `New Matters · ${periodLabel}`,
+          value: String(periodMatters.length),
+        },
+        {
+          label: "Open Matters",
+          value: String(openMatters.length),
+        },
+        {
+          label: "Active SARs",
+          value: String(activeSars.length),
+        },
+        {
+          label: "SARs due soon",
+          value: String(sarsDueSoon.length),
+        },
+        {
+          label: "SARs past planned date",
+          value: String(sarsPastDeadline.length),
+        },
+        {
+          label: "HR Resources",
+          value: String(resources.length),
+        },
+        {
+          label: "Knowledge available",
+          value: String(knowledgeSectionCount),
+        },
+      ],
+      risks: (insightPayload?.risks || []).map((risk) => ({
+        title: risk.title,
+        detail: risk.detail,
+      })),
+      trends: (insightPayload?.trends || []).map((trend) => ({
+        title: trend.title,
+        detail: trend.detail,
+      })),
+      recommendations: (insightPayload?.recommendations || []).map((recommendation) => ({
+        title: recommendation.title,
+        detail: recommendation.detail,
+      })),
+      earlyInterventions: (insightPayload?.earlyInterventions || []).map((intervention) => ({
+        title: intervention.title,
+        detail: intervention.detail,
+      })),
+    }),
+    [
+      activeEmployees.length,
+      activeSars.length,
+      insightPayload?.earlyInterventions,
+      insightPayload?.recommendations,
+      insightPayload?.risks,
+      insightPayload?.summary,
+      insightPayload?.trends,
+      knowledgeSectionCount,
+      openMatters.length,
+      periodJoiners.length,
+      periodLabel,
+      periodMatters.length,
+      resources.length,
+      sarsDueSoon.length,
+      sarsPastDeadline.length,
+    ]
+  );
+
   const recommendations =
     useMemo<InsightItem[]>(() => {
       const items: InsightItem[] = [];
@@ -682,6 +803,139 @@ export default function InsightsPage() {
     );
   }
 
+  async function writeInsightsAuditEvent({
+    action,
+    description,
+    metadata,
+  }: {
+    action: string;
+    description: string;
+    metadata: Record<string, unknown>;
+  }) {
+    try {
+      const response = await fetch("/api/insights/brief-audit", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          description,
+          period,
+          periodLabel,
+          metadata,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        console.warn(
+          "Insights audit event was not saved:",
+          result?.error || `Request failed with status ${response.status}`
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "Insights audit event was not saved:",
+        error
+      );
+    }
+  }
+
+  async function generateExecutiveBrief() {
+    const generatedAt = new Date();
+
+    setBriefActionState("generating");
+    setBriefGeneratedAt(generatedAt);
+    setBriefNotice("The executive brief is ready.");
+
+    await writeInsightsAuditEvent({
+      action: "Executive Insight Brief created",
+      description: `An Executive Insight Brief was created for ${periodLabel.toLowerCase()}.`,
+      metadata: {
+        period,
+        period_label: periodLabel,
+        generated_at: generatedAt.toISOString(),
+        active_employees: activeEmployees.length,
+        period_matters: periodMatters.length,
+        open_matters: openMatters.length,
+        active_sars: activeSars.length,
+      },
+    });
+
+    setBriefActionState("idle");
+  }
+
+  async function downloadExecutiveBrief() {
+    if (!briefGeneratedAt) {
+      return;
+    }
+
+    setBriefActionState("downloading");
+
+    const lines = [
+      executiveBrief.title,
+      `Generated: ${briefGeneratedAt.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`,
+      `Reporting period: ${periodLabel}`,
+      "",
+      "Headline summary",
+      executiveBrief.headlineSummary,
+      "",
+      "Supporting counts",
+      ...executiveBrief.supportingCounts.map(
+        (item) => `${item.label}: ${item.value}`
+      ),
+      "",
+      "Key risks",
+      ...formatBriefItems(executiveBrief.risks),
+      "",
+      "Notable trends",
+      ...formatBriefItems(executiveBrief.trends),
+      "",
+      "Priority recommendations",
+      ...formatBriefItems(executiveBrief.recommendations),
+      "",
+      "Early interventions",
+      ...formatBriefItems(executiveBrief.earlyInterventions),
+    ];
+
+    const blob = new Blob([lines.join("\r\n")], {
+      type: "text/plain;charset=utf-8",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `leo-executive-insight-brief-${period}-${toDateStamp(
+      briefGeneratedAt
+    )}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+
+    await writeInsightsAuditEvent({
+      action: "Executive Insight Brief downloaded",
+      description: `The Executive Insight Brief for ${periodLabel.toLowerCase()} was downloaded.`,
+      metadata: {
+        period,
+        period_label: periodLabel,
+        generated_at: briefGeneratedAt.toISOString(),
+        export_format: "txt",
+      },
+    });
+
+    setBriefNotice("The executive brief has been downloaded.");
+    setBriefActionState("idle");
+  }
+
   return (
     <div style={pageStyle}>
       <div style={headerStyle}>
@@ -740,6 +994,38 @@ export default function InsightsPage() {
               )
             )}
           </select>
+
+          <button
+            type="button"
+            onClick={() =>
+              void generateExecutiveBrief()
+            }
+            style={primaryActionButtonStyle}
+            disabled={
+              loading ||
+              briefActionState !==
+                "idle"
+            }
+          >
+            {briefGeneratedAt
+              ? "Regenerate executive brief"
+              : "Generate executive brief"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              void downloadExecutiveBrief()
+            }
+            style={secondaryActionButtonStyle}
+            disabled={
+              !briefGeneratedAt ||
+              briefActionState !==
+                "idle"
+            }
+          >
+            Download brief
+          </button>
         </div>
       </div>
 
@@ -750,6 +1036,96 @@ export default function InsightsPage() {
         </div>
       ) : (
         <>
+          {briefGeneratedAt ? (
+            <Section
+              title="Executive Insight Brief"
+              subtitle={`Generated for ${periodLabel.toLowerCase()} on ${briefGeneratedAt.toLocaleString(
+                "en-GB",
+                {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }
+              )}.`}
+              accent
+            >
+              <div style={briefPanelStyle}>
+                <div style={briefHeaderStyle}>
+                  <div>
+                    <h3 style={briefTitleStyle}>
+                      {executiveBrief.title}
+                    </h3>
+
+                    <p style={briefHeadlineStyle}>
+                      {executiveBrief.headlineSummary}
+                    </p>
+                  </div>
+
+                  {briefNotice ? (
+                    <div style={briefNoticeStyle}>
+                      {briefNotice}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div
+                  style={briefCountsGridStyle}
+                >
+                  {executiveBrief.supportingCounts.map(
+                    (item) => (
+                      <article
+                        key={item.label}
+                        style={briefCountCardStyle}
+                      >
+                        <span
+                          style={briefCountLabelStyle}
+                        >
+                          {item.label}
+                        </span>
+
+                        <strong
+                          style={briefCountValueStyle}
+                        >
+                          {item.value}
+                        </strong>
+                      </article>
+                    )
+                  )}
+                </div>
+
+                <div
+                  style={briefSectionsGridStyle}
+                >
+                  <BriefListSection
+                    title="Key risks"
+                    items={executiveBrief.risks}
+                    emptyMessage="No immediate risk pattern was identified for this period."
+                  />
+
+                  <BriefListSection
+                    title="Notable trends"
+                    items={executiveBrief.trends}
+                    emptyMessage="No notable trend was identified for this period."
+                  />
+
+                  <BriefListSection
+                    title="Priority recommendations"
+                    items={executiveBrief.recommendations}
+                    emptyMessage="No priority recommendation is currently recorded."
+                  />
+
+                  <BriefListSection
+                    title="Early interventions"
+                    items={executiveBrief.earlyInterventions}
+                    emptyMessage="No early intervention is currently recorded."
+                  />
+                </div>
+              </div>
+            </Section>
+          ) : null}
+
           <Section
             title="Executive overview"
             subtitle={`Current organisation position. Period-based measures use ${periodLabel.toLowerCase()}.`}
@@ -1526,6 +1902,50 @@ function Section({
   );
 }
 
+function BriefListSection({
+  title,
+  items,
+  emptyMessage,
+}: {
+  title: string;
+  items: Array<{
+    title: string;
+    detail: string;
+  }>;
+  emptyMessage: string;
+}) {
+  return (
+    <section style={briefListSectionStyle}>
+      <h4 style={briefListTitleStyle}>
+        {title}
+      </h4>
+
+      {items.length === 0 ? (
+        <p style={briefEmptyStyle}>
+          {emptyMessage}
+        </p>
+      ) : (
+        <div style={briefListStyle}>
+          {items.map((item) => (
+            <article
+              key={`${title}-${item.title}`}
+              style={briefListItemStyle}
+            >
+              <strong style={briefItemTitleStyle}>
+                {item.title}
+              </strong>
+
+              <p style={briefItemTextStyle}>
+                {item.detail}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function MetricCard({
   label,
   value,
@@ -2027,6 +2447,38 @@ function getSarDeadlineState(
   return "On track";
 }
 
+function formatBriefItems(
+  items: Array<{
+    title: string;
+    detail: string;
+  }>
+) {
+  if (items.length === 0) {
+    return ["- No items recorded."];
+  }
+
+  return items.flatMap((item) => [
+    `- ${item.title}`,
+    `  ${item.detail}`,
+  ]);
+}
+
+function toDateStamp(date: Date) {
+  const year = String(
+    date.getFullYear()
+  );
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function getMetricToneStyle(
   tone:
     | "neutral"
@@ -2105,6 +2557,31 @@ const updatedStyle: React.CSSProperties = {
 
 const headerActionStyle: React.CSSProperties = {
   minWidth: "190px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+};
+
+const primaryActionButtonStyle: React.CSSProperties = {
+  border: "none",
+  borderRadius: "10px",
+  background: "#1D4ED8",
+  color: "#FFFFFF",
+  padding: "10px 12px",
+  fontSize: "12px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const secondaryActionButtonStyle: React.CSSProperties = {
+  border: "1px solid #D1D5DB",
+  borderRadius: "10px",
+  background: "#FFFFFF",
+  color: "#374151",
+  padding: "10px 12px",
+  fontSize: "12px",
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const periodLabelStyle: React.CSSProperties = {
@@ -2160,6 +2637,121 @@ const sectionTitleStyle: React.CSSProperties = {
 
 const sectionSubtitleStyle: React.CSSProperties = {
   margin: "6px 0 0",
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.55,
+};
+
+const briefPanelStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "20px",
+};
+
+const briefHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "16px",
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+};
+
+const briefTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "18px",
+  fontWeight: 700,
+};
+
+const briefHeadlineStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#4B5563",
+  fontSize: "13px",
+  lineHeight: 1.65,
+  maxWidth: "78ch",
+};
+
+const briefNoticeStyle: React.CSSProperties = {
+  borderRadius: "999px",
+  background: "#EEF2FF",
+  color: "#4338CA",
+  padding: "8px 12px",
+  fontSize: "11px",
+  fontWeight: 700,
+};
+
+const briefCountsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: "10px",
+};
+
+const briefCountCardStyle: React.CSSProperties = {
+  padding: "14px",
+  border: "1px solid #DCE8F8",
+  borderRadius: "12px",
+  background: "#FFFFFF",
+};
+
+const briefCountLabelStyle: React.CSSProperties = {
+  display: "block",
+  color: "#6B7280",
+  fontSize: "11px",
+};
+
+const briefCountValueStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: "8px",
+  color: "#111827",
+  fontSize: "18px",
+};
+
+const briefSectionsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(250px, 1fr))",
+  gap: "12px",
+};
+
+const briefListSectionStyle: React.CSSProperties = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "12px",
+  background: "#FFFFFF",
+  padding: "14px",
+};
+
+const briefListTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#111827",
+  fontSize: "13px",
+  fontWeight: 700,
+};
+
+const briefListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  marginTop: "12px",
+};
+
+const briefListItemStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "5px",
+};
+
+const briefItemTitleStyle: React.CSSProperties = {
+  color: "#111827",
+  fontSize: "12px",
+};
+
+const briefItemTextStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.6,
+};
+
+const briefEmptyStyle: React.CSSProperties = {
+  margin: "12px 0 0",
   color: "#6B7280",
   fontSize: "12px",
   lineHeight: 1.55,

@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { factsheetsCatalogue } from "./factsheetsCatalogue";
 
 type FactsheetResource = {
   id: string;
@@ -28,23 +29,7 @@ const topics = [
   "Ending employment",
 ];
 
-const publishedFactsheets: FactsheetResource[] = [
-  {
-    id: "employment-rights-day-one",
-    title: "Day One Employment Rights",
-    summary:
-      "A practical overview of employment rights that apply from the beginning of employment and the steps employers should take to support a compliant start.",
-    topic: "Employment rights",
-    lastUpdated: "July 2026",
-    tags: [
-      "day one rights",
-      "employment rights",
-      "probation",
-      "written terms",
-      "statutory rights",
-    ],
-  },
-];
+const publishedFactsheets: FactsheetResource[] = factsheetsCatalogue;
 
 export default function FactsheetsPage() {
   const [search, setSearch] = useState("");
@@ -676,7 +661,7 @@ export default function FactsheetsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          ← Back to HR Resources
+          â† Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -697,7 +682,7 @@ export default function FactsheetsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">âŒ•</span>
 
             <input
               className="search-input"
@@ -709,7 +694,7 @@ export default function FactsheetsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">✦</span>
+            <span aria-hidden="true">âœ¦</span>
             Ask Leo
           </Link>
         </div>
@@ -829,7 +814,7 @@ export default function FactsheetsPage() {
         </div>
 
         <section className="current-note">
-          <span>↻</span>
+          <span>â†»</span>
 
           <div>
             <strong>Professionally maintained</strong>
@@ -846,3 +831,4 @@ export default function FactsheetsPage() {
     </main>
   );
 }
+

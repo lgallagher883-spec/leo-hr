@@ -1,10 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  });
+export async function updateSession(
+  request: NextRequest,
+) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-leo-pathname", request.nextUrl.pathname);
+
+  const createNextResponse = () =>
+    NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+  let response = createNextResponse();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -29,9 +39,7 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value);
           });
 
-          response = NextResponse.next({
-            request,
-          });
+          response = createNextResponse();
 
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);

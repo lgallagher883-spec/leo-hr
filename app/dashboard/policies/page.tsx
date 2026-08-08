@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  memo,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -133,6 +135,7 @@ const resourceTypes = [
 ] as const;
 
 export default function PoliciesPage() {
+  const router = useRouter();
   const [items, setItems] = useState<
     RegisterItem[]
   >([]);
@@ -148,7 +151,7 @@ export default function PoliciesPage() {
   >({});
 
   const [loading, setLoading] =
-    useState(true);
+    useState(false);
 
   const [activeWorkspace, setActiveWorkspace] =
     useState<"library" | "organisation">("library");
@@ -224,8 +227,10 @@ export default function PoliciesPage() {
   ] = useState<File | null>(null);
 
   useEffect(() => {
-    loadResources();
-  }, []);
+    if (activeWorkspace === "organisation") {
+      loadResources();
+    }
+  }, [activeWorkspace]);
 
   async function loadResources() {
     setLoading(true);
@@ -1179,6 +1184,11 @@ export default function PoliciesPage() {
         organisationResourceCount={totalResourceCount}
         readyForLeoCount={readyResourceCount}
         reviewSuggestedCount={reviewSuggestedCount}
+        onOpenCategory={(slug) =>
+          router.push(
+            `/dashboard/policies/${slug}`
+          )
+        }
         onOpenOrganisationResources={() =>
           setActiveWorkspace("organisation")
         }
@@ -1516,276 +1526,28 @@ export default function PoliciesPage() {
       )}
 
       {versionsResource && (
-        <div
-          style={{
-            background: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            borderRadius: "16px",
-            padding: "18px",
-            marginBottom: "18px",
+        <ResourceVersionsPanel
+          versionsResource={versionsResource}
+          resourceVersions={resourceVersions}
+          loadingVersions={loadingVersions}
+          onClose={() => {
+            setVersionsResource(null);
+            setResourceVersions([]);
           }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: "16px",
-              marginBottom: "16px",
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: "18px",
-                  fontWeight: 800,
-                  color: "#111827",
-                }}
-              >
-                {versionsResource.name} versions
-              </h2>
-
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  color: "#6B7280",
-                  fontSize: "13px",
-                  lineHeight: 1.5,
-                }}
-              >
-                The current document remains active.
-                Previous versions are preserved here
-                for viewing, printing and audit history.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setVersionsResource(null);
-                setResourceVersions([]);
-              }}
-              style={secondaryButtonStyle}
-            >
-              Close
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gap: "10px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "12px",
-                padding: "14px",
-                border: "1px solid #E5E7EB",
-                borderRadius: "12px",
-                background: "#F7F1FC",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    color: "#111827",
-                  }}
-                >
-                  Version {versionsResource.versionNumber}
-                  {" — Current"}
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "4px",
-                    fontSize: "12px",
-                    color: "#6B7280",
-                  }}
-                >
-                  {versionsResource.fileName ||
-                    "Current resource"}
-                </div>
-              </div>
-
-              {versionsResource.fileUrl && (
-                <a
-                  href={versionsResource.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={primaryActionStyle}
-                >
-                  View / Print
-                </a>
-              )}
-            </div>
-
-            {loadingVersions ? (
-              <div
-                style={{
-                  padding: "16px",
-                  color: "#6B7280",
-                  fontSize: "13px",
-                }}
-              >
-                Loading previous versions...
-              </div>
-            ) : resourceVersions.length === 0 ? (
-              <div
-                style={{
-                  padding: "16px",
-                  border: "1px dashed #D1D5DB",
-                  borderRadius: "12px",
-                  color: "#6B7280",
-                  fontSize: "13px",
-                }}
-              >
-                No previous versions have been preserved yet.
-              </div>
-            ) : (
-              resourceVersions.map((version) => (
-                <div
-                  key={version.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "14px",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "12px",
-                    background: "#FFFFFF",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: 800,
-                        color: "#111827",
-                      }}
-                    >
-                      Version {version.version_number}
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: "4px",
-                        fontSize: "12px",
-                        color: "#6B7280",
-                      }}
-                    >
-                      {version.file_name ||
-                        "Previous resource"}
-                      {" · Replaced "}
-                      {formatDateTime(
-                        version.replaced_at
-                      )}
-                    </div>
-                  </div>
-
-                  {version.file_url ? (
-                    <a
-                      href={version.file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={secondaryActionStyle}
-                    >
-                      View / Print
-                    </a>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "#9CA3AF",
-                      }}
-                    >
-                      File unavailable
-                    </span>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        />
       )}
 
-      <div style={libraryToolbarStyle}>
-        <div style={tabWrapStyle}>
-          {resourceTypes.map(
-            ([type, label]) => (
-              <button
-                key={type}
-                onClick={() => {
-                  setActiveTab(type);
-                  setSearchQuery("");
-                }}
-                style={tabStyle(
-                  activeTab === type
-                )}
-              >
-                {label}
-              </button>
-            )
-          )}
-
-          {uncategorisedResources.length >
-            0 && (
-            <button
-              onClick={() => {
-                setActiveTab(
-                  "Uncategorised"
-                );
-
-                setSearchQuery("");
-              }}
-              style={tabStyle(
-                activeTab ===
-                  "Uncategorised"
-              )}
-            >
-              Other Resources
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              setActiveTab(
-                "Archived"
-              );
-
-              setSearchQuery("");
-            }}
-            style={tabStyle(
-              activeTab ===
-                "Archived"
-            )}
-          >
-            Archived
-            {archivedResources.length >
-              0
-              ? ` (${archivedResources.length})`
-              : ""}
-          </button>
-        </div>
-
-        <input
-          value={searchQuery}
-          onChange={(event) =>
-            setSearchQuery(
-              event.target.value
-            )
-          }
-          style={searchInputStyle}
-          placeholder="Search resources..."
-        />
-      </div>
+      <ResourcesToolbar
+        activeTab={activeTab}
+        searchQuery={searchQuery}
+        uncategorisedCount={uncategorisedResources.length}
+        archivedCount={archivedResources.length}
+        onSetActiveTab={(nextTab) => {
+          setActiveTab(nextTab);
+          setSearchQuery("");
+        }}
+        onSearchChange={setSearchQuery}
+      />
 
       {loading ? (
         <div style={cardStyle}>
@@ -1820,9 +1582,25 @@ export default function PoliciesPage() {
                 key={resource.key}
 
                 resource={resource}
-
-                actionInProgress={
-                  actionInProgress
+                prepareLoading={
+                  actionInProgress ===
+                  `${resource.key}:prepare`
+                }
+                replaceLoading={
+                  actionInProgress ===
+                  `${resource.key}:replace`
+                }
+                archiveLoading={
+                  actionInProgress ===
+                  `${resource.key}:archive`
+                }
+                restoreLoading={
+                  actionInProgress ===
+                  `${resource.key}:restore`
+                }
+                deleteLoading={
+                  actionInProgress ===
+                  `${resource.key}:delete`
                 }
 
                 onPrepare={() =>
@@ -1917,11 +1695,13 @@ function ResourcesHome({
   organisationResourceCount,
   readyForLeoCount,
   reviewSuggestedCount,
+  onOpenCategory,
   onOpenOrganisationResources,
 }: {
   organisationResourceCount: number;
   readyForLeoCount: number;
   reviewSuggestedCount: number;
+  onOpenCategory: (slug: string) => void;
   onOpenOrganisationResources: () => void;
 }) {
   const [librarySearch, setLibrarySearch] =
@@ -2064,9 +1844,11 @@ function ResourcesHome({
               <button
                 key={category.title}
                 type="button"
-                onClick={() => {
-                  window.location.href = `/dashboard/policies/${category.slug}`;
-                }}
+                onClick={() =>
+                  onOpenCategory(
+                    category.slug
+                  )
+                }
                 style={resourcesCategoryCardStyle}
                 onMouseEnter={(event) => {
                   event.currentTarget.style.transform = "translateY(-3px)";
@@ -2158,9 +1940,13 @@ function ResourcesHome({
   );
 }
 
-function ResourceCard({
+const ResourceCard = memo(function ResourceCard({
   resource,
-  actionInProgress,
+  prepareLoading,
+  replaceLoading,
+  archiveLoading,
+  restoreLoading,
+  deleteLoading,
   onPrepare,
   onReplace,
   onVersions,
@@ -2169,10 +1955,11 @@ function ResourceCard({
   onDelete,
 }: {
   resource: DisplayResource;
-
-  actionInProgress:
-    | string
-    | null;
+  prepareLoading: boolean;
+  replaceLoading: boolean;
+  archiveLoading: boolean;
+  restoreLoading: boolean;
+  deleteLoading: boolean;
 
   onPrepare: () => void;
   onReplace: () => void;
@@ -2206,26 +1993,6 @@ function ResourceCard({
 
   const askLeoPrompt =
     `Please help me understand and apply our ${resource.name}.`;
-
-  const prepareLoading =
-    actionInProgress ===
-    `${resource.key}:prepare`;
-
-  const replaceLoading =
-    actionInProgress ===
-    `${resource.key}:replace`;
-
-  const archiveLoading =
-    actionInProgress ===
-    `${resource.key}:archive`;
-
-  const restoreLoading =
-    actionInProgress ===
-    `${resource.key}:restore`;
-
-  const deleteLoading =
-    actionInProgress ===
-    `${resource.key}:delete`;
 
   const anyActionLoading =
     prepareLoading ||
@@ -2513,6 +2280,34 @@ function ResourceCard({
       </div>
     </article>
   );
+}, areResourceCardPropsEqual);
+
+function areResourceCardPropsEqual(
+  previousProps: {
+    resource: DisplayResource;
+    prepareLoading: boolean;
+    replaceLoading: boolean;
+    archiveLoading: boolean;
+    restoreLoading: boolean;
+    deleteLoading: boolean;
+  },
+  nextProps: {
+    resource: DisplayResource;
+    prepareLoading: boolean;
+    replaceLoading: boolean;
+    archiveLoading: boolean;
+    restoreLoading: boolean;
+    deleteLoading: boolean;
+  },
+) {
+  return (
+    previousProps.resource === nextProps.resource &&
+    previousProps.prepareLoading === nextProps.prepareLoading &&
+    previousProps.replaceLoading === nextProps.replaceLoading &&
+    previousProps.archiveLoading === nextProps.archiveLoading &&
+    previousProps.restoreLoading === nextProps.restoreLoading &&
+    previousProps.deleteLoading === nextProps.deleteLoading
+  );
 }
 
 function ResourceDetail({
@@ -2539,6 +2334,296 @@ function ResourceDetail({
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+function ResourceVersionsPanel({
+  versionsResource,
+  resourceVersions,
+  loadingVersions,
+  onClose,
+}: {
+  versionsResource: DisplayResource;
+  resourceVersions: ResourceVersion[];
+  loadingVersions: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        background: "#FFFFFF",
+        border: "1px solid #E5E7EB",
+        borderRadius: "16px",
+        padding: "18px",
+        marginBottom: "18px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: "16px",
+          marginBottom: "16px",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "18px",
+              fontWeight: 800,
+              color: "#111827",
+            }}
+          >
+            {versionsResource.name} versions
+          </h2>
+
+          <p
+            style={{
+              margin: "6px 0 0",
+              color: "#6B7280",
+              fontSize: "13px",
+              lineHeight: 1.5,
+            }}
+          >
+            The current document remains active.
+            Previous versions are preserved here
+            for viewing, printing and audit history.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          style={secondaryButtonStyle}
+        >
+          Close
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "10px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "12px",
+            padding: "14px",
+            border: "1px solid #E5E7EB",
+            borderRadius: "12px",
+            background: "#F7F1FC",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "14px",
+                fontWeight: 800,
+                color: "#111827",
+              }}
+            >
+              Version {versionsResource.versionNumber}
+              {" — Current"}
+            </div>
+
+            <div
+              style={{
+                marginTop: "4px",
+                fontSize: "12px",
+                color: "#6B7280",
+              }}
+            >
+              {versionsResource.fileName ||
+                "Current resource"}
+            </div>
+          </div>
+
+          {versionsResource.fileUrl && (
+            <a
+              href={versionsResource.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={primaryActionStyle}
+            >
+              View / Print
+            </a>
+          )}
+        </div>
+
+        {loadingVersions ? (
+          <div
+            style={{
+              padding: "16px",
+              color: "#6B7280",
+              fontSize: "13px",
+            }}
+          >
+            Loading previous versions...
+          </div>
+        ) : resourceVersions.length === 0 ? (
+          <div
+            style={{
+              padding: "16px",
+              border: "1px dashed #D1D5DB",
+              borderRadius: "12px",
+              color: "#6B7280",
+              fontSize: "13px",
+            }}
+          >
+            No previous versions have been preserved yet.
+          </div>
+        ) : (
+          resourceVersions.map((version) => (
+            <div
+              key={version.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                padding: "14px",
+                border: "1px solid #E5E7EB",
+                borderRadius: "12px",
+                background: "#FFFFFF",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    color: "#111827",
+                  }}
+                >
+                  Version {version.version_number}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "4px",
+                    fontSize: "12px",
+                    color: "#6B7280",
+                  }}
+                >
+                  {version.file_name ||
+                    "Previous resource"}
+                  {" · Replaced "}
+                  {formatDateTime(
+                    version.replaced_at
+                  )}
+                </div>
+              </div>
+
+              {version.file_url ? (
+                <a
+                  href={version.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={secondaryActionStyle}
+                >
+                  View / Print
+                </a>
+              ) : (
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: "#9CA3AF",
+                  }}
+                >
+                  File unavailable
+                </span>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResourcesToolbar({
+  activeTab,
+  searchQuery,
+  uncategorisedCount,
+  archivedCount,
+  onSetActiveTab,
+  onSearchChange,
+}: {
+  activeTab: string;
+  searchQuery: string;
+  uncategorisedCount: number;
+  archivedCount: number;
+  onSetActiveTab: (nextTab: string) => void;
+  onSearchChange: (query: string) => void;
+}) {
+  return (
+    <div style={libraryToolbarStyle}>
+      <div style={tabWrapStyle}>
+        {resourceTypes.map(
+          ([type, label]) => (
+            <button
+              key={type}
+              onClick={() =>
+                onSetActiveTab(type)
+              }
+              style={tabStyle(
+                activeTab === type
+              )}
+            >
+              {label}
+            </button>
+          )
+        )}
+
+        {uncategorisedCount > 0 && (
+          <button
+            onClick={() =>
+              onSetActiveTab(
+                "Uncategorised"
+              )
+            }
+            style={tabStyle(
+              activeTab ===
+                "Uncategorised"
+            )}
+          >
+            Other Resources
+          </button>
+        )}
+
+        <button
+          onClick={() =>
+            onSetActiveTab("Archived")
+          }
+          style={tabStyle(
+            activeTab ===
+              "Archived"
+          )}
+        >
+          Archived
+          {archivedCount > 0
+            ? ` (${archivedCount})`
+            : ""}
+        </button>
+      </div>
+
+      <input
+        value={searchQuery}
+        onChange={(event) =>
+          onSearchChange(
+            event.target.value
+          )
+        }
+        style={searchInputStyle}
+        placeholder="Search resources..."
+      />
     </div>
   );
 }

@@ -8,7 +8,10 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { useMatters } from "../MatterContext";
+import {
+  MatterProvider,
+  useMatters,
+} from "../MatterContext";
 
 type Employee = {
   id: number;
@@ -29,6 +32,14 @@ type SourceConversation = {
 };
 
 export default function NewMatterPage() {
+  return (
+    <MatterProvider>
+      <NewMatterPageContent />
+    </MatterProvider>
+  );
+}
+
+function NewMatterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addMatter } =

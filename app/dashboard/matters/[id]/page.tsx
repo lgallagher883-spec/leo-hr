@@ -1,7 +1,10 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useMatters } from "../MatterContext";
+import {
+  MatterProvider,
+  useMatters,
+} from "../MatterContext";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -29,6 +32,14 @@ type TimelineEvent = {
 };
 
 export default function MatterDetailPage() {
+  return (
+    <MatterProvider>
+      <MatterDetailPageContent />
+    </MatterProvider>
+  );
+}
+
+function MatterDetailPageContent() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const { matters, setMatters } = useMatters();

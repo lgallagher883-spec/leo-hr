@@ -23,53 +23,66 @@ async function requireAuditAccess() {
 export async function GET() {
   try {
     const access = await requireAuditAccess();
-    if ((access as any).response) return (access as any).response;
-    const { supabase, organisationId } = access as any;
+    if ("response" in access) {
+      return access.response;
+    }
 
-    /*
+    const { supabase, organisationId } = access;
+
+    const employeeResult = await supabase
+      .from("employees")
+      .select("id,name")
+      .eq("organisation_id", organisationId)
+      .order("name", {
+        ascending: true,
+      });
+
+    if (employeeResult.error) {
+      console.error(
+        "Audit employees query failed:",
+        employeeResult.error
+      );
+
+      return NextResponse.json(
         {
           success: false,
           error:
-            "You must be signed in to view audit logs.",
+            employeeResult.error.message ||
+            "Employee data could not be loaded.",
         },
-        { status: 401 }
+        { status: 500 }
       );
     }
 
-    */
-    const [
-      auditResult,
-      employeeResult,
-      matterResult,
-      sarResult,
-    ] = await Promise.all([
+    const employeeIds = (employeeResult.data || []).map((employee) => employee.id);
+
+    const [auditResult, matterResult, sarResult] = await Promise.all([
       supabase
         .from("audit_logs")
         .select("*")
+        .eq("organisation_id", organisationId)
         .order("created_at", {
           ascending: false,
         })
         .limit(5000),
 
-      supabase
-        .from("employees")
-        .select("id,name")
-        .eq("organisation_id", organisationId)
-        .order("name", {
-          ascending: true,
-        }),
+      employeeIds.length > 0
+        ? supabase
+            .from("matters")
+            .select(
+              "id,title,subject,employee_id"
+            )
+            .in("employee_id", employeeIds)
+        : Promise.resolve({ data: [], error: null }),
 
-      supabase
-        .from("matters")
-        .select(
-          "id,title,subject,employee_id"
-        ),
-
-      supabase
-        .from("employee_sars")
-        .select(
-          "id,request_title,employee_id"
-        ),
+      employeeIds.length > 0
+        ? supabase
+            .from("employee_sars")
+            .select(
+              "id,request_title,employee_id"
+            )
+            .in("employee_id", employeeIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (auditResult.error) {
@@ -84,23 +97,6 @@ export async function GET() {
           error:
             auditResult.error.message ||
             "Audit logs could not be loaded.",
-        },
-        { status: 500 }
-      );
-    }
-
-    if (employeeResult.error) {
-      console.error(
-        "Audit employees query failed:",
-        employeeResult.error
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            employeeResult.error.message ||
-            "Employee data could not be loaded.",
         },
         { status: 500 }
       );

@@ -52,6 +52,17 @@ type LearningCertificate = {
   file_url: string | null;
 };
 
+type ReminderItem = {
+  id: string;
+  title: string;
+  message: string;
+  actionUrl: string | null;
+  metadata?: {
+    module?: string;
+    milestone?: string;
+  };
+};
+
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -174,6 +185,8 @@ export default function MyLearningPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [employeeLinked, setEmployeeLinked] = useState(true);
+  const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [remindersLoading, setRemindersLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -307,6 +320,59 @@ export default function MyLearningPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadReminders() {
+      setRemindersLoading(true);
+
+      try {
+        const response = await fetch("/api/reminders?limit=10", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              reminders?: ReminderItem[];
+            }
+          | null;
+
+        if (!response.ok || !payload?.success) {
+          throw new Error("Personal reminders could not be loaded.");
+        }
+
+        if (!active) return;
+
+        const filtered = (payload.reminders || []).filter((item) => {
+          const moduleKey = String(item.metadata?.module || "").toLowerCase();
+          return moduleKey === "learn" || moduleKey === "compliance";
+        });
+
+        setReminders(filtered);
+      } catch (error) {
+        console.error("My Employment reminders could not be loaded:", error);
+        if (!active) return;
+        setReminders([]);
+      } finally {
+        if (active) {
+          setRemindersLoading(false);
+        }
+      }
+    }
+
+    void loadReminders();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const activeAssignments = useMemo(
     () => assignments.filter((assignment) => !isComplete(assignment)),
     [assignments],
@@ -369,6 +435,33 @@ export default function MyLearningPage() {
         />
       ) : (
         <>
+          <section style={reminderPanelStyle} aria-label="Personal reminders">
+            <h2 style={reminderPanelTitleStyle}>Personal reminders</h2>
+
+            {remindersLoading ? (
+              <p style={reminderPanelTextStyle}>Loading reminders...</p>
+            ) : reminders.length === 0 ? (
+              <p style={reminderPanelTextStyle}>No active personal reminders.</p>
+            ) : (
+              <ul style={reminderListStyle}>
+                {reminders.map((item) => (
+                  <li key={item.id} style={reminderItemStyle}>
+                    <div>
+                      <p style={reminderItemTitleStyle}>{item.title}</p>
+                      <p style={reminderItemTextStyle}>{item.message}</p>
+                    </div>
+
+                    {item.actionUrl ? (
+                      <Link href={item.actionUrl} style={reminderLinkStyle}>
+                        Open
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section style={summaryGridStyle} aria-label="Learning summary">
             <SummaryCard
               label="Active learning"
@@ -716,6 +809,77 @@ const pageStyle: CSSProperties = {
   width: "100%",
   maxWidth: "1440px",
   margin: "0 auto",
+};
+
+const reminderPanelStyle: CSSProperties = {
+  marginBottom: "20px",
+  padding: "16px",
+  border: "1px solid #E5E7EB",
+  borderRadius: "14px",
+  background: "#FFFFFF",
+  boxShadow: "0 8px 22px rgba(17, 24, 39, 0.05)",
+};
+
+const reminderPanelTitleStyle: CSSProperties = {
+  margin: "0 0 10px",
+  color: "#111827",
+  fontSize: "16px",
+  lineHeight: 1.3,
+  fontWeight: 700,
+};
+
+const reminderPanelTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#6B7280",
+  fontSize: "13px",
+  lineHeight: 1.5,
+};
+
+const reminderListStyle: CSSProperties = {
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "grid",
+  gap: "10px",
+};
+
+const reminderItemStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "10px",
+  border: "1px solid #E5E7EB",
+  borderRadius: "10px",
+  padding: "10px",
+};
+
+const reminderItemTitleStyle: CSSProperties = {
+  margin: "0 0 3px",
+  color: "#111827",
+  fontSize: "13px",
+  lineHeight: 1.4,
+  fontWeight: 700,
+};
+
+const reminderItemTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#4B5563",
+  fontSize: "12px",
+  lineHeight: 1.45,
+};
+
+const reminderLinkStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "8px",
+  border: "1px solid #D1D5DB",
+  background: "#FFFFFF",
+  color: "#374151",
+  fontSize: "12px",
+  fontWeight: 700,
+  textDecoration: "none",
+  padding: "6px 9px",
 };
 
 const headerStyle: CSSProperties = {

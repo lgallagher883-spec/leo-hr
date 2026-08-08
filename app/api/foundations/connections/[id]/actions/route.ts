@@ -100,6 +100,9 @@ function getProviderIdentity(provider: any) {
     isDocuSign:
       providerName.includes("docusign") ||
       providerKey.includes("docusign"),
+    isCanva:
+      providerName.includes("canva") ||
+      providerKey.includes("canva"),
   };
 }
 
@@ -359,12 +362,14 @@ export async function POST(
         isMicrosoft365,
         isGoogleWorkspace,
         isDocuSign,
+        isCanva,
       } = getProviderIdentity(provider);
 
       if (
         !isMicrosoft365 &&
         !isGoogleWorkspace &&
         !isDocuSign &&
+        !isCanva &&
         provider.setup_status !== "Available"
       ) {
         return NextResponse.json({
@@ -486,6 +491,19 @@ export async function POST(
         });
       }
 
+      if (isCanva) {
+        return NextResponse.json({
+          success: true,
+          connection: connectionResult.data,
+          session: sessionResult.data,
+          redirectUrl:
+            `/api/foundations/connections/canva/start` +
+            `?session=${encodeURIComponent(sessionReference)}`,
+          message:
+            "Redirecting to Canva for secure authorisation.",
+        });
+      }
+
       return NextResponse.json({
         success: true,
         connection: connectionResult.data,
@@ -530,7 +548,7 @@ export async function POST(
 
       const liveConnection =
         connection.status === "Connected";
-      const { isGoogleWorkspace, isDocuSign } =
+      const { isGoogleWorkspace, isDocuSign, isCanva } =
         getProviderIdentity(provider);
 
       if (liveConnection && isDocuSign) {
@@ -603,6 +621,83 @@ export async function POST(
           },
           {
             status: docuSignResult.success ? 200 : 502,
+          },
+        );
+      }
+
+      if (liveConnection && isCanva) {
+        const healthUrl = new URL(
+          "/api/foundations/connections/canva/health",
+          request.url,
+        );
+        healthUrl.searchParams.set(
+          "connectionId",
+          String(connectionId),
+        );
+
+        const canvaResponse = await fetch(healthUrl, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            cookie: request.headers.get("cookie") || "",
+          },
+        });
+
+        const canvaResult = (await canvaResponse.json()) as {
+          success?: boolean;
+          error?: string;
+          message?: string;
+        };
+
+        const healthStatus = canvaResult.success
+          ? "Healthy"
+          : "Authentication Failed";
+
+        const summary =
+          canvaResult.message ||
+          canvaResult.error ||
+          "Canva connection test completed.";
+
+        await (admin as any)
+          .from("connection_jobs")
+          .update({
+            status: canvaResult.success
+              ? "Completed"
+              : "Partially Completed",
+            progress_percent: 100,
+            completed_at: now,
+            error_message: canvaResult.success
+              ? null
+              : summary,
+            response_payload: {
+              health_status: healthStatus,
+              summary,
+            },
+          })
+          .eq("id", jobResult.data.id)
+          .eq("connection_id", connectionId);
+
+        await recordActivity(admin, {
+          organisationId: access.organisationId,
+          userId: access.user.id,
+          providerId: provider.id,
+          connectionId,
+          jobId: jobResult.data.id,
+          activityType: "Connection Tested",
+          summary,
+          details: {
+            health_status: healthStatus,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: canvaResult.success === true,
+            healthStatus,
+            message: summary,
+          },
+          {
+            status: canvaResult.success ? 200 : 502,
           },
         );
       }

@@ -141,14 +141,23 @@ export default async function DashboardLayout({
     "leo_is_platform_administrator",
   );
 
-  if (
+  const isPlatformAdministrator =
     !platformAccessResult.error &&
-    platformAccessResult.data === true
-  ) {
+    platformAccessResult.data === true;
+
+  if (isPlatformAdministrator) {
     activeRole = "owner";
   }
 
-  if (organisationId) {
+  /*
+   * Platform administrators are internal LEO management users.
+   * They must not be subscription-gated by an organisation's
+   * customer billing state.
+   *
+   * Normal customer organisations still follow the full trial,
+   * subscription and entitlement checks below.
+   */
+  if (organisationId && !isPlatformAdministrator) {
     const registrationIntent = resolveRegistrationIntent(user.user_metadata);
 
     const [trialResult, subscriptionResult, entitlementResult] =

@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { checklistsCatalogue } from "./checklistsCatalogue";
 
 type ChecklistResource = {
   id: string;
@@ -29,17 +30,7 @@ const topics = [
 ];
 
 // Published LEO checklist resources will be supplied here by the library API.
-const publishedChecklists: ChecklistResource[] = [
-  {
-    id: "new-starter-checklist",
-    title: "New Starter Checklist",
-    summary:
-      "A practical checklist covering the essential steps before, on and after a new employee's first day, helping ensure a consistent and compliant onboarding process.",
-    topic: "Onboarding",
-    lastUpdated: "July 2026",
-    tags: ["new starter", "onboarding", "induction", "employment checks"],
-  },
-];
+const publishedChecklists: ChecklistResource[] = checklistsCatalogue;
 
 export default function ChecklistsPage() {
   const [search, setSearch] = useState("");
@@ -113,7 +104,7 @@ export default function ChecklistsPage() {
               .map(
                 (item) => `
                   <tr>
-                    <td class="tick">☐</td>
+                    <td class="tick">â˜</td>
                     <td>${item}</td>
                     <td></td>
                     <td></td>
@@ -732,7 +723,7 @@ export default function ChecklistsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          ← Back to HR Resources
+          â† Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -752,7 +743,7 @@ export default function ChecklistsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">âŒ•</span>
             <input
               className="search-input"
               value={search}
@@ -763,7 +754,7 @@ export default function ChecklistsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">✦</span>
+            <span aria-hidden="true">âœ¦</span>
             Ask Leo
           </Link>
         </div>
@@ -874,7 +865,7 @@ export default function ChecklistsPage() {
         </div>
 
         <section className="current-note">
-          <span>↻</span>
+          <span>â†»</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>
@@ -886,3 +877,4 @@ export default function ChecklistsPage() {
     </main>
   );
 }
+

@@ -26,6 +26,7 @@ import {
   GraduationCap,
   HeartPulse,
   LayoutDashboard,
+  LifeBuoy,
   Library,
   LogOut,
   MessageCircle,
@@ -38,6 +39,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 const SIDEBAR_WIDTH = 260;
+const HELP_CENTRE_URL = "https://leo-hr.helpscoutdocs.com";
 
 export type DashboardAccessRole =
   | "owner"
@@ -60,6 +62,8 @@ type NavigationLink = {
   label: string;
   href: string;
   icon: NavigationIcon;
+  target?: string;
+  rel?: string;
 };
 
 const managementMainLinks: NavigationLink[] = [
@@ -140,6 +144,13 @@ const managementAccountLinks: NavigationLink[] = [
     label: "Organisation",
     href: "/dashboard/organisation",
     icon: Settings2,
+  },
+  {
+    label: "Help & Support",
+    href: HELP_CENTRE_URL,
+    icon: LifeBuoy,
+    target: "_blank",
+    rel: "noopener noreferrer",
   },
 ];
 
@@ -517,13 +528,15 @@ export default function DashboardShell({
                 gap: "0px",
               }}
             >
-              {accountLinks.map(({ label, href, icon: Icon }) => {
+              {accountLinks.map(({ label, href, icon: Icon, target, rel }) => {
                 const active = isActive(href);
 
                 return (
                   <Link
                     key={href}
                     href={href}
+                    target={target}
+                    rel={rel}
                     aria-current={active ? "page" : undefined}
                     style={{
                       minHeight: "34px",

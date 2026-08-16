@@ -8,6 +8,7 @@ import DashboardShell, {
   type DashboardBillingGuard,
   type DashboardAccessRole,
 } from "./DashboardShell";
+import HelpScoutBeacon from "./HelpScoutBeacon";
 
 type MembershipRoleRow = {
   id?: string | null;
@@ -179,7 +180,11 @@ export default async function DashboardLayout({
           .maybeSingle(),
       ]);
 
-    if (!trialResult.error && !subscriptionResult.error && !entitlementResult.error) {
+    if (
+      !trialResult.error &&
+      !subscriptionResult.error &&
+      !entitlementResult.error
+    ) {
       const trial = trialResult.data as TrialRecord | null;
       const subscription = subscriptionResult.data as SubscriptionRecord | null;
       const entitlement = entitlementResult.data as EntitlementRecord | null;
@@ -240,13 +245,17 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardShell
-      accessRole={activeRole}
-      organisationId={organisationId}
-      userId={user.id}
-      billingGuard={billingGuard}
-    >
-      {children}
-    </DashboardShell>
+    <>
+      <DashboardShell
+        accessRole={activeRole}
+        organisationId={organisationId}
+        userId={user.id}
+        billingGuard={billingGuard}
+      >
+        {children}
+      </DashboardShell>
+
+      <HelpScoutBeacon />
+    </>
   );
 }

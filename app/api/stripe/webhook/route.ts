@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { sendCustomerAcquisitionNotification } from "@/lib/notifications/customerAcquisitionNotification";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 
@@ -177,11 +178,21 @@ async function synchroniseSubscription(
       ? capacityFromMetadata
       : null;
 
-  const { data: existing } = await admin
-    .from("leo_organisation_subscriptions")
-    .select("id, status, employee_count, metadata")
-    .eq("organisation_id", organisationId)
-    .maybeSingle();
+  const [{ data: existing }, { data: trialBeforeActivation }] =
+    await Promise.all([
+      admin
+        .from("leo_organisation_subscriptions")
+        .select("id, status, employee_count, metadata, created_by")
+        .eq("organisation_id", organisationId)
+        .maybeSingle(),
+      status === "active"
+        ? admin
+            .from("leo_organisation_trials")
+            .select("id, status, starts_at, ends_at")
+            .eq("organisation_id", organisationId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   const existingMetadata =
     existing?.metadata &&
@@ -273,6 +284,27 @@ async function synchroniseSubscription(
       ignoreDuplicates: true,
     },
   );
+
+  const becameActiveNow =
+    status === "active" && existing?.status !== "active";
+
+  if (becameActiveNow) {
+    const convertedFromTrial =
+      trialBeforeActivation?.status === "active" ||
+      trialBeforeActivation?.status === "pending";
+
+    await sendCustomerAcquisitionNotification({
+      event: convertedFromTrial ? "trial_converted" : "paid_direct",
+      organisationId,
+      userId: existing?.created_by ?? null,
+      planKey,
+      employeeCapacity: capacity ?? existing?.employee_count ?? null,
+      subscriptionStartsAt: unixToIso(item?.current_period_start),
+      subscriptionEndsAt: unixToIso(item?.current_period_end),
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+    });
+  }
 }
 
 async function synchroniseInvoice(

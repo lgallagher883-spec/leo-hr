@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendCustomerAcquisitionNotification } from "@/lib/notifications/customerAcquisitionNotification";
 
 export type TrialProvisioningResult = {
   activated: boolean;
@@ -72,9 +73,11 @@ async function getTrial(
 
 export async function ensureFreeTrialProvisioning(
   organisationId: string,
+  userId?: string | null,
 ): Promise<TrialProvisioningResult> {
   const admin = createAdminClient();
   let trial = await getTrial(admin, organisationId);
+  let trialStartedNow = false;
 
   if (!trial) {
     const startsAt = new Date().toISOString();
@@ -108,6 +111,7 @@ export async function ensureFreeTrialProvisioning(
       }
     } else {
       trial = createdTrial as TrialRow;
+      trialStartedNow = true;
     }
   }
 
@@ -136,6 +140,7 @@ export async function ensureFreeTrialProvisioning(
     }
 
     trial = activatedTrial as TrialRow;
+    trialStartedNow = true;
   }
 
   /*
@@ -189,6 +194,16 @@ export async function ensureFreeTrialProvisioning(
   }
 
   const entitlementId = await synchroniseEntitlement(admin, organisationId);
+
+  if (trialStartedNow) {
+    await sendCustomerAcquisitionNotification({
+      event: "trial_started",
+      organisationId,
+      userId,
+      trialStartsAt: trial.starts_at,
+      trialEndsAt: trial.ends_at,
+    });
+  }
 
   return {
     activated: true,

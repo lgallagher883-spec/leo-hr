@@ -72,8 +72,10 @@ async function resolveOrganisationId(
     .limit(1)
     .maybeSingle();
 
-  return (identityMembership as OrganisationMembership | null)
-    ?.organisation_id ?? null;
+  return (
+    (identityMembership as OrganisationMembership | null)?.organisation_id ??
+    null
+  );
 }
 
 export async function GET(request: Request) {
@@ -116,7 +118,7 @@ export async function GET(request: Request) {
   }
 
   if (registrationIntent.kind === "free_trial") {
-    await ensureFreeTrialProvisioning(organisationId);
+    await ensureFreeTrialProvisioning(organisationId, data.user.id);
   }
 
   const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {

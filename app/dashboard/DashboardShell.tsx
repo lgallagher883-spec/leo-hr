@@ -16,11 +16,11 @@ import {
   Building2,
   CalendarDays,
   CarFront,
+  ChevronRight,
   CircleUserRound,
   ClipboardCheck,
   ContactRound,
   FileCheck2,
-  FileHeart,
   FileSearch,
   FileText,
   GraduationCap,
@@ -33,10 +33,12 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  X,
   Users,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import styles from "./DashboardShell.module.css";
 
 const SIDEBAR_WIDTH = 260;
 const HELP_CENTRE_URL = "https://leo-hr.helpscoutdocs.com";
@@ -161,11 +163,6 @@ const employeeMainLinks: NavigationLink[] = [
     icon: LayoutDashboard,
   },
   {
-    label: "Ask Leo",
-    href: "/dashboard/ask-leo",
-    icon: MessageCircle,
-  },
-  {
     label: "My Employment",
     href: "/dashboard/my-employment",
     icon: BriefcaseBusiness,
@@ -196,7 +193,7 @@ const employeeMainLinks: NavigationLink[] = [
     icon: ContactRound,
   },
   {
-    label: "Medical & Fit Notes",
+    label: "Medical",
     href: "/dashboard/my-employment/medical",
     icon: HeartPulse,
   },
@@ -206,7 +203,7 @@ const employeeMainLinks: NavigationLink[] = [
     icon: FileCheck2,
   },
   {
-    label: "DBS & Safeguarding",
+    label: "DBS",
     href: "/dashboard/my-employment/dbs-safeguarding",
     icon: BadgeCheck,
   },
@@ -223,18 +220,39 @@ const employeeAccountLinks: NavigationLink[] = [
     href: "/dashboard/my-account",
     icon: CircleUserRound,
   },
+  {
+    label: "Help & Support",
+    href: HELP_CENTRE_URL,
+    icon: LifeBuoy,
+    target: "_blank",
+    rel: "noopener noreferrer",
+  },
+];
+
+const employeeMobileMoreLinks: NavigationLink[] = [
+  { label: "My Learning", href: "/dashboard/my-employment/learning", icon: GraduationCap },
+  { label: "Upcoming Reviews", href: "/dashboard/my-employment/reviews", icon: ClipboardCheck },
+  { label: "Emergency Contacts", href: "/dashboard/my-employment/emergency-contacts", icon: ContactRound },
+  { label: "Medical", href: "/dashboard/my-employment/medical", icon: HeartPulse },
+  { label: "Right to Work", href: "/dashboard/my-employment/right-to-work", icon: FileCheck2 },
+  { label: "DBS", href: "/dashboard/my-employment/dbs-safeguarding", icon: BadgeCheck },
+  { label: "Driving", href: "/dashboard/my-employment/driving", icon: CarFront },
+  { label: "My Account", href: "/dashboard/my-account", icon: CircleUserRound },
+  { label: "Help & Support", href: HELP_CENTRE_URL, icon: LifeBuoy, target: "_blank", rel: "noopener noreferrer" },
+];
+
+const employeeMobilePrimaryLinks: NavigationLink[] = [
+  { label: "Home", href: "/dashboard/employee", icon: LayoutDashboard },
+  { label: "Employment", href: "/dashboard/my-employment", icon: BriefcaseBusiness },
+  { label: "Leave", href: "/dashboard/my-employment/leave", icon: CalendarDays },
+  { label: "Docs", href: "/dashboard/my-employment/documents", icon: FileText },
 ];
 
 const employeeAllowedRoutes = [
   "/dashboard/employee",
-  "/dashboard/ask-leo",
   "/dashboard/my-employment",
   "/dashboard/my-account",
-];
-
-const billingAllowedRoutes = [
-  "/dashboard/billing",
-  "/dashboard/my-account",
+  "/dashboard/access-unavailable",
 ];
 
 function routeIsWithin(pathname: string, route: string) {
@@ -247,23 +265,19 @@ function isEmployeeRouteAllowed(pathname: string) {
   );
 }
 
-function isBillingRouteAllowed(pathname: string) {
-  return billingAllowedRoutes.some((route) =>
-    routeIsWithin(pathname, route),
-  );
-}
-
 export default function DashboardShell({
   children,
   accessRole,
   billingGuard,
   organisationId: _organisationId,
+  organisationName,
   userId: _userId,
 }: {
   children: ReactNode;
   accessRole: DashboardAccessRole;
   billingGuard: DashboardBillingGuard;
   organisationId: string | null;
+  organisationName: string | null;
   userId: string;
 }) {
   const pathname = usePathname();
@@ -272,6 +286,7 @@ export default function DashboardShell({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isResolvingRoute, setIsResolvingRoute] = useState(true);
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
 
   const isEmployee = accessRole === "employee";
   const mainLinks = isEmployee ? employeeMainLinks : managementMainLinks;
@@ -280,12 +295,37 @@ export default function DashboardShell({
     : managementAccountLinks;
 
   useEffect(() => {
-    if (!billingGuard.hasPlatformAccess && !isBillingRouteAllowed(pathname)) {
-      const target = billingGuard.billingRedirectPlanKey
-        ? `/dashboard/billing?autostart=${billingGuard.billingRedirectPlanKey}`
-        : "/dashboard/billing";
+    if (!isMobileMoreOpen) return;
 
-      router.replace(target);
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsMobileMoreOpen(false);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMobileMoreOpen]);
+
+  useEffect(() => {
+    function openMobileMore() {
+      setIsMobileMoreOpen(true);
+    }
+
+    window.addEventListener("leo:open-employee-mobile-more", openMobileMore);
+    return () =>
+      window.removeEventListener("leo:open-employee-mobile-more", openMobileMore);
+  }, []);
+
+  useEffect(() => {
+    const blockedDestination =
+      accessRole === "owner" || accessRole === "senior"
+        ? "/dashboard/billing"
+        : "/dashboard/access-unavailable";
+
+    if (
+      !billingGuard.hasPlatformAccess &&
+      !routeIsWithin(pathname, blockedDestination)
+    ) {
+      router.replace(blockedDestination);
       return;
     }
 
@@ -308,7 +348,7 @@ export default function DashboardShell({
     }
 
     setIsResolvingRoute(false);
-  }, [billingGuard, isEmployee, pathname, router]);
+  }, [accessRole, billingGuard, isEmployee, pathname, router]);
 
   function isActive(href: string) {
     if (href === "/dashboard") {
@@ -355,6 +395,7 @@ export default function DashboardShell({
 
   return (
     <div
+      className={styles.shell}
       style={{
         minHeight: "100vh",
         fontFamily:
@@ -363,7 +404,75 @@ export default function DashboardShell({
         color: "#2F2635",
       }}
     >
+        {isEmployee ? (
+          <>
+            <header className={styles.mobileTopBar}>
+              <Image src="/logo.png" alt="Leo HR" width={84} height={48} priority className={styles.mobileLogo} />
+              <p className={styles.mobileOrganisationName} title={organisationName ?? undefined}>
+                {organisationName ?? "Leo HR"}
+              </p>
+              <button
+                type="button"
+                className={styles.mobileAccountButton}
+                aria-label="Open account and more navigation"
+                aria-expanded={isMobileMoreOpen}
+                aria-controls="employee-mobile-more-sheet"
+                onClick={() => setIsMobileMoreOpen(true)}
+              >
+                <CircleUserRound size={23} strokeWidth={1.8} aria-hidden />
+              </button>
+            </header>
+
+            <nav className={styles.mobileBottomNavigation} aria-label="Employee primary navigation">
+              {employeeMobilePrimaryLinks.map(({ label, href, icon: Icon }) => {
+                const active = isActive(href);
+                return (
+                  <Link key={href} href={href} className={`${styles.mobileNavigationLink} ${active ? styles.mobileNavigationLinkActive : ""}`} aria-current={active ? "page" : undefined}>
+                    <Icon size={21} strokeWidth={active ? 2.1 : 1.8} aria-hidden />
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
+              <button
+                type="button"
+                className={`${styles.mobileNavigationLink} ${isMobileMoreOpen ? styles.mobileNavigationLinkActive : ""}`}
+                aria-label="Open more employee navigation"
+                aria-expanded={isMobileMoreOpen}
+                aria-controls="employee-mobile-more-sheet"
+                onClick={() => setIsMobileMoreOpen(true)}
+              >
+                <CircleUserRound size={21} strokeWidth={isMobileMoreOpen ? 2.1 : 1.8} aria-hidden />
+                <span>More</span>
+              </button>
+            </nav>
+
+            {isMobileMoreOpen ? (
+              <div className={styles.mobileMoreLayer} role="presentation">
+                <button type="button" className={styles.mobileMoreBackdrop} aria-label="Close more navigation" onClick={() => setIsMobileMoreOpen(false)} />
+                <section id="employee-mobile-more-sheet" className={styles.mobileMoreSheet} role="dialog" aria-modal="true" aria-label="More employee navigation">
+                  <div className={styles.mobileMoreSheetHeader}>
+                    <h2>More</h2>
+                    <button type="button" className={styles.mobileCloseButton} aria-label="Close more navigation" onClick={() => setIsMobileMoreOpen(false)}>
+                      <X size={22} strokeWidth={2} aria-hidden />
+                    </button>
+                  </div>
+                  <nav className={styles.mobileMoreLinks} aria-label="More employee destinations">
+                    {employeeMobileMoreLinks.map(({ label, href, icon: Icon, target, rel }) => (
+                      <Link key={href} href={href} target={target} rel={rel} className={styles.mobileMoreLink} onClick={() => setIsMobileMoreOpen(false)}>
+                        <Icon size={20} strokeWidth={1.8} aria-hidden />
+                        <span>{label}</span>
+                        <ChevronRight size={18} strokeWidth={1.8} aria-hidden />
+                      </Link>
+                    ))}
+                  </nav>
+                </section>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
         <aside
+          className={styles.desktopSidebar}
           aria-label={
             isEmployee
               ? "LEO employee navigation"
@@ -412,40 +521,6 @@ export default function DashboardShell({
               }}
             />
           </div>
-
-          {isEmployee ? (
-            <div
-              style={{
-                flexShrink: 0,
-                margin: "0 12px 8px",
-                padding: "10px 12px",
-                borderRadius: "10px",
-                background: "#F7F1FC",
-                border: "1px solid #E9D5FF",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "9px",
-                  color: "#6E5084",
-                }}
-              >
-                <FileHeart size={17} strokeWidth={1.8} aria-hidden />
-                <span
-                  style={{
-                    fontSize: "12px",
-                    lineHeight: 1.35,
-                    fontWeight: 750,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  Employee workspace
-                </span>
-              </div>
-            </div>
-          ) : null}
 
           <nav
             aria-label="Main navigation"
@@ -633,6 +708,7 @@ export default function DashboardShell({
         </aside>
 
         <main
+          className={styles.dashboardContent}
           style={{
             minHeight: "100vh",
             marginLeft: `${SIDEBAR_WIDTH}px`,

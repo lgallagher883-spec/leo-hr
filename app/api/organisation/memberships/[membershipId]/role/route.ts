@@ -382,6 +382,35 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const now = new Date().toISOString();
 
+    const otherActiveAssignmentIds = assignments
+      .filter(
+        (assignment) =>
+          assignment.role_id !== selectedRole.id &&
+          (assignment.is_active || assignment.is_primary),
+      )
+      .map((assignment) => assignment.id);
+
+    if (otherActiveAssignmentIds.length > 0) {
+      const { error: revokeAssignmentsError } = await admin
+        .from("membership_roles")
+        .update({
+          is_active: false,
+          is_primary: false,
+          revoked_by: user.id,
+          revoked_at: now,
+          revocation_reason: `Replaced with ${selectedRole.name} through Organisation access management.`,
+          updated_at: now,
+        })
+        .in("id", otherActiveAssignmentIds);
+
+      if (revokeAssignmentsError) {
+        return NextResponse.json(
+          { error: revokeAssignmentsError.message },
+          { status: 500 },
+        );
+      }
+    }
+
     if (existingTargetAssignment) {
       const { error: targetAssignmentError } = await admin
         .from("membership_roles")
@@ -427,35 +456,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       if (insertAssignmentError) {
         return NextResponse.json(
           { error: insertAssignmentError.message },
-          { status: 500 },
-        );
-      }
-    }
-
-    const otherActiveAssignmentIds = assignments
-      .filter(
-        (assignment) =>
-          assignment.role_id !== selectedRole.id &&
-          assignment.is_active,
-      )
-      .map((assignment) => assignment.id);
-
-    if (otherActiveAssignmentIds.length > 0) {
-      const { error: revokeAssignmentsError } = await admin
-        .from("membership_roles")
-        .update({
-          is_active: false,
-          is_primary: false,
-          revoked_by: user.id,
-          revoked_at: now,
-          revocation_reason: `Replaced with ${selectedRole.name} through Organisation access management.`,
-          updated_at: now,
-        })
-        .in("id", otherActiveAssignmentIds);
-
-      if (revokeAssignmentsError) {
-        return NextResponse.json(
-          { error: revokeAssignmentsError.message },
           { status: 500 },
         );
       }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 import { runAuthorityEngine } from "@/leo/authority/router";
+import { researchLiveAuthority } from "@/leo/authority/liveAuthority";
 import { buildConversationPlan } from "@/leo/conversation/conversationEngine";
 import { buildConversationPrompt } from "@/leo/conversation/conversationPrompt";
 import { runLeoCore } from "@/leo/core/router";
@@ -319,6 +320,12 @@ export async function POST(req: Request) {
           reasoningResult,
       });
 
+    const liveAuthorityResult =
+      await researchLiveAuthority({
+        message,
+        staticAuthority: authorityResult,
+      });
+
     /*
      * 5. FOUNDATIONS
      */
@@ -446,6 +453,7 @@ export async function POST(req: Request) {
       coreResult,
       reasoningResult,
       authorityResult,
+      liveAuthorityResult,
       knowledgeResult,
       conversationPlan,
       conversationPrompt,

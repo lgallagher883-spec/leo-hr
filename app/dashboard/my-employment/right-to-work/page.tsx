@@ -1,7 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import mobileStyles from "../MyEmployment.module.css";
 
 type DataRecord = Record<string, unknown>;
 
@@ -228,7 +230,10 @@ export default function MyRightToWorkPage() {
 
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <p style={{ color: "#6E5084", fontWeight: 700 }}>
+      <p
+        className={mobileStyles.rightToWorkMobileHide}
+        style={{ color: "#6E5084", fontWeight: 700 }}
+      >
         Employee workspace
       </p>
 
@@ -242,7 +247,10 @@ export default function MyRightToWorkPage() {
         Right to Work
       </h1>
 
-      <p style={{ color: "#64748B", marginBottom: 24 }}>
+      <p
+        className={mobileStyles.rightToWorkMobileHide}
+        style={{ color: "#64748B", marginBottom: 24 }}
+      >
         Review the Right to Work information held on your employment
         record.
       </p>
@@ -329,6 +337,7 @@ export default function MyRightToWorkPage() {
             </h2>
 
             <p
+              className={mobileStyles.rightToWorkMobileHide}
               style={{
                 margin: "8px 0 0",
                 color: "#64748B",
@@ -472,6 +481,7 @@ export default function MyRightToWorkPage() {
       )}
 
       <div
+        className={mobileStyles.rightToWorkMobileHide}
         style={{
           marginTop: 28,
           padding: 20,
@@ -499,6 +509,7 @@ export default function MyRightToWorkPage() {
 
       <div style={{ marginTop: 24 }}>
         <Link
+          className={mobileStyles.mobileBackLink}
           href="/dashboard/my-employment"
           style={{
             textDecoration: "none",

@@ -1,65 +1,155 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
+import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  CalendarDays,
+  CarFront,
+  ChevronRight,
+  ClipboardCheck,
+  ContactRound,
+  FileCheck2,
+  FileText,
+  GraduationCap,
+  HeartPulse,
+  type LucideIcon,
+} from "lucide-react";
+import styles from "./MyEmployment.module.css";
 
-type MyEmploymentResponse={
- success:boolean;
- employee?:{name:string;role:string|null;status:string|null;startDate:string|null};
- error?:string;
+type EmploymentDestination = {
+  title: string;
+  description: string;
+  actionLabel: string;
+  href: string;
+  icon: LucideIcon;
 };
 
-export default function MyEmploymentPage(){
- const router=useRouter();
- const [data,setData]=useState<MyEmploymentResponse|null>(null);
- const [loading,setLoading]=useState(true);
+export default function MyEmploymentPage() {
+  const router = useRouter();
 
- useEffect(()=>{
-  fetch("/api/my-employment",{cache:"no-store"})
-   .then(r=>r.json())
-   .then(setData)
-   .finally(()=>setLoading(false));
- },[]);
+  const destinations: EmploymentDestination[] = [
+    { title: "Employment Details", description: "Review your role, department, manager, key dates and employment status.", actionLabel: "View employment details", href: "/dashboard/my-employment/details", icon: BriefcaseBusiness },
+    { title: "Leave", description: "Review leave information, upcoming time away and previous requests.", actionLabel: "Open leave", href: "/dashboard/my-employment/leave", icon: CalendarDays },
+    { title: "Learning", description: "See assigned learning, completed courses, qualifications and certificates.", actionLabel: "Open learning", href: "/dashboard/my-employment/learning", icon: GraduationCap },
+    { title: "Documents", description: "Access employment documents and records shared with you.", actionLabel: "Open documents", href: "/dashboard/my-employment/documents", icon: FileText },
+    { title: "Upcoming Reviews", description: "Keep track of probation, performance and development reviews.", actionLabel: "View reviews", href: "/dashboard/my-employment/reviews", icon: ClipboardCheck },
+    { title: "Emergency Contacts", description: "Review and maintain the emergency contact information held for you.", actionLabel: "Open emergency contacts", href: "/dashboard/my-employment/emergency-contacts", icon: ContactRound },
+    { title: "Medical", description: "Review the workplace medical information and fit note records available to you.", actionLabel: "Open medical information", href: "/dashboard/my-employment/medical", icon: HeartPulse },
+    { title: "Right to Work", description: "Review the right to work checks held for you.", actionLabel: "Open Right to Work", href: "/dashboard/my-employment/right-to-work", icon: FileCheck2 },
+    { title: "DBS", description: "Review the DBS and safeguarding records held for you.", actionLabel: "Open DBS", href: "/dashboard/my-employment/dbs-safeguarding", icon: BadgeCheck },
+    { title: "Driving", description: "Review driving and licence information held for you.", actionLabel: "Open driving", href: "/dashboard/my-employment/driving", icon: CarFront },
+  ];
 
- return (
-<main style={pageStyle}>
-<header style={headerStyle}>
-<div>
-<p style={eyebrowStyle}>Employee workspace</p>
-<h1 style={titleStyle}>My Employment</h1>
-<p style={subtitleStyle}>
-{loading?"Loading your employment record...":data?.employee?`Welcome ${data.employee.name}.`:data?.error??"Review your employment information and open the areas available to you."}
-</p>
-</div>
-<button type="button" onClick={()=>router.push("/dashboard/employee")} style={secondaryButtonStyle}>Back to dashboard</button>
-</header>
+  return (
+    <main className={styles.hubPage} style={pageStyle}>
+      <header className={styles.hubHeader} style={headerStyle}>
+        <div>
+          <p className={styles.employeeMobileHide} style={eyebrowStyle}>
+            Employee workspace
+          </p>
 
-<section style={introCardStyle}>
-<div style={iconStyle}>✓</div>
-<div>
-<h2 style={introTitleStyle}>Current employment</h2>
-<p style={introTextStyle}>
-{loading?"Loading…":data?.employee?`${data.employee.role??"Employee"} • ${data.employee.status??"Unknown status"}`:"Employment record unavailable."}
-</p>
-</div>
-</section>
+          <h1 style={titleStyle}>My Employment</h1>
 
-<section style={gridStyle}>
-{card("Employment details","Review your role, manager and employment dates.","View employment details",()=>router.push("/dashboard/my-employment/details"))}
-{card("Leave","Review leave information.","Open leave",()=>router.push("/dashboard/my-employment/leave"))}
-{card("Learning","View assigned learning.","Open learning",()=>router.push("/dashboard/my-employment/learning"))}
-{card("Documents","Access your documents.","Open documents",()=>router.push("/dashboard/my-employment/documents"))}
-{card("Upcoming reviews","Review upcoming reviews.","View reviews",()=>router.push("/dashboard/my-employment/reviews"))}
-{card("Emergency contacts","Maintain emergency contacts.","Open emergency contacts",()=>router.push("/dashboard/my-employment/emergency-contacts"))}
-{card("Medical & fit notes","Medical records.","Open medical",()=>router.push("/dashboard/my-employment/medical"))}
-{card("Checks & compliance","Right to Work, DBS and driving.","Open checks",()=>router.push("/dashboard/my-employment/right-to-work"))}
-</section>
-</main>);
+          <p className={styles.employeeMobileHide} style={subtitleStyle}>
+            Review your employment information and open the areas available to
+            you.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/employee")}
+          style={secondaryButtonStyle}
+        >
+          Back to dashboard
+        </button>
+      </header>
+
+      <section className={styles.hubIntroCard} style={introCardStyle}>
+        <div style={iconStyle} aria-hidden="true">
+          ✓
+        </div>
+
+        <div>
+          <h2 style={introTitleStyle}>Your employment record</h2>
+
+          <p style={introTextStyle}>
+            This workspace will bring together your role information,
+            employment dates, leave, learning, documents, reviews and personal
+            employment records.
+          </p>
+        </div>
+      </section>
+
+      <section className={styles.hubGrid} style={gridStyle} aria-label="My employment areas">
+        {destinations.map((destination) => (
+          <EmploymentCard
+            key={destination.href}
+            {...destination}
+            onClick={() => router.push(destination.href)}
+          />
+        ))}
+      </section>
+    </main>
+  );
 }
 
-function card(title:string,description:string,actionLabel:string,onClick:()=>void){
-return <button type="button" onClick={onClick} style={cardStyle}><span style={cardTitleStyle}>{title}</span><span style={cardDescriptionStyle}>{description}</span><span style={cardActionStyle}>{actionLabel}<span>→</span></span></button>
+function EmploymentCard({
+  title,
+  description,
+  actionLabel,
+  icon: Icon,
+  onClick,
+}: EmploymentDestination & {
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={styles.hubCard}
+      onClick={onClick}
+      style={cardStyle}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.transform = "translateY(-2px)";
+        event.currentTarget.style.borderColor = "#CDB2E2";
+        event.currentTarget.style.boxShadow =
+          "0 12px 28px rgba(110, 80, 132, 0.12)";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.transform = "translateY(0)";
+        event.currentTarget.style.borderColor = "#E5E7EB";
+        event.currentTarget.style.boxShadow =
+          "0 8px 22px rgba(17, 24, 39, 0.05)";
+      }}
+    >
+      <span className={styles.hubCardIcon} aria-hidden>
+        <Icon size={21} strokeWidth={1.8} />
+      </span>
+
+      <span className={styles.hubCardTitleRow}>
+        <span className={styles.hubCardTitle} style={cardTitleStyle}>
+          {title}
+        </span>
+        <ChevronRight
+          className={styles.hubCardChevron}
+          size={18}
+          strokeWidth={1.8}
+          aria-hidden
+        />
+      </span>
+
+      <span className={styles.hubCardDescription} style={cardDescriptionStyle}>
+        {description}
+      </span>
+
+      <span className={styles.hubCardAction} style={cardActionStyle}>
+        {actionLabel}
+        <span aria-hidden="true">→</span>
+      </span>
+    </button>
+  );
 }
 
 const pageStyle: CSSProperties = {

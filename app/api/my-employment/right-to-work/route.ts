@@ -40,68 +40,77 @@ function isMissingRelationError(error: unknown) {
 }
 
 async function findEmployee(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  userEmail: string,
 ) {
-  const membershipResult = await supabase
-    .from("identity_organisation_memberships")
-    .select("organisation_id, employee_id")
-    .eq("user_id", userId)
-    .eq("membership_status", "active")
-    .not("employee_id", "is", null)
-    .limit(1)
-    .maybeSingle();
-
-  if (!membershipResult.error && membershipResult.data?.employee_id) {
-    const employeeResult = await supabase
-      .from("employees")
-      .select("id, organisation_id")
-      .eq("id", membershipResult.data.employee_id)
-      .eq(
-        "organisation_id",
-        membershipResult.data.organisation_id,
-      )
-      .maybeSingle();
-
-    if (employeeResult.error) {
-      throw employeeResult.error;
-    }
-
-    return employeeResult.data as EmployeeRecord | null;
-  }
-
-  const organisationResult = await supabase.rpc(
-    "leo_current_organisation_id",
-  );
+  const { data: organisationId, error: organisationError } =
+    await supabase.rpc("leo_current_organisation_id");
 
   if (
-    organisationResult.error ||
-    typeof organisationResult.data !== "string" ||
-    !organisationResult.data
+    organisationError ||
+    typeof organisationId !== "string" ||
+    !organisationId
   ) {
     return null;
   }
 
-  const employeeResult = await supabase
-    .from("employees")
-    .select("id, organisation_id")
-    .eq("organisation_id", organisationResult.data)
-    .ilike("email", userEmail)
+  const { data: membership, error: membershipError } = await supabase
+    .from("organisation_memberships")
+    .select("membership_status,access_starts_at,access_ends_at")
+    .eq("organisation_id", organisationId)
+    .eq("user_id", userId)
+    .eq("membership_status", "active")
     .limit(1)
     .maybeSingle();
 
-  if (employeeResult.error) {
-    throw employeeResult.error;
+  if (membershipError || !membership) {
+    return null;
   }
 
+  const now = Date.now();
+  const accessStartsAt = parseTimestamp(membership.access_starts_at);
+  const accessEndsAt = parseTimestamp(membership.access_ends_at);
+
+  if (
+    (accessStartsAt !== null && accessStartsAt > now) ||
+    (accessEndsAt !== null && accessEndsAt <= now)
+  ) {
+    return null;
+  }
+
+  const { data: employeeLink, error: employeeLinkError } = await supabase
+    .from("employee_user_links")
+    .select("employee_id")
+    .eq("organisation_id", organisationId)
+    .eq("user_id", userId)
+    .eq("link_status", "active")
+    .maybeSingle();
+
+  if (employeeLinkError) throw employeeLinkError;
+  if (!employeeLink?.employee_id) return null;
+
+  const employeeResult = await supabase
+    .from("employees")
+    .select("id, organisation_id")
+    .eq("id", employeeLink.employee_id)
+    .eq("organisation_id", organisationId)
+    .maybeSingle();
+
+  if (employeeResult.error) throw employeeResult.error;
   return employeeResult.data as EmployeeRecord | null;
+}
+
+function parseTimestamp(
+  value: string | null | undefined,
+): number | null {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function loadRightToWorkRecord(
   supabase: any,
   employeeId: number,
-  organisationId: string,
 ) {
   const tables = [
     "employee_right_to_work",
@@ -115,7 +124,6 @@ async function loadRightToWorkRecord(
       .from(tableName)
       .select("*")
       .eq("employee_id", employeeId)
-      .eq("organisation_id", organisationId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -143,7 +151,6 @@ async function loadRightToWorkRecord(
 async function loadRightToWorkDocuments(
   supabase: any,
   employeeId: number,
-  organisationId: string,
 ) {
   const tables = [
     "employee_documents",
@@ -156,24 +163,33 @@ async function loadRightToWorkDocuments(
       .from(tableName)
       .select("*")
       .eq("employee_id", employeeId)
-      .eq("organisation_id", organisationId)
-      .or(
-        "document_type.ilike.%right to work%,document_type.ilike.%passport%,document_type.ilike.%visa%,category.ilike.%right to work%",
-      )
       .order("created_at", { ascending: false });
 
     if (result.error) {
-      if (
-        isMissingRelationError(result.error) ||
-        result.error.code === "42703"
-      ) {
+      if (isMissingRelationError(result.error)) {
         continue;
       }
 
       throw result.error;
     }
 
-    return (result.data ?? []) as RightToWorkRecord[];
+    const records = (result.data ?? []) as RightToWorkRecord[];
+
+    return records.filter((record) => {
+      const type = String(record.document_type ?? record.category ?? "")
+        .trim()
+        .toLowerCase();
+      const title = String(record.title ?? record.file_name ?? "")
+        .trim()
+        .toLowerCase();
+      const haystack = `${type} ${title}`;
+
+      return (
+        haystack.includes("right to work") ||
+        haystack.includes("passport") ||
+        haystack.includes("visa")
+      );
+    });
   }
 
   return [] as RightToWorkRecord[];
@@ -199,26 +215,9 @@ export async function GET() {
       );
     }
 
-    const userEmail =
-      typeof user.email === "string"
-        ? user.email.trim().toLowerCase()
-        : "";
-
-    if (!userEmail) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Your account does not have an email address linked to it.",
-        },
-        { status: 409 },
-      );
-    }
-
     const employee = await findEmployee(
       supabase,
       user.id,
-      userEmail,
     );
 
     if (!employee?.id || !employee.organisation_id) {
@@ -233,13 +232,11 @@ export async function GET() {
     const rightToWorkResult = await loadRightToWorkRecord(
       supabase,
       employee.id,
-      employee.organisation_id,
     );
 
     const documents = await loadRightToWorkDocuments(
       supabase,
       employee.id,
-      employee.organisation_id,
     );
 
     return NextResponse.json({

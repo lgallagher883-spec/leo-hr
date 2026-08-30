@@ -8,6 +8,7 @@ import DashboardShell, {
   type DashboardBillingGuard,
   type DashboardAccessRole,
 } from "./DashboardShell";
+import HelpScoutBeacon from "./HelpScoutBeacon";
 
 type MembershipRoleRow = {
   id?: string | null;
@@ -16,6 +17,10 @@ type MembershipRoleRow = {
   is_primary_organisation?: boolean | null;
   is_default_organisation?: boolean | null;
   organisation_id?: string | null;
+};
+
+type OrganisationNameRow = {
+  name?: string | null;
 };
 
 type TrialRecord = {
@@ -35,8 +40,6 @@ type EntitlementRecord = {
   effective_from: string | null;
   effective_until: string | null;
 };
-
-const billingAllowedRoutes = ["/dashboard/billing", "/dashboard/my-account"];
 
 function isCurrentlyEffective(
   effectiveFrom: string | null,
@@ -72,10 +75,6 @@ function routeIsWithin(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
-function isBillingRouteAllowed(pathname: string) {
-  return billingAllowedRoutes.some((route) => routeIsWithin(pathname, route));
-}
-
 export default async function DashboardLayout({
   children,
 }: {
@@ -94,6 +93,7 @@ export default async function DashboardLayout({
 
   let activeRole: DashboardAccessRole = "employee";
   let organisationId: string | null = null;
+  let organisationName: string | null = null;
   let billingGuard: DashboardBillingGuard = {
     hasPlatformAccess: true,
     billingRedirectPlanKey: null,
@@ -149,6 +149,17 @@ export default async function DashboardLayout({
     activeRole = "owner";
   }
 
+  if (organisationId) {
+    const organisationResult = await (supabase as any)
+      .from("organisations")
+      .select("name")
+      .eq("id", organisationId)
+      .maybeSingle();
+
+    const organisation = organisationResult.data as OrganisationNameRow | null;
+    organisationName = organisation?.name?.trim() || null;
+  }
+
   /*
    * Platform administrators are internal LEO management users.
    * They must not be subscription-gated by an organisation's
@@ -179,7 +190,11 @@ export default async function DashboardLayout({
           .maybeSingle(),
       ]);
 
-    if (!trialResult.error && !subscriptionResult.error && !entitlementResult.error) {
+    if (
+      !trialResult.error &&
+      !subscriptionResult.error &&
+      !entitlementResult.error
+    ) {
       const trial = trialResult.data as TrialRecord | null;
       const subscription = subscriptionResult.data as SubscriptionRecord | null;
       const entitlement = entitlementResult.data as EntitlementRecord | null;
@@ -231,22 +246,31 @@ export default async function DashboardLayout({
   const requestHeaders = await headers();
   const pathname = requestHeaders.get("x-leo-pathname") ?? "/dashboard";
 
-  if (!billingGuard.hasPlatformAccess && !isBillingRouteAllowed(pathname)) {
-    const target = billingGuard.billingRedirectPlanKey
-      ? `/dashboard/billing?autostart=${billingGuard.billingRedirectPlanKey}`
-      : "/dashboard/billing";
+  if (!billingGuard.hasPlatformAccess) {
+    const isBillingAdministrator =
+      activeRole === "owner" || activeRole === "senior";
+    const allowedPathname = isBillingAdministrator
+      ? "/dashboard/billing"
+      : "/dashboard/access-unavailable";
 
-    redirect(target);
+    if (!routeIsWithin(pathname, allowedPathname)) {
+      redirect(allowedPathname);
+    }
   }
 
   return (
-    <DashboardShell
-      accessRole={activeRole}
-      organisationId={organisationId}
-      userId={user.id}
-      billingGuard={billingGuard}
-    >
-      {children}
-    </DashboardShell>
+    <>
+      <DashboardShell
+        accessRole={activeRole}
+        billingGuard={billingGuard}
+        organisationId={organisationId}
+        organisationName={organisationName}
+        userId={user.id}
+      >
+        {children}
+      </DashboardShell>
+
+      {activeRole !== "employee" ? <HelpScoutBeacon /> : null}
+    </>
   );
 }

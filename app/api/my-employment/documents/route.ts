@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
-
-type EmployeeMembership = {
-  organisation_id: string | null;
-  employee_id: number | null;
-};
 
 type DocumentRecord = Record<string, unknown>;
 
@@ -15,6 +11,25 @@ const missingRelationCodes = new Set([
   "PGRST204",
   "PGRST205",
 ]);
+
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "Supabase administrator credentials are not configured.",
+    );
+  }
+
+  return createAdminClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 function isMissingRelationError(error: unknown) {
   if (!error || typeof error !== "object") {
@@ -43,13 +58,11 @@ async function loadDocumentsFromTable(
   supabase: any,
   tableName: string,
   employeeId: number,
-  organisationId: string,
 ) {
   const result = await supabase
     .from(tableName)
     .select("*")
     .eq("employee_id", employeeId)
-    .eq("organisation_id", organisationId)
     .order("created_at", { ascending: false });
 
   if (result.error) {
@@ -182,7 +195,7 @@ async function loadLinkedRecruitmentDocuments(
     }) as DocumentRecord[];
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
 
@@ -201,34 +214,16 @@ export async function GET() {
       );
     }
 
-    const membershipResult = await (supabase as any)
-      .from("identity_organisation_memberships")
-      .select("organisation_id, employee_id")
-      .eq("user_id", user.id)
-      .eq("membership_status", "active")
-      .not("employee_id", "is", null)
-      .limit(1)
-      .maybeSingle();
+    const canonicalResult = await resolveCanonicalEmployee(
+      supabase,
+      user.id,
+    );
 
-    if (membershipResult.error) {
-      console.error(
-        "LEO employee documents membership lookup failed:",
-        membershipResult.error,
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Your employee account link could not be checked.",
-        },
-        { status: 500 },
-      );
+    if (!canonicalResult.ok) {
+      return canonicalResult.response;
     }
 
-    const membership =
-      membershipResult.data as EmployeeMembership | null;
-
-    if (!membership?.employee_id || !membership.organisation_id) {
+    if (!canonicalResult.context) {
       return NextResponse.json({
         success: true,
         employeeLinked: false,
@@ -236,36 +231,138 @@ export async function GET() {
       });
     }
 
-    const employeeId = membership.employee_id;
-    const organisationId = membership.organisation_id;
+    const { employeeId, organisationId } = canonicalResult.context;
 
-    const employeeResult = await (supabase as any)
-      .from("employees")
-      .select("id, organisation_id")
-      .eq("id", employeeId)
-      .eq("organisation_id", organisationId)
-      .maybeSingle();
+    const requestUrl = new URL(request.url);
+    const documentId = requestUrl.searchParams.get("documentId");
+    const action = requestUrl.searchParams.get("action");
 
-    if (employeeResult.error) {
-      console.error(
-        "LEO employee documents validation failed:",
-        employeeResult.error,
-      );
+    if (documentId && action === "open") {
+      const admin = getAdminClient();
+      const requestedSource =
+        requestUrl.searchParams.get("sourceTable") ||
+        "employee_documents";
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Your employee record could not be validated.",
-        },
-        { status: 500 },
-      );
-    }
+      if (requestedSource === "leo_talent_candidate_documents") {
+        const candidatesResult = await admin
+          .from("leo_talent_candidates")
+          .select("id")
+          .eq("organisation_id", organisationId)
+          .eq("existing_employee_id", employeeId)
+          .is("archived_at", null);
 
-    if (!employeeResult.data) {
+        if (candidatesResult.error) {
+          throw new Error(candidatesResult.error.message);
+        }
+
+        const candidateIds = (candidatesResult.data ?? [])
+          .map((candidate) => candidate.id)
+          .filter((candidateId): candidateId is string =>
+            typeof candidateId === "string" && Boolean(candidateId),
+          );
+
+        if (candidateIds.length === 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "The document could not be found or accessed.",
+            },
+            { status: 404 },
+          );
+        }
+
+        const documentResult = await admin
+          .from("leo_talent_candidate_documents")
+          .select("id,candidate_id,file_path,file_name")
+          .eq("id", documentId)
+          .eq("organisation_id", organisationId)
+          .in("candidate_id", candidateIds)
+          .maybeSingle();
+
+        if (documentResult.error) {
+          throw new Error(documentResult.error.message);
+        }
+
+        if (!documentResult.data) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "The document could not be found or accessed.",
+            },
+            { status: 404 },
+          );
+        }
+
+        const signedUrlResult = await admin.storage
+          .from("leo-talent-candidate-documents")
+          .createSignedUrl(documentResult.data.file_path, 60);
+
+        if (
+          signedUrlResult.error ||
+          !signedUrlResult.data?.signedUrl
+        ) {
+          throw new Error(
+            signedUrlResult.error?.message ||
+              "The document could not be opened.",
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          signedUrl: signedUrlResult.data.signedUrl,
+          fileName: documentResult.data.file_name,
+        });
+      }
+
+      if (requestedSource !== "employee_documents") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This document source cannot be opened here.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const documentResult = await admin
+        .from("employee_documents")
+        .select("id,employee_id,file_path,file_name")
+        .eq("id", documentId)
+        .eq("employee_id", employeeId)
+        .maybeSingle();
+
+      if (documentResult.error) {
+        throw new Error(documentResult.error.message);
+      }
+
+      if (!documentResult.data) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "The document could not be found or accessed.",
+          },
+          { status: 404 },
+        );
+      }
+
+      const signedUrlResult = await admin.storage
+        .from("employee-documents")
+        .createSignedUrl(documentResult.data.file_path, 60);
+
+      if (
+        signedUrlResult.error ||
+        !signedUrlResult.data?.signedUrl
+      ) {
+        throw new Error(
+          signedUrlResult.error?.message ||
+            "The document could not be opened.",
+        );
+      }
+
       return NextResponse.json({
         success: true,
-        employeeLinked: false,
-        documents: [],
+        signedUrl: signedUrlResult.data.signedUrl,
+        fileName: documentResult.data.file_name,
       });
     }
 
@@ -283,7 +380,6 @@ export async function GET() {
         supabase,
         tableName,
         employeeId,
-        organisationId,
       );
 
       if (!result.available) {
@@ -334,4 +430,143 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+type CanonicalEmployeeContext = {
+  organisationId: string;
+  employeeId: number;
+};
+
+async function resolveCanonicalEmployee(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<
+  | { ok: true; context: CanonicalEmployeeContext | null }
+  | { ok: false; response: NextResponse }
+> {
+  const { data: organisationId, error: organisationError } =
+    await supabase.rpc("leo_current_organisation_id");
+
+  if (
+    organisationError ||
+    typeof organisationId !== "string" ||
+    !organisationId
+  ) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your active organisation could not be resolved.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("organisation_memberships")
+    .select("membership_status,access_starts_at,access_ends_at")
+    .eq("organisation_id", organisationId)
+    .eq("user_id", userId)
+    .eq("membership_status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "You do not have active access to this organisation.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const now = Date.now();
+  const accessStartsAt = parseTimestamp(membership.access_starts_at);
+  const accessEndsAt = parseTimestamp(membership.access_ends_at);
+
+  if (
+    (accessStartsAt !== null && accessStartsAt > now) ||
+    (accessEndsAt !== null && accessEndsAt <= now)
+  ) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your organisation access is not currently active.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const { data: employeeLink, error: employeeLinkError } = await supabase
+    .from("employee_user_links")
+    .select("employee_id")
+    .eq("organisation_id", organisationId)
+    .eq("user_id", userId)
+    .eq("link_status", "active")
+    .maybeSingle();
+
+  if (employeeLinkError) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error:
+            employeeLinkError.message ||
+            "Your employee account link could not be checked.",
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  if (!employeeLink?.employee_id) {
+    return { ok: true, context: null };
+  }
+
+  const { data: employee, error: employeeError } = await supabase
+    .from("employees")
+    .select("id,organisation_id")
+    .eq("id", employeeLink.employee_id)
+    .eq("organisation_id", organisationId)
+    .maybeSingle();
+
+  if (employeeError) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Your employee record could not be validated.",
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  if (!employee) {
+    return { ok: true, context: null };
+  }
+
+  return {
+    ok: true,
+    context: { organisationId, employeeId: employee.id },
+  };
+}
+
+function parseTimestamp(
+  value: string | null | undefined,
+): number | null {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
 }

@@ -1,4 +1,5 @@
 import { AuthorityEngineOutput } from "../authority/types";
+import { LiveAuthorityResult } from "../authority/liveAuthority";
 import { ConversationPlan } from "../conversation/types";
 import { LeoCoreOutput } from "../core/router";
 import { KnowledgeSearchResult } from "../knowledge";
@@ -10,6 +11,7 @@ export function buildLeoPrompt(
   core: LeoCoreOutput,
   reasoning: ReasoningOutput,
   authority: AuthorityEngineOutput,
+  liveAuthority: LiveAuthorityResult,
   knowledge: KnowledgeSearchResult,
   conversation: ConversationPlan,
   conversationPrompt: string,
@@ -189,6 +191,49 @@ The professional insight is especially important.
 It should help the employer see the situation more clearly by expressing the important point they may not yet have recognised.
 
 Do not omit it from a live Matter unless it would be repetitive or irrelevant.
+
+LIVE AUTHORITATIVE RESEARCH
+
+Research required:
+${liveAuthority.required}
+
+Live search completed:
+${liveAuthority.searched}
+
+Current authority verified:
+${liveAuthority.verifiedCurrent}
+
+Research timestamp:
+${liveAuthority.queriedAt}
+
+Verified evidence briefing:
+${liveAuthority.evidence}
+
+Official sources consulted:
+${
+  liveAuthority.sources.length
+    ? liveAuthority.sources
+        .map(
+          (source) =>
+            `- ${source.title || "Official source"}: ${source.url}`
+        )
+        .join("\n")
+    : "- No verified official source was returned."
+}
+
+MANDATORY LIVE-AUTHORITY RULES
+
+- Live authoritative evidence overrides model memory, stale static summaries and outdated figures.
+- Static authority modules are routing hints only unless their content is independently confirmed by the live evidence above.
+- Never present a changing legal, statutory, regulatory, pensions or health-and-safety fact as current unless liveAuthority.verifiedCurrent is true and the evidence supports it.
+- Do not invent rates, thresholds, dates, commencement positions, regulator powers or legal tests.
+- Where primary legislation and guidance differ in authority, apply the higher legal authority and use guidance to explain practical application.
+- Organisation policy may add contractual or procedural obligations but cannot reduce statutory rights or override mandatory law.
+- For Fair Work Agency matters, use the current live enforcement/remit position rather than the static regulator summary.
+- For workplace pensions, use current The Pensions Regulator/GOV.UK evidence.
+- For workplace health and safety, use current HSE and applicable legislation.
+- For tribunal/case-law material, distinguish non-binding Employment Tribunal decisions from binding appellate authority.
+- If live research was required but current authority was not verified, do not guess. Explain the limitation in plain employer-facing language and avoid asserting an unverified current fact.
 
 AUTHORITY VALIDATION
 

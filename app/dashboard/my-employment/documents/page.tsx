@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import mobileStyles from "../MyEmployment.module.css";
 
 type DocumentRecord = Record<string, unknown>;
 
@@ -12,12 +13,19 @@ type DocumentsResponse = {
   error?: string;
 };
 
+type OpenDocumentResponse = {
+  success?: boolean;
+  signedUrl?: string;
+  error?: string;
+};
+
 type DisplayDocument = {
   key: string;
+  documentId: string | null;
+  sourceTable: string;
   title: string;
   status: string;
   available: boolean;
-  url: string | null;
 };
 
 const placeholderDocuments = [
@@ -91,16 +99,6 @@ function normaliseDocument(
     "employee_acknowledged",
   ]);
 
-  const url =
-    firstText(record, [
-      "signed_url",
-      "download_url",
-      "public_url",
-      "file_url",
-      "document_url",
-      "url",
-    ]) || null;
-
   const filePath =
     firstText(record, [
       "file_path",
@@ -109,7 +107,7 @@ function normaliseDocument(
     ]) || null;
 
   const available =
-    Boolean(url || filePath) ||
+    Boolean(filePath) ||
     firstBoolean(record, [
       "is_available",
       "available_to_employee",
@@ -130,14 +128,19 @@ function normaliseDocument(
     status = available ? "Available" : "Awaiting document";
   }
 
+  const documentId =
+    firstText(record, ["id", "document_id", "source_record_id"]) || null;
+
+  const sourceTable =
+    firstText(record, ["source_table"]) || "employee_documents";
+
   return {
-    key:
-      firstText(record, ["id", "document_id"]) ||
-      `${title}-${index}`,
+    key: documentId || `${title}-${index}`,
+    documentId,
+    sourceTable,
     title,
     status,
-    available,
-    url,
+    available: available && Boolean(documentId),
   };
 }
 
@@ -146,6 +149,8 @@ export default function MyDocumentsPage() {
   const [employeeLinked, setEmployeeLinked] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [openingKey, setOpeningKey] = useState<string | null>(null);
+  const [openError, setOpenError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -186,7 +191,7 @@ export default function MyDocumentsPage() {
         );
         setLoading(false);
       } catch (error) {
-        console.error("LEO documents page load failed:", error);
+        console.error("Leo HR documents page load failed:", error);
 
         if (!active) return;
 
@@ -214,20 +219,67 @@ export default function MyDocumentsPage() {
     return placeholderDocuments.map(
       ([title, status], index) => ({
         key: `${title}-${index}`,
+        documentId: null,
+        sourceTable: "employee_documents",
         title,
         status,
         available: false,
-        url: null,
       }),
     );
   }, [records]);
 
+  async function openDocument(document: DisplayDocument) {
+    if (!document.available || !document.documentId) return;
+
+    setOpeningKey(document.key);
+    setOpenError("");
+
+    try {
+      const query = new URLSearchParams({
+        action: "open",
+        documentId: document.documentId,
+        sourceTable: document.sourceTable,
+      });
+
+      const response = await fetch(
+        `/api/my-employment/documents?${query.toString()}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const result =
+        (await response.json()) as OpenDocumentResponse;
+
+      if (!response.ok || !result.success || !result.signedUrl) {
+        throw new Error(
+          result.error ?? "This document could not be opened.",
+        );
+      }
+
+      window.open(
+        result.signedUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    } catch (error) {
+      console.error("Leo HR document open failed:", error);
+      setOpenError(
+        error instanceof Error
+          ? error.message
+          : "This document could not be opened.",
+      );
+    } finally {
+      setOpeningKey(null);
+    }
+  }
+
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <p style={{ color: "#6E5084", fontWeight: 700 }}>
-        Employee workspace
-      </p>
-
       <h1
         style={{
           fontSize: 32,
@@ -243,9 +295,21 @@ export default function MyDocumentsPage() {
         with you.
       </p>
 
+      {openError ? (
+        <div
+          style={{
+            ...messageCard,
+            color: "#8F3B3B",
+            marginBottom: 16,
+          }}
+        >
+          {openError}
+        </div>
+      ) : null}
+
       {loading ? (
         <div style={messageCard}>
-          LEO is loading your employment documents.
+          Leo HR is loading your employment documents.
         </div>
       ) : loadError ? (
         <div
@@ -305,73 +369,46 @@ export default function MyDocumentsPage() {
                 </div>
               </div>
 
-              {document.available && document.url ? (
-                <a
-                  href={document.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    border: "1px solid #CDB2E2",
-                    background: "#FFFFFF",
-                    color: "#6E5084",
-                    fontWeight: 700,
-                    textDecoration: "none",
-                    flexShrink: 0,
-                  }}
-                >
-                  View
-                </a>
-              ) : (
-                <button
-                  disabled
-                  style={{
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    border: "1px solid #D8DCE2",
-                    background: "#F8FAFC",
-                    color: "#94A3B8",
-                    fontWeight: 700,
-                    cursor: "not-allowed",
-                    flexShrink: 0,
-                  }}
-                >
-                  View
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => void openDocument(document)}
+                disabled={
+                  !document.available ||
+                  openingKey === document.key
+                }
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: document.available
+                    ? "1px solid #CDB2E2"
+                    : "1px solid #D8DCE2",
+                  background: document.available
+                    ? "#FFFFFF"
+                    : "#F8FAFC",
+                  color: document.available
+                    ? "#6E5084"
+                    : "#94A3B8",
+                  fontWeight: 700,
+                  cursor:
+                    document.available &&
+                    openingKey !== document.key
+                      ? "pointer"
+                      : "not-allowed",
+                  flexShrink: 0,
+                  opacity:
+                    openingKey === document.key ? 0.7 : 1,
+                }}
+              >
+                {openingKey === document.key ? "Opening..." : "View"}
+              </button>
             </div>
           ))}
         </div>
       )}
 
-      <div
-        style={{
-          marginTop: 28,
-          padding: 20,
-          background: "#F7F1FC",
-          border: "1px solid #E4D3EE",
-          borderRadius: 16,
-        }}
-      >
-        <strong style={{ color: "#6E5084" }}>
-          Secure document access
-        </strong>
-
-        <p
-          style={{
-            margin: "8px 0 0",
-            color: "#526071",
-          }}
-        >
-          This workspace connects to the employee document vault so
-          contracts, policies, signed documents and payroll documents
-          can be viewed securely when they are available to you.
-        </p>
-      </div>
-
       <div style={{ marginTop: 24 }}>
         <Link
+          className={mobileStyles.mobileBackLink}
           href="/dashboard/my-employment"
           style={{
             textDecoration: "none",

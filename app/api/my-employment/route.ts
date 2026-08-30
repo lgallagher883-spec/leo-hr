@@ -19,6 +19,10 @@ type EmployeeRecord = {
   organisation_id: string | null;
 };
 
+type EmployeeUserLink = {
+  employee_id: number;
+};
+
 type EmploymentDetailsRecord = {
   manager: string | null;
   probation_end_date: string | null;
@@ -56,21 +60,47 @@ export async function GET() {
       return accessResult.response;
     }
 
-    const userEmail = normaliseEmail(user.email);
+    const { organisationId, membershipRole } =
+      accessResult.access;
 
-    if (!userEmail) {
+    const { data: employeeLink, error: employeeLinkError } = await supabase
+      .from("employee_user_links")
+      .select("employee_id")
+      .eq("organisation_id", organisationId)
+      .eq("user_id", user.id)
+      .eq("link_status", "active")
+      .maybeSingle();
+
+    if (employeeLinkError) {
+      console.error(
+        "My Employment employee link lookup failed:",
+        employeeLinkError,
+      );
+
       return NextResponse.json(
         {
           success: false,
           error:
-            "Your account does not have an email address that can be linked to an employee record.",
+            employeeLinkError.message ||
+            "Your employee record could not be loaded.",
         },
-        { status: 409 },
+        { status: 500 },
       );
     }
 
-    const { organisationId, membershipRole } =
-      accessResult.access;
+    if (!employeeLink) {
+      return NextResponse.json(
+        {
+          success: false,
+          employeeLinked: false,
+          error:
+            "No employee record is linked to your signed-in email address. An organisation owner or senior user must add the same email address to your employee profile.",
+        },
+        { status: 404 },
+      );
+    }
+
+    const linkedEmployee = employeeLink as EmployeeUserLink;
 
     const { data: employee, error: employeeError } =
       await supabase
@@ -79,8 +109,7 @@ export async function GET() {
           "id,name,email,role,status,start_date,organisation_id",
         )
         .eq("organisation_id", organisationId)
-        .ilike("email", userEmail)
-        .limit(1)
+        .eq("id", linkedEmployee.employee_id)
         .maybeSingle();
 
     if (employeeError) {
@@ -301,14 +330,6 @@ function mapEmploymentDetails(
     annualLeaveAllowance:
       details?.annual_leave_allowance ?? null,
   };
-}
-
-function normaliseEmail(
-  value: string | null | undefined,
-) {
-  return typeof value === "string"
-    ? value.trim().toLowerCase()
-    : "";
 }
 
 function parseTimestamp(

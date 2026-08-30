@@ -1,10 +1,17 @@
-
+// Leo HR employee driving self-service API.
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
 
 type DatabaseRecord = Record<string, unknown>;
+
+const uploadTypes = new Map([
+  ["Driving licence", "Driving"],
+  ["Insurance", "Insurance"],
+  ["MOT", "Driving"],
+  ["Other driving document", "Driving"],
+]);
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,6 +35,7 @@ function safeFileName(value: string) {
 
 async function resolveEmployee() {
   const supabase = await createClient();
+
   const {
     data: { user },
     error: userError,
@@ -96,7 +104,7 @@ async function resolveEmployee() {
   const admin = getAdminClient();
   const employee = await admin
     .from("employees")
-    .select("*")
+    .select("id,name")
     .eq("id", link.employee_id)
     .eq("organisation_id", organisationId)
     .maybeSingle();
@@ -112,51 +120,37 @@ async function resolveEmployee() {
     context: {
       organisationId,
       employeeId: employee.data.id as number,
-      employee: employee.data as DatabaseRecord,
+      employeeName: employee.data.name || "Employee",
       user,
     },
   };
 }
 
-async function readMedical(employeeId: number, employee: DatabaseRecord) {
+async function readDriving(employeeId: number) {
   const admin = getAdminClient();
 
-  const medical = await admin
-    .from("employee_medical")
+  const record = await admin
+    .from("employee_driving_checks")
     .select("*")
     .eq("employee_id", employeeId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (medical.error) throw new Error(medical.error.message);
+  if (record.error) throw new Error(record.error.message);
 
-  const fitNotes = await admin
+  const documents = await admin
     .from("employee_documents")
     .select("id,title,document_type,file_name,file_path,file_type,notes,created_at")
     .eq("employee_id", employeeId)
-    .eq("document_type", "Fit Note")
+    .in("document_type", ["Driving", "Insurance"])
     .order("created_at", { ascending: false });
 
-  if (fitNotes.error) throw new Error(fitNotes.error.message);
-
-  const absence = await admin
-    .from("employee_leave_records")
-    .select("*")
-    .eq("employee_id", employeeId)
-    .order("created_at", { ascending: false });
-
-  if (absence.error) throw new Error(absence.error.message);
-
-  const absenceRecords = (absence.data ?? []).filter((record) => {
-    const value = String(record.leave_type ?? "").toLowerCase();
-    return value.includes("sick") || value.includes("medical") || value.includes("absence");
-  });
+  if (documents.error) throw new Error(documents.error.message);
 
   return {
-    medicalRecord: (medical.data ?? employee) as DatabaseRecord,
-    fitNotes: fitNotes.data ?? [],
-    absenceRecords,
+    driving: (record.data ?? null) as DatabaseRecord | null,
+    documents: documents.data ?? [],
   };
 }
 
@@ -170,9 +164,8 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: true,
         employeeLinked: false,
-        medicalRecord: null,
-        fitNotes: [],
-        absenceRecords: [],
+        driving: null,
+        documents: [],
       });
     }
 
@@ -188,14 +181,14 @@ export async function GET(request: Request) {
         .select("id,employee_id,document_type,file_path,file_name")
         .eq("id", documentId)
         .eq("employee_id", resolved.context.employeeId)
-        .eq("document_type", "Fit Note")
+        .in("document_type", ["Driving", "Insurance"])
         .maybeSingle();
 
       if (document.error) throw new Error(document.error.message);
 
       if (!document.data) {
         return NextResponse.json(
-          { success: false, error: "The fit note could not be found." },
+          { success: false, error: "The document could not be found." },
           { status: 404 },
         );
       }
@@ -205,7 +198,7 @@ export async function GET(request: Request) {
         .createSignedUrl(document.data.file_path, 60);
 
       if (signed.error || !signed.data?.signedUrl) {
-        throw new Error(signed.error?.message || "The fit note could not be opened.");
+        throw new Error(signed.error?.message || "The document could not be opened.");
       }
 
       return NextResponse.json({
@@ -215,10 +208,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const data = await readMedical(
-      resolved.context.employeeId,
-      resolved.context.employee,
-    );
+    const data = await readDriving(resolved.context.employeeId);
 
     return NextResponse.json({
       success: true,
@@ -226,7 +216,7 @@ export async function GET(request: Request) {
       ...data,
     });
   } catch (error) {
-    console.error("Leo HR medical API failed:", error);
+    console.error("Leo HR driving API failed:", error);
 
     return NextResponse.json(
       {
@@ -234,7 +224,7 @@ export async function GET(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Your medical information could not be loaded.",
+            : "Your driving information could not be loaded.",
       },
       { status: 500 },
     );
@@ -256,10 +246,23 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get("file");
+    const uploadType =
+      typeof formData.get("uploadType") === "string"
+        ? String(formData.get("uploadType"))
+        : "";
 
     if (!(file instanceof File) || file.size <= 0) {
       return NextResponse.json(
-        { success: false, error: "Choose a fit note to upload." },
+        { success: false, error: "Choose a document to upload." },
+        { status: 400 },
+      );
+    }
+
+    const storedType = uploadTypes.get(uploadType);
+
+    if (!storedType) {
+      return NextResponse.json(
+        { success: false, error: "Choose a valid driving document type." },
         { status: 400 },
       );
     }
@@ -273,13 +276,8 @@ export async function POST(request: Request) {
 
     const admin = getAdminClient();
     const now = new Date().toISOString();
-    const title =
-      typeof formData.get("title") === "string" &&
-      String(formData.get("title")).trim()
-        ? String(formData.get("title")).trim()
-        : `Fit Note - ${new Intl.DateTimeFormat("en-GB").format(new Date())}`;
-
     const filePath = `${resolved.context.employeeId}/${Date.now()}-${safeFileName(file.name)}`;
+    const title = `${uploadType} - ${file.name}`;
     const bytes = new Uint8Array(await file.arrayBuffer());
 
     const upload = await admin.storage
@@ -296,11 +294,11 @@ export async function POST(request: Request) {
       .insert({
         employee_id: resolved.context.employeeId,
         title,
-        document_type: "Fit Note",
+        document_type: storedType,
         file_name: file.name,
         file_path: filePath,
         file_type: file.type || null,
-        notes: "Uploaded by employee",
+        notes: `Uploaded by employee · ${uploadType}`,
         updated_at: now,
       })
       .select("id,title,document_type,file_name,file_path,file_type,notes,created_at")
@@ -308,20 +306,21 @@ export async function POST(request: Request) {
 
     if (document.error || !document.data) {
       await admin.storage.from("employee-documents").remove([filePath]);
-      throw new Error(document.error?.message || "The fit note could not be saved.");
+      throw new Error(document.error?.message || "The document could not be saved.");
     }
 
     const timeline = await admin.from("employee_timeline").insert({
       employee_id: resolved.context.employeeId,
       event_type: "Document Uploaded",
-      title: "Fit note uploaded",
-      description: "A fit note was uploaded through employee self-service.",
+      title: `${uploadType} uploaded`,
+      description: `${uploadType} was uploaded through employee self-service.`,
       status: "Completed",
       source_module: "Employee self-service",
       source_record_id: String(document.data.id),
       metadata: {
         employee_document_id: document.data.id,
-        document_type: "Fit Note",
+        document_type: storedType,
+        upload_type: uploadType,
         file_name: file.name,
       },
       event_date: now,
@@ -330,24 +329,21 @@ export async function POST(request: Request) {
     });
 
     if (timeline.error) {
-      console.warn("Fit note timeline event could not be written:", timeline.error);
+      console.warn("Driving document timeline event could not be written:", timeline.error);
     }
 
     return NextResponse.json(
-      {
-        success: true,
-        document: document.data,
-      },
+      { success: true, document: document.data },
       { status: 201 },
     );
   } catch (error) {
-    console.error("Leo HR fit note upload failed:", error);
+    console.error("Leo HR driving document upload failed:", error);
 
     return NextResponse.json(
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "The fit note could not be uploaded.",
+          error instanceof Error ? error.message : "The document could not be uploaded.",
       },
       { status: 500 },
     );

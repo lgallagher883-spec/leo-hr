@@ -1,0 +1,382 @@
+.employeeMobileOnly {
+  display: none;
+}
+
+.employeeDesktopOnly {
+  display: block;
+}
+
+.employeeMobileTitle,
+.medicalMobileTitle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .employeeMobileOnly {
+    display: block !important;
+  }
+
+  .employeeDesktopOnly {
+    display: none !important;
+  }
+
+  .hubPage,
+  .detailsPage,
+  .leavePage,
+  .employeeMobilePage {
+    min-width: 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    font-family:
+      Inter,
+      "Segoe UI Variable",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
+  }
+
+  .hubPage h1,
+  .detailsPage h1,
+  .leavePage h1,
+  .employeeMobilePage h1,
+  .employeeMobilePage h2 {
+    color: #6e5084 !important;
+    letter-spacing: -0.02em;
+  }
+
+  .hubHeader {
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .hubHeader > button,
+  .hubIntroCard {
+    display: none !important;
+  }
+
+  .hubHeader p:first-child,
+  .employeeMobileHide,
+  .emergencyMobileHide,
+  .rightToWorkMobileHide,
+  .medicalMobileHide,
+  .medicalDesktopTitle,
+  .leaveEyebrow,
+  .mobileBackLink {
+    display: none !important;
+  }
+
+  .hubHeader h1 {
+    font-size: 28px !important;
+    font-weight: 800 !important;
+    color: #6e5084 !important;
+  }
+
+  .hubHeader h1 + p {
+    display: none !important;
+  }
+
+  .hubGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .hubCard {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(30px, auto) !important;
+    min-height: 94px !important;
+    gap: 9px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 14px rgba(47, 38, 53, 0.045) !important;
+  }
+
+  .hubCardTitle,
+  .hubCardTitleRow {
+    min-width: 0;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .hubCardDescription,
+  .hubCardAction {
+    display: none !important;
+  }
+
+  .hubCardIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: #f2eaf7;
+    border-radius: 9px;
+    color: #6e5084;
+  }
+
+  .hubCardTitleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .hubCardTitle {
+    color: #6e5084 !important;
+    font-size: 14px !important;
+    font-weight: 750 !important;
+    line-height: 1.25 !important;
+  }
+
+  .hubCardChevron {
+    flex: 0 0 auto;
+    color: #6e5084;
+  }
+
+  .medicalMobileTitle,
+  .employeeMobileTitle {
+    display: block !important;
+  }
+
+  .leaveHeader {
+    margin-bottom: 16px !important;
+  }
+
+  .leaveSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .leaveSummaryCard {
+    min-height: 82px !important;
+    gap: 4px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .leaveSummarySupporting {
+    display: none !important;
+  }
+
+  .leaveRequestPanel,
+  .leaveHistoryPanel {
+    margin-bottom: 14px !important;
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .detailsPage {
+    max-width: none !important;
+  }
+
+  .detailsInformationPanel,
+  .detailsStatePanel {
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .detailsRecordHeading {
+    padding: 12px 0 10px !important;
+  }
+
+  .detailsRow,
+  .detailsSkeletonRow {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 5px !important;
+    padding: 12px 0 !important;
+  }
+
+  .detailsLabel {
+    color: #6e5084 !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+  }
+
+  .detailsValue {
+    text-align: left !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  .detailsSkeletonRow > div {
+    width: 55% !important;
+    justify-self: start !important;
+  }
+
+  .detailsBackNavigation {
+    margin-top: 20px !important;
+  }
+
+  .detailsBackNavigation a {
+    display: inline-flex !important;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .medicalRow,
+  .employeeDataRow,
+  .mobileRecordRow {
+    flex-direction: column !important;
+    gap: 5px !important;
+    padding: 12px 0 !important;
+  }
+
+  .medicalValue,
+  .employeeDataValue,
+  .mobileRecordValue {
+    text-align: left !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  .employeeDataRow > span:first-child,
+  .medicalRow > span:first-child,
+  .mobileRecordLabel {
+    color: #6e5084 !important;
+    font-weight: 750 !important;
+  }
+
+  .leaveRequestFormGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .leaveRequestHeading {
+    align-items: center !important;
+  }
+
+  .leaveRequestSupporting {
+    display: none !important;
+  }
+
+  .learningSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .learningSummaryCard {
+    min-height: 82px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .learningSummaryCard > span:last-child {
+    display: none !important;
+  }
+
+  .learningTwoColumnGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .learningReminderPanel {
+    padding: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .reviewHeader {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .mobileCompactCard {
+    border-radius: 14px !important;
+    padding: 16px !important;
+    box-shadow: 0 4px 14px rgba(47, 38, 53, 0.045) !important;
+  }
+
+  .mobileSectionStack {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .mobilePrimaryButton {
+    min-height: 44px !important;
+    border: 1px solid #6e5084 !important;
+    border-radius: 11px !important;
+    background: #6e5084 !important;
+    color: #ffffff !important;
+    font: inherit !important;
+    font-weight: 750 !important;
+    cursor: pointer !important;
+  }
+
+  .mobileSecondaryButton {
+    min-height: 44px !important;
+    border: 1px solid #cdb2e2 !important;
+    border-radius: 11px !important;
+    background: #ffffff !important;
+    color: #6e5084 !important;
+    font: inherit !important;
+    font-weight: 750 !important;
+    cursor: pointer !important;
+  }
+
+  .mobileFormGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .mobileFormField {
+    display: grid !important;
+    gap: 6px !important;
+  }
+
+  .mobileFormField label,
+  .mobileFormField > span:first-child {
+    color: #6e5084 !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+  }
+
+  .mobileFormField input,
+  .mobileFormField select,
+  .mobileFormField textarea {
+    width: 100% !important;
+    min-height: 44px !important;
+    box-sizing: border-box !important;
+    border: 1px solid #ded3e4 !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    color: #2f2635 !important;
+    font: inherit !important;
+    font-size: 14px !important;
+    padding: 10px 11px !important;
+  }
+
+  .mobileFormField textarea {
+    min-height: 82px !important;
+    resize: vertical !important;
+  }
+
+  .mobileDocumentList {
+    display: grid !important;
+    gap: 9px !important;
+  }
+
+  .mobileDocumentRow {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    border: 1px solid #eadff0 !important;
+    border-radius: 11px !important;
+    background: #ffffff !important;
+  }
+
+  .mobileDocumentRow strong {
+    color: #6e5084 !important;
+  }
+
+  .mobileActionRow {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}

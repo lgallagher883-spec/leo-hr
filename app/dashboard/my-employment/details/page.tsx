@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import styles from "../MyEmployment.module.css";
 
 type MyEmploymentResponse = {
   success: boolean;
@@ -36,6 +37,7 @@ function DetailRow({
 }: DetailRowProps) {
   return (
     <div
+      className={styles.detailsRow}
       style={{
         display: "grid",
         gridTemplateColumns:
@@ -49,6 +51,7 @@ function DetailRow({
       }}
     >
       <strong
+        className={styles.detailsLabel}
         style={{
           color: "#334155",
           fontSize: "14px",
@@ -58,6 +61,7 @@ function DetailRow({
       </strong>
 
       <span
+        className={styles.detailsValue}
         style={{
           color: value === "—" ? "#94A3B8" : "#0F172A",
           fontSize: "14px",
@@ -219,6 +223,7 @@ export default function EmploymentDetailsPage() {
 
   return (
     <main
+      className={styles.detailsPage}
       style={{
         maxWidth: 1100,
         margin: "0 auto",
@@ -259,6 +264,7 @@ export default function EmploymentDetailsPage() {
 
       {loading ? (
         <section
+          className={styles.detailsStatePanel}
           aria-live="polite"
           style={{
             background: "#FFFFFF",
@@ -282,6 +288,7 @@ export default function EmploymentDetailsPage() {
           {[1, 2, 3, 4, 5, 6].map((item) => (
             <div
               key={item}
+              className={styles.detailsSkeletonRow}
               style={{
                 display: "grid",
                 gridTemplateColumns:
@@ -316,6 +323,7 @@ export default function EmploymentDetailsPage() {
         </section>
       ) : error ? (
         <section
+          className={styles.detailsStatePanel}
           role="alert"
           style={{
             background: "#FFF7F7",
@@ -348,6 +356,7 @@ export default function EmploymentDetailsPage() {
         </section>
       ) : (
         <section
+          className={styles.detailsInformationPanel}
           style={{
             background: "#FFFFFF",
             border: "1px solid #E8E2EB",
@@ -358,6 +367,7 @@ export default function EmploymentDetailsPage() {
           }}
         >
           <div
+            className={styles.detailsRecordHeading}
             style={{
               padding: "18px 0 8px",
               borderBottom:
@@ -400,11 +410,13 @@ export default function EmploymentDetailsPage() {
       )}
 
       <div
+        className={styles.detailsBackNavigation}
         style={{
           marginTop: 24,
         }}
       >
         <Link
+          className={styles.mobileBackLink}
           href="/dashboard/my-employment"
           style={{
             display: "inline-block",

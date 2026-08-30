@@ -2,8 +2,21 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import {
+  BriefcaseBusiness,
+  CalendarDays,
+  ChevronRight,
+  ClipboardCheck,
+  ContactRound,
+  FileText,
+  GraduationCap,
+  HeartPulse,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import styles from "../DashboardShell.module.css";
 
 type EmployeeDashboardCard = {
   title: string;
@@ -12,6 +25,13 @@ type EmployeeDashboardCard = {
   actionLabel: string;
   href: string;
   tone?: "purple" | "green" | "neutral";
+};
+
+type MobileEmployeeDashboardCard = {
+  title: string;
+  href?: string;
+  icon: LucideIcon;
+  opensMore?: boolean;
 };
 
 export default function EmployeeDashboardPage() {
@@ -147,8 +167,65 @@ export default function EmployeeDashboardPage() {
     },
   ];
 
+  const mobileCards: MobileEmployeeDashboardCard[] = [
+    { title: "My Employment", href: "/dashboard/my-employment", icon: BriefcaseBusiness },
+    { title: "My Leave", href: "/dashboard/my-employment/leave", icon: CalendarDays },
+    { title: "My Learning", href: "/dashboard/my-employment/learning", icon: GraduationCap },
+    { title: "My Documents", href: "/dashboard/my-employment/documents", icon: FileText },
+    { title: "Upcoming Reviews", href: "/dashboard/my-employment/reviews", icon: ClipboardCheck },
+    { title: "Emergency Contacts", href: "/dashboard/my-employment/emergency-contacts", icon: ContactRound },
+    { title: "Medical", href: "/dashboard/my-employment/medical", icon: HeartPulse },
+    { title: "Checks & Compliance", icon: ShieldCheck, opensMore: true },
+  ];
+
   return (
     <main style={pageStyle}>
+      <section className={styles.mobileEmployeeDashboard} aria-label="Employee workspace">
+        <header className={styles.mobileEmployeeHeading}>
+          <h1>Welcome back{!loadingName && firstName ? `, ${firstName}` : ""}</h1>
+        </header>
+        <div className={styles.mobileEmployeeCardGrid}>
+          {mobileCards.map(({ title, href, icon: Icon, opensMore }) => {
+            const content = (
+              <>
+                <span className={styles.mobileEmployeeCardIcon} aria-hidden>
+                  <Icon size={21} strokeWidth={1.8} />
+                </span>
+                <span
+                  className={styles.mobileEmployeeCardTitleRow}
+                  data-opens-more={opensMore ? "true" : undefined}
+                >
+                  <span>{title}</span>
+                  <ChevronRight size={18} strokeWidth={1.8} aria-hidden />
+                </span>
+              </>
+            );
+
+            return href ? (
+              <button key={title} type="button" className={styles.mobileEmployeeCard} onClick={() => router.push(href)}>
+                {content}
+              </button>
+            ) : (
+              <button
+                key={title}
+                type="button"
+                className={styles.mobileEmployeeCard}
+                onClick={() => {
+                  if (opensMore) {
+                    window.dispatchEvent(
+                      new Event("leo:open-employee-mobile-more"),
+                    );
+                  }
+                }}
+              >
+                {content}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className={styles.desktopEmployeeDashboard}>
       <header style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>Employee workspace</p>
@@ -201,6 +278,7 @@ export default function EmployeeDashboardPage() {
           <span aria-hidden="true">→</span>
         </button>
       </section>
+      </div>
     </main>
   );
 }

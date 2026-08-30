@@ -1,13 +1,10 @@
+// Leo HR employee learning page.
 "use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import mobileStyles from "../MyEmployment.module.css";
 
-import { createClient } from "@/lib/supabase/client";
-
-type EmployeeLink = {
-  employee_id: number | null;
-};
 
 type LearningModule = {
   id?: number | null;
@@ -62,6 +59,48 @@ type ReminderItem = {
     milestone?: string;
   };
 };
+
+
+function normaliseCertificates(records: Record<string, unknown>[]): LearningCertificate[] {
+  return records.map((record, index) => ({
+    id: typeof record.id === "number" ? record.id : Number(record.id ?? index + 1),
+    title:
+      typeof record.title === "string"
+        ? record.title
+        : typeof record.certificate_title === "string"
+          ? record.certificate_title
+          : typeof record.name === "string"
+            ? record.name
+            : "Learning certificate",
+    certificate_number:
+      typeof record.certificate_number === "string"
+        ? record.certificate_number
+        : typeof record.reference_number === "string"
+          ? record.reference_number
+          : null,
+    issue_date:
+      typeof record.issue_date === "string"
+        ? record.issue_date
+        : typeof record.issued_at === "string"
+          ? record.issued_at.slice(0, 10)
+          : typeof record.created_at === "string"
+            ? record.created_at.slice(0, 10)
+            : null,
+    expiry_date:
+      typeof record.expiry_date === "string"
+        ? record.expiry_date
+        : typeof record.expires_at === "string"
+          ? record.expires_at.slice(0, 10)
+          : null,
+    status: typeof record.status === "string" ? record.status : "Active",
+    file_url:
+      typeof record.file_url === "string"
+        ? record.file_url
+        : typeof record.certificate_url === "string"
+          ? record.certificate_url
+          : null,
+  }));
+}
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
@@ -196,108 +235,38 @@ export default function MyLearningPage() {
       setLoadError("");
 
       try {
-        const supabase = createClient();
+        const response = await fetch("/api/my-employment/learning", {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+        const result = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              employeeLinked?: boolean;
+              assignments?: LearningAssignment[];
+              certificates?: Record<string, unknown>[];
+              error?: string;
+            }
+          | null;
 
-        if (userError || !user) {
-          throw new Error("Your signed-in account could not be confirmed.");
-        }
-
-        const membershipResult = await (supabase as any)
-          .from("identity_organisation_memberships")
-          .select("employee_id")
-          .eq("user_id", user.id)
-          .eq("membership_status", "active")
-          .not("employee_id", "is", null)
-          .limit(1)
-          .maybeSingle();
-
-        if (membershipResult.error) {
-          throw membershipResult.error;
-        }
-
-        const employeeLink =
-          membershipResult.data as EmployeeLink | null;
-
-        if (!employeeLink?.employee_id) {
-          if (active) {
-            setEmployeeLinked(false);
-            setAssignments([]);
-            setCertificates([]);
-            setLoading(false);
-          }
-
-          return;
-        }
-
-        const employeeId = employeeLink.employee_id;
-
-        const [assignmentResult, certificateResult] = await Promise.all([
-          (supabase as any)
-            .from("learning_assignments")
-            .select(
-              `
-                id,
-                employee_id,
-                learning_module_id,
-                development_pathway_id,
-                assignment_type,
-                assigned_at,
-                start_date,
-                due_date,
-                status,
-                progress_percentage,
-                completed_at,
-                manager_validation_required,
-                learning_modules (
-                  id,
-                  title,
-                  description,
-                  estimated_duration_minutes
-                ),
-                development_pathways (
-                  id,
-                  title,
-                  description
-                )
-              `,
-            )
-            .eq("employee_id", employeeId)
-            .neq("status", "Removed")
-            .order("due_date", { ascending: true, nullsFirst: false }),
-          (supabase as any)
-            .from("learning_certificates")
-            .select(
-              "id, title, certificate_number, issue_date, expiry_date, status, file_url",
-            )
-            .eq("employee_id", employeeId)
-            .order("issue_date", { ascending: false }),
-        ]);
-
-        if (assignmentResult.error) {
-          throw assignmentResult.error;
-        }
-
-        if (certificateResult.error) {
-          console.warn(
-            "LEO could not load employee learning certificates:",
-            certificateResult.error,
+        if (!response.ok || !result?.success) {
+          throw new Error(
+            result?.error || "Your learning information could not be loaded.",
           );
         }
 
         if (!active) return;
 
-        setEmployeeLinked(true);
-        setAssignments(
-          (assignmentResult.data ?? []) as LearningAssignment[],
-        );
+        setEmployeeLinked(result.employeeLinked !== false);
+        setAssignments(Array.isArray(result.assignments) ? result.assignments : []);
         setCertificates(
-          (certificateResult.data ?? []) as LearningCertificate[],
+          Array.isArray(result.certificates)
+            ? normaliseCertificates(result.certificates)
+            : [],
         );
+        setLoading(false);
         setLoading(false);
       } catch (error) {
         console.error("LEO employee learning load failed:", error);
@@ -404,15 +373,15 @@ export default function MyLearningPage() {
     <main style={pageStyle}>
       <header style={headerStyle}>
         <div>
-          <p style={eyebrowStyle}>Employee workspace</p>
+          <p className={mobileStyles.employeeMobileHide} style={eyebrowStyle}>Employee workspace</p>
           <h1 style={titleStyle}>My Learning</h1>
-          <p style={subtitleStyle}>
+          <p className={mobileStyles.employeeMobileHide} style={subtitleStyle}>
             Review assigned learning, development pathways, progress and
             certificates.
           </p>
         </div>
 
-        <Link href="/dashboard/my-employment" style={backButtonStyle}>
+        <Link className={mobileStyles.mobileBackLink} href="/dashboard/my-employment" style={backButtonStyle}>
           ← Back to My Employment
         </Link>
       </header>
@@ -420,7 +389,7 @@ export default function MyLearningPage() {
       {loading ? (
         <StatePanel
           title="Loading your learning"
-          message="LEO is preparing your assignments and certificates."
+          message="Leo HR is preparing your assignments and certificates."
         />
       ) : loadError ? (
         <StatePanel
@@ -435,7 +404,7 @@ export default function MyLearningPage() {
         />
       ) : (
         <>
-          <section style={reminderPanelStyle} aria-label="Personal reminders">
+          <section className={mobileStyles.learningReminderPanel} style={reminderPanelStyle} aria-label="Personal reminders">
             <h2 style={reminderPanelTitleStyle}>Personal reminders</h2>
 
             {remindersLoading ? (
@@ -462,7 +431,7 @@ export default function MyLearningPage() {
             )}
           </section>
 
-          <section style={summaryGridStyle} aria-label="Learning summary">
+          <section className={mobileStyles.learningSummaryGrid} style={summaryGridStyle} aria-label="Learning summary">
             <SummaryCard
               label="Active learning"
               value={String(activeAssignments.length)}
@@ -485,7 +454,7 @@ export default function MyLearningPage() {
             <SummaryCard
               label="Certificates"
               value={String(certificates.length)}
-              supportingText="Certificates held in LEO Learn"
+              supportingText="Certificates held in your learning record"
             />
           </section>
 
@@ -520,7 +489,7 @@ export default function MyLearningPage() {
             )}
           </section>
 
-          <section style={twoColumnGridStyle}>
+          <section className={mobileStyles.learningTwoColumnGrid} style={twoColumnGridStyle}>
             <div style={panelStyle}>
               <div style={panelHeadingStyle}>
                 <div>
@@ -572,7 +541,7 @@ export default function MyLearningPage() {
                 <div>
                   <h2 style={panelTitleStyle}>Certificates</h2>
                   <p style={panelTextStyle}>
-                    Certificates issued through LEO Learn.
+                    Your learning certificates.
                   </p>
                 </div>
 
@@ -738,6 +707,7 @@ function SummaryCard({
 }) {
   return (
     <article
+      className={mobileStyles.learningSummaryCard}
       style={{
         ...summaryCardStyle,
         borderColor: warning ? "#F1C5C5" : "#E8E2EB",

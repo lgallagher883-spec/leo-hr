@@ -41,6 +41,146 @@ function normaliseInvitationRole(value: unknown) {
   return null;
 }
 
+type EmployeeUserLink = {
+  id: string;
+  employee_id: number;
+  user_id: string;
+  link_status: string;
+};
+
+async function validateEmployeeUserLinkPreflight(
+  admin: ReturnType<typeof adminClient>,
+  organisationId: string,
+  employeeId: number | null,
+  userId: string,
+) {
+  if (!employeeId) {
+    return { ok: true as const, employeeId: null };
+  }
+
+  const [employeeResult, employeeLinkResult, userLinkResult] =
+    await Promise.all([
+      admin
+        .from("employees")
+        .select("id")
+        .eq("id", employeeId)
+        .eq("organisation_id", organisationId)
+        .maybeSingle(),
+      admin
+        .from("employee_user_links")
+        .select("id, employee_id, user_id, link_status")
+        .eq("organisation_id", organisationId)
+        .eq("employee_id", employeeId)
+        .maybeSingle(),
+      admin
+        .from("employee_user_links")
+        .select("id, employee_id, user_id, link_status")
+        .eq("organisation_id", organisationId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ]);
+
+  if (employeeResult.error) throw employeeResult.error;
+  if (employeeLinkResult.error) throw employeeLinkResult.error;
+  if (userLinkResult.error) throw userLinkResult.error;
+
+  if (!employeeResult.data) {
+    return {
+      ok: false as const,
+      error: "The invited employee could not be verified for this organisation.",
+    };
+  }
+
+  const employeeLink = employeeLinkResult.data as EmployeeUserLink | null;
+  const userLink = userLinkResult.data as EmployeeUserLink | null;
+  const conflictingLink = [employeeLink, userLink].find(
+    (link) =>
+      link &&
+      (link.employee_id !== employeeId || link.user_id !== userId),
+  );
+
+  if (conflictingLink) {
+    return {
+      ok: false as const,
+      error:
+        "This employee or user is already linked to different organisation access. Resolve the existing employee link before accepting this invitation.",
+    };
+  }
+
+  return { ok: true as const, employeeId };
+}
+
+async function activateEmployeeUserLink(
+  admin: ReturnType<typeof adminClient>,
+  args: {
+    organisationId: string;
+    employeeId: number | null;
+    userId: string;
+    invitationId: string;
+    now: string;
+  },
+) {
+  const { organisationId, employeeId, userId, invitationId, now } = args;
+
+  if (!employeeId) return;
+
+  const metadata = {
+    source: "organisation_invitation",
+    organisation_invitation_id: invitationId,
+  };
+
+  const { data: existingLink, error: existingLinkError } = await admin
+    .from("employee_user_links")
+    .select("id, employee_id, user_id, link_status")
+    .eq("organisation_id", organisationId)
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+
+  if (existingLinkError) throw existingLinkError;
+
+  if (existingLink) {
+    const link = existingLink as EmployeeUserLink;
+
+    if (link.user_id !== userId) {
+      throw new Error(
+        "This employee is already linked to different organisation access.",
+      );
+    }
+
+    const { error } = await admin
+      .from("employee_user_links")
+      .update({
+        link_status: "active",
+        linked_at: now,
+        linked_by: null,
+        revoked_at: null,
+        metadata,
+        updated_at: now,
+      })
+      .eq("id", link.id)
+      .eq("organisation_id", organisationId)
+      .eq("employee_id", employeeId)
+      .eq("user_id", userId);
+
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await admin.from("employee_user_links").insert({
+    organisation_id: organisationId,
+    employee_id: employeeId,
+    user_id: userId,
+    link_status: "active",
+    linked_at: now,
+    linked_by: null,
+    revoked_at: null,
+    metadata,
+    updated_at: now,
+  });
+
+  if (error) throw error;
+}
+
 async function getSignedInUser() {
   const supabase = await createClient();
 
@@ -71,6 +211,7 @@ async function findInvitation(
       `
         id,
         organisation_id,
+        employee_id,
         email,
         role,
         invitation_status,
@@ -325,6 +466,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const linkPreflight = await validateEmployeeUserLinkPreflight(
+      admin,
+      invitation.organisation_id,
+      invitation.employee_id,
+      user.id,
+    );
+
+    if (!linkPreflight.ok) {
+      return NextResponse.json(
+        { error: linkPreflight.error },
+        { status: 409 },
+      );
+    }
+
     const { error: identityError } = await admin
       .from("identity_profiles")
       .upsert(
@@ -422,6 +577,14 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+
+    await activateEmployeeUserLink(admin, {
+      organisationId: invitation.organisation_id,
+      employeeId: linkPreflight.employeeId,
+      userId: user.id,
+      invitationId: invitation.id,
+      now,
+    });
 
     const { data: existingAssignments, error: existingAssignmentsError } =
       await admin

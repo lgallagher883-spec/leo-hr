@@ -18,9 +18,9 @@ type PlanId = "trial" | "up_to_50" | "up_to_150" | "up_to_250" | "over_250";
 
 type Plan = {
   id: PlanId;
-  number: number;
   title: string;
   priceLabel?: string;
+  priceSuffix?: string;
   description: string;
   actionLabel: string;
   icon: ReactNode;
@@ -31,44 +31,42 @@ type Plan = {
 const plans: Plan[] = [
   {
     id: "trial",
-    number: 1,
     title: "Free 7 Day Trial",
     priceLabel: "FREE",
-    description: "Explore the complete Leo HR platform for seven days.",
+    description: "Explore the complete Leo HR platform free for seven days.",
     actionLabel: "Start free trial",
     icon: <GiftIcon />,
     features: ["No payment details", "Full platform", "Cancels automatically"],
   },
   {
     id: "up_to_50",
-    number: 2,
     title: "Up to 50 Employees",
-    priceLabel: "£75 per month",
+    priceLabel: "£75",
+    priceSuffix: "per month",
     description: "Subscribe to the Leo HR platform for organisations of this size.",
-    actionLabel: "Continue",
+    actionLabel: "Choose plan",
     icon: <PeopleIcon />,
   },
   {
     id: "up_to_150",
-    number: 3,
     title: "Up to 150 Employees",
-    priceLabel: "£125 per month",
-    description: "Subscribe to Leo HR platform for organisations of this size.",
-    actionLabel: "Continue",
+    priceLabel: "£125",
+    priceSuffix: "per month",
+    description: "Subscribe to the Leo HR platform for organisations of this size.",
+    actionLabel: "Choose plan",
     icon: <GroupIcon />,
   },
   {
     id: "up_to_250",
-    number: 4,
     title: "Up to 250 Employees",
-    priceLabel: "£175 per month",
+    priceLabel: "£175",
+    priceSuffix: "per month",
     description: "Subscribe to the Leo HR platform for organisations of this size.",
-    actionLabel: "Continue",
-    icon: <GroupIcon />,
+    actionLabel: "Choose plan",
+    icon: <BuildingIcon />,
   },
   {
     id: "over_250",
-    number: 5,
     title: "Over 250 Employees",
     priceLabel: "Contact us",
     description: "Large organisations receive tailored implementation and pricing.",
@@ -312,7 +310,7 @@ export default function RegisterPage() {
               ? "organisation_250"
               : null;
 
-          const confirmationRedirectTo = (() => {
+      const confirmationRedirectTo = (() => {
         const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
 
         if (configuredOrigin) {
@@ -401,13 +399,13 @@ export default function RegisterPage() {
         <div className={styles["plan-panel"]}>
           <div className={styles["plan-heading"]}>
             <h1 id="register-title">
-              Start using Leo HR<sup>™</sup>
+              Choose the right Leo HR plan for your business
             </h1>
                       </div>
 
           <div className={styles["plan-intro"]}>
-            Every subscription includes the complete Leo HR platform. Pricing is
-            based solely on the size of your organisation.
+            Every plan includes the complete Leo HR platform. You only pay based on
+            your organisation size.
           </div>
 
           {fieldErrors.plan ? (
@@ -422,16 +420,10 @@ export default function RegisterPage() {
 
               return (
                 <article
-                  className={`${styles["plan-card"]} ${isSelected ? styles.selected : ""}`}
+                  className={`${styles["plan-card"]} ${plan.id === "trial" ? styles["trial-card"] : ""} ${isSelected ? styles.selected : ""}`}
                   key={plan.id}
                   aria-label={plan.title}
                 >
-                  <span
-                    className={`${styles["plan-number"]} ${isSelected ? styles.selected : ""}`}
-                    aria-hidden="true"
-                  >
-                    {plan.number}
-                  </span>
 
                   {isSelected ? (
                     <span className={styles["selected-check"]} aria-label="Selected plan">
@@ -446,7 +438,16 @@ export default function RegisterPage() {
                   <h2>{plan.title}</h2>
 
                   {plan.priceLabel ? (
-                    <strong className={styles["price-label"]}>{plan.priceLabel}</strong>
+                    <div className={styles["price-block"]}>
+                      <strong className={styles["price-label"]}>
+                        {plan.priceLabel}
+                      </strong>
+                      {plan.priceSuffix ? (
+                        <span className={styles["price-suffix"]}>
+                          {plan.priceSuffix}
+                        </span>
+                      ) : null}
+                    </div>
                   ) : null}
 
                   <p className={styles["plan-description"]}>
@@ -495,13 +496,23 @@ export default function RegisterPage() {
 
         <div className={styles["account-panel"]} id="account-form">
           <div className={styles["account-heading"]}>
-            <div>
-              <h2>Create your account</h2>
-                          </div>
-            <span className={styles["plan-pill"]} aria-live="polite">
+            <h2>Create your account</h2>
+          </div>
+
+          <div className={styles["plan-summary"]} aria-live="polite">
+            <strong>
               {isPilotRegistration
                 ? "Pilot Programme · 6 months free"
-                : selectedPlanDetails?.title ?? "Select a plan to continue"}
+                : selectedPlanDetails?.title ?? "No plan selected yet"}
+            </strong>
+            <span>
+              {isPilotRegistration
+                ? "Pilot access will be applied when the account is created."
+                : selectedPlanDetails
+                  ? selectedPlanDetails.priceSuffix
+                    ? `${selectedPlanDetails.priceLabel} ${selectedPlanDetails.priceSuffix}`
+                    : selectedPlanDetails.priceLabel
+                  : "Select a plan to continue"}
             </span>
           </div>
 
@@ -784,22 +795,10 @@ export default function RegisterPage() {
                         ? "Create account"
                         : "Select a plan to continue"}
               </button>
-
-              <div className={styles["security-note"]}>
-                <LockIcon />
-                <span>Your data is secure and encrypted</span>
-              </div>
             </form>
           )}
         </div>
       </section>
-
-      <footer className={styles["legal-footer"]}>
-        By creating an account, you agree to our{" "}
-        <Link href="/terms">Terms &amp; Conditions</Link>,{" "}
-        <Link href="/legal/privacy-policy.pdf">Privacy Policy</Link>, and{" "}
-        <Link href="/legal/acceptable-use-policy.pdf">Acceptable Use Policy</Link>.
-      </footer>
     </main>
   );
 }
@@ -986,20 +985,3 @@ function EyeOffIcon() {
   );
 }
 
-function LockIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="5" y="10" width="14" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-      <path d="M12 14v3" />
-    </svg>
-  );
-}

@@ -11,6 +11,7 @@ type CreateMatterBody = {
   matterType?: unknown;
   subject?: unknown;
   matterLead?: unknown;
+  hasSourceConversation?: unknown;
 };
 
 function readOptionalString(value: unknown): string | null {
@@ -247,12 +248,14 @@ export async function POST(request: Request) {
     }
   }
 
+  const description = readOptionalString(body.description) || "";
+
   const { data, error } = await supabase
     .from("matters")
     .insert({
       title,
       status: "Open",
-      description: readOptionalString(body.description) || "",
+      description,
       employee_id: employeeId,
       matter_type: readOptionalString(body.matterType),
       subject: readOptionalString(body.subject) || title,
@@ -271,6 +274,20 @@ export async function POST(request: Request) {
       },
       { status: 500 },
     );
+  }
+
+  // Route B: no Ask Leo conversation will be linked, so the employer's own
+  // description becomes the Matter's first real conversation turn.
+  if (!body.hasSourceConversation && description) {
+    const { error: seedError } = await supabase.from("matter_messages").insert({
+      matter_id: data.id,
+      role: "user",
+      content: description,
+    });
+
+    if (seedError) {
+      console.error("Matter description could not be seeded as a conversation message:", seedError);
+    }
   }
 
   return NextResponse.json(

@@ -234,23 +234,51 @@ export async function POST(request: Request, context: RouteContext) {
   }));
 
   if (rows.length > 0) {
-    const { error: insertError } = await supabase.from("matter_messages").upsert(rows, {
-      onConflict: "source_ask_leo_message_id",
-      ignoreDuplicates: true,
-    });
+    const { data: alreadyCopied, error: alreadyCopiedError } = await supabase
+      .from("matter_messages")
+      .select("source_ask_leo_message_id")
+      .eq("matter_id", matterId)
+      .in(
+        "source_ask_leo_message_id",
+        rows.map((row) => row.source_ask_leo_message_id),
+      );
 
-    if (insertError) {
-      console.error("Ask Leo messages could not be copied into Matter:", insertError);
+    if (alreadyCopiedError) {
+      console.error("Matter messages could not be checked before conversion:", alreadyCopiedError);
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            insertError.message ||
-            "The Ask Leo conversation could not be linked to the Matter messages.",
+          error: "The Ask Leo conversation could not be linked to the Matter messages.",
         },
         { status: 500 }
       );
+    }
+
+    const alreadyCopiedIds = new Set(
+      (alreadyCopied || []).map((row) => row.source_ask_leo_message_id),
+    );
+
+    const newRows = rows.filter(
+      (row) => !alreadyCopiedIds.has(row.source_ask_leo_message_id),
+    );
+
+    if (newRows.length > 0) {
+      const { error: insertError } = await supabase.from("matter_messages").insert(newRows);
+
+      if (insertError) {
+        console.error("Ask Leo messages could not be copied into Matter:", insertError);
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              insertError.message ||
+              "The Ask Leo conversation could not be linked to the Matter messages.",
+          },
+          { status: 500 }
+        );
+      }
     }
   }
 

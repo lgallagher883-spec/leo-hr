@@ -9,10 +9,12 @@ export type ConversationMessage = {
 
 type LeoConversationProps = {
   conversation: ConversationMessage[];
+  hasContext?: boolean;
 };
 
 export default function LeoConversation({
   conversation,
+  hasContext = false,
 }: LeoConversationProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -23,7 +25,9 @@ export default function LeoConversation({
   if (conversation.length === 0) {
     return (
       <div style={emptyStyle}>
-        Start a conversation with Leo...
+        {hasContext
+          ? "Continue this Matter with Leo..."
+          : "Start a conversation with Leo..."}
       </div>
     );
   }

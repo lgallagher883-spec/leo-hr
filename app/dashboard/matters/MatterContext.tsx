@@ -27,6 +27,7 @@ type NewMatterInput = {
   matterType?: string | null;
   subject?: string | null;
   matterLead?: string | null;
+  hasSourceConversation?: boolean;
 };
 
 type MatterContextType = {
@@ -131,6 +132,7 @@ export function MatterProvider({
           matterType: matter.matterType ?? null,
           subject: matter.subject || matter.title,
           matterLead: matter.matterLead || null,
+          hasSourceConversation: Boolean(matter.hasSourceConversation),
         }),
       });
 

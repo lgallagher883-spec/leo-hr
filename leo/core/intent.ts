@@ -18,7 +18,8 @@ export function detectIntent(message: string): IntentType {
 
   const nonWorkplaceSignals = [
     "poem",
-    "joke",
+    "tell me a joke",
+    "know any jokes",
     "weather",
     "capital of",
     "sports",
@@ -36,7 +37,15 @@ export function detectIntent(message: string): IntentType {
   if (text.includes("dismiss") || text.includes("fired"))
     return "termination";
 
-  if (text.includes("disciplin") || text.includes("misconduct"))
+  if (
+    text.includes("disciplin") ||
+    text.includes("misconduct") ||
+    text.includes("theft") ||
+    text.includes("stealing") ||
+    text.includes("stole") ||
+    text.includes("cctv") ||
+    text.includes("shoplifting")
+  )
     return "disciplinary";
 
   if (text.includes("redund"))

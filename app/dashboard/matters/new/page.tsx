@@ -12,6 +12,10 @@ import {
   MatterProvider,
   useMatters,
 } from "../MatterContext";
+import {
+  requestMatterLeoReply,
+  saveMatterMessage,
+} from "@/lib/ask-leo/matterReply";
 
 type Employee = {
   id: number;
@@ -111,6 +115,21 @@ function NewMatterPageContent() {
   const [
     sourceConversationError,
     setSourceConversationError,
+  ] = useState(false);
+
+  const [
+    createdMatterId,
+    setCreatedMatterId,
+  ] = useState<number | null>(null);
+
+  const [
+    conversionError,
+    setConversionError,
+  ] = useState("");
+
+  const [
+    linkingConversation,
+    setLinkingConversation,
   ] = useState(false);
 
   useEffect(() => {
@@ -348,6 +367,8 @@ function NewMatterPageContent() {
           description.trim(),
         employeeId:
           selectedEmployee.id,
+        hasSourceConversation:
+          Boolean(sourceConversationId),
       });
 
     if (!createdMatter) {
@@ -355,23 +376,79 @@ function NewMatterPageContent() {
       return;
     }
 
+    setCreatedMatterId(createdMatter.id);
+
+    if (sourceConversationId) {
+      try {
+        await convertSourceConversation(
+          createdMatter.id
+        );
+      } catch (error) {
+        setCreating(false);
+        setConversionError(
+          error instanceof Error
+            ? error.message
+            : "The Ask Leo conversation could not be linked to this Matter."
+        );
+
+        // Stay on this page so the employer can retry rather than
+        // silently opening a Matter that has lost its conversation.
+        return;
+      }
+    } else if (createdMatter.description?.trim()) {
+      // Route B: the description is already the first user message - get
+      // Leo's initial reply through the same pipeline before redirecting.
+      try {
+        const fullResponse = await requestMatterLeoReply({
+          matter: {
+            id: createdMatter.id,
+            title: createdMatter.title,
+            subject: createdMatter.subject || "",
+            matterType: createdMatter.matter_type || "",
+            description: createdMatter.description || "",
+            status: createdMatter.status || "",
+          },
+          conversation: [
+            { role: "user", content: createdMatter.description.trim() },
+          ],
+        });
+
+        await saveMatterMessage(createdMatter.id, {
+          role: "leo",
+          content: fullResponse,
+        });
+      } catch (error) {
+        console.error("Leo's initial Matter reply could not be generated:", error);
+      }
+    }
+
+    setCreating(false);
+
+    router.push(
+      `/dashboard/matters/${createdMatter.id}`
+    );
+  }
+
+  async function retryLinkConversation() {
+    if (!createdMatterId || linkingConversation) {
+      return;
+    }
+
+    setLinkingConversation(true);
+    setConversionError("");
+
     try {
-      await convertSourceConversation(
-        createdMatter.id
-      );
+      await convertSourceConversation(createdMatterId);
+      router.push(`/dashboard/matters/${createdMatterId}`);
     } catch (error) {
-      alert(
+      setConversionError(
         error instanceof Error
           ? error.message
           : "The Ask Leo conversation could not be linked to this Matter."
       );
     } finally {
-      setCreating(false);
+      setLinkingConversation(false);
     }
-
-    router.push(
-      `/dashboard/matters/${createdMatter.id}`
-    );
   }
 
   const filteredEmployees =
@@ -426,6 +503,45 @@ function NewMatterPageContent() {
       {sourceConversation && (
         <div style={noticeStyle}>
           This Matter will link Ask Leo conversation: <strong>{sourceConversation.title}</strong>
+        </div>
+      )}
+
+      {conversionError && (
+        <div style={errorStyle}>
+          <div>
+            {conversionError} The Matter has been created, but its Ask Leo
+            conversation has not been linked yet.
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              marginTop: "10px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={retryLinkConversation}
+              disabled={linkingConversation}
+              style={cancelButtonStyle}
+            >
+              {linkingConversation
+                ? "Retrying..."
+                : "Retry linking conversation"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                createdMatterId &&
+                router.push(`/dashboard/matters/${createdMatterId}`)
+              }
+              style={cancelButtonStyle}
+            >
+              Continue without linking
+            </button>
+          </div>
         </div>
       )}
 

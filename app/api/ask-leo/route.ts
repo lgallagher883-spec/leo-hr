@@ -76,6 +76,187 @@ type AskLeoConversationRow = {
   converted_to_matter_at: string | null;
 };
 
+export type LegalGroundingTier =
+  | "statutory"
+  | "acas_code"
+  | "case_principle"
+  | "contractual_policy"
+  | "good_practice"
+  | "professional_judgement";
+
+const LEGAL_GROUNDING_TIERS: LegalGroundingTier[] = [
+  "statutory",
+  "acas_code",
+  "case_principle",
+  "contractual_policy",
+  "good_practice",
+  "professional_judgement",
+];
+
+// Hidden professional-conclusion structure emitted before the employer-facing
+// reply. Never exposed to the client - parsed and validated server-side only.
+export type LeoInternalAnalysis = {
+  establishedFacts: string[];
+  assertionsAndAllegations: string[];
+  evidence: string[];
+  materialUnknowns: string[];
+  overlappingIssues: string[];
+  companyContextConsiderations: string[];
+  legalGrounding: Array<{
+    tier: LegalGroundingTier;
+    statement: string;
+  }>;
+  options: string[];
+  recommendation: string;
+  immediateNextStep: string;
+};
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string")
+  );
+}
+
+export function parseInternalAnalysis(
+  rawJson: string
+): LeoInternalAnalysis | null {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const candidate = parsed as Record<string, unknown>;
+
+  const arrayFields: Array<keyof LeoInternalAnalysis> = [
+    "establishedFacts",
+    "assertionsAndAllegations",
+    "evidence",
+    "materialUnknowns",
+    "overlappingIssues",
+    "companyContextConsiderations",
+    "options",
+  ];
+
+  for (const field of arrayFields) {
+    if (!isStringArray(candidate[field])) {
+      return null;
+    }
+  }
+
+  if (
+    typeof candidate.recommendation !== "string" ||
+    typeof candidate.immediateNextStep !== "string"
+  ) {
+    return null;
+  }
+
+  if (!Array.isArray(candidate.legalGrounding)) {
+    return null;
+  }
+
+  const legalGrounding: LeoInternalAnalysis["legalGrounding"] = [];
+
+  for (const entry of candidate.legalGrounding) {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      typeof (entry as Record<string, unknown>).statement !== "string" ||
+      !LEGAL_GROUNDING_TIERS.includes(
+        (entry as Record<string, unknown>).tier as LegalGroundingTier
+      )
+    ) {
+      return null;
+    }
+
+    legalGrounding.push({
+      tier: (entry as Record<string, unknown>).tier as LegalGroundingTier,
+      statement: (entry as Record<string, unknown>).statement as string,
+    });
+  }
+
+  return {
+    establishedFacts: candidate.establishedFacts as string[],
+    assertionsAndAllegations: candidate.assertionsAndAllegations as string[],
+    evidence: candidate.evidence as string[],
+    materialUnknowns: candidate.materialUnknowns as string[],
+    overlappingIssues: candidate.overlappingIssues as string[],
+    companyContextConsiderations:
+      candidate.companyContextConsiderations as string[],
+    legalGrounding,
+    options: candidate.options as string[],
+    recommendation: candidate.recommendation,
+    immediateNextStep: candidate.immediateNextStep,
+  };
+}
+
+export type HiddenAnalysisBoundaryResult =
+  | { state: "buffering" }
+  | {
+      state: "streaming";
+      tail: string;
+      analysis: LeoInternalAnalysis | null;
+    }
+  | { state: "failed"; reason: string };
+
+export const MAX_ANALYSIS_BUFFER_LENGTH = 8000;
+
+// Pure boundary-isolation logic, kept separate from the stream/controller
+// wiring so it can be unit tested without a live OpenAI stream.
+export function processHiddenAnalysisBuffer(
+  buffer: string,
+  boundary: { start: string; end: string },
+  maxBufferLength: number = MAX_ANALYSIS_BUFFER_LENGTH
+): HiddenAnalysisBoundaryResult {
+  const endIndex = buffer.indexOf(boundary.end);
+
+  if (endIndex === -1) {
+    if (buffer.length > maxBufferLength) {
+      return {
+        state: "failed",
+        reason:
+          "Hidden analysis end marker was not found within the buffer limit.",
+      };
+    }
+
+    return { state: "buffering" };
+  }
+
+  const startIndex = buffer.indexOf(boundary.start);
+
+  if (startIndex === -1 || startIndex > endIndex) {
+    return {
+      state: "failed",
+      reason:
+        "Hidden analysis start marker was missing or out of order.",
+    };
+  }
+
+  const rawAnalysisJson = buffer
+    .slice(startIndex + boundary.start.length, endIndex)
+    .trim();
+
+  const analysis = parseInternalAnalysis(rawAnalysisJson);
+
+  if (!analysis) {
+    console.error(
+      "Ask Leo hidden analysis failed schema validation and was discarded.",
+      { rawAnalysisJson }
+    );
+  }
+
+  const tail = buffer.slice(endIndex + boundary.end.length);
+
+  return { state: "streaming", tail, analysis };
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -448,6 +629,13 @@ export async function POST(req: Request) {
      * 11. PROMPT BUILDER
      */
 
+    const analysisToken = crypto.randomUUID();
+
+    const analysisBoundary = {
+      start: `%%%LEO_INTERNAL_ANALYSIS_START_${analysisToken}%%%`,
+      end: `%%%LEO_INTERNAL_ANALYSIS_END_${analysisToken}%%%`,
+    };
+
     const leoPrompt = buildLeoPrompt(
       thinkingResult,
       coreResult,
@@ -457,7 +645,8 @@ export async function POST(req: Request) {
       knowledgeResult,
       conversationPlan,
       conversationPrompt,
-      responsePrompt
+      responsePrompt,
+      analysisBoundary
     );
 
     /*
@@ -524,11 +713,55 @@ export async function POST(req: Request) {
     const responseStream = new ReadableStream({
       async start(controller) {
         let fullResponse = "";
+        let analysisBuffer = "";
+        let phase: "buffering" | "streaming" = "buffering";
+        let boundaryFailed = false;
 
         const sendEvent = (payload: Record<string, unknown>) => {
           controller.enqueue(
             encoder.encode(`${JSON.stringify(payload)}\n`)
           );
+        };
+
+        const failClosed = (reason: string) => {
+          boundaryFailed = true;
+          console.error(
+            "Ask Leo hidden analysis boundary could not be safely isolated:",
+            reason
+          );
+          sendEvent({
+            type: "error",
+            error:
+              "Leo could not complete a properly formatted response. Please try again.",
+          });
+        };
+
+        const handleBoundaryDelta = (delta: string) => {
+          analysisBuffer += delta;
+
+          const result = processHiddenAnalysisBuffer(
+            analysisBuffer,
+            analysisBoundary
+          );
+
+          if (result.state === "buffering") {
+            return;
+          }
+
+          if (result.state === "failed") {
+            failClosed(result.reason);
+            return;
+          }
+
+          phase = "streaming";
+
+          if (result.tail) {
+            fullResponse += result.tail;
+            sendEvent({
+              type: "delta",
+              delta: result.tail,
+            });
+          }
         };
 
         try {
@@ -545,11 +778,30 @@ export async function POST(req: Request) {
               continue;
             }
 
+            if (phase === "buffering") {
+              handleBoundaryDelta(delta);
+
+              if (boundaryFailed) {
+                controller.close();
+                return;
+              }
+
+              continue;
+            }
+
             fullResponse += delta;
             sendEvent({
               type: "delta",
               delta,
             });
+          }
+
+          if (phase === "buffering") {
+            failClosed(
+              "The response ended before the hidden analysis boundary was completed."
+            );
+            controller.close();
+            return;
           }
 
           if (!fullResponse.trim()) {

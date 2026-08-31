@@ -98,7 +98,7 @@ async function verifyMatterAccess(
 ) {
   const { data, error } = await supabase
     .from("matters")
-    .select("id")
+    .select("id, description")
     .eq("id", matterId)
     .maybeSingle();
 
@@ -112,6 +112,46 @@ async function verifyMatterAccess(
   }
 
   return { matter: data };
+}
+
+// Legacy/description-only Matters have no matter_messages yet - seed the
+// employer's own description as the first turn, once, on first read.
+async function ensureSeededConversation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matterId: number,
+  description: string | null,
+) {
+  const trimmedDescription = description?.trim();
+
+  if (!trimmedDescription) {
+    return null;
+  }
+
+  const { count, error: countError } = await supabase
+    .from("matter_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("matter_id", matterId);
+
+  if (countError || (count ?? 0) > 0) {
+    return null;
+  }
+
+  const { data: seeded, error: seedError } = await supabase
+    .from("matter_messages")
+    .insert({
+      matter_id: matterId,
+      role: "user",
+      content: trimmedDescription,
+    })
+    .select(messageSelect)
+    .single();
+
+  if (seedError) {
+    console.error("Matter description could not be seeded as a conversation message:", seedError);
+    return null;
+  }
+
+  return seeded;
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -156,9 +196,23 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
+  let messages = data ?? [];
+
+  if (messages.length === 0) {
+    const seeded = await ensureSeededConversation(
+      supabase,
+      matterId,
+      matterAccess.matter?.description ?? null,
+    );
+
+    if (seeded) {
+      messages = [seeded];
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    messages: data ?? [],
+    messages,
   });
 }
 

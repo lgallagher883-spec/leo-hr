@@ -5,11 +5,12 @@ import {
   MatterProvider,
   useMatters,
 } from "../MatterContext";
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-import { runLeoCore } from "@/leo/core/router";
-import { generateLeoSummary } from "@/leo/response/summary";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  requestMatterLeoReply,
+  saveMatterMessage,
+} from "@/lib/ask-leo/matterReply";
 
 import MatterHeader from "./components/MatterHeader";
 import LeoConversation, {
@@ -17,10 +18,11 @@ import LeoConversation, {
 } from "./components/LeoConversation";
 import MatterDocuments from "./components/MatterDocuments";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type MatterAssessment = {
+  understanding: string;
+  risk: string;
+  nextStep: string;
+};
 
 type TimelineEvent = {
   id: number;
@@ -43,6 +45,7 @@ function MatterDetailPageContent() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const { matters, setMatters } = useMatters();
+  const supabase = useMemo(() => createClient(), []);
 
   const id = Number(params.id);
   const matter = matters.find((m) => m.id === id);
@@ -55,6 +58,8 @@ function MatterDetailPageContent() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationError, setConversationError] = useState("");
   const [loadingTimeline, setLoadingTimeline] = useState(false);
+  const [assessment, setAssessment] = useState<MatterAssessment | null>(null);
+  const [loadingAssessment, setLoadingAssessment] = useState(false);
   const [bundleFormat, setBundleFormat] = useState<"docx" | "pdf">("docx");
   const [includeTranscript, setIncludeTranscript] = useState(false);
   const [generatingBundle, setGeneratingBundle] = useState(false);
@@ -71,8 +76,40 @@ function MatterDetailPageContent() {
     if (!matter) return;
     loadConversation();
     loadTimeline();
+    loadAssessment();
     // ensureMatterCreatedTimelineEvent();
   }, [matter?.id]);
+
+  async function loadAssessment() {
+    if (!matter) return;
+
+    setLoadingAssessment(true);
+
+    try {
+      const response = await fetch(`/api/matters/${matter.id}/assessment`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const result = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        assessment?: MatterAssessment;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !result?.success || !result.assessment) {
+        throw new Error(result?.error || "Leo's assessment could not be loaded.");
+      }
+
+      setAssessment(result.assessment);
+    } catch (error) {
+      console.error("Error loading Matter assessment:", error);
+      setAssessment(null);
+    } finally {
+      setLoadingAssessment(false);
+    }
+  }
 
   async function loadConversation() {
     if (!matter) return;
@@ -102,12 +139,14 @@ function MatterDetailPageContent() {
         throw new Error(result.error || "The Matter conversation could not be loaded.");
       }
 
-      setConversation(
-        (result.messages || []).map((message) => ({
+      const loadedConversation: ConversationMessage[] = (result.messages || []).map(
+        (message) => ({
           role: message.role,
           content: message.content,
-        })),
+        }),
       );
+
+      setConversation(loadedConversation);
     } catch (error) {
       console.error("Error loading Matter conversation:", error);
       setConversationError(
@@ -173,36 +212,59 @@ function MatterDetailPageContent() {
     setOpenWorkspace(null);
   }
 
-  async function saveConversationMessage(message: ConversationMessage) {
-    if (!matter) {
-      throw new Error("The Matter is unavailable.");
+  async function requestLeoReply(conversationForPrompt: ConversationMessage[]) {
+    if (!matter) return;
+
+    try {
+      let leoMessageAdded = false;
+
+      const fullResponse = await requestMatterLeoReply({
+        matter: {
+          id: matter.id,
+          title: matter.title,
+          subject: matter.subject || "",
+          matterType: matter.matter_type || "",
+          description: matter.description || "",
+          status: matter.status || "",
+        },
+        conversation: conversationForPrompt,
+        onDelta: (delta) => {
+          setConversation((previous) => {
+            if (!leoMessageAdded) {
+              leoMessageAdded = true;
+              return [...previous, { role: "leo", content: delta }];
+            }
+
+            const updated = [...previous];
+            const lastIndex = updated.length - 1;
+            const lastMessage = updated[lastIndex];
+
+            if (lastMessage?.role === "leo") {
+              updated[lastIndex] = {
+                ...lastMessage,
+                content: `${lastMessage.content}${delta}`,
+              };
+            }
+
+            return updated;
+          });
+        },
+      });
+
+      if (!leoMessageAdded) {
+        setConversation((previous) => [...previous, { role: "leo", content: fullResponse }]);
+      }
+
+      await saveMatterMessage(matter.id, { role: "leo", content: fullResponse });
+      void loadAssessment();
+    } catch (error) {
+      console.error("Matter conversation error:", error);
+      setConversationError(
+        error instanceof Error
+          ? `${error.message} Your message remains saved in this Matter.`
+          : "Leo could not complete the response. Your message remains saved in this Matter.",
+      );
     }
-
-    const response = await fetch(`/api/matters/${matter.id}/messages`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(message),
-    });
-
-    const result = (await response.json()) as {
-      success: boolean;
-      message?: {
-        id: number;
-        role: "user" | "leo";
-        content: string;
-        created_at: string;
-      };
-      error?: string;
-    };
-
-    if (!response.ok || !result.success || !result.message) {
-      throw new Error(result.error || "The conversation message could not be saved.");
-    }
-
-    return result.message;
   }
 
   async function sendToLeo() {
@@ -219,50 +281,13 @@ function MatterDetailPageContent() {
     };
 
     try {
-      await saveConversationMessage(userMessage);
+      await saveMatterMessage(matter.id, userMessage);
 
+      const conversationBeforeReply = [...conversation, userMessage];
       setConversation((previous) => [...previous, userMessage]);
       setQuestion("");
 
-      const response = await fetch("/api/ask-leo", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: messageText,
-          latestMessage: messageText,
-          contextType: "matter",
-          activeMatterId: matter.id,
-          matter: {
-            id: matter.id,
-            title: matter.title,
-            subject: matter.subject || "",
-            matterType: matter.matter_type || "",
-            description: matter.description || "",
-            status: matter.status || "",
-          },
-          conversation: [...conversation, userMessage],
-        }),
-      });
-
-      const data = (await response.json().catch(() => null)) as
-        | { response?: string; reply?: string; error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Leo could not complete the response.");
-      }
-
-      const leoMessage: ConversationMessage = {
-        role: "leo",
-        content:
-          data?.response ||
-          data?.reply ||
-          "Leo was unable to generate a response.",
-      };
-
-      await saveConversationMessage(leoMessage);
-      setConversation((previous) => [...previous, leoMessage]);
+      await requestLeoReply(conversationBeforeReply);
     } catch (error) {
       console.error("Matter conversation error:", error);
       setConversationError(
@@ -340,14 +365,15 @@ function MatterDetailPageContent() {
     );
   }
 
-  const summaryResult = runLeoCore(
-    `${matter.title}\n${matter.description || ""}`
-  );
+  const summaryUnderstanding = loadingAssessment
+    ? "Leo is reviewing this Matter..."
+    : assessment?.understanding ||
+      "Leo's assessment could not be loaded for this Matter.";
 
-  const leoSummary = generateLeoSummary(
-    summaryResult,
-    matter.description || matter.title
-  );
+  const summaryNextStep = loadingAssessment
+    ? "Leo is reviewing this Matter..."
+    : assessment?.nextStep ||
+      "Continue the conversation with Leo to progress this Matter.";
 
   return (
     <div style={pageStyle}>
@@ -365,14 +391,14 @@ function MatterDetailPageContent() {
             <div style={assessmentColumnStyle}>
               <div style={assessmentLabelStyle}>Current understanding</div>
               <div style={assessmentTextStyle}>
-                {leoSummary.understanding}
+                {summaryUnderstanding}
               </div>
             </div>
 
             <div style={assessmentDividerColumnStyle}>
               <div style={assessmentLabelStyle}>Recommended next step</div>
               <div style={assessmentTextStyle}>
-                {leoSummary.nextStep}
+                {summaryNextStep}
               </div>
             </div>
           </div>
@@ -391,7 +417,10 @@ function MatterDetailPageContent() {
           {loadingConversation ? (
             <MutedText>Loading conversation...</MutedText>
           ) : (
-            <LeoConversation conversation={conversation} />
+            <LeoConversation
+              conversation={conversation}
+              hasContext={Boolean(matter.description?.trim())}
+            />
           )}
         </div>
 

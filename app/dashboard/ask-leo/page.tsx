@@ -13,6 +13,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { readAskLeoStream } from "@/lib/ask-leo/streamClient";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -666,9 +667,6 @@ export default function AskLeoPage() {
         );
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let leoMessageAdded = false;
       let fullResponse = "";
 
@@ -725,31 +723,7 @@ export default function AskLeoPage() {
         }
       };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        buffer += decoder.decode(value, { stream: !done });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-
-          if (!trimmed) {
-            continue;
-          }
-
-          applyStreamEvent(JSON.parse(trimmed));
-        }
-
-        if (done) {
-          break;
-        }
-      }
-
-      if (buffer.trim()) {
-        applyStreamEvent(JSON.parse(buffer.trim()));
-      }
+      await readAskLeoStream(response, applyStreamEvent);
 
       if (!fullResponse.trim()) {
         setStreamStarted(true);
@@ -784,6 +758,9 @@ export default function AskLeoPage() {
 
   function createMatter() {
     if (!conversationId) {
+      setConversationError(
+        "Leo hasn't finished saving this conversation yet. Please wait a moment and try Create Matter again."
+      );
       return;
     }
 

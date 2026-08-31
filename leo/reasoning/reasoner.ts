@@ -1,5 +1,6 @@
 import { LeoCoreOutput } from "../core/router";
 import { buildDecisionFramework } from "./decisionFramework";
+import { filterAnsweredInformation } from "./answeredInformation";
 
 export type ReasoningOutput = {
   primaryIssue: string;
@@ -54,10 +55,13 @@ export function runLeoReasoning(
     )
   );
 
-  const missingInformation = unique(
-    moduleResults.flatMap(
-      (module) => module.missingInformation
-    )
+  const missingInformation = filterAnsweredInformation(
+    unique(
+      moduleResults.flatMap(
+        (module) => module.missingInformation
+      )
+    ),
+    matterContext
   );
 
   const recommendedSteps = unique(

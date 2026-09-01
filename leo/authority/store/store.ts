@@ -45,7 +45,7 @@ export type StoredAuthoritySufficiency = {
   records: StoredAuthorityRecord[];
 };
 
-const STORE_MAX_AGE_HOURS = 36;
+export const STORE_MAX_AGE_HOURS = 36;
 const MAX_RECORDS = 250;
 
 function getSupabaseConfig():

@@ -1,8 +1,8 @@
-import {
+import type {
   AuthorityLegalStatus,
   StoredAuthorityRecord,
-  upsertAuthorityRecords,
-} from "./store";
+} from "./store.ts";
+import { upsertAuthorityRecords } from "./store.ts";
 
 const APPROVED_AUTHORITY_DOMAINS = [
   "legislation.gov.uk",
@@ -25,7 +25,7 @@ type RefreshTopic = {
   searchTerms: string[];
 };
 
-type ModelAuthorityRecord = {
+export type ModelAuthorityRecord = {
   authorityKey?: unknown;
   topic?: unknown;
   title?: unknown;
@@ -132,7 +132,7 @@ const REFRESH_TOPICS: RefreshTopic[] = [
   },
 ];
 
-function sourceIsApproved(url: string): boolean {
+export function sourceIsApproved(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
 
@@ -194,7 +194,7 @@ function readOutputText(payload: unknown): string {
   return parts.join("\n");
 }
 
-function stripCodeFence(value: string): string {
+export function stripCodeFence(value: string): string {
   const trimmed = value.trim();
 
   if (!trimmed.startsWith("```")) {
@@ -207,13 +207,13 @@ function stripCodeFence(value: string): string {
     .trim();
 }
 
-function asText(value: unknown): string {
+export function asText(value: unknown): string {
   return typeof value === "string"
     ? value.trim()
     : "";
 }
 
-function asNullableDate(value: unknown): string | null {
+export function asNullableDate(value: unknown): string | null {
   const text = asText(value);
 
   if (!text) {
@@ -225,7 +225,7 @@ function asNullableDate(value: unknown): string | null {
     : null;
 }
 
-function asStatus(
+export function asStatus(
   value: unknown
 ): AuthorityLegalStatus {
   const allowed: AuthorityLegalStatus[] = [
@@ -244,7 +244,7 @@ function asStatus(
     : "uncertain";
 }
 
-function asSearchTerms(
+export function asSearchTerms(
   value: unknown,
   defaults: string[]
 ): string[] {
@@ -267,7 +267,7 @@ function asSearchTerms(
   ).slice(0, 40);
 }
 
-function sourceDomain(url: string): string {
+export function sourceDomain(url: string): string {
   return new URL(url).hostname.toLowerCase();
 }
 

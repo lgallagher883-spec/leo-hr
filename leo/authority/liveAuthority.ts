@@ -1,9 +1,17 @@
+import { after } from "next/server";
+
 import type { AuthorityEngineOutput } from "./types";
 
 import {
   findStoredAuthority,
   StoredAuthorityRecord,
+  upsertAuthorityRecords,
 } from "./store/store";
+import {
+  buildPersistableAuthorityRecords,
+  normaliseSourceUrl,
+  parseCandidateAuthorityRecords,
+} from "./store/livePersistence";
 
 export type LiveAuthoritySource = {
   url: string;
@@ -19,6 +27,11 @@ export type LiveAuthorityResult = {
   sources: LiveAuthoritySource[];
   error?: string;
 };
+
+// Delimits the prose evidence briefing (unchanged contract) from the
+// structured records appended for reusable-authority persistence only.
+const STRUCTURED_RECORDS_MARKER =
+  "===LEO_STRUCTURED_AUTHORITY_RECORDS===";
 
 const APPROVED_AUTHORITY_DOMAINS = [
   "legislation.gov.uk",
@@ -138,6 +151,33 @@ Return a concise evidence briefing for another model to use. It must contain:
 6. any material uncertainty that remains.
 
 Do not draft the final employer-facing answer.
+
+STRUCTURED RECORD OUTPUT
+After the evidence briefing above, on new lines, output exactly the marker line below followed by a single fenced json code block. Never place this marker or json block anywhere else in your response.
+${STRUCTURED_RECORDS_MARKER}
+\`\`\`json
+{
+  "records": [
+    {
+      "topic": "short topic slug",
+      "title": "short descriptive title",
+      "sourceUrl": "https://the-official-source-you-actually-used/...",
+      "sourceTitle": "official page or instrument title",
+      "authorityType": "legislation|government|acas|hse|pensions_regulator|fair_work_agency|tribunal|appellate_case_law|regulator",
+      "legalStatus": "current|future_enacted|proposed|historical|superseded|uncertain",
+      "jurisdiction": "england_wales|great_britain|united_kingdom|scotland|northern_ireland",
+      "summary": "precise verified rule/change",
+      "practicalEffect": "what an employer needs to know or do",
+      "effectiveFrom": "YYYY-MM-DD or null",
+      "effectiveTo": "YYYY-MM-DD or null",
+      "sourcePublishedAt": "YYYY-MM-DD or null",
+      "sourceUpdatedAt": "YYYY-MM-DD or null",
+      "searchTerms": ["useful", "matching", "terms"]
+    }
+  ]
+}
+\`\`\`
+Only include a record whose sourceUrl is one of the official sources you genuinely used above and that directly supports the stated proposition. Never invent a sourceUrl, title, date or figure. Omit any proposition you are not confident is current. If nothing qualifies, return {"records": []}.
 `;
 }
 
@@ -257,16 +297,6 @@ function collectCitedSources(
   }
 
   return Array.from(citedSources.values());
-}
-
-function normaliseSourceUrl(value: string): string {
-  try {
-    const url = new URL(value);
-    url.searchParams.delete("utm_source");
-    return url.toString();
-  } catch {
-    return "";
-  }
 }
 
 function sourceIsApproved(url: string): boolean {
@@ -498,8 +528,26 @@ export async function researchLiveAuthority(
     const payload =
       JSON.parse(rawBody) as unknown;
 
-    const evidence =
+    const rawOutputText =
       readOutputText(payload);
+
+    const markerIndex = rawOutputText.indexOf(
+      STRUCTURED_RECORDS_MARKER
+    );
+
+    const evidence = (
+      markerIndex === -1
+        ? rawOutputText
+        : rawOutputText.slice(0, markerIndex)
+    ).trim();
+
+    const structuredSection =
+      markerIndex === -1
+        ? ""
+        : rawOutputText.slice(
+            markerIndex +
+              STRUCTURED_RECORDS_MARKER.length
+          );
 
     const sources = collectCitedSources(
       evidence,
@@ -512,6 +560,43 @@ export async function researchLiveAuthority(
     const verifiedCurrent =
       searched &&
       evidence.length > 0;
+
+    // Best-effort reusable-authority persistence. Must never affect
+    // this response, so preparation and the write are both isolated.
+    try {
+      const candidateRecords =
+        parseCandidateAuthorityRecords(
+          structuredSection
+        );
+      const persistableRecords =
+        buildPersistableAuthorityRecords({
+          candidates: candidateRecords,
+          citedSources: sources,
+          searched,
+          verifiedCurrent,
+          evidence,
+        });
+
+      if (persistableRecords.length > 0) {
+        after(async () => {
+          try {
+            await upsertAuthorityRecords(
+              persistableRecords
+            );
+          } catch (persistError) {
+            console.error(
+              "Leo ad-hoc live authority persistence failed:",
+              persistError
+            );
+          }
+        });
+      }
+    } catch (prepareError) {
+      console.error(
+        "Leo ad-hoc live authority persistence preparation failed:",
+        prepareError
+      );
+    }
 
     return {
       required,

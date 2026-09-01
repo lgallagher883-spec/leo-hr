@@ -1131,6 +1131,10 @@ export async function POST(req: Request) {
       await researchLiveAuthority({
         message: authorityResearchQuery,
         staticAuthority: authorityResult,
+        storedAuthorityQuery: buildStoredAuthorityRelevanceQuery(
+          message,
+          issueDiscovery
+        ),
       });
 
     if (
@@ -2434,6 +2438,20 @@ function buildAuthorityResearchQuery(
     "PROFESSIONAL ISSUE MAP FOR AUTHORITY RESEARCH",
     issueBrief,
   ].join("\n");
+}
+
+// Stage 3.7 sufficiency matching needs only substantive employer/issue
+// terms; the formatted research scaffolding above dilutes term matching.
+function buildStoredAuthorityRelevanceQuery(
+  employerQuestion: string,
+  issueDiscovery: LeoIssueDiscovery
+): string {
+  const issueTerms = issueDiscovery.materialIssues
+    .map((item) => item.issue)
+    .filter(Boolean)
+    .join(" ");
+
+  return [employerQuestion, issueTerms].filter(Boolean).join(" ");
 }
 
 function readAuthoritySourceDomain(url: string): string {

@@ -105,3 +105,43 @@ test("the live-authority fast path requires the generic sufficiency result", () 
   assert.match(liveAuthority, /stored\.fresh\s*&&\s*stored\.sufficient/);
   assert.match(liveAuthority, /ASK_LEO_FORCE_LIVE_AUTHORITY/);
 });
+
+test("formatted research scaffolding can crowd substantive issue terms out of the relevance query, but a concise question+issue query cannot", () => {
+  const employerQuestion =
+    "What are the orbital cargo permit renewal and safety inspection requirements?";
+  const issue = {
+    issue: "orbital cargo permit renewal and safety inspection",
+    significance:
+      "This determines whether the operator retains its launch licence and avoids civil penalties for non-compliance with obligations before the scheduled launch window closes.",
+    authorityVerificationNeeded:
+      "orbital cargo permit renewal safety inspection requirements",
+  };
+
+  const scaffoldedQuery = [
+    "EMPLOYER QUESTION",
+    employerQuestion,
+    "",
+    "PROFESSIONAL ISSUE MAP FOR AUTHORITY RESEARCH",
+    `1. ${issue.issue}`,
+    `Significance: ${issue.significance}`,
+    "Interactions: None identified",
+    `Authority to verify: ${issue.authorityVerificationNeeded}`,
+  ].join("\n");
+
+  const conciseQuery = [employerQuestion, issue.issue].join(" ");
+
+  const scaffoldedResult = assessStoredAuthoritySufficiency(
+    scaffoldedQuery,
+    [record()],
+    now
+  );
+  const conciseResult = assessStoredAuthoritySufficiency(
+    conciseQuery,
+    [record()],
+    now
+  );
+
+  assert.equal(scaffoldedResult.sufficient, false);
+  assert.equal(conciseResult.sufficient, true);
+  assert.equal(conciseResult.records.length, 1);
+});

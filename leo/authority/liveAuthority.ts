@@ -354,6 +354,7 @@ export async function researchLiveAuthority(
   input: {
     message: string;
     staticAuthority: AuthorityEngineOutput;
+    storedAuthorityQuery?: string;
   }
 ): Promise<LiveAuthorityResult> {
   const queriedAt =
@@ -379,10 +380,11 @@ export async function researchLiveAuthority(
   // FAST PATH:
   // Use Leo's independently refreshed authority store
   // when it contains relevant records verified within
-  // the freshness window.
+  // the freshness window. Match against the concise
+  // employer/issue terms, not the formatted research query.
   const stored =
     await findStoredAuthority(
-      input.message
+      input.storedAuthorityQuery || input.message
     );
 
   const forceLiveAuthority =

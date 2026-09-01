@@ -6,14 +6,17 @@ import { runAuthorityEngine } from "@/leo/authority/router";
 import { researchLiveAuthority } from "@/leo/authority/liveAuthority";
 import { buildConversationPlan } from "@/leo/conversation/conversationEngine";
 import { buildConversationPrompt } from "@/leo/conversation/conversationPrompt";
-import { runLeoCore } from "@/leo/core/router";
+import { runLeoRouting, type LeoRoutingOutput } from "@/leo/core/router";
 import { searchKnowledge } from "@/leo/knowledge";
 import {
   StoredPolicy,
   StoredPolicySection,
 } from "@/leo/knowledge/storage/policies";
-import { buildLeoPrompt } from "@/leo/prompt/builder™";
-import { runLeoReasoning } from "@/leo/reasoning/reasoner";
+import {
+  buildAssessmentPrompt,
+  buildEmployerResponsePrompt,
+  type ProfessionalSignalSet,
+} from "@/leo/prompt/builder™";
 import { buildResponseArchitecture } from "@/leo/response/responseArchitecture";
 import { buildResponsePrompt } from "@/leo/response/responsePrompt";
 import { runProfessionalThinking } from "@/leo/thinking/model";
@@ -76,39 +79,64 @@ type AskLeoConversationRow = {
   converted_to_matter_at: string | null;
 };
 
-export type LegalGroundingTier =
-  | "statutory"
-  | "acas_code"
-  | "case_principle"
-  | "contractual_policy"
-  | "good_practice"
-  | "professional_judgement";
+export type EvidenceStrength = "strong" | "moderate" | "weak" | "unclear";
 
-const LEGAL_GROUNDING_TIERS: LegalGroundingTier[] = [
-  "statutory",
-  "acas_code",
-  "case_principle",
-  "contractual_policy",
-  "good_practice",
-  "professional_judgement",
+export type AssessmentConfidence = "high" | "medium" | "low";
+
+const EVIDENCE_STRENGTHS: EvidenceStrength[] = [
+  "strong",
+  "moderate",
+  "weak",
+  "unclear",
 ];
 
 // Hidden professional-conclusion structure emitted before the employer-facing
 // reply. Never exposed to the client - parsed and validated server-side only.
 export type LeoInternalAnalysis = {
-  establishedFacts: string[];
-  assertionsAndAllegations: string[];
-  evidence: string[];
-  materialUnknowns: string[];
-  overlappingIssues: string[];
-  companyContextConsiderations: string[];
-  legalGrounding: Array<{
-    tier: LegalGroundingTier;
-    statement: string;
-  }>;
-  options: string[];
-  recommendation: string;
-  immediateNextStep: string;
+  employerDecision: {
+    question: string;
+    directAnswer: string;
+    currentRecommendation: string;
+    confidence: AssessmentConfidence;
+  };
+  professionalRationale: {
+    whyThisIsRecommended: string;
+    materialLegalPosition: string[];
+    applicationToFacts: string[];
+    commercialAndPeopleConsiderations: string[];
+    competingConsiderations: string[];
+    proportionality: string;
+  };
+  evidencePosition: {
+    establishedFacts: string[];
+    allegationsOrAssumptions: string[];
+    materialEvidence: Array<{
+      item: string;
+      tendsToEstablish: string;
+      strength: EvidenceStrength;
+      limitations: string;
+    }>;
+    materialUnknowns: string[];
+    decisionChangingInformation: string[];
+  };
+  actionPlan: {
+    doNow: string[];
+    doNotDoYet: string[];
+    nextIf: Array<{
+      condition: string;
+      action: string;
+    }>;
+    unsupportedCommitments: string[];
+  };
+  alternativeAssessment: {
+    rejectedOrRiskyAlternative: string;
+    whyNotRecommended: string;
+  };
+  authorityAndCompanyContext: {
+    verifiedLegalConstraints: string[];
+    relevantCompanyContext: string[];
+    unresolvedAuthorityUncertainty: string[];
+  };
 };
 
 function isStringArray(value: unknown): value is string[] {
@@ -134,127 +162,421 @@ export function parseInternalAnalysis(
   }
 
   const candidate = parsed as Record<string, unknown>;
-
-  const arrayFields: Array<keyof LeoInternalAnalysis> = [
-    "establishedFacts",
-    "assertionsAndAllegations",
-    "evidence",
-    "materialUnknowns",
-    "overlappingIssues",
-    "companyContextConsiderations",
-    "options",
-  ];
-
-  for (const field of arrayFields) {
-    if (!isStringArray(candidate[field])) {
-      return null;
-    }
-  }
+  const employerDecision = readRecord(candidate.employerDecision);
+  const professionalRationale = readRecord(candidate.professionalRationale);
+  const evidencePosition = readRecord(candidate.evidencePosition);
+  const actionPlan = readRecord(candidate.actionPlan);
+  const alternativeAssessment = readRecord(candidate.alternativeAssessment);
+  const authorityAndCompanyContext = readRecord(
+    candidate.authorityAndCompanyContext
+  );
 
   if (
-    typeof candidate.recommendation !== "string" ||
-    typeof candidate.immediateNextStep !== "string"
+    !employerDecision ||
+    !professionalRationale ||
+    !evidencePosition ||
+    !actionPlan ||
+    !alternativeAssessment ||
+    !authorityAndCompanyContext
   ) {
     return null;
   }
 
-  if (!Array.isArray(candidate.legalGrounding)) {
+  if (
+    !hasStringFields(employerDecision, [
+      "question",
+      "directAnswer",
+      "currentRecommendation",
+    ]) ||
+    !["high", "medium", "low"].includes(
+      employerDecision.confidence as string
+    ) ||
+    !hasStringFields(professionalRationale, [
+      "whyThisIsRecommended",
+      "proportionality",
+    ]) ||
+    !hasStringArrays(professionalRationale, [
+      "materialLegalPosition",
+      "applicationToFacts",
+      "commercialAndPeopleConsiderations",
+      "competingConsiderations",
+    ]) ||
+    !hasStringArrays(evidencePosition, [
+      "establishedFacts",
+      "allegationsOrAssumptions",
+      "materialUnknowns",
+      "decisionChangingInformation",
+    ]) ||
+    !hasStringArrays(actionPlan, [
+      "doNow",
+      "doNotDoYet",
+      "unsupportedCommitments",
+    ]) ||
+    !hasStringFields(alternativeAssessment, [
+      "rejectedOrRiskyAlternative",
+      "whyNotRecommended",
+    ]) ||
+    !hasStringArrays(authorityAndCompanyContext, [
+      "verifiedLegalConstraints",
+      "relevantCompanyContext",
+      "unresolvedAuthorityUncertainty",
+    ])
+  ) {
     return null;
   }
 
-  const legalGrounding: LeoInternalAnalysis["legalGrounding"] = [];
+  if (!Array.isArray(evidencePosition.materialEvidence)) {
+    return null;
+  }
 
-  for (const entry of candidate.legalGrounding) {
+  const materialEvidence: LeoInternalAnalysis["evidencePosition"]["materialEvidence"] = [];
+
+  for (const entry of evidencePosition.materialEvidence) {
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+
+    const item = entry as Record<string, unknown>;
+
     if (
-      !entry ||
-      typeof entry !== "object" ||
-      typeof (entry as Record<string, unknown>).statement !== "string" ||
-      !LEGAL_GROUNDING_TIERS.includes(
-        (entry as Record<string, unknown>).tier as LegalGroundingTier
-      )
+      typeof item.item !== "string" ||
+      typeof item.tendsToEstablish !== "string" ||
+      typeof item.limitations !== "string" ||
+      !EVIDENCE_STRENGTHS.includes(item.strength as EvidenceStrength)
     ) {
       return null;
     }
 
-    legalGrounding.push({
-      tier: (entry as Record<string, unknown>).tier as LegalGroundingTier,
-      statement: (entry as Record<string, unknown>).statement as string,
+    materialEvidence.push({
+      item: item.item,
+      tendsToEstablish: item.tendsToEstablish,
+      strength: item.strength as EvidenceStrength,
+      limitations: item.limitations,
+    });
+  }
+
+  if (!Array.isArray(actionPlan.nextIf)) {
+    return null;
+  }
+
+  const nextIf: LeoInternalAnalysis["actionPlan"]["nextIf"] = [];
+
+  for (const entry of actionPlan.nextIf) {
+    const item = readRecord(entry);
+
+    if (!item || !hasStringFields(item, ["condition", "action"])) {
+      return null;
+    }
+
+    nextIf.push({
+      condition: item.condition as string,
+      action: item.action as string,
     });
   }
 
   return {
-    establishedFacts: candidate.establishedFacts as string[],
-    assertionsAndAllegations: candidate.assertionsAndAllegations as string[],
-    evidence: candidate.evidence as string[],
-    materialUnknowns: candidate.materialUnknowns as string[],
-    overlappingIssues: candidate.overlappingIssues as string[],
-    companyContextConsiderations:
-      candidate.companyContextConsiderations as string[],
-    legalGrounding,
-    options: candidate.options as string[],
-    recommendation: candidate.recommendation,
-    immediateNextStep: candidate.immediateNextStep,
+    employerDecision: {
+      question: employerDecision.question as string,
+      directAnswer: employerDecision.directAnswer as string,
+      currentRecommendation: employerDecision.currentRecommendation as string,
+      confidence: employerDecision.confidence as AssessmentConfidence,
+    },
+    professionalRationale: {
+      whyThisIsRecommended:
+        professionalRationale.whyThisIsRecommended as string,
+      materialLegalPosition:
+        professionalRationale.materialLegalPosition as string[],
+      applicationToFacts: professionalRationale.applicationToFacts as string[],
+      commercialAndPeopleConsiderations:
+        professionalRationale.commercialAndPeopleConsiderations as string[],
+      competingConsiderations:
+        professionalRationale.competingConsiderations as string[],
+      proportionality: professionalRationale.proportionality as string,
+    },
+    evidencePosition: {
+      establishedFacts: evidencePosition.establishedFacts as string[],
+      allegationsOrAssumptions:
+        evidencePosition.allegationsOrAssumptions as string[],
+      materialEvidence,
+      materialUnknowns: evidencePosition.materialUnknowns as string[],
+      decisionChangingInformation:
+        evidencePosition.decisionChangingInformation as string[],
+    },
+    actionPlan: {
+      doNow: actionPlan.doNow as string[],
+      doNotDoYet: actionPlan.doNotDoYet as string[],
+      nextIf,
+      unsupportedCommitments: actionPlan.unsupportedCommitments as string[],
+    },
+    alternativeAssessment: {
+      rejectedOrRiskyAlternative:
+        alternativeAssessment.rejectedOrRiskyAlternative as string,
+      whyNotRecommended: alternativeAssessment.whyNotRecommended as string,
+    },
+    authorityAndCompanyContext: {
+      verifiedLegalConstraints:
+        authorityAndCompanyContext.verifiedLegalConstraints as string[],
+      relevantCompanyContext:
+        authorityAndCompanyContext.relevantCompanyContext as string[],
+      unresolvedAuthorityUncertainty:
+        authorityAndCompanyContext.unresolvedAuthorityUncertainty as string[],
+    },
   };
 }
 
-export type HiddenAnalysisBoundaryResult =
-  | { state: "buffering" }
-  | {
-      state: "streaming";
-      tail: string;
-      analysis: LeoInternalAnalysis | null;
-    }
-  | { state: "failed"; reason: string };
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
 
-export const MAX_ANALYSIS_BUFFER_LENGTH = 8000;
+function hasStringFields(
+  record: Record<string, unknown>,
+  fields: string[]
+): boolean {
+  return fields.every((field) => typeof record[field] === "string");
+}
 
-// Pure boundary-isolation logic, kept separate from the stream/controller
-// wiring so it can be unit tested without a live OpenAI stream.
-export function processHiddenAnalysisBuffer(
-  buffer: string,
-  boundary: { start: string; end: string },
-  maxBufferLength: number = MAX_ANALYSIS_BUFFER_LENGTH
-): HiddenAnalysisBoundaryResult {
-  const endIndex = buffer.indexOf(boundary.end);
+function hasStringArrays(
+  record: Record<string, unknown>,
+  fields: string[]
+): boolean {
+  return fields.every((field) => isStringArray(record[field]));
+}
 
-  if (endIndex === -1) {
-    if (buffer.length > maxBufferLength) {
-      return {
-        state: "failed",
-        reason:
-          "Hidden analysis end marker was not found within the buffer limit.",
-      };
-    }
+export function buildInternalAnalysisJsonSchema() {
+  const stringArray = (description: string) => ({
+    type: "array" as const,
+    description,
+    items: { type: "string" as const },
+  });
 
-    return { state: "buffering" };
+  const stringField = (description: string) => ({
+    type: "string" as const,
+    description,
+  });
+
+  return {
+    name: "leo_internal_analysis",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        employerDecision: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            question: stringField(
+              "The actual employer decision or question requiring an answer now."
+            ),
+            directAnswer: stringField(
+              "The substantive answer to the employer's actual question now. State the employer's position or decision; do not answer with a meeting, investigation, review or information-gathering activity."
+            ),
+            currentRecommendation: stringField(
+              "The best current employer course and position, including what should happen now and why. A conversation, investigation, review or referral may support this course but cannot be the recommendation by itself."
+            ),
+            confidence: {
+              type: "string",
+              description: "Confidence in the current recommendation.",
+              enum: ["high", "medium", "low"],
+            },
+          },
+          required: [
+            "question",
+            "directAnswer",
+            "currentRecommendation",
+            "confidence",
+          ],
+        },
+        professionalRationale: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            whyThisIsRecommended: stringField(
+              "Why this substantive employer position is preferable now, applying law, facts, commercial needs and people consequences rather than praising a process activity."
+            ),
+            materialLegalPosition: stringArray(
+              "Only material verified legal, regulatory, Acas or contractual positions."
+            ),
+            applicationToFacts: stringArray(
+              "How each material rule or professional principle applies to the actual facts."
+            ),
+            commercialAndPeopleConsiderations: stringArray(
+              "Material operational, commercial, employee-relations and people consequences."
+            ),
+            competingConsiderations: stringArray(
+              "Genuine competing explanations, interests or considerations weighed."
+            ),
+            proportionality: stringField(
+              "Why the recommendation is proportionate at the current stage."
+            ),
+          },
+          required: [
+            "whyThisIsRecommended",
+            "materialLegalPosition",
+            "applicationToFacts",
+            "commercialAndPeopleConsiderations",
+            "competingConsiderations",
+            "proportionality",
+          ],
+        },
+        evidencePosition: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            establishedFacts: stringArray(
+              "Facts established by the supplied context, without inference."
+            ),
+            allegationsOrAssumptions: stringArray(
+              "Allegations, disputed assertions and assumptions not yet established."
+            ),
+            materialEvidence: {
+              type: "array",
+              description:
+                "Only evidence material to the employer's decision, assessed rather than listed.",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  item: stringField("The material evidence item."),
+                  tendsToEstablish: stringField(
+                    "What the evidence tends to establish."
+                  ),
+                  strength: {
+                    type: "string",
+                    enum: EVIDENCE_STRENGTHS,
+                  },
+                  limitations: stringField(
+                    "What the evidence does not establish or why its weight is limited."
+                  ),
+                },
+                required: [
+                  "item",
+                  "tendsToEstablish",
+                  "strength",
+                  "limitations",
+                ],
+              },
+            },
+            materialUnknowns: stringArray(
+              "Unknowns material to the current judgement, excluding merely useful information."
+            ),
+            decisionChangingInformation: stringArray(
+              "Only information whose answer could change the current recommendation."
+            ),
+          },
+          required: [
+            "establishedFacts",
+            "allegationsOrAssumptions",
+            "materialEvidence",
+            "materialUnknowns",
+            "decisionChangingInformation",
+          ],
+        },
+        actionPlan: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            doNow: stringArray(
+              "Concrete actions implementing the current recommendation. Each action must state its purpose or the position it advances; investigation, review, referral or a meeting alone is insufficient."
+            ),
+            doNotDoYet: stringArray(
+              "Actions the employer should avoid at this stage and the practical boundary to preserve."
+            ),
+            nextIf: {
+              type: "array",
+              description:
+                "Contingent next actions tied to specific material findings or conditions.",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  condition: stringField(
+                    "The material condition or finding that determines the next action."
+                  ),
+                  action: stringField(
+                    "The specific action that follows if the condition is established."
+                  ),
+                },
+                required: ["condition", "action"],
+              },
+            },
+            unsupportedCommitments: stringArray(
+              "Promises, admissions, findings, legal assertions, deadlines, sanctions or outcomes not supported now."
+            ),
+          },
+          required: [
+            "doNow",
+            "doNotDoYet",
+            "nextIf",
+            "unsupportedCommitments",
+          ],
+        },
+        alternativeAssessment: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            rejectedOrRiskyAlternative: stringField(
+              "The obvious alternative course that is rejected or materially riskier."
+            ),
+            whyNotRecommended: stringField(
+              "Why that alternative is not recommended on the current facts."
+            ),
+          },
+          required: ["rejectedOrRiskyAlternative", "whyNotRecommended"],
+        },
+        authorityAndCompanyContext: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            verifiedLegalConstraints: stringArray(
+              "Verified legal, regulatory, Acas or contractual constraints that affect the recommendation."
+            ),
+            relevantCompanyContext: stringArray(
+              "Relevant policy, contract, practice or previous organisational context applied substantively."
+            ),
+            unresolvedAuthorityUncertainty: stringArray(
+              "Material authority uncertainty that remains unresolved and limits the advice."
+            ),
+          },
+          required: [
+            "verifiedLegalConstraints",
+            "relevantCompanyContext",
+            "unresolvedAuthorityUncertainty",
+          ],
+        },
+      },
+      required: [
+        "employerDecision",
+        "professionalRationale",
+        "evidencePosition",
+        "actionPlan",
+        "alternativeAssessment",
+        "authorityAndCompanyContext",
+      ],
+    },
+  };
+}
+
+// Pure resolution logic for Call 1's result, kept separate from the live
+// OpenAI call so it can be unit tested with mock choice shapes.
+export function resolveAssessmentFromChoice(
+  choice:
+    | {
+        finish_reason: string | null;
+        message?: { content?: string | null } | null;
+      }
+    | undefined
+): LeoInternalAnalysis | null {
+  const finishReason = choice?.finish_reason;
+  const content = choice?.message?.content;
+
+  if (finishReason !== "stop" || !content) {
+    return null;
   }
 
-  const startIndex = buffer.indexOf(boundary.start);
-
-  if (startIndex === -1 || startIndex > endIndex) {
-    return {
-      state: "failed",
-      reason:
-        "Hidden analysis start marker was missing or out of order.",
-    };
-  }
-
-  const rawAnalysisJson = buffer
-    .slice(startIndex + boundary.start.length, endIndex)
-    .trim();
-
-  const analysis = parseInternalAnalysis(rawAnalysisJson);
-
-  if (!analysis) {
-    console.error(
-      "Ask Leo hidden analysis failed schema validation and was discarded.",
-      { rawAnalysisJson }
-    );
-  }
-
-  const tail = buffer.slice(endIndex + boundary.end.length);
-
-  return { state: "streaming", tail, analysis };
+  return parseInternalAnalysis(content);
 }
 
 export async function POST(req: Request) {
@@ -464,7 +786,7 @@ export async function POST(req: Request) {
       runProfessionalThinking(message);
 
     /*
-     * 2. LEO CORE
+     * 2. OPERATIONAL ROUTING
      */
 
     const coreMessage = [
@@ -476,19 +798,10 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join("\n\n");
 
-    const coreResult = runLeoCore(coreMessage);
+    const coreResult = runLeoRouting(coreMessage);
 
     /*
-     * 3. PROFESSIONAL REASONING
-     */
-
-    const reasoningResult = runLeoReasoning(
-      coreResult,
-      coreMessage
-    );
-
-    /*
-     * 4. AUTHORITY ENGINE
+     * 3. AUTHORITY ENGINE
      */
 
     const authorityResult =
@@ -497,8 +810,6 @@ export async function POST(req: Request) {
         intent: coreResult.intent,
         risk: coreResult.risk.overall,
         classification: coreResult.decision,
-        professionalReasoning:
-          reasoningResult,
       });
 
     const liveAuthorityResult =
@@ -506,6 +817,54 @@ export async function POST(req: Request) {
         message,
         staticAuthority: authorityResult,
       });
+
+    if (
+      process.env.NODE_ENV === "development" &&
+      process.env.ASK_LEO_LOG_AUTHORITY === "true"
+    ) {
+      const authorityOrigin = liveAuthorityResult.evidence.startsWith(
+        "VERIFIED AUTHORITY STORE RESULT"
+      )
+        ? "stored_authority"
+        : liveAuthorityResult.searched
+          ? "live_research"
+          : "none";
+
+      console.log(
+        "ASK LEO AUTHORITY DIAGNOSTIC (development only):\n",
+        JSON.stringify(
+          {
+            staticDetection: {
+              authorities: authorityResult.applicableAuthorities.map(
+                (authority) => ({
+                  title: authority.title,
+                  status: authority.status,
+                  summary: authority.summary,
+                })
+              ),
+              verificationGaps:
+                authorityResult.missingAuthorityInformation,
+            },
+            retrievedAuthority: {
+              origin: authorityOrigin,
+              researchRequired: liveAuthorityResult.required,
+              liveSearchRan: liveAuthorityResult.searched,
+              verifiedCurrent: liveAuthorityResult.verifiedCurrent,
+              queriedAt: liveAuthorityResult.queriedAt,
+              evidence: liveAuthorityResult.evidence,
+              sources: liveAuthorityResult.sources.map((source) => ({
+                title: source.title || "Official source",
+                url: source.url,
+                domain: readAuthoritySourceDomain(source.url),
+              })),
+              retrievalError: liveAuthorityResult.error || null,
+            },
+          },
+          null,
+          2
+        )
+      );
+    }
 
     /*
      * 5. FOUNDATIONS
@@ -619,39 +978,33 @@ export async function POST(req: Request) {
         conversationPlan,
       });
 
-    const responsePrompt =
+    const responseFlowPrompt =
       buildResponsePrompt({
         architecture:
           responseArchitecture,
       });
 
+    const professionalSignals =
+      buildProfessionalSignalSet({
+        message,
+        routing: coreResult,
+        authority: authorityResult,
+        liveAuthority: liveAuthorityResult,
+        matterContextActive:
+          Boolean(activeMatterId) || contextType === "matter",
+      });
+
     /*
-     * 11. PROMPT BUILDER
+     * 11. PROMPT BUILDER - PRIVATE ASSESSMENT (Call 1)
      */
 
-    const analysisToken = crypto.randomUUID();
-
-    const analysisBoundary = {
-      start: `%%%LEO_INTERNAL_ANALYSIS_START_${analysisToken}%%%`,
-      end: `%%%LEO_INTERNAL_ANALYSIS_END_${analysisToken}%%%`,
-    };
-
-    const leoPrompt = buildLeoPrompt(
+    const assessmentPrompt = buildAssessmentPrompt(
       thinkingResult,
-      coreResult,
-      reasoningResult,
+      professionalSignals,
       authorityResult,
       liveAuthorityResult,
-      knowledgeResult,
-      conversationPlan,
-      conversationPrompt,
-      responsePrompt,
-      analysisBoundary
+      knowledgeResult
     );
-
-    /*
-     * 12. OPENAI
-     */
 
     const promptContext =
       buildPromptContextEnvelope({
@@ -672,9 +1025,6 @@ export async function POST(req: Request) {
         intent: coreResult.intent,
         overallRisk:
           coreResult.risk.overall,
-        missingInformationCount:
-          reasoningResult
-            .missingInformation.length,
       });
 
     const documentKnowledge = {
@@ -688,6 +1038,79 @@ export async function POST(req: Request) {
         (policy) => policy.title
       ),
     };
+
+    /*
+     * 12. CALL 1 - PRIVATE PROFESSIONAL ASSESSMENT (non-streaming, structured JSON)
+     */
+
+    let assessment: LeoInternalAnalysis | null = null;
+
+    try {
+      const assessmentCompletion =
+        await client.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.4,
+          stream: false,
+          response_format: {
+            type: "json_schema",
+            json_schema: buildInternalAnalysisJsonSchema(),
+          },
+          messages: [
+            {
+              role: "system",
+              content: assessmentPrompt,
+            },
+            {
+              role: "user",
+              content: promptContext,
+            },
+          ],
+        });
+
+      const assessmentChoice = assessmentCompletion.choices[0];
+
+      assessment = resolveAssessmentFromChoice(assessmentChoice);
+
+      if (!assessment) {
+        console.error(
+          "Ask Leo assessment call did not yield a usable structured assessment; continuing without one.",
+          { finishReason: assessmentChoice?.finish_reason }
+        );
+      } else if (
+        process.env.NODE_ENV === "development" &&
+        process.env.ASK_LEO_LOG_CALL_1 === "true"
+      ) {
+        console.log(
+          "ASK LEO CALL 1 DIAGNOSTIC (development only):\n",
+          JSON.stringify(assessment, null, 2)
+        );
+      }
+    } catch (assessmentError) {
+      console.error(
+        "Ask Leo assessment call failed; continuing without a structured assessment:",
+        assessmentError
+      );
+    }
+
+    /*
+     * 13. PROMPT BUILDER - EMPLOYER-FACING RESPONSE (Call 2)
+     */
+
+    const leoPrompt = buildEmployerResponsePrompt(
+      thinkingResult,
+      professionalSignals,
+      authorityResult,
+      liveAuthorityResult,
+      knowledgeResult,
+      conversationPlan,
+      conversationPrompt,
+      responseFlowPrompt,
+      assessment
+    );
+
+    /*
+     * 14. OPENAI - EMPLOYER-FACING STREAMED RESPONSE (Call 2)
+     */
 
     const completionStream =
       await client.chat.completions.create(
@@ -713,55 +1136,11 @@ export async function POST(req: Request) {
     const responseStream = new ReadableStream({
       async start(controller) {
         let fullResponse = "";
-        let analysisBuffer = "";
-        let phase: "buffering" | "streaming" = "buffering";
-        let boundaryFailed = false;
 
         const sendEvent = (payload: Record<string, unknown>) => {
           controller.enqueue(
             encoder.encode(`${JSON.stringify(payload)}\n`)
           );
-        };
-
-        const failClosed = (reason: string) => {
-          boundaryFailed = true;
-          console.error(
-            "Ask Leo hidden analysis boundary could not be safely isolated:",
-            reason
-          );
-          sendEvent({
-            type: "error",
-            error:
-              "Leo could not complete a properly formatted response. Please try again.",
-          });
-        };
-
-        const handleBoundaryDelta = (delta: string) => {
-          analysisBuffer += delta;
-
-          const result = processHiddenAnalysisBuffer(
-            analysisBuffer,
-            analysisBoundary
-          );
-
-          if (result.state === "buffering") {
-            return;
-          }
-
-          if (result.state === "failed") {
-            failClosed(result.reason);
-            return;
-          }
-
-          phase = "streaming";
-
-          if (result.tail) {
-            fullResponse += result.tail;
-            sendEvent({
-              type: "delta",
-              delta: result.tail,
-            });
-          }
         };
 
         try {
@@ -778,30 +1157,11 @@ export async function POST(req: Request) {
               continue;
             }
 
-            if (phase === "buffering") {
-              handleBoundaryDelta(delta);
-
-              if (boundaryFailed) {
-                controller.close();
-                return;
-              }
-
-              continue;
-            }
-
             fullResponse += delta;
             sendEvent({
               type: "delta",
               delta,
             });
-          }
-
-          if (phase === "buffering") {
-            failClosed(
-              "The response ended before the hidden analysis boundary was completed."
-            );
-            controller.close();
-            return;
           }
 
           if (!fullResponse.trim()) {
@@ -1653,7 +2013,6 @@ function evaluateMatterRecommendation(input: {
     | "medium"
     | "high"
     | "critical";
-  missingInformationCount: number;
 }): {
   shouldRecommend: boolean;
   reason: string;
@@ -1764,8 +2123,7 @@ function evaluateMatterRecommendation(input: {
 
     const likelyOngoingCaseManagement =
       continuitySignalCount >= 1 ||
-      input.overallRisk !== "low" ||
-      input.missingInformationCount >= 4;
+      input.overallRisk !== "low";
 
     const shouldRecommend =
       likelyERCase &&
@@ -1782,6 +2140,94 @@ function evaluateMatterRecommendation(input: {
           reason:
             "Conversation can continue as general Ask Leo guidance at this stage.",
         };
+}
+
+function buildProfessionalSignalSet(input: {
+  message: string;
+  routing: LeoRoutingOutput;
+  authority: Awaited<ReturnType<typeof runAuthorityEngine>>;
+  liveAuthority: Awaited<ReturnType<typeof researchLiveAuthority>>;
+  matterContextActive: boolean;
+}): ProfessionalSignalSet {
+  const searchTerms = extractNeutralSearchTerms(input.message);
+
+  const possibleRelevantDomains = Array.from(
+    new Set([
+      input.routing.intent.replaceAll("_", " "),
+      ...input.authority.applicableAuthorities.map(
+        (authority) => authority.title
+      ),
+    ])
+  );
+
+  return {
+    possibleRelevantDomains,
+    authorityResearchNeeded: input.liveAuthority.required,
+    authoritySearchTerms: searchTerms,
+    companyContextSearchTerms: searchTerms,
+    operationalRisk: {
+      overall: input.routing.risk.overall,
+      legal: input.routing.risk.legal,
+      employee: input.routing.risk.employee,
+      business: input.routing.risk.business,
+      relationship: input.routing.risk.relationship,
+    },
+    workplaceRouting: {
+      intent: input.routing.intent,
+      category: input.routing.decision.category,
+      shouldCreateMatter: input.routing.requiresMatter,
+      matterContextActive: input.matterContextActive,
+    },
+  };
+}
+
+function readAuthoritySourceDomain(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "Invalid source URL";
+  }
+}
+
+function extractNeutralSearchTerms(message: string): string[] {
+  const ignoredTerms = new Set([
+    "about",
+    "after",
+    "before",
+    "could",
+    "employee",
+    "employer",
+    "from",
+    "have",
+    "should",
+    "that",
+    "their",
+    "there",
+    "they",
+    "this",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with",
+    "would",
+    "your",
+  ]);
+
+  return Array.from(
+    new Set(
+      message
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter(
+          (term) =>
+            term.length >= 3 &&
+            !ignoredTerms.has(term)
+        )
+    )
+  ).slice(0, 16);
 }
 
 function readConversationId(

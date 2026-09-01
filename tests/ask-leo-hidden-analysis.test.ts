@@ -3,37 +3,60 @@ import assert from "node:assert/strict";
 
 import {
   parseInternalAnalysis,
-  processHiddenAnalysisBuffer,
+  resolveAssessmentFromChoice,
   type LeoInternalAnalysis,
 } from "../app/api/ask-leo/route";
 
-const boundary = {
-  start: "%%%LEO_INTERNAL_ANALYSIS_START_test-token%%%",
-  end: "%%%LEO_INTERNAL_ANALYSIS_END_test-token%%%",
-};
-
 const validAnalysis: LeoInternalAnalysis = {
-  establishedFacts: ["Employee has worked for the business for three years."],
-  assertionsAndAllegations: ["Manager alleges repeated lateness."],
-  evidence: ["Clocking-in records for the last month."],
-  materialUnknowns: ["Whether the employee was previously warned."],
-  overlappingIssues: ["Possible capability issue alongside conduct concern."],
-  companyContextConsiderations: ["Attendance policy requires a documented review."],
-  legalGrounding: [
-    {
-      tier: "acas_code",
-      statement:
-        "A fair process should give the employee an opportunity to respond before formal action.",
-    },
-  ],
-  options: ["Informal conversation", "Formal capability process"],
-  recommendation: "Hold an informal conversation before considering formal action.",
-  immediateNextStep: "Arrange a meeting with the employee this week.",
+  employerDecision: {
+    question: "Whether formal capability action is justified now.",
+    directAnswer: "No. The current evidence supports addressing the attendance concern, but not moving directly to formal capability action.",
+    currentRecommendation: "Set a clear attendance expectation and review the existing records before deciding whether formal action is proportionate.",
+    confidence: "medium",
+  },
+  professionalRationale: {
+    whyThisIsRecommended: "The records show a concern requiring management action, while the reason and prior management response remain material to proportionality.",
+    materialLegalPosition: ["Any formal action should be fair, evidence-based and consistent with the applicable procedure."],
+    applicationToFacts: ["The records indicate lateness but do not establish why it occurred or whether expectations were made clear."],
+    commercialAndPeopleConsiderations: ["Continued lateness affects team coverage, while disproportionate escalation risks damaging trust."],
+    competingConsiderations: ["The employer needs reliable attendance, but the employee may have a material explanation not shown by clocking records."],
+    proportionality: "A documented management expectation is proportionate before formal action on the current evidence.",
+  },
+  evidencePosition: {
+    establishedFacts: ["Clocking records show late arrival during the last month."],
+    allegationsOrAssumptions: ["The manager assumes the lateness reflects inability or unwillingness to meet the role requirements."],
+    materialEvidence: [
+      {
+        item: "Clocking-in records for the last month.",
+        tendsToEstablish: "A pattern of late arrival over the last month.",
+        strength: "moderate",
+        limitations: "Does not establish the reason for lateness or prior expectations.",
+      },
+    ],
+    materialUnknowns: ["Whether a clear attendance expectation was previously communicated."],
+    decisionChangingInformation: ["Whether the employee has already received a clear warning and support about the same pattern."],
+  },
+  actionPlan: {
+    doNow: ["Check the attendance record and previous management communications, then set the required attendance standard in writing."],
+    doNotDoYet: ["Do not describe the employee as incapable or impose a formal sanction on the current evidence."],
+    nextIf: [
+      {
+        condition: "the employee has already received a clear expectation and the pattern continues without adequate explanation",
+        action: "consider proportionate formal action under the applicable procedure",
+      },
+    ],
+    unsupportedCommitments: ["Do not promise that no formal process will follow."],
+  },
+  alternativeAssessment: {
+    rejectedOrRiskyAlternative: "Move immediately to a formal capability process.",
+    whyNotRecommended: "That would treat an attendance pattern as established incapability before the cause, expectations and prior response are known.",
+  },
+  authorityAndCompanyContext: {
+    verifiedLegalConstraints: ["A fair process must be based on the evidence and allow a response before formal conclusions."],
+    relevantCompanyContext: ["The attendance policy requires a documented review."],
+    unresolvedAuthorityUncertainty: [],
+  },
 };
-
-function wrap(analysis: unknown, reply: string): string {
-  return `${boundary.start}${JSON.stringify(analysis)}${boundary.end}${reply}`;
-}
 
 test("parseInternalAnalysis accepts a well-formed analysis object", () => {
   const parsed = parseInternalAnalysis(JSON.stringify(validAnalysis));
@@ -47,145 +70,121 @@ test("parseInternalAnalysis rejects invalid JSON", () => {
 test("parseInternalAnalysis rejects valid JSON with an invalid schema", () => {
   const invalidShape = {
     ...validAnalysis,
-    legalGrounding: [{ tier: "not_a_real_tier", statement: "x" }],
+    employerDecision: {
+      ...validAnalysis.employerDecision,
+      confidence: "very_high",
+    },
   };
 
   assert.equal(parseInternalAnalysis(JSON.stringify(invalidShape)), null);
 });
 
 test("parseInternalAnalysis rejects a missing required field", () => {
-  const { recommendation, ...withoutRecommendation } = validAnalysis;
-  void recommendation;
+  const { currentRecommendation, ...withoutRecommendation } =
+    validAnalysis.employerDecision;
+  void currentRecommendation;
 
   assert.equal(
-    parseInternalAnalysis(JSON.stringify(withoutRecommendation)),
+    parseInternalAnalysis(
+      JSON.stringify({
+        ...validAnalysis,
+        employerDecision: withoutRecommendation,
+      })
+    ),
     null,
   );
 });
 
-test("processHiddenAnalysisBuffer isolates a valid hidden analysis and reply", () => {
-  const buffer = wrap(validAnalysis, "Here is Leo's employer-facing reply.");
-  const result = processHiddenAnalysisBuffer(buffer, boundary);
+test("parseInternalAnalysis rejects a missing new judgement field", () => {
+  const { unsupportedCommitments, ...withoutUnsupportedCommitments } =
+    validAnalysis.actionPlan;
+  void unsupportedCommitments;
 
-  assert.equal(result.state, "streaming");
-  if (result.state === "streaming") {
-    assert.equal(result.tail, "Here is Leo's employer-facing reply.");
-    assert.deepEqual(result.analysis, validAnalysis);
-  }
+  assert.equal(
+    parseInternalAnalysis(
+      JSON.stringify({
+        ...validAnalysis,
+        actionPlan: withoutUnsupportedCommitments,
+      })
+    ),
+    null,
+  );
 });
 
-test("processHiddenAnalysisBuffer stays buffering while delimiters are split across chunks", () => {
-  const full = wrap(validAnalysis, "Reply after a split boundary.");
-  const chunks = [
-    full.slice(0, 20),
-    full.slice(20, 60),
-    full.slice(60, full.indexOf(boundary.end) + 10),
-    full.slice(full.indexOf(boundary.end) + 10),
-  ];
+test("parseInternalAnalysis rejects an invalid evidenceAssessment strength value", () => {
+  const invalidEvidence = {
+    ...validAnalysis,
+    evidencePosition: {
+      ...validAnalysis.evidencePosition,
+      materialEvidence: [
+        {
+          item: "CCTV footage",
+          tendsToEstablish: "The employee took the item.",
+          strength: "very_strong",
+          limitations: "Does not establish intent.",
+        },
+      ],
+    },
+  };
 
-  let buffer = "";
-  let lastResult = processHiddenAnalysisBuffer(buffer, boundary);
-
-  for (const chunk of chunks) {
-    buffer += chunk;
-    lastResult = processHiddenAnalysisBuffer(buffer, boundary);
-
-    if (lastResult.state === "streaming") {
-      break;
-    }
-
-    assert.equal(lastResult.state, "buffering");
-  }
-
-  assert.equal(lastResult.state, "streaming");
-  if (lastResult.state === "streaming") {
-    assert.equal(lastResult.tail, "Reply after a split boundary.");
-  }
+  assert.equal(parseInternalAnalysis(JSON.stringify(invalidEvidence)), null);
 });
 
-test("processHiddenAnalysisBuffer fails closed when the end marker never arrives", () => {
-  const buffer =
-    boundary.start + "x".repeat(9000); // exceeds MAX_ANALYSIS_BUFFER_LENGTH
+test("resolveAssessmentFromChoice accepts a valid structured assessment with finish_reason stop", () => {
+  const choice = {
+    finish_reason: "stop",
+    message: { content: JSON.stringify(validAnalysis) },
+  };
 
-  const result = processHiddenAnalysisBuffer(buffer, boundary);
-
-  assert.equal(result.state, "failed");
+  assert.deepEqual(resolveAssessmentFromChoice(choice), validAnalysis);
 });
 
-test("processHiddenAnalysisBuffer fails closed when the start marker is missing", () => {
-  const buffer = JSON.stringify(validAnalysis) + boundary.end + "reply text";
-  const result = processHiddenAnalysisBuffer(buffer, boundary);
+test("resolveAssessmentFromChoice rejects a non-stop finish_reason", () => {
+  const choice = {
+    finish_reason: "length",
+    message: { content: JSON.stringify(validAnalysis) },
+  };
 
-  assert.equal(result.state, "failed");
+  assert.equal(resolveAssessmentFromChoice(choice), null);
 });
 
-test("processHiddenAnalysisBuffer discards an invalid analysis but still isolates the boundary safely", () => {
-  const buffer = wrap({ not: "the expected shape" }, "Reply continues normally.");
-  const result = processHiddenAnalysisBuffer(buffer, boundary);
+test("resolveAssessmentFromChoice rejects missing message content", () => {
+  const choice = {
+    finish_reason: "stop",
+    message: { content: null },
+  };
 
-  assert.equal(result.state, "streaming");
-  if (result.state === "streaming") {
-    assert.equal(result.analysis, null);
-    assert.equal(result.tail, "Reply continues normally.");
-  }
+  assert.equal(resolveAssessmentFromChoice(choice), null);
 });
 
-test("interrupted stream before the boundary completes never exposes hidden content", () => {
-  const full = wrap(validAnalysis, "Reply that never gets a chance to stream.");
-  const truncated = full.slice(0, full.indexOf(boundary.end) - 5);
+test("resolveAssessmentFromChoice rejects content that fails schema validation", () => {
+  const choice = {
+    finish_reason: "stop",
+    message: { content: JSON.stringify({ not: "the expected shape" }) },
+  };
 
-  const result = processHiddenAnalysisBuffer(truncated, boundary);
-
-  // Still buffering (the stream was cut before the end marker arrived) -
-  // nothing has been produced for the caller to forward to the client.
-  assert.equal(result.state, "buffering");
+  assert.equal(resolveAssessmentFromChoice(choice), null);
 });
 
-test("interrupted stream after the boundary only ever exposes the reply portion", () => {
-  const full = wrap(validAnalysis, "Reply that gets cut short mid-sentence");
-  const truncated = full.slice(0, full.length - 10);
-
-  const result = processHiddenAnalysisBuffer(truncated, boundary);
-
-  assert.equal(result.state, "streaming");
-  if (result.state === "streaming") {
-    assert.doesNotMatch(result.tail, new RegExp(boundary.start));
-    assert.doesNotMatch(result.tail, new RegExp(boundary.end));
-    assert.doesNotMatch(result.tail, /establishedFacts/);
-  }
+test("resolveAssessmentFromChoice rejects an undefined choice", () => {
+  assert.equal(resolveAssessmentFromChoice(undefined), null);
 });
 
-test("no hidden analysis bytes or delimiters ever appear in the isolated reply", () => {
-  const buffer = wrap(validAnalysis, "Final employer-facing text only.");
-  const result = processHiddenAnalysisBuffer(buffer, boundary);
+// A missing/invalid Call 1 assessment must never prevent Call 2 from
+// producing an employer-facing response - `assessment` is a nullable input
+// to buildEmployerResponsePrompt, not a gate on the response pipeline. This
+// is an architectural guarantee (verified via live end-to-end testing and
+// code review of the POST handler control flow), not something that can be
+// asserted as a deterministic unit test in isolation.
+test.todo(
+  "assessment failure never blocks the employer-facing response - covered by live end-to-end verification, not a unit test",
+);
 
-  assert.equal(result.state, "streaming");
-  if (result.state === "streaming") {
-    assert.ok(!result.tail.includes(boundary.start));
-    assert.ok(!result.tail.includes(boundary.end));
-    assert.ok(!result.tail.includes("establishedFacts"));
-    assert.ok(!result.tail.includes("legalGrounding"));
-  }
-});
-
-test("employer-facing reply containing delimiter-like text is passed through untouched", () => {
-  const decoyLookingText =
-    "The manager said the policy is '%%%LEO_INTERNAL_ANALYSIS_END_other%%%' in the handbook.";
-  const buffer = wrap(validAnalysis, decoyLookingText);
-
-  const result = processHiddenAnalysisBuffer(buffer, boundary);
-
-  assert.equal(result.state, "streaming");
-  if (result.state === "streaming") {
-    assert.equal(result.tail, decoyLookingText);
-  }
-});
-
-// Whether a draft/reply is actually *consistent* with the hidden analysis is a
-// qualitative judgement (no admission/commitment/allegation beyond what the
-// analysis supports). This cannot be asserted deterministically in a unit
-// test - it is covered by the agreed rubric-based regression suite run
+// Whether a draft/reply is actually *consistent* with the private assessment
+// is a qualitative judgement (no admission/commitment/allegation beyond what
+// the assessment supports). This cannot be asserted deterministically in a
+// unit test - it is covered by the agreed rubric-based regression suite run
 // against unseen scenarios, not by a hard-coded expected string here.
 test.todo(
-  "drafting response inconsistent with the hidden analysis - covered by rubric-based regression testing, not a deterministic unit test",
+  "drafting response inconsistent with the private assessment - covered by rubric-based regression testing, not a deterministic unit test",
 );

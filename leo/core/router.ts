@@ -12,7 +12,9 @@ export type LeoCoreOutput = {
   reasoningModules: ReasoningModuleOutput[];
 };
 
-export function runLeoCore(message: string): LeoCoreOutput {
+export type LeoRoutingOutput = Omit<LeoCoreOutput, "reasoningModules">;
+
+export function runLeoRouting(message: string): LeoRoutingOutput {
   // 1. Intent recognition
   const intent = detectIntent(message);
 
@@ -22,14 +24,7 @@ export function runLeoCore(message: string): LeoCoreOutput {
   // 3. Classification decision
   const decision = classify(intent, risk, message);
 
-  // 4. Professional HR reasoning
-  const reasoningModules = runReasoningModules({
-    matterContext: message,
-    intent: String(intent),
-    risk: String(risk.overall),
-  });
-
-  // 5. Matter rule
+  // 4. Matter rule
   const requiresMatter =
     decision.shouldCreateMatter ||
     decision.category === "escalation_required";
@@ -39,6 +34,21 @@ export function runLeoCore(message: string): LeoCoreOutput {
     risk,
     decision,
     requiresMatter,
+  };
+}
+
+export function runLeoCore(message: string): LeoCoreOutput {
+  const routing = runLeoRouting(message);
+
+  // 4. Legacy professional HR reasoning for non-Ask-Leo consumers.
+  const reasoningModules = runReasoningModules({
+    matterContext: message,
+    intent: String(routing.intent),
+    risk: String(routing.risk.overall),
+  });
+
+  return {
+    ...routing,
     reasoningModules,
   };
 }

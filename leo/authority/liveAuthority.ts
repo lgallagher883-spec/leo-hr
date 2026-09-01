@@ -78,14 +78,6 @@ function buildResearchInput(input: {
       .map((authority) => authority.title)
       .join(", ");
 
-  const detectedRecommendations =
-    input.staticAuthority.groundedRecommendations
-      .map(
-        (recommendation) =>
-          recommendation.action
-      )
-      .join(" | ");
-
   return `
 You are Leo's live UK employment authority researcher.
 
@@ -99,9 +91,6 @@ Routing hints only. Never treat this content as current law.
 
 Detected authorities:
 ${detectedAuthorities || "None"}
-
-Detected routing recommendations:
-${detectedRecommendations || "None"}
 
 Research the current authoritative position needed to answer the employer accurately.
 
@@ -346,8 +335,14 @@ export async function researchLiveAuthority(
       input.message
     );
 
+  const forceLiveAuthority =
+    process.env.NODE_ENV === "development" &&
+    process.env.ASK_LEO_FORCE_LIVE_AUTHORITY === "true";
+
   if (
+    !forceLiveAuthority &&
     stored.fresh &&
+    stored.sufficient &&
     stored.records.length > 0
   ) {
     return {

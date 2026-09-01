@@ -90,18 +90,6 @@ export interface AuthorityComplianceGap {
   severity: "low" | "medium" | "high" | "critical";
 }
 
-export interface AuthorityRecommendation {
-  action: string;
-
-  rationale: string;
-
-  supportedBy: string[];
-
-  priority: "low" | "medium" | "high" | "critical";
-
-  requiresHumanDecision: boolean;
-}
-
 export interface AuthorityAuditEntry {
   sourceType: AuthoritySourceType;
 
@@ -148,8 +136,6 @@ export interface AuthorityEngineOutput {
   conflicts: AuthorityConflict[];
 
   complianceGaps: AuthorityComplianceGap[];
-
-  groundedRecommendations: AuthorityRecommendation[];
 
   missingAuthorityInformation: string[];
 

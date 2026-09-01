@@ -32,8 +32,17 @@ export type StoredAuthorityRecord = {
 export type AuthorityStoreResult = {
   available: boolean;
   fresh: boolean;
+  sufficient: boolean;
   records: StoredAuthorityRecord[];
   error?: string;
+};
+
+export type StoredAuthoritySufficiency = {
+  sufficient: boolean;
+  fresh: boolean;
+  queryCoverage: number;
+  stronglyRelevantRecordCount: number;
+  records: StoredAuthorityRecord[];
 };
 
 const STORE_MAX_AGE_HOURS = 36;
@@ -56,85 +65,108 @@ function getSupabaseConfig():
   };
 }
 
+function normalise(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normaliseTerms(message: string): string[] {
   const ignored = new Set([
-    "about", "after", "again", "against", "also", "because",
-    "before", "being", "could", "current", "does", "from",
-    "have", "into", "latest", "should", "that", "their",
-    "there", "these", "they", "this", "today", "what",
-    "when", "where", "which", "with", "would", "your",
-    "employee", "employer"
+    "about", "after", "again", "against", "also", "and",
+    "are", "because", "before", "being", "can", "could",
+    "current", "does", "for", "from", "has", "have", "his",
+    "into", "its", "latest", "not", "our", "should", "that",
+    "the", "their", "there", "these", "they", "this", "today",
+    "was", "were", "what", "when", "where", "which", "will",
+    "with", "would", "your", "employee", "employer"
   ]);
 
   return Array.from(
     new Set(
-      message
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+      normalise(message)
         .split(/\s+/)
         .map((term) => term.trim())
         .filter(
           (term) =>
             term.length >= 3 &&
+            !/^\d+$/.test(term) &&
             !ignored.has(term)
         )
     )
   ).slice(0, 24);
 }
 
-function scoreRecord(
+function assessRecordRelevance(
   record: StoredAuthorityRecord,
-  terms: string[]
-): number {
+  terms: string[],
+  normalisedQuestion: string
+): {
+  score: number;
+  matchedTerms: string[];
+  strong: boolean;
+} {
   if (terms.length === 0) {
-    return 0;
+    return {
+      score: 0,
+      matchedTerms: [],
+      strong: false,
+    };
   }
 
-  const haystack = [
+  const titleAndTopic = normalise(
+    [record.topic, record.title].join(" ")
+  );
+  const titleAndTopicTerms = new Set(
+    titleAndTopic.split(" ").filter(Boolean)
+  );
+  const searchableText = normalise([
     record.topic,
     record.title,
     record.summary,
     record.practical_effect || "",
     ...(record.search_terms || []),
-  ]
-    .join(" ")
-    .toLowerCase();
+  ].join(" "));
+  const searchableTerms = new Set(
+    searchableText.split(" ").filter(Boolean)
+  );
+  const matchedTerms = terms.filter((term) =>
+    searchableTerms.has(term)
+  );
+  const titleAndTopicMatches = terms.filter((term) =>
+    titleAndTopicTerms.has(term)
+  );
+  const exactSearchPhraseMatches = (record.search_terms || [])
+    .map(normalise)
+    .filter(
+      (phrase) =>
+        normaliseTerms(phrase).length >= 3 &&
+        normalisedQuestion.includes(phrase)
+    );
+  const queryPhrases = terms
+    .slice(0, -2)
+    .map(
+      (term, index) =>
+        `${term} ${terms[index + 1]} ${terms[index + 2]}`
+    );
+  const coherentPhraseMatches = queryPhrases.filter((phrase) =>
+    titleAndTopic.includes(phrase)
+  );
 
-  let score = 0;
+  const score =
+    titleAndTopicMatches.length * 5 +
+    exactSearchPhraseMatches.length * 6 +
+    coherentPhraseMatches.length * 4 +
+    matchedTerms.length;
+  const strong = coherentPhraseMatches.length > 0;
 
-  for (const term of terms) {
-    if (record.topic.toLowerCase().includes(term)) {
-      score += 20;
-    }
-
-    if (record.title.toLowerCase().includes(term)) {
-      score += 16;
-    }
-
-    if (
-      (record.search_terms || []).some(
-        (candidate) =>
-          candidate.toLowerCase() === term ||
-          candidate.toLowerCase().includes(term)
-      )
-    ) {
-      score += 12;
-    }
-
-    if (haystack.includes(term)) {
-      score += 4;
-    }
-  }
-
-  if (record.legal_status === "current") {
-    score += 3;
-  }
-
-  if (record.legal_status === "future_enacted") {
-    score += 2;
-  }
-
-  return score;
+  return {
+    score,
+    matchedTerms,
+    strong,
+  };
 }
 
 function isRecordFresh(
@@ -169,6 +201,7 @@ export async function findStoredAuthority(
     return {
       available: false,
       fresh: false,
+      sufficient: false,
       records: [],
       error:
         "Authority store is unavailable because NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.",
@@ -202,32 +235,22 @@ export async function findStoredAuthority(
     }
 
     const allRecords = JSON.parse(raw) as StoredAuthorityRecord[];
-    const terms = normaliseTerms(message);
-    const now = new Date();
-
-    const ranked = allRecords
-      .map((record) => ({
-        record,
-        score: scoreRecord(record, terms),
-      }))
-      .filter((item) => item.score >= 8)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8)
-      .map((item) => item.record);
+    const assessment = assessStoredAuthoritySufficiency(
+      message,
+      allRecords
+    );
 
     return {
       available: true,
-      fresh:
-        ranked.length > 0 &&
-        ranked.every((record) =>
-          isRecordFresh(record, now)
-        ),
-      records: ranked,
+      fresh: assessment.fresh,
+      sufficient: assessment.sufficient,
+      records: assessment.records,
     };
   } catch (error) {
     return {
       available: true,
       fresh: false,
+      sufficient: false,
       records: [],
       error:
         error instanceof Error
@@ -235,6 +258,63 @@ export async function findStoredAuthority(
           : "Unknown authority store read error.",
     };
   }
+}
+
+export function assessStoredAuthoritySufficiency(
+  message: string,
+  records: StoredAuthorityRecord[],
+  now: Date = new Date()
+): StoredAuthoritySufficiency {
+  const terms = normaliseTerms(message);
+  const normalisedQuestion = normalise(message);
+
+  if (terms.length === 0 || records.length === 0) {
+    return {
+      sufficient: false,
+      fresh: false,
+      queryCoverage: 0,
+      stronglyRelevantRecordCount: 0,
+      records: [],
+    };
+  }
+
+  const ranked = records
+    .map((record) => ({
+      record,
+      ...assessRecordRelevance(
+        record,
+        terms,
+        normalisedQuestion
+      ),
+    }))
+    .filter(
+      (item) =>
+        item.strong &&
+        item.matchedTerms.length / terms.length >= 0.6
+    )
+    .sort((first, second) => second.score - first.score)
+    .slice(0, 8);
+  const selectedRecords = ranked.map((item) => item.record);
+  const coveredTerms = new Set(
+    ranked.flatMap((item) => item.matchedTerms)
+  );
+  const queryCoverage = coveredTerms.size / terms.length;
+  const fresh =
+    selectedRecords.length > 0 &&
+    selectedRecords.every((record) => isRecordFresh(record, now));
+  const sufficient =
+    fresh &&
+    ranked.length > 0 &&
+    queryCoverage >= 0.5 &&
+    ranked[0].score >= 12;
+
+  return {
+    sufficient,
+    fresh,
+    queryCoverage: Number(queryCoverage.toFixed(2)),
+    stronglyRelevantRecordCount: ranked.length,
+    records: selectedRecords,
+  };
 }
 
 export async function upsertAuthorityRecords(

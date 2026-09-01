@@ -2,12 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  parseIssueDiscovery,
   parseInternalAnalysis,
   resolveAssessmentFromChoice,
   type LeoInternalAnalysis,
 } from "../app/api/ask-leo/route";
 
 const validAnalysis: LeoInternalAnalysis = {
+  materialIssues: [
+    {
+      issue: "Attendance expectations and possible conduct or capability overlap.",
+      significance:
+        "Classification affects the fairness and proportionality of any employer action.",
+      interactionWithOtherIssues: [
+        "The reason for lateness may affect whether conduct, capability or support is relevant.",
+      ],
+      authorityVerificationNeeded: [
+        "Verify any applicable contractual procedure and Acas fairness requirements.",
+      ],
+    },
+  ],
   employerDecision: {
     question: "Whether formal capability action is justified now.",
     directAnswer: "No. The current evidence supports addressing the attendance concern, but not moving directly to formal capability action.",
@@ -56,7 +70,41 @@ const validAnalysis: LeoInternalAnalysis = {
     relevantCompanyContext: ["The attendance policy requires a documented review."],
     unresolvedAuthorityUncertainty: [],
   },
+  communicationPriority: {
+    mustCommunicate: [
+      "Formal capability action is not justified on the current evidence.",
+      "The employer should set and document the attendance expectation now.",
+    ],
+    mayDefer: ["Detailed later-stage procedure."],
+  },
 };
+
+test("parseIssueDiscovery accepts a subject-neutral material issue map", () => {
+  const discovery = {
+    materialIssues: validAnalysis.materialIssues,
+  };
+
+  assert.deepEqual(
+    parseIssueDiscovery(JSON.stringify(discovery)),
+    discovery,
+  );
+});
+
+test("parseIssueDiscovery rejects an incomplete authority research brief", () => {
+  assert.equal(
+    parseIssueDiscovery(
+      JSON.stringify({
+        materialIssues: [
+          {
+            issue: "A material issue",
+            significance: "It affects the decision.",
+          },
+        ],
+      })
+    ),
+    null,
+  );
+});
 
 test("parseInternalAnalysis accepts a well-formed analysis object", () => {
   const parsed = parseInternalAnalysis(JSON.stringify(validAnalysis));

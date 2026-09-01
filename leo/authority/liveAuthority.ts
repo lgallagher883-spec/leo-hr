@@ -94,6 +94,12 @@ ${detectedAuthorities || "None"}
 
 Research the current authoritative position needed to answer the employer accurately.
 
+RESEARCH SCOPE AND STOPPING RULE
+- Use the minimum number of directly relevant official sources needed to verify the material propositions in the professional issue map, normally 2 to 6 sources in total.
+- Prefer one primary or highest-authority current source for each material proposition. Add a second source only where it materially clarifies practical application, legal status or a genuine conflict.
+- Do not collect adjacent, background or merely related authority once the material propositions are adequately supported.
+- Stop searching when every material authority-verification question is either supported by a current official source or explicitly marked unresolved.
+
 MANDATORY SOURCE RULES
 - Use only the approved official domains available through web search.
 - Prefer primary legislation on legislation.gov.uk where the legal text itself matters.
@@ -217,6 +223,50 @@ function collectWebSources(
   visit(output);
 
   return Array.from(found.values());
+}
+
+function collectCitedSources(
+  evidence: string,
+  payload: unknown
+): LiveAuthoritySource[] {
+  const availableSources = collectWebSources(payload);
+  const titlesByUrl = new Map(
+    availableSources.map((source) => [normaliseSourceUrl(source.url), source.title])
+  );
+  const citedUrls = Array.from(
+    evidence.matchAll(/https?:\/\/[^\s)\]]+/g),
+    (match) => match[0]
+  );
+  const citedSources = new Map<string, LiveAuthoritySource>();
+
+  for (const rawUrl of citedUrls) {
+    const url = normaliseSourceUrl(rawUrl);
+
+    if (!url || !sourceIsApproved(url) || citedSources.has(url)) {
+      continue;
+    }
+
+    citedSources.set(url, {
+      url,
+      title: titlesByUrl.get(url),
+    });
+
+    if (citedSources.size === 6) {
+      break;
+    }
+  }
+
+  return Array.from(citedSources.values());
+}
+
+function normaliseSourceUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("utm_source");
+    return url.toString();
+  } catch {
+    return "";
+  }
 }
 
 function sourceIsApproved(url: string): boolean {
@@ -405,6 +455,7 @@ export async function researchLiveAuthority(
           reasoning: {
             effort: "low",
           },
+          max_tool_calls: 2,
           store: false,
           tools: [
             {
@@ -414,7 +465,7 @@ export async function researchLiveAuthority(
                   APPROVED_AUTHORITY_DOMAINS,
               },
               search_context_size:
-                "high",
+                "low",
             },
           ],
           tool_choice: "auto",
@@ -448,11 +499,10 @@ export async function researchLiveAuthority(
     const evidence =
       readOutputText(payload);
 
-    const sources =
-      collectWebSources(payload).filter(
-        (source) =>
-          sourceIsApproved(source.url)
-      );
+    const sources = collectCitedSources(
+      evidence,
+      payload
+    );
 
     const searched =
       sources.length > 0;

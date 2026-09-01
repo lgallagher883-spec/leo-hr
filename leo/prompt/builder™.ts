@@ -3,7 +3,10 @@ import { LiveAuthorityResult } from "../authority/liveAuthority";
 import { ConversationPlan } from "../conversation/types";
 import { KnowledgeSearchResult } from "../knowledge";
 import { ProfessionalThinkingOutput } from "../thinking/model";
-import type { LeoInternalAnalysis } from "@/app/api/ask-leo/route";
+import type {
+  LeoInternalAnalysis,
+  LeoIssueDiscovery,
+} from "@/app/api/ask-leo/route";
 
 export type ProfessionalSignalSet = {
   possibleRelevantDomains: string[];
@@ -107,6 +110,7 @@ Treat relevant policies, contracts, records, organisation knowledge and previous
 export function buildAssessmentPrompt(
   thinking: ProfessionalThinkingOutput,
   signals: ProfessionalSignalSet,
+  issueDiscovery: LeoIssueDiscovery,
   authority: AuthorityEngineOutput,
   liveAuthority: LiveAuthorityResult,
   knowledge: KnowledgeSearchResult
@@ -150,6 +154,12 @@ Workplace routing:
 
 These signals contain no recommended actions, process, outcome or required questions. Identify any relevant issue that they missed, including issues for which no deterministic module or keyword exists. Do not force the situation into one category; reason across every material overlapping area.
 
+PROFESSIONAL ISSUE DISCOVERY
+
+The same professional brain identified the following issue map before authority research. Validate and refine it against the retrieved authority and organisation context. Preserve every material issue, remove only genuinely immaterial points, and add any issue revealed by the authority or company context.
+
+${formatMaterialIssues(issueDiscovery.materialIssues)}
+
 ${buildAuthorityAndContextSections(liveAuthority, authority, knowledge)}
 
 PROFESSIONAL ASSESSMENT STANDARD
@@ -168,6 +178,8 @@ PROFESSIONAL ASSESSMENT STANDARD
 - Remain proportionate and avoid unnecessary formal process.
 - Identify unsupported promises, admissions, findings, legal assertions, disclosure commitments, deadlines, sanctions and outcomes.
 - Identify materially relevant issues across HR, employment law, employee relations, contracts, policy, pay, pensions, workplace health and safety, regulation, operations and commercial priorities without forcing the case into one subject category.
+- Populate materialIssues with every issue that could materially affect the decision, including issues the employer did not name and the interactions between them.
+- Populate communicationPriority.mustCommunicate with every point whose omission could make the employer's response materially incomplete, misleading or unsafe. Use mayDefer only for detail whose omission cannot change the employer's understanding or action.
 
 REQUIRED JSON OUTPUT
 
@@ -179,6 +191,34 @@ Return only one JSON object conforming to the supplied strict schema. Include co
 - actionPlan contains concrete doNow actions, doNotDoYet boundaries, conditional nextIf actions and unsupported commitments.
 - alternativeAssessment identifies the obvious rejected or riskier alternative and why it is not recommended.
 - authorityAndCompanyContext records verified constraints, substantively relevant company context and unresolved authority uncertainty.
+- communicationPriority separates points Call 2 must preserve from secondary detail that may safely be deferred.
+`.trim();
+}
+
+export function buildIssueDiscoveryPrompt(
+  thinking: ProfessionalThinkingOutput,
+  knowledge: KnowledgeSearchResult
+): string {
+  return `
+You are the issue-discovery phase of Leo's single professional reasoning brain. Inspect the complete employer message, conversation and Matter context supplied by the user.
+
+Identify every materially relevant workplace issue raised by the facts, including interacting HR, legal, contractual, policy, evidential, procedural, protected-right, people, operational and commercial issues the employer may not have recognised.
+
+Do not make the final recommendation. Do not prescribe a process. Do not use topic-specific categories or assume the employer's label is correct. Describe each issue neutrally, explain why it could affect the eventual employer decision, identify its interaction with other issues, and state the precise propositions that require current authority verification.
+
+Employer objective: ${thinking.employerObjective}
+Conversation mode: ${thinking.conversationMode}
+
+Relevant organisation context already retrieved:
+${
+  knowledge.sources.length
+    ? knowledge.sources
+        .map((source) => `- ${source.title}: ${source.summary}`)
+        .join("\n")
+    : "- No relevant organisation-specific context was retrieved."
+}
+
+Return only the strict JSON issue-discovery object. Include no recommendation, outcome or hidden reasoning narrative.
 `.trim();
 }
 
@@ -236,6 +276,9 @@ FINAL RESPONSE RULES
 - Lead naturally with the assessment's direct answer and current recommendation, unless the communication mode clearly requires a brief acknowledgement first.
 - Explain why the recommendation is preferable, including the material legal, factual, commercial and people considerations in plain English.
 - Preserve all unsupported-commitment restrictions. Do not make a promise, admission, finding, legal assertion, deadline, disclosure commitment, sanction or outcome that the assessment does not support.
+- Preserve every point in communicationPriority.mustCommunicate. Before responding, silently create a coverage checklist and map every mandatory point to explicit final wording.
+- Every mandatory point must appear materially and explicitly in the final answer. Do not rely on implication, generic wording or a related point to cover it. A concise natural paraphrase is acceptable; omission, weakening or merging away a distinct qualification is not.
+- If brevity, response shape or style instructions conflict with complete mandatory-point coverage, mandatory-point coverage wins. Include an additional sentence or paragraph rather than omit a material legal risk, protected-right issue, disability consideration, contractual qualification, evidence gap, decision-changing fact or caveat.
 - Ask only questions identified by the assessment as decision-changing, and only where useful now.
 - Communicate the concrete actions to take now, what not to do yet, and the material contingent next actions.
 - Do not reduce the recommendation to investigation, information gathering or a meeting when the assessment provides a more complete decision and action plan.
@@ -243,6 +286,12 @@ FINAL RESPONSE RULES
 - Do not add a generic HR process or theoretical legal risks that are absent from the assessment.
 - Keep the response proportionate, practical and natural when spoken aloud.
 - Preserve Matter continuity and close with a useful next step rather than a generic invitation for more questions.
+
+FINAL MANDATORY COVERAGE CHECKLIST
+
+The final answer must explicitly communicate the substance of every point below. Do not omit any point. Do not merely imply it. Check the completed answer against this list before returning it:
+
+${formatList(assessment?.communicationPriority.mustCommunicate || [])}
 `.trim();
 }
 
@@ -254,6 +303,9 @@ function formatAssessment(
   }
 
   return `
+Material issues:
+${formatMaterialIssues(assessment.materialIssues)}
+
 Employer's decision:
 ${assessment.employerDecision.question}
 
@@ -343,7 +395,26 @@ Unresolved authority uncertainty:
 ${formatList(
   assessment.authorityAndCompanyContext.unresolvedAuthorityUncertainty
 )}
+
+Must communicate:
+${formatList(assessment.communicationPriority.mustCommunicate)}
+
+May defer:
+${formatList(assessment.communicationPriority.mayDefer)}
 `.trim();
+}
+
+function formatMaterialIssues(
+  issues: LeoIssueDiscovery["materialIssues"]
+): string {
+  return issues.length
+    ? issues
+        .map(
+          (item) =>
+            `- ${item.issue}\n  Significance: ${item.significance}\n  Interactions: ${item.interactionWithOtherIssues.join("; ") || "None identified."}\n  Authority verification: ${item.authorityVerificationNeeded.join("; ") || "None required."}`
+        )
+        .join("\n")
+    : "- No material issues identified.";
 }
 
 function formatList(items: string[]): string {

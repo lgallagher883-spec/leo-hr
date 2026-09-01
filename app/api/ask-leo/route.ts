@@ -15,6 +15,7 @@ import {
 import {
   buildAssessmentPrompt,
   buildEmployerResponsePrompt,
+  buildIssueDiscoveryPrompt,
   type ProfessionalSignalSet,
 } from "@/leo/prompt/builder™";
 import { buildResponseArchitecture } from "@/leo/response/responseArchitecture";
@@ -83,6 +84,17 @@ export type EvidenceStrength = "strong" | "moderate" | "weak" | "unclear";
 
 export type AssessmentConfidence = "high" | "medium" | "low";
 
+export type LeoMaterialIssue = {
+  issue: string;
+  significance: string;
+  interactionWithOtherIssues: string[];
+  authorityVerificationNeeded: string[];
+};
+
+export type LeoIssueDiscovery = {
+  materialIssues: LeoMaterialIssue[];
+};
+
 const EVIDENCE_STRENGTHS: EvidenceStrength[] = [
   "strong",
   "moderate",
@@ -93,6 +105,7 @@ const EVIDENCE_STRENGTHS: EvidenceStrength[] = [
 // Hidden professional-conclusion structure emitted before the employer-facing
 // reply. Never exposed to the client - parsed and validated server-side only.
 export type LeoInternalAnalysis = {
+  materialIssues: LeoMaterialIssue[];
   employerDecision: {
     question: string;
     directAnswer: string;
@@ -137,6 +150,10 @@ export type LeoInternalAnalysis = {
     relevantCompanyContext: string[];
     unresolvedAuthorityUncertainty: string[];
   };
+  communicationPriority: {
+    mustCommunicate: string[];
+    mayDefer: string[];
+  };
 };
 
 function isStringArray(value: unknown): value is string[] {
@@ -170,14 +187,17 @@ export function parseInternalAnalysis(
   const authorityAndCompanyContext = readRecord(
     candidate.authorityAndCompanyContext
   );
+  const communicationPriority = readRecord(candidate.communicationPriority);
 
   if (
+    !Array.isArray(candidate.materialIssues) ||
     !employerDecision ||
     !professionalRationale ||
     !evidencePosition ||
     !actionPlan ||
     !alternativeAssessment ||
-    !authorityAndCompanyContext
+    !authorityAndCompanyContext ||
+    !communicationPriority
   ) {
     return null;
   }
@@ -220,6 +240,10 @@ export function parseInternalAnalysis(
       "verifiedLegalConstraints",
       "relevantCompanyContext",
       "unresolvedAuthorityUncertainty",
+    ]) ||
+    !hasStringArrays(communicationPriority, [
+      "mustCommunicate",
+      "mayDefer",
     ])
   ) {
     return null;
@@ -274,7 +298,14 @@ export function parseInternalAnalysis(
     });
   }
 
+  const materialIssues = parseMaterialIssues(candidate.materialIssues);
+
+  if (!materialIssues) {
+    return null;
+  }
+
   return {
+    materialIssues,
     employerDecision: {
       question: employerDecision.question as string,
       directAnswer: employerDecision.directAnswer as string,
@@ -321,7 +352,58 @@ export function parseInternalAnalysis(
       unresolvedAuthorityUncertainty:
         authorityAndCompanyContext.unresolvedAuthorityUncertainty as string[],
     },
+    communicationPriority: {
+      mustCommunicate: communicationPriority.mustCommunicate as string[],
+      mayDefer: communicationPriority.mayDefer as string[],
+    },
   };
+}
+
+function parseMaterialIssues(value: unknown): LeoMaterialIssue[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const issues: LeoMaterialIssue[] = [];
+
+  for (const entry of value) {
+    const item = readRecord(entry);
+
+    if (
+      !item ||
+      !hasStringFields(item, ["issue", "significance"]) ||
+      !hasStringArrays(item, [
+        "interactionWithOtherIssues",
+        "authorityVerificationNeeded",
+      ])
+    ) {
+      return null;
+    }
+
+    issues.push({
+      issue: item.issue as string,
+      significance: item.significance as string,
+      interactionWithOtherIssues:
+        item.interactionWithOtherIssues as string[],
+      authorityVerificationNeeded:
+        item.authorityVerificationNeeded as string[],
+    });
+  }
+
+  return issues;
+}
+
+export function parseIssueDiscovery(
+  rawJson: string
+): LeoIssueDiscovery | null {
+  try {
+    const parsed = JSON.parse(rawJson) as Record<string, unknown>;
+    const materialIssues = parseMaterialIssues(parsed?.materialIssues);
+
+    return materialIssues ? { materialIssues } : null;
+  } catch {
+    return null;
+  }
 }
 
 function readRecord(value: unknown): Record<string, unknown> | null {
@@ -363,6 +445,12 @@ export function buildInternalAnalysisJsonSchema() {
       type: "object",
       additionalProperties: false,
       properties: {
+        materialIssues: {
+          type: "array",
+          description:
+            "Every materially relevant issue raised by the facts, including overlapping issues the employer did not identify.",
+          items: buildMaterialIssueJsonSchema(),
+        },
         employerDecision: {
           type: "object",
           additionalProperties: false,
@@ -546,15 +634,86 @@ export function buildInternalAnalysisJsonSchema() {
             "unresolvedAuthorityUncertainty",
           ],
         },
+        communicationPriority: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            mustCommunicate: stringArray(
+              "Every material conclusion, legal or contractual qualification, protected-right issue, evidence gap, decision-changing fact and caveat that Call 2 must preserve."
+            ),
+            mayDefer: stringArray(
+              "Secondary detail that can safely be deferred without changing or weakening the employer advice."
+            ),
+          },
+          required: ["mustCommunicate", "mayDefer"],
+        },
       },
       required: [
+        "materialIssues",
         "employerDecision",
         "professionalRationale",
         "evidencePosition",
         "actionPlan",
         "alternativeAssessment",
         "authorityAndCompanyContext",
+        "communicationPriority",
       ],
+    },
+  };
+}
+
+function buildMaterialIssueJsonSchema() {
+  return {
+    type: "object" as const,
+    additionalProperties: false,
+    properties: {
+      issue: {
+        type: "string" as const,
+        description: "A material issue identified from the facts.",
+      },
+      significance: {
+        type: "string" as const,
+        description:
+          "Why the issue could affect the employer's decision, obligations, risk or action.",
+      },
+      interactionWithOtherIssues: {
+        type: "array" as const,
+        description:
+          "How this issue interacts with other material issues in the same facts.",
+        items: { type: "string" as const },
+      },
+      authorityVerificationNeeded: {
+        type: "array" as const,
+        description:
+          "The legal, regulatory, contractual or guidance propositions requiring current verification.",
+        items: { type: "string" as const },
+      },
+    },
+    required: [
+      "issue",
+      "significance",
+      "interactionWithOtherIssues",
+      "authorityVerificationNeeded",
+    ],
+  };
+}
+
+export function buildIssueDiscoveryJsonSchema() {
+  return {
+    name: "leo_issue_discovery",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        materialIssues: {
+          type: "array",
+          description:
+            "Every material issue and authority question arising from the supplied workplace context.",
+          items: buildMaterialIssueJsonSchema(),
+        },
+      },
+      required: ["materialIssues"],
     },
   };
 }
@@ -801,73 +960,7 @@ export async function POST(req: Request) {
     const coreResult = runLeoRouting(coreMessage);
 
     /*
-     * 3. AUTHORITY ENGINE
-     */
-
-    const authorityResult =
-      await runAuthorityEngine({
-        message,
-        intent: coreResult.intent,
-        risk: coreResult.risk.overall,
-        classification: coreResult.decision,
-      });
-
-    const liveAuthorityResult =
-      await researchLiveAuthority({
-        message,
-        staticAuthority: authorityResult,
-      });
-
-    if (
-      process.env.NODE_ENV === "development" &&
-      process.env.ASK_LEO_LOG_AUTHORITY === "true"
-    ) {
-      const authorityOrigin = liveAuthorityResult.evidence.startsWith(
-        "VERIFIED AUTHORITY STORE RESULT"
-      )
-        ? "stored_authority"
-        : liveAuthorityResult.searched
-          ? "live_research"
-          : "none";
-
-      console.log(
-        "ASK LEO AUTHORITY DIAGNOSTIC (development only):\n",
-        JSON.stringify(
-          {
-            staticDetection: {
-              authorities: authorityResult.applicableAuthorities.map(
-                (authority) => ({
-                  title: authority.title,
-                  status: authority.status,
-                  summary: authority.summary,
-                })
-              ),
-              verificationGaps:
-                authorityResult.missingAuthorityInformation,
-            },
-            retrievedAuthority: {
-              origin: authorityOrigin,
-              researchRequired: liveAuthorityResult.required,
-              liveSearchRan: liveAuthorityResult.searched,
-              verifiedCurrent: liveAuthorityResult.verifiedCurrent,
-              queriedAt: liveAuthorityResult.queriedAt,
-              evidence: liveAuthorityResult.evidence,
-              sources: liveAuthorityResult.sources.map((source) => ({
-                title: source.title || "Official source",
-                url: source.url,
-                domain: readAuthoritySourceDomain(source.url),
-              })),
-              retrievalError: liveAuthorityResult.error || null,
-            },
-          },
-          null,
-          2
-        )
-      );
-    }
-
-    /*
-     * 5. FOUNDATIONS
+     * 3. FOUNDATIONS
      */
 
     const {
@@ -953,8 +1046,144 @@ export async function POST(req: Request) {
         : [],
     });
 
+    const promptContext =
+      buildPromptContextEnvelope({
+        latestMessage: message,
+        conversation,
+        contextType,
+        matter: matterContext,
+        contextSummary,
+      });
+
     /*
-     * 9. CONVERSATION INTELLIGENCE
+     * 9. PROFESSIONAL ISSUE DISCOVERY (Call 1A)
+     */
+
+    const issueDiscoveryPrompt = buildIssueDiscoveryPrompt(
+      thinkingResult,
+      knowledgeResult
+    );
+    let issueDiscovery: LeoIssueDiscovery = {
+      materialIssues: [],
+    };
+
+    try {
+      const issueCompletion =
+        await client.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.4,
+          stream: false,
+          response_format: {
+            type: "json_schema",
+            json_schema: buildIssueDiscoveryJsonSchema(),
+          },
+          messages: [
+            {
+              role: "system",
+              content: issueDiscoveryPrompt,
+            },
+            {
+              role: "user",
+              content: promptContext,
+            },
+          ],
+        });
+      const issueChoice = issueCompletion.choices[0];
+      const parsedDiscovery =
+        issueChoice?.finish_reason === "stop" &&
+        issueChoice.message.content
+          ? parseIssueDiscovery(issueChoice.message.content)
+          : null;
+
+      if (parsedDiscovery) {
+        issueDiscovery = parsedDiscovery;
+      } else {
+        console.error(
+          "Ask Leo issue discovery did not yield a usable issue map; authority research will use the employer question only.",
+          { finishReason: issueChoice?.finish_reason }
+        );
+      }
+    } catch (issueDiscoveryError) {
+      console.error(
+        "Ask Leo issue discovery failed; authority research will use the employer question only:",
+        issueDiscoveryError
+      );
+    }
+
+    const authorityResearchQuery = buildAuthorityResearchQuery(
+      message,
+      issueDiscovery
+    );
+
+    /*
+     * 10. AUTHORITY INFORMED BY PROFESSIONAL ISSUE DISCOVERY
+     */
+
+    const authorityResult =
+      await runAuthorityEngine({
+        message: authorityResearchQuery,
+        intent: coreResult.intent,
+        risk: coreResult.risk.overall,
+        classification: coreResult.decision,
+      });
+
+    const liveAuthorityResult =
+      await researchLiveAuthority({
+        message: authorityResearchQuery,
+        staticAuthority: authorityResult,
+      });
+
+    if (
+      process.env.NODE_ENV === "development" &&
+      process.env.ASK_LEO_LOG_AUTHORITY === "true"
+    ) {
+      const authorityOrigin = liveAuthorityResult.evidence.startsWith(
+        "VERIFIED AUTHORITY STORE RESULT"
+      )
+        ? "stored_authority"
+        : liveAuthorityResult.searched
+          ? "live_research"
+          : "none";
+
+      console.log(
+        "ASK LEO AUTHORITY DIAGNOSTIC (development only):\n",
+        JSON.stringify(
+          {
+            issueDiscovery: issueDiscovery.materialIssues,
+            staticDetection: {
+              authorities: authorityResult.applicableAuthorities.map(
+                (authority) => ({
+                  title: authority.title,
+                  status: authority.status,
+                  summary: authority.summary,
+                })
+              ),
+              verificationGaps:
+                authorityResult.missingAuthorityInformation,
+            },
+            retrievedAuthority: {
+              origin: authorityOrigin,
+              researchRequired: liveAuthorityResult.required,
+              liveSearchRan: liveAuthorityResult.searched,
+              verifiedCurrent: liveAuthorityResult.verifiedCurrent,
+              queriedAt: liveAuthorityResult.queriedAt,
+              evidence: liveAuthorityResult.evidence,
+              sources: liveAuthorityResult.sources.map((source) => ({
+                title: source.title || "Official source",
+                url: source.url,
+                domain: readAuthoritySourceDomain(source.url),
+              })),
+              retrievalError: liveAuthorityResult.error || null,
+            },
+          },
+          null,
+          2
+        )
+      );
+    }
+
+    /*
+     * 11. CONVERSATION INTELLIGENCE
      */
 
     const conversationPlan =
@@ -1001,19 +1230,11 @@ export async function POST(req: Request) {
     const assessmentPrompt = buildAssessmentPrompt(
       thinkingResult,
       professionalSignals,
+      issueDiscovery,
       authorityResult,
       liveAuthorityResult,
       knowledgeResult
     );
-
-    const promptContext =
-      buildPromptContextEnvelope({
-        latestMessage: message,
-        conversation,
-        contextType,
-        matter: matterContext,
-        contextSummary,
-      });
 
     const matterRecommendation =
       evaluateMatterRecommendation({
@@ -2179,6 +2400,40 @@ function buildProfessionalSignalSet(input: {
       matterContextActive: input.matterContextActive,
     },
   };
+}
+
+function buildAuthorityResearchQuery(
+  employerQuestion: string,
+  issueDiscovery: LeoIssueDiscovery
+): string {
+  if (issueDiscovery.materialIssues.length === 0) {
+    return employerQuestion;
+  }
+
+  const issueBrief = issueDiscovery.materialIssues
+    .map(
+      (item, index) =>
+        [
+          `${index + 1}. ${item.issue}`,
+          `Significance: ${item.significance}`,
+          `Interactions: ${
+            item.interactionWithOtherIssues.join("; ") || "None identified"
+          }`,
+          `Authority to verify: ${
+            item.authorityVerificationNeeded.join("; ") ||
+            "No specific proposition identified"
+          }`,
+        ].join("\n")
+    )
+    .join("\n\n");
+
+  return [
+    "EMPLOYER QUESTION",
+    employerQuestion,
+    "",
+    "PROFESSIONAL ISSUE MAP FOR AUTHORITY RESEARCH",
+    issueBrief,
+  ].join("\n");
 }
 
 function readAuthoritySourceDomain(url: string): string {

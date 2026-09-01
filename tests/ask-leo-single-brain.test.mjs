@@ -67,3 +67,49 @@ test("Call 1 assessment contract is organised around professional judgement", ()
   assert.match(builder, /Do not default to external legal advice/);
   assert.match(builder, /Contingent next actions/);
 });
+
+test("professional issue discovery informs authority before final assessment", () => {
+  const discoveryIndex = route.indexOf("PROFESSIONAL ISSUE DISCOVERY (Call 1A)");
+  const authorityIndex = route.indexOf(
+    "AUTHORITY INFORMED BY PROFESSIONAL ISSUE DISCOVERY"
+  );
+  const finalAssessmentIndex = route.indexOf(
+    "PRIVATE PROFESSIONAL ASSESSMENT (non-streaming, structured JSON)"
+  );
+
+  assert.ok(discoveryIndex >= 0);
+  assert.ok(authorityIndex > discoveryIndex);
+  assert.ok(finalAssessmentIndex > authorityIndex);
+  assert.match(route, /buildAuthorityResearchQuery\(\s*message,\s*issueDiscovery/);
+  assert.match(builder, /every materially relevant workplace issue/i);
+  assert.doesNotMatch(builder, /TUPE|redundancy|holiday pay|bullying investigation/i);
+});
+
+test("Call 2 receives and must preserve communication priorities", () => {
+  assert.match(route, /communicationPriority/);
+  assert.match(builder, /communicationPriority\.mustCommunicate/);
+  assert.match(builder, /silently create a coverage checklist/i);
+  assert.match(builder, /omission, weakening or merging away.*is not/i);
+  assert.match(builder, /materially and explicitly/i);
+  assert.match(builder, /Do not rely on implication/i);
+  assert.match(builder, /mandatory-point coverage wins/i);
+  assert.match(builder, /Must communicate:/);
+  assert.match(builder, /May defer:/);
+  assert.match(builder, /FINAL MANDATORY COVERAGE CHECKLIST/);
+  assert.match(
+    builder,
+    /assessment\?\.communicationPriority\.mustCommunicate/
+  );
+});
+
+test("live authority research is bounded without weakening official sources", () => {
+  assert.match(liveAuthority, /normally 2 to 6 sources/i);
+  assert.match(liveAuthority, /Stop searching when every material/i);
+  assert.match(liveAuthority, /search_context_size:\s*\n\s*"low"/);
+  assert.match(liveAuthority, /max_tool_calls: 2/);
+  assert.match(liveAuthority, /APPROVED_AUTHORITY_DOMAINS/);
+  assert.match(liveAuthority, /gpt-5\.6-luna/);
+  assert.match(liveAuthority, /effort: "low"/);
+  assert.match(liveAuthority, /collectCitedSources/);
+  assert.match(liveAuthority, /citedSources\.size === 6/);
+});

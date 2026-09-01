@@ -48,59 +48,28 @@ export function buildConversationPlan({
   }
 
   /*
-   * 2. LEARNING OR PROCESS REQUEST
+   * 2. LIVE MATTER / DECISION SUPPORT
    *
-   * Where the employer is seeking general knowledge,
-   * Leo should answer clearly without creating the feel
-   * of a live Matter unnecessarily.
+   * If the deterministic thinking layer has already identified a
+   * real employer situation or decision, preserve that interpretation
+   * before considering generic learning/process signals.
    */
 
   if (
-    appearsToBeLearningRequest(normalisedMessage) ||
-    includesAny(employerObjective, [
-      "learn",
-      "understand",
-      "explain",
-      "process",
-      "guidance",
-      "information",
-    ]) ||
-    includesAny(conversationMode, [
-      "learning",
-      "education",
-      "explanation",
-      "process",
-    ])
+    employerObjective === "resolve live issue" ||
+    conversationMode === "guidance"
   ) {
     return clonePlan(
-      CONVERSATION_PROFILES.learning
+      CONVERSATION_PROFILES.liveMatter
     );
   }
-
-  /*
-   * 3. DECISION SUPPORT
-   *
-   * The employer is weighing options, expressing doubt
-   * or asking Leo to help decide what is reasonable.
-   */
 
   if (
     appearsToNeedDecisionSupport(
       normalisedMessage
     ) ||
-    includesAny(employerObjective, [
-      "decision",
-      "decide",
-      "choose",
-      "option",
-      "judgement",
-    ]) ||
-    includesAny(conversationMode, [
-      "decision",
-      "strategic",
-      "planning",
-      "review",
-    ])
+    employerObjective === "make decision" ||
+    conversationMode === "decision support"
   ) {
     return clonePlan(
       CONVERSATION_PROFILES.decisionSupport
@@ -108,15 +77,34 @@ export function buildConversationPlan({
   }
 
   /*
-   * 4. DEFAULT LIVE MATTER
+   * 3. LEARNING OR PROCESS REQUEST
    *
-   * Most employer messages describe a workplace
-   * situation that requires calm framing, proportionate
-   * advice and continued support.
+   * Where the employer is genuinely seeking general knowledge,
+   * Leo should answer clearly without creating the feel of a
+   * live Matter unnecessarily.
+   */
+
+  if (
+    appearsToBeLearningRequest(normalisedMessage) ||
+    employerObjective === "understand process" ||
+    employerObjective === "understand rights or obligations" ||
+    conversationMode === "learning"
+  ) {
+    return clonePlan(
+      CONVERSATION_PROFILES.learning
+    );
+  }
+
+  /*
+   * 4. DEFAULT
+   *
+   * General exploratory questions can use the learning-style
+   * direct response. Concrete workplace situations have already
+   * been caught above.
    */
 
   return clonePlan(
-    CONVERSATION_PROFILES.liveMatter
+    CONVERSATION_PROFILES.learning
   );
 }
 
@@ -172,7 +160,10 @@ function appearsToBeLearningRequest(
 
   const liveMatterSignals = [
     "one of my employees",
+    "one of our employees",
     "my employee",
+    "our employee",
+    "an employee",
     "i've received",
     "i have received",
     "has asked",
@@ -182,6 +173,9 @@ function appearsToBeLearningRequest(
     "has been off sick",
     "has resigned",
     "what should i do",
+    "what should we do",
+    "how should i handle this",
+    "how should we handle this",
   ];
 
   const appearsLive =
@@ -205,19 +199,32 @@ function appearsToNeedDecisionSupport(
   const strongDecisionSignals = [
     "should i dismiss",
     "can i dismiss",
+    "should we dismiss",
+    "can we dismiss",
     "should i replace",
     "can i replace",
+    "should we replace",
+    "can we replace",
     "should i terminate",
     "can i terminate",
+    "should we terminate",
+    "can we terminate",
     "am i being unfair",
+    "are we being unfair",
     "am i being unreasonable",
+    "are we being unreasonable",
     "what are my options",
+    "what are our options",
     "which option",
     "what would you recommend",
     "i feel awful",
+    "we feel awful",
     "i want to be fair",
+    "we want to be fair",
     "but i also have a business to run",
+    "but we also have a business to run",
     "but i also need the business to run",
+    "but we also need the business to run",
   ];
 
   return strongDecisionSignals.some(

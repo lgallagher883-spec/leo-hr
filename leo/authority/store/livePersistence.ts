@@ -4,6 +4,7 @@ import type { StoredAuthorityRecord } from "./store.ts";
 import { STORE_MAX_AGE_HOURS } from "./store.ts";
 import type { ModelAuthorityRecord } from "./updater.ts";
 import {
+  asAuthorityType,
   asNullableDate,
   asSearchTerms,
   asStatus,
@@ -100,7 +101,7 @@ function toPersistableAuthorityRecord(
     source_domain: sourceDomain(sourceUrl),
     source_title: asText(candidate.sourceTitle) || null,
     authority_type:
-      asText(candidate.authorityType) || "government",
+      asAuthorityType(candidate.authorityType),
     legal_status: legalStatus,
     jurisdiction:
       asText(candidate.jurisdiction) || "england_wales",

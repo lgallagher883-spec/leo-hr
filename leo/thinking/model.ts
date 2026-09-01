@@ -158,13 +158,21 @@ function identifyEmployerObjective(
   if (
     includesAny(message, [
       "my employee",
+      "our employee",
       "an employee",
+      "one of my employees",
+      "one of our employees",
       "a member of staff",
       "one of my staff",
+      "one of our staff",
       "we have an issue",
       "i have an issue",
       "what should i do",
+      "what should we do",
       "what do i do",
+      "what do we do",
+      "how should we handle this",
+      "how should i handle this",
       "help me deal with",
     ])
   ) {

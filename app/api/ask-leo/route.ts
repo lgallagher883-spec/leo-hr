@@ -4,23 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 
 import { runAuthorityEngine } from "@/leo/authority/router";
 import { researchLiveAuthority } from "@/leo/authority/liveAuthority";
-import { buildConversationPlan } from "@/leo/conversation/conversationEngine";
-import { buildConversationPrompt } from "@/leo/conversation/conversationPrompt";
 import { runLeoRouting, type LeoRoutingOutput } from "@/leo/core/router";
 import { searchKnowledge } from "@/leo/knowledge";
 import {
   StoredPolicy,
   StoredPolicySection,
 } from "@/leo/knowledge/storage/policies";
-import {
-  buildAssessmentPrompt,
-  buildEmployerResponsePrompt,
-  buildIssueDiscoveryPrompt,
-  type ProfessionalSignalSet,
-} from "@/leo/prompt/builder™";
-import { buildResponseArchitecture } from "@/leo/response/responseArchitecture";
-import { buildResponsePrompt } from "@/leo/response/responsePrompt";
-import { runProfessionalThinking } from "@/leo/thinking/model";
+import { buildAskLeoProfessionalPrompt } from "@/leo/prompt/builder™";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -80,666 +70,14 @@ type AskLeoConversationRow = {
   converted_to_matter_at: string | null;
 };
 
-export type EvidenceStrength = "strong" | "moderate" | "weak" | "unclear";
-
-export type AssessmentConfidence = "high" | "medium" | "low";
-
-export type LeoMaterialIssue = {
-  issue: string;
-  significance: string;
-  interactionWithOtherIssues: string[];
-  authorityVerificationNeeded: string[];
-};
-
-export type LeoIssueDiscovery = {
-  materialIssues: LeoMaterialIssue[];
-};
-
-const EVIDENCE_STRENGTHS: EvidenceStrength[] = [
-  "strong",
-  "moderate",
-  "weak",
-  "unclear",
-];
-
-// Hidden professional-conclusion structure emitted before the employer-facing
-// reply. Never exposed to the client - parsed and validated server-side only.
-export type LeoInternalAnalysis = {
-  materialIssues: LeoMaterialIssue[];
-  employerDecision: {
-    question: string;
-    directAnswer: string;
-    currentRecommendation: string;
-    confidence: AssessmentConfidence;
-  };
-  professionalRationale: {
-    whyThisIsRecommended: string;
-    materialLegalPosition: string[];
-    applicationToFacts: string[];
-    commercialAndPeopleConsiderations: string[];
-    competingConsiderations: string[];
-    proportionality: string;
-  };
-  evidencePosition: {
-    establishedFacts: string[];
-    allegationsOrAssumptions: string[];
-    materialEvidence: Array<{
-      item: string;
-      tendsToEstablish: string;
-      strength: EvidenceStrength;
-      limitations: string;
-    }>;
-    materialUnknowns: string[];
-    decisionChangingInformation: string[];
-  };
-  actionPlan: {
-    doNow: string[];
-    doNotDoYet: string[];
-    nextIf: Array<{
-      condition: string;
-      action: string;
-    }>;
-    unsupportedCommitments: string[];
-  };
-  alternativeAssessment: {
-    rejectedOrRiskyAlternative: string;
-    whyNotRecommended: string;
-  };
-  authorityAndCompanyContext: {
-    verifiedLegalConstraints: string[];
-    relevantCompanyContext: string[];
-    unresolvedAuthorityUncertainty: string[];
-  };
-  communicationPriority: {
-    mustCommunicate: string[];
-    mayDefer: string[];
-  };
-};
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.every((item) => typeof item === "string")
-  );
-}
-
-export function parseInternalAnalysis(
-  rawJson: string
-): LeoInternalAnalysis | null {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(rawJson);
-  } catch {
-    return null;
-  }
-
-  if (!parsed || typeof parsed !== "object") {
-    return null;
-  }
-
-  const candidate = parsed as Record<string, unknown>;
-  const employerDecision = readRecord(candidate.employerDecision);
-  const professionalRationale = readRecord(candidate.professionalRationale);
-  const evidencePosition = readRecord(candidate.evidencePosition);
-  const actionPlan = readRecord(candidate.actionPlan);
-  const alternativeAssessment = readRecord(candidate.alternativeAssessment);
-  const authorityAndCompanyContext = readRecord(
-    candidate.authorityAndCompanyContext
-  );
-  const communicationPriority = readRecord(candidate.communicationPriority);
-
-  if (
-    !Array.isArray(candidate.materialIssues) ||
-    !employerDecision ||
-    !professionalRationale ||
-    !evidencePosition ||
-    !actionPlan ||
-    !alternativeAssessment ||
-    !authorityAndCompanyContext ||
-    !communicationPriority
-  ) {
-    return null;
-  }
-
-  if (
-    !hasStringFields(employerDecision, [
-      "question",
-      "directAnswer",
-      "currentRecommendation",
-    ]) ||
-    !["high", "medium", "low"].includes(
-      employerDecision.confidence as string
-    ) ||
-    !hasStringFields(professionalRationale, [
-      "whyThisIsRecommended",
-      "proportionality",
-    ]) ||
-    !hasStringArrays(professionalRationale, [
-      "materialLegalPosition",
-      "applicationToFacts",
-      "commercialAndPeopleConsiderations",
-      "competingConsiderations",
-    ]) ||
-    !hasStringArrays(evidencePosition, [
-      "establishedFacts",
-      "allegationsOrAssumptions",
-      "materialUnknowns",
-      "decisionChangingInformation",
-    ]) ||
-    !hasStringArrays(actionPlan, [
-      "doNow",
-      "doNotDoYet",
-      "unsupportedCommitments",
-    ]) ||
-    !hasStringFields(alternativeAssessment, [
-      "rejectedOrRiskyAlternative",
-      "whyNotRecommended",
-    ]) ||
-    !hasStringArrays(authorityAndCompanyContext, [
-      "verifiedLegalConstraints",
-      "relevantCompanyContext",
-      "unresolvedAuthorityUncertainty",
-    ]) ||
-    !hasStringArrays(communicationPriority, [
-      "mustCommunicate",
-      "mayDefer",
-    ])
-  ) {
-    return null;
-  }
-
-  if (!Array.isArray(evidencePosition.materialEvidence)) {
-    return null;
-  }
-
-  const materialEvidence: LeoInternalAnalysis["evidencePosition"]["materialEvidence"] = [];
-
-  for (const entry of evidencePosition.materialEvidence) {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-
-    const item = entry as Record<string, unknown>;
-
-    if (
-      typeof item.item !== "string" ||
-      typeof item.tendsToEstablish !== "string" ||
-      typeof item.limitations !== "string" ||
-      !EVIDENCE_STRENGTHS.includes(item.strength as EvidenceStrength)
-    ) {
-      return null;
-    }
-
-    materialEvidence.push({
-      item: item.item,
-      tendsToEstablish: item.tendsToEstablish,
-      strength: item.strength as EvidenceStrength,
-      limitations: item.limitations,
-    });
-  }
-
-  if (!Array.isArray(actionPlan.nextIf)) {
-    return null;
-  }
-
-  const nextIf: LeoInternalAnalysis["actionPlan"]["nextIf"] = [];
-
-  for (const entry of actionPlan.nextIf) {
-    const item = readRecord(entry);
-
-    if (!item || !hasStringFields(item, ["condition", "action"])) {
-      return null;
-    }
-
-    nextIf.push({
-      condition: item.condition as string,
-      action: item.action as string,
-    });
-  }
-
-  const materialIssues = parseMaterialIssues(candidate.materialIssues);
-
-  if (!materialIssues) {
-    return null;
-  }
-
-  return {
-    materialIssues,
-    employerDecision: {
-      question: employerDecision.question as string,
-      directAnswer: employerDecision.directAnswer as string,
-      currentRecommendation: employerDecision.currentRecommendation as string,
-      confidence: employerDecision.confidence as AssessmentConfidence,
-    },
-    professionalRationale: {
-      whyThisIsRecommended:
-        professionalRationale.whyThisIsRecommended as string,
-      materialLegalPosition:
-        professionalRationale.materialLegalPosition as string[],
-      applicationToFacts: professionalRationale.applicationToFacts as string[],
-      commercialAndPeopleConsiderations:
-        professionalRationale.commercialAndPeopleConsiderations as string[],
-      competingConsiderations:
-        professionalRationale.competingConsiderations as string[],
-      proportionality: professionalRationale.proportionality as string,
-    },
-    evidencePosition: {
-      establishedFacts: evidencePosition.establishedFacts as string[],
-      allegationsOrAssumptions:
-        evidencePosition.allegationsOrAssumptions as string[],
-      materialEvidence,
-      materialUnknowns: evidencePosition.materialUnknowns as string[],
-      decisionChangingInformation:
-        evidencePosition.decisionChangingInformation as string[],
-    },
-    actionPlan: {
-      doNow: actionPlan.doNow as string[],
-      doNotDoYet: actionPlan.doNotDoYet as string[],
-      nextIf,
-      unsupportedCommitments: actionPlan.unsupportedCommitments as string[],
-    },
-    alternativeAssessment: {
-      rejectedOrRiskyAlternative:
-        alternativeAssessment.rejectedOrRiskyAlternative as string,
-      whyNotRecommended: alternativeAssessment.whyNotRecommended as string,
-    },
-    authorityAndCompanyContext: {
-      verifiedLegalConstraints:
-        authorityAndCompanyContext.verifiedLegalConstraints as string[],
-      relevantCompanyContext:
-        authorityAndCompanyContext.relevantCompanyContext as string[],
-      unresolvedAuthorityUncertainty:
-        authorityAndCompanyContext.unresolvedAuthorityUncertainty as string[],
-    },
-    communicationPriority: {
-      mustCommunicate: communicationPriority.mustCommunicate as string[],
-      mayDefer: communicationPriority.mayDefer as string[],
-    },
-  };
-}
-
-function parseMaterialIssues(value: unknown): LeoMaterialIssue[] | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const issues: LeoMaterialIssue[] = [];
-
-  for (const entry of value) {
-    const item = readRecord(entry);
-
-    if (
-      !item ||
-      !hasStringFields(item, ["issue", "significance"]) ||
-      !hasStringArrays(item, [
-        "interactionWithOtherIssues",
-        "authorityVerificationNeeded",
-      ])
-    ) {
-      return null;
-    }
-
-    issues.push({
-      issue: item.issue as string,
-      significance: item.significance as string,
-      interactionWithOtherIssues:
-        item.interactionWithOtherIssues as string[],
-      authorityVerificationNeeded:
-        item.authorityVerificationNeeded as string[],
-    });
-  }
-
-  return issues;
-}
-
-export function parseIssueDiscovery(
-  rawJson: string
-): LeoIssueDiscovery | null {
-  try {
-    const parsed = JSON.parse(rawJson) as Record<string, unknown>;
-    const materialIssues = parseMaterialIssues(parsed?.materialIssues);
-
-    return materialIssues ? { materialIssues } : null;
-  } catch {
-    return null;
-  }
-}
-
-function readRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function hasStringFields(
-  record: Record<string, unknown>,
-  fields: string[]
-): boolean {
-  return fields.every((field) => typeof record[field] === "string");
-}
-
-function hasStringArrays(
-  record: Record<string, unknown>,
-  fields: string[]
-): boolean {
-  return fields.every((field) => isStringArray(record[field]));
-}
-
-export function buildInternalAnalysisJsonSchema() {
-  const stringArray = (description: string) => ({
-    type: "array" as const,
-    description,
-    items: { type: "string" as const },
-  });
-
-  const stringField = (description: string) => ({
-    type: "string" as const,
-    description,
-  });
-
-  return {
-    name: "leo_internal_analysis",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        materialIssues: {
-          type: "array",
-          description:
-            "Every materially relevant issue raised by the facts, including overlapping issues the employer did not identify.",
-          items: buildMaterialIssueJsonSchema(),
-        },
-        employerDecision: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            question: stringField(
-              "The actual employer decision or question requiring an answer now."
-            ),
-            directAnswer: stringField(
-              "The substantive answer to the employer's actual question now. State the employer's position or decision; do not answer with a meeting, investigation, review or information-gathering activity."
-            ),
-            currentRecommendation: stringField(
-              "The best current employer course and position, including what should happen now and why. A conversation, investigation, review or referral may support this course but cannot be the recommendation by itself."
-            ),
-            confidence: {
-              type: "string",
-              description: "Confidence in the current recommendation.",
-              enum: ["high", "medium", "low"],
-            },
-          },
-          required: [
-            "question",
-            "directAnswer",
-            "currentRecommendation",
-            "confidence",
-          ],
-        },
-        professionalRationale: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            whyThisIsRecommended: stringField(
-              "Why this substantive employer position is preferable now, applying law, facts, commercial needs and people consequences rather than praising a process activity."
-            ),
-            materialLegalPosition: stringArray(
-              "Only material verified legal, regulatory, Acas or contractual positions."
-            ),
-            applicationToFacts: stringArray(
-              "How each material rule or professional principle applies to the actual facts."
-            ),
-            commercialAndPeopleConsiderations: stringArray(
-              "Material operational, commercial, employee-relations and people consequences."
-            ),
-            competingConsiderations: stringArray(
-              "Genuine competing explanations, interests or considerations weighed."
-            ),
-            proportionality: stringField(
-              "Why the recommendation is proportionate at the current stage."
-            ),
-          },
-          required: [
-            "whyThisIsRecommended",
-            "materialLegalPosition",
-            "applicationToFacts",
-            "commercialAndPeopleConsiderations",
-            "competingConsiderations",
-            "proportionality",
-          ],
-        },
-        evidencePosition: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            establishedFacts: stringArray(
-              "Facts established by the supplied context, without inference."
-            ),
-            allegationsOrAssumptions: stringArray(
-              "Allegations, disputed assertions and assumptions not yet established."
-            ),
-            materialEvidence: {
-              type: "array",
-              description:
-                "Only evidence material to the employer's decision, assessed rather than listed.",
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  item: stringField("The material evidence item."),
-                  tendsToEstablish: stringField(
-                    "What the evidence tends to establish."
-                  ),
-                  strength: {
-                    type: "string",
-                    enum: EVIDENCE_STRENGTHS,
-                  },
-                  limitations: stringField(
-                    "What the evidence does not establish or why its weight is limited."
-                  ),
-                },
-                required: [
-                  "item",
-                  "tendsToEstablish",
-                  "strength",
-                  "limitations",
-                ],
-              },
-            },
-            materialUnknowns: stringArray(
-              "Unknowns material to the current judgement, excluding merely useful information."
-            ),
-            decisionChangingInformation: stringArray(
-              "Only information whose answer could change the current recommendation."
-            ),
-          },
-          required: [
-            "establishedFacts",
-            "allegationsOrAssumptions",
-            "materialEvidence",
-            "materialUnknowns",
-            "decisionChangingInformation",
-          ],
-        },
-        actionPlan: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            doNow: stringArray(
-              "Concrete actions implementing the current recommendation. Each action must state its purpose or the position it advances; investigation, review, referral or a meeting alone is insufficient."
-            ),
-            doNotDoYet: stringArray(
-              "Actions the employer should avoid at this stage and the practical boundary to preserve."
-            ),
-            nextIf: {
-              type: "array",
-              description:
-                "Contingent next actions tied to specific material findings or conditions.",
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  condition: stringField(
-                    "The material condition or finding that determines the next action."
-                  ),
-                  action: stringField(
-                    "The specific action that follows if the condition is established."
-                  ),
-                },
-                required: ["condition", "action"],
-              },
-            },
-            unsupportedCommitments: stringArray(
-              "Promises, admissions, findings, legal assertions, deadlines, sanctions or outcomes not supported now."
-            ),
-          },
-          required: [
-            "doNow",
-            "doNotDoYet",
-            "nextIf",
-            "unsupportedCommitments",
-          ],
-        },
-        alternativeAssessment: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            rejectedOrRiskyAlternative: stringField(
-              "The obvious alternative course that is rejected or materially riskier."
-            ),
-            whyNotRecommended: stringField(
-              "Why that alternative is not recommended on the current facts."
-            ),
-          },
-          required: ["rejectedOrRiskyAlternative", "whyNotRecommended"],
-        },
-        authorityAndCompanyContext: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            verifiedLegalConstraints: stringArray(
-              "Verified legal, regulatory, Acas or contractual constraints that affect the recommendation."
-            ),
-            relevantCompanyContext: stringArray(
-              "Relevant policy, contract, practice or previous organisational context applied substantively."
-            ),
-            unresolvedAuthorityUncertainty: stringArray(
-              "Material authority uncertainty that remains unresolved and limits the advice."
-            ),
-          },
-          required: [
-            "verifiedLegalConstraints",
-            "relevantCompanyContext",
-            "unresolvedAuthorityUncertainty",
-          ],
-        },
-        communicationPriority: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            mustCommunicate: stringArray(
-              "Every material conclusion, legal or contractual qualification, protected-right issue, evidence gap, decision-changing fact and caveat that Call 2 must preserve."
-            ),
-            mayDefer: stringArray(
-              "Secondary detail that can safely be deferred without changing or weakening the employer advice."
-            ),
-          },
-          required: ["mustCommunicate", "mayDefer"],
-        },
-      },
-      required: [
-        "materialIssues",
-        "employerDecision",
-        "professionalRationale",
-        "evidencePosition",
-        "actionPlan",
-        "alternativeAssessment",
-        "authorityAndCompanyContext",
-        "communicationPriority",
-      ],
-    },
-  };
-}
-
-function buildMaterialIssueJsonSchema() {
-  return {
-    type: "object" as const,
-    additionalProperties: false,
-    properties: {
-      issue: {
-        type: "string" as const,
-        description: "A material issue identified from the facts.",
-      },
-      significance: {
-        type: "string" as const,
-        description:
-          "Why the issue could affect the employer's decision, obligations, risk or action.",
-      },
-      interactionWithOtherIssues: {
-        type: "array" as const,
-        description:
-          "How this issue interacts with other material issues in the same facts.",
-        items: { type: "string" as const },
-      },
-      authorityVerificationNeeded: {
-        type: "array" as const,
-        description:
-          "The legal, regulatory, contractual or guidance propositions requiring current verification.",
-        items: { type: "string" as const },
-      },
-    },
-    required: [
-      "issue",
-      "significance",
-      "interactionWithOtherIssues",
-      "authorityVerificationNeeded",
-    ],
-  };
-}
-
-export function buildIssueDiscoveryJsonSchema() {
-  return {
-    name: "leo_issue_discovery",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        materialIssues: {
-          type: "array",
-          description:
-            "Every material issue and authority question arising from the supplied workplace context.",
-          items: buildMaterialIssueJsonSchema(),
-        },
-      },
-      required: ["materialIssues"],
-    },
-  };
-}
-
-// Pure resolution logic for Call 1's result, kept separate from the live
-// OpenAI call so it can be unit tested with mock choice shapes.
-export function resolveAssessmentFromChoice(
-  choice:
-    | {
-        finish_reason: string | null;
-        message?: { content?: string | null } | null;
-      }
-    | undefined
-): LeoInternalAnalysis | null {
-  const finishReason = choice?.finish_reason;
-  const content = choice?.message?.content;
-
-  if (finishReason !== "stop" || !content) {
-    return null;
-  }
-
-  return parseInternalAnalysis(content);
-}
-
 export async function POST(req: Request) {
+  const askLeoTimingEnabled =
+    process.env.ASK_LEO_LOG_TIMINGS === "1";
+  const requestStartMs = performance.now();
+
   try {
+    const authOrgStartMs = performance.now();
+
     const supabase = await createClient();
 
     const {
@@ -835,6 +173,8 @@ export async function POST(req: Request) {
         ? body.contextSummary.trim()
         : "";
 
+    const authOrgMs = performance.now() - authOrgStartMs;
+
     const shouldPersistConversation =
       contextType !== "matter" &&
       !activeMatterId;
@@ -843,6 +183,9 @@ export async function POST(req: Request) {
       null;
 
     let userMessageAlreadyStored = false;
+
+    const conversationStartMs = performance.now();
+    let conversationMs = 0;
 
     if (shouldPersistConversation) {
       const ensuredConversation =
@@ -937,15 +280,10 @@ export async function POST(req: Request) {
       }
     }
 
-    /*
-     * 1. PROFESSIONAL THINKING
-     */
-
-    const thinkingResult =
-      runProfessionalThinking(message);
+    conversationMs = performance.now() - conversationStartMs;
 
     /*
-     * 2. OPERATIONAL ROUTING
+     * 1. OPERATIONAL ROUTING
      */
 
     const coreMessage = [
@@ -960,16 +298,43 @@ export async function POST(req: Request) {
     const coreResult = runLeoRouting(coreMessage);
 
     /*
-     * 3. FOUNDATIONS
+     * 2. ORGANISATION CONTEXT
      */
+
+    let foundationsMs = 0;
+    let documentPoliciesMs = 0;
+
+    const foundationPromise = (async () => {
+      const startMs = performance.now();
+      const result = await supabase
+        .from("organisation_foundations")
+        .select("section,key,value,source")
+        .eq("organisation_id", organisationId);
+      foundationsMs = performance.now() - startMs;
+      return result;
+    })();
+
+    const documentPoliciesPromise = (async () => {
+      const startMs = performance.now();
+      const result = await loadRelevantDocumentPolicies(
+        message,
+        organisationId,
+        supabase
+      );
+      documentPoliciesMs = performance.now() - startMs;
+      return result;
+    })();
+
+    const [foundationResult, documentPolicies] =
+      await Promise.all([
+        foundationPromise,
+        documentPoliciesPromise,
+      ]);
 
     const {
       data: foundationRows,
       error: foundationError,
-    } = await supabase
-      .from("organisation_foundations")
-      .select("section,key,value,source")
-      .eq("organisation_id", organisationId);
+    } = foundationResult;
 
     if (foundationError) {
       console.error(
@@ -998,18 +363,7 @@ export async function POST(req: Request) {
       ) ?? [];
 
     /*
-     * 6. HR RESOURCE DOCUMENT KNOWLEDGE
-     */
-
-    const documentPolicies =
-      await loadRelevantDocumentPolicies(
-        message,
-        organisationId,
-        supabase
-      );
-
-    /*
-     * 7. EXISTING SUPPLIED KNOWLEDGE
+     * 3. EXISTING SUPPLIED KNOWLEDGE
      */
 
     const suppliedPolicies: StoredPolicy[] =
@@ -1018,7 +372,7 @@ export async function POST(req: Request) {
         : [];
 
     /*
-     * 8. LEO KNOWLEDGE
+     * 4. LEO KNOWLEDGE
      */
 
     const organisationMemory = Array.isArray(
@@ -1056,72 +410,14 @@ export async function POST(req: Request) {
       });
 
     /*
-     * 9. PROFESSIONAL ISSUE DISCOVERY (Call 1A)
+     * 5. AUTHORITY EVIDENCE SERVICE
      */
 
-    const issueDiscoveryPrompt = buildIssueDiscoveryPrompt(
-      thinkingResult,
-      knowledgeResult
-    );
-    let issueDiscovery: LeoIssueDiscovery = {
-      materialIssues: [],
-    };
-
-    try {
-      const issueCompletion =
-        await client.chat.completions.create({
-          model: "gpt-4o",
-          temperature: 0.4,
-          stream: false,
-          response_format: {
-            type: "json_schema",
-            json_schema: buildIssueDiscoveryJsonSchema(),
-          },
-          messages: [
-            {
-              role: "system",
-              content: issueDiscoveryPrompt,
-            },
-            {
-              role: "user",
-              content: promptContext,
-            },
-          ],
-        });
-      const issueChoice = issueCompletion.choices[0];
-      const parsedDiscovery =
-        issueChoice?.finish_reason === "stop" &&
-        issueChoice.message.content
-          ? parseIssueDiscovery(issueChoice.message.content)
-          : null;
-
-      if (parsedDiscovery) {
-        issueDiscovery = parsedDiscovery;
-      } else {
-        console.error(
-          "Ask Leo issue discovery did not yield a usable issue map; authority research will use the employer question only.",
-          { finishReason: issueChoice?.finish_reason }
-        );
-      }
-    } catch (issueDiscoveryError) {
-      console.error(
-        "Ask Leo issue discovery failed; authority research will use the employer question only:",
-        issueDiscoveryError
-      );
-    }
-
-    const authorityResearchQuery = buildAuthorityResearchQuery(
-      message,
-      issueDiscovery
-    );
-
-    /*
-     * 10. AUTHORITY INFORMED BY PROFESSIONAL ISSUE DISCOVERY
-     */
+    const authorityStartMs = performance.now();
 
     const authorityResult =
       await runAuthorityEngine({
-        message: authorityResearchQuery,
+        message,
         intent: coreResult.intent,
         risk: coreResult.risk.overall,
         classification: coreResult.decision,
@@ -1129,31 +425,39 @@ export async function POST(req: Request) {
 
     const liveAuthorityResult =
       await researchLiveAuthority({
-        message: authorityResearchQuery,
+        message,
         staticAuthority: authorityResult,
-        storedAuthorityQuery: buildStoredAuthorityRelevanceQuery(
-          message,
-          issueDiscovery
-        ),
+        storedAuthorityQuery: message,
       });
+
+    const authorityTotalMs =
+      performance.now() - authorityStartMs;
+
+    // researchLiveAuthority() checks the stored-authority store internally
+    // before optionally falling through to live research; that internal
+    // split is not observable from here without redesigning it, so stored
+    // vs live time is attributed from the same measured total using the
+    // existing origin signal rather than measured independently.
+    const authorityOrigin = liveAuthorityResult.evidence.startsWith(
+      "VERIFIED AUTHORITY STORE RESULT"
+    )
+      ? "stored_authority"
+      : liveAuthorityResult.searched
+        ? "live_research"
+        : "none";
+    const storedAuthorityMs =
+      authorityOrigin === "stored_authority" ? authorityTotalMs : null;
+    const liveAuthorityMs =
+      authorityOrigin === "live_research" ? authorityTotalMs : null;
 
     if (
       process.env.NODE_ENV === "development" &&
       process.env.ASK_LEO_LOG_AUTHORITY === "true"
     ) {
-      const authorityOrigin = liveAuthorityResult.evidence.startsWith(
-        "VERIFIED AUTHORITY STORE RESULT"
-      )
-        ? "stored_authority"
-        : liveAuthorityResult.searched
-          ? "live_research"
-          : "none";
-
       console.log(
         "ASK LEO AUTHORITY DIAGNOSTIC (development only):\n",
         JSON.stringify(
           {
-            issueDiscovery: issueDiscovery.materialIssues,
             staticDetection: {
               authorities: authorityResult.applicableAuthorities.map(
                 (authority) => ({
@@ -1187,58 +491,8 @@ export async function POST(req: Request) {
     }
 
     /*
-     * 11. CONVERSATION INTELLIGENCE
+     * 6. MATTER RECOMMENDATION METADATA
      */
-
-    const conversationPlan =
-      buildConversationPlan({
-        message,
-        thinking: thinkingResult,
-      });
-
-    const conversationPrompt =
-      buildConversationPrompt({
-        plan: conversationPlan,
-      });
-
-    /*
-     * 10. RESPONSE ARCHITECTURE
-     */
-
-    const responseArchitecture =
-      buildResponseArchitecture({
-        message,
-        conversationPlan,
-      });
-
-    const responseFlowPrompt =
-      buildResponsePrompt({
-        architecture:
-          responseArchitecture,
-      });
-
-    const professionalSignals =
-      buildProfessionalSignalSet({
-        message,
-        routing: coreResult,
-        authority: authorityResult,
-        liveAuthority: liveAuthorityResult,
-        matterContextActive:
-          Boolean(activeMatterId) || contextType === "matter",
-      });
-
-    /*
-     * 11. PROMPT BUILDER - PRIVATE ASSESSMENT (Call 1)
-     */
-
-    const assessmentPrompt = buildAssessmentPrompt(
-      thinkingResult,
-      professionalSignals,
-      issueDiscovery,
-      authorityResult,
-      liveAuthorityResult,
-      knowledgeResult
-    );
 
     const matterRecommendation =
       evaluateMatterRecommendation({
@@ -1265,82 +519,25 @@ export async function POST(req: Request) {
     };
 
     /*
-     * 12. CALL 1 - PRIVATE PROFESSIONAL ASSESSMENT (non-streaming, structured JSON)
+     * 7. SINGLE PROFESSIONAL EMPLOYER-FACING MODEL INVOCATION
      */
 
-    let assessment: LeoInternalAnalysis | null = null;
+    const leoPrompt = buildAskLeoProfessionalPrompt({
+      promptContext,
+      routing: coreResult,
+      authority: authorityResult,
+      liveAuthority: liveAuthorityResult,
+      knowledge: knowledgeResult,
+      documentKnowledge,
+      matterRecommendation,
+    });
 
-    try {
-      const assessmentCompletion =
-        await client.chat.completions.create({
-          model: "gpt-4o",
-          temperature: 0.4,
-          stream: false,
-          response_format: {
-            type: "json_schema",
-            json_schema: buildInternalAnalysisJsonSchema(),
-          },
-          messages: [
-            {
-              role: "system",
-              content: assessmentPrompt,
-            },
-            {
-              role: "user",
-              content: promptContext,
-            },
-          ],
-        });
-
-      const assessmentChoice = assessmentCompletion.choices[0];
-
-      assessment = resolveAssessmentFromChoice(assessmentChoice);
-
-      if (!assessment) {
-        console.error(
-          "Ask Leo assessment call did not yield a usable structured assessment; continuing without one.",
-          { finishReason: assessmentChoice?.finish_reason }
-        );
-      } else if (
-        process.env.NODE_ENV === "development" &&
-        process.env.ASK_LEO_LOG_CALL_1 === "true"
-      ) {
-        console.log(
-          "ASK LEO CALL 1 DIAGNOSTIC (development only):\n",
-          JSON.stringify(assessment, null, 2)
-        );
-      }
-    } catch (assessmentError) {
-      console.error(
-        "Ask Leo assessment call failed; continuing without a structured assessment:",
-        assessmentError
-      );
-    }
-
-    /*
-     * 13. PROMPT BUILDER - EMPLOYER-FACING RESPONSE (Call 2)
-     */
-
-    const leoPrompt = buildEmployerResponsePrompt(
-      thinkingResult,
-      professionalSignals,
-      authorityResult,
-      liveAuthorityResult,
-      knowledgeResult,
-      conversationPlan,
-      conversationPrompt,
-      responseFlowPrompt,
-      assessment
-    );
-
-    /*
-     * 14. OPENAI - EMPLOYER-FACING STREAMED RESPONSE (Call 2)
-     */
+    const professionalModelStartMarkMs = performance.now();
 
     const completionStream =
       await client.chat.completions.create(
         {
-          model: "gpt-4o-mini",
+          model: "gpt-4o",
           temperature: 0.4,
           stream: true,
           messages: [
@@ -1355,6 +552,38 @@ export async function POST(req: Request) {
           ],
         }
       );
+
+    const professionalModelStartMs =
+      performance.now() - professionalModelStartMarkMs;
+
+    if (askLeoTimingEnabled) {
+      const totalPreStreamMs =
+        performance.now() - requestStartMs;
+
+      console.log(
+        "[ASK LEO TIMING]",
+        JSON.stringify({
+          totalPreStreamMs: Math.round(totalPreStreamMs),
+          authOrgMs: Math.round(authOrgMs),
+          conversationMs: Math.round(conversationMs),
+          foundationsMs: Math.round(foundationsMs),
+          documentPoliciesMs: Math.round(documentPoliciesMs),
+          storedAuthorityMs:
+            storedAuthorityMs === null
+              ? null
+              : Math.round(storedAuthorityMs),
+          liveAuthorityMs:
+            liveAuthorityMs === null
+              ? null
+              : Math.round(liveAuthorityMs),
+          authorityTotalMs: Math.round(authorityTotalMs),
+          professionalModelStartMs: Math.round(
+            professionalModelStartMs
+          ),
+          authorityOrigin,
+        })
+      );
+    }
 
     const encoder = new TextEncoder();
 
@@ -1456,11 +685,6 @@ export async function POST(req: Request) {
               );
             }
           }
-
-          console.log(
-            "LEO CONVERSATION PLAN:",
-            conversationPlan
-          );
 
           sendEvent({
             type: "done",
@@ -2367,140 +1591,12 @@ function evaluateMatterRecommendation(input: {
         };
 }
 
-function buildProfessionalSignalSet(input: {
-  message: string;
-  routing: LeoRoutingOutput;
-  authority: Awaited<ReturnType<typeof runAuthorityEngine>>;
-  liveAuthority: Awaited<ReturnType<typeof researchLiveAuthority>>;
-  matterContextActive: boolean;
-}): ProfessionalSignalSet {
-  const searchTerms = extractNeutralSearchTerms(input.message);
-
-  const possibleRelevantDomains = Array.from(
-    new Set([
-      input.routing.intent.replaceAll("_", " "),
-      ...input.authority.applicableAuthorities.map(
-        (authority) => authority.title
-      ),
-    ])
-  );
-
-  return {
-    possibleRelevantDomains,
-    authorityResearchNeeded: input.liveAuthority.required,
-    authoritySearchTerms: searchTerms,
-    companyContextSearchTerms: searchTerms,
-    operationalRisk: {
-      overall: input.routing.risk.overall,
-      legal: input.routing.risk.legal,
-      employee: input.routing.risk.employee,
-      business: input.routing.risk.business,
-      relationship: input.routing.risk.relationship,
-    },
-    workplaceRouting: {
-      intent: input.routing.intent,
-      category: input.routing.decision.category,
-      shouldCreateMatter: input.routing.requiresMatter,
-      matterContextActive: input.matterContextActive,
-    },
-  };
-}
-
-function buildAuthorityResearchQuery(
-  employerQuestion: string,
-  issueDiscovery: LeoIssueDiscovery
-): string {
-  if (issueDiscovery.materialIssues.length === 0) {
-    return employerQuestion;
-  }
-
-  const issueBrief = issueDiscovery.materialIssues
-    .map(
-      (item, index) =>
-        [
-          `${index + 1}. ${item.issue}`,
-          `Significance: ${item.significance}`,
-          `Interactions: ${
-            item.interactionWithOtherIssues.join("; ") || "None identified"
-          }`,
-          `Authority to verify: ${
-            item.authorityVerificationNeeded.join("; ") ||
-            "No specific proposition identified"
-          }`,
-        ].join("\n")
-    )
-    .join("\n\n");
-
-  return [
-    "EMPLOYER QUESTION",
-    employerQuestion,
-    "",
-    "PROFESSIONAL ISSUE MAP FOR AUTHORITY RESEARCH",
-    issueBrief,
-  ].join("\n");
-}
-
-// Stage 3.7 sufficiency matching needs only substantive employer/issue
-// terms; the formatted research scaffolding above dilutes term matching.
-function buildStoredAuthorityRelevanceQuery(
-  employerQuestion: string,
-  issueDiscovery: LeoIssueDiscovery
-): string {
-  const issueTerms = issueDiscovery.materialIssues
-    .map((item) => item.issue)
-    .filter(Boolean)
-    .join(" ");
-
-  return [employerQuestion, issueTerms].filter(Boolean).join(" ");
-}
-
 function readAuthoritySourceDomain(url: string): string {
   try {
     return new URL(url).hostname;
   } catch {
     return "Invalid source URL";
   }
-}
-
-function extractNeutralSearchTerms(message: string): string[] {
-  const ignoredTerms = new Set([
-    "about",
-    "after",
-    "before",
-    "could",
-    "employee",
-    "employer",
-    "from",
-    "have",
-    "should",
-    "that",
-    "their",
-    "there",
-    "they",
-    "this",
-    "what",
-    "when",
-    "where",
-    "which",
-    "with",
-    "would",
-    "your",
-  ]);
-
-  return Array.from(
-    new Set(
-      message
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s-]/gu, " ")
-        .split(/\s+/)
-        .map((term) => term.trim())
-        .filter(
-          (term) =>
-            term.length >= 3 &&
-            !ignoredTerms.has(term)
-        )
-    )
-  ).slice(0, 16);
 }
 
 function readConversationId(

@@ -57,6 +57,74 @@ const CLEARLY_NON_AUTHORITY_REQUESTS = [
   "fix the grammar",
 ];
 
+// Live web research is deliberately narrower than general HR authority
+// grounding. Leo can apply stable professional HR principles, company
+// context and stored verified authority without paying for a live lookup
+// on every substantive workplace question.
+const LIVE_CURRENTNESS_SIGNALS = [
+  "current ",
+  "currently ",
+  "latest ",
+  "today",
+  "as of ",
+  "right now",
+  "in force",
+  "come into force",
+  "comes into force",
+  "coming into force",
+  "commencement",
+  "commence",
+  "effective from",
+  "effective date",
+  "when does",
+  "when will",
+  "new law",
+  "new rules",
+  "new regulation",
+  "new regulations",
+  "proposed change",
+  "future change",
+  "has changed",
+  "changed recently",
+  "recent change",
+  "recent changes",
+];
+
+const LIVE_PRECISE_FACT_SIGNALS = [
+  "rate",
+  "amount",
+  "threshold",
+  "percentage",
+  "qualifying period",
+  "time limit",
+  "deadline",
+  "maximum",
+  "minimum",
+  "penalty",
+  "fine",
+  "statutory pay",
+  "statutory rate",
+  "effective date",
+  "commencement",
+  "transitional",
+];
+
+const LIVE_EXPLICIT_LEGAL_STATUS_SIGNALS = [
+  "what does the law say",
+  "what does legislation say",
+  "legally",
+  "is it lawful",
+  "is this lawful",
+  "is it legal",
+  "statutory",
+  "regulation",
+  "regulations",
+  "case law",
+  "tribunal decision",
+  "employment appeal tribunal",
+  "acas code",
+];
+
 function shouldResearchLiveAuthority(
   message: string
 ): boolean {
@@ -68,17 +136,70 @@ function shouldResearchLiveAuthority(
 
   if (
     CLEARLY_NON_AUTHORITY_REQUESTS.some(
-      (phrase) =>
-        text.startsWith(phrase)
+      (phrase) => text.startsWith(phrase)
     )
   ) {
     return false;
   }
 
-  // Ask Leo is an HR service. Substantive HR,
-  // employment-law, H&S, pensions and regulatory
-  // questions should be authority-grounded.
+  // Ask Leo remains authority-grounded for substantive HR work. This flag
+  // means authority is relevant in principle; a separate gate below decides
+  // whether a slow live web lookup is genuinely required.
   return true;
+}
+
+function extractEmployerQuestion(
+  researchMessage: string
+): string {
+  const marker = "PROFESSIONAL ISSUE MAP FOR AUTHORITY RESEARCH";
+  const employerMarker = "EMPLOYER QUESTION";
+
+  if (!researchMessage.includes(employerMarker)) {
+    return researchMessage.trim();
+  }
+
+  const afterEmployerMarker =
+    researchMessage.split(employerMarker)[1] || "";
+
+  return (afterEmployerMarker.split(marker)[0] || "")
+    .trim();
+}
+
+function containsAny(
+  value: string,
+  terms: string[]
+): boolean {
+  return terms.some((term) => value.includes(term));
+}
+
+function requiresLiveExternalVerification(
+  researchMessage: string
+): boolean {
+  const employerQuestion = extractEmployerQuestion(
+    researchMessage
+  ).toLowerCase();
+
+  if (!employerQuestion) {
+    return false;
+  }
+
+  // Live research is reserved for questions where the answer materially
+  // depends on a changing/current external proposition or where the employer
+  // explicitly asks Leo to determine legal/statutory status.
+  return (
+    containsAny(
+      employerQuestion,
+      LIVE_CURRENTNESS_SIGNALS
+    ) ||
+    containsAny(
+      employerQuestion,
+      LIVE_PRECISE_FACT_SIGNALS
+    ) ||
+    containsAny(
+      employerQuestion,
+      LIVE_EXPLICIT_LEGAL_STATUS_SIGNALS
+    )
+  );
 }
 
 function buildResearchInput(input: {
@@ -271,7 +392,10 @@ function collectCitedSources(
 ): LiveAuthoritySource[] {
   const availableSources = collectWebSources(payload);
   const titlesByUrl = new Map(
-    availableSources.map((source) => [normaliseSourceUrl(source.url), source.title])
+    availableSources.map((source) => [
+      normaliseSourceUrl(source.url),
+      source.title,
+    ])
   );
   const citedUrls = Array.from(
     evidence.matchAll(/https?:\/\/[^\s)\]]+/g),
@@ -282,7 +406,11 @@ function collectCitedSources(
   for (const rawUrl of citedUrls) {
     const url = normaliseSourceUrl(rawUrl);
 
-    if (!url || !sourceIsApproved(url) || citedSources.has(url)) {
+    if (
+      !url ||
+      !sourceIsApproved(url) ||
+      citedSources.has(url)
+    ) {
       continue;
     }
 
@@ -407,11 +535,9 @@ export async function researchLiveAuthority(
     };
   }
 
-  // FAST PATH:
-  // Use Leo's independently refreshed authority store
-  // when it contains relevant records verified within
-  // the freshness window. Match against the concise
-  // employer/issue terms, not the formatted research query.
+  // FAST PATH 1:
+  // Use Leo's independently refreshed authority store when it contains
+  // relevant records verified within the freshness window.
   const stored =
     await findStoredAuthority(
       input.storedAuthorityQuery || input.message
@@ -451,9 +577,39 @@ export async function researchLiveAuthority(
     };
   }
 
+  // FAST PATH 2:
+  // Do not treat every substantive HR question as a mandatory live web
+  // research job. If the employer's question does not materially depend on
+  // a changing/current external proposition, continue to Leo's professional
+  // assessment using stable principles, organisation context and static
+  // retrieval hints. The assessment remains prohibited from inventing any
+  // changing legal fact that has not been independently verified.
+  if (
+    !forceLiveAuthority &&
+    !requiresLiveExternalVerification(
+      input.message
+    )
+  ) {
+    return {
+      required: false,
+      searched: false,
+      verifiedCurrent: false,
+      queriedAt,
+      evidence:
+        "No live external-authority lookup was required for this request. Apply stable professional HR and employment-law principles, the supplied facts, relevant organisation context and proportionate professional judgement. Do not present changing rates, thresholds, dates, commencement positions, recent case developments or regulator powers as verified current facts unless independently verified.",
+      sources: [],
+      error:
+        stored.error &&
+        !stored.available
+          ? stored.error
+          : undefined,
+    };
+  }
+
   // SAFETY FALLBACK:
-  // If the store has no fresh relevant record,
-  // perform a live official-source lookup before Leo answers.
+  // The employer's answer depends on a changing/current external proposition,
+  // and the stored authority fast path was insufficient, so perform a live
+  // official-source lookup before Leo answers.
   const apiKey =
     process.env.OPENAI_API_KEY?.trim();
 

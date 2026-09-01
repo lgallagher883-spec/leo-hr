@@ -244,6 +244,30 @@ export function asStatus(
     : "uncertain";
 }
 
+// authority_type has a database CHECK constraint (postgres error 23514 if
+// violated); unlike legal_status this was never validated against the
+// allowed enum before being written, so a model-supplied value outside
+// this list must fall back to a known-safe value rather than be sent as-is.
+const ALLOWED_AUTHORITY_TYPES = [
+  "legislation",
+  "government",
+  "acas",
+  "hse",
+  "pensions_regulator",
+  "fair_work_agency",
+  "tribunal",
+  "appellate_case_law",
+  "regulator",
+];
+
+export function asAuthorityType(value: unknown): string {
+  const text = asText(value);
+
+  return ALLOWED_AUTHORITY_TYPES.includes(text)
+    ? text
+    : "government";
+}
+
 export function asSearchTerms(
   value: unknown,
   defaults: string[]
@@ -425,8 +449,7 @@ async function researchTopic(
       }
 
       const authorityType =
-        asText(item.authorityType) ||
-        "government";
+        asAuthorityType(item.authorityType);
 
       return {
         authority_key: authorityKey,

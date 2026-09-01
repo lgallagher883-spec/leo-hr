@@ -112,3 +112,31 @@ test("two candidates citing the same normalised source URL merge into one persis
 
   assert.equal(uniqueKeys.size, records.length);
 });
+
+// Regression for Postgres error 23514 (check_violation): authority_type has
+// a database CHECK constraint restricting it to a fixed enum, but it was
+// previously written through unvalidated free text. A model-supplied value
+// outside that enum must never reach the database as-is.
+const ALLOWED_AUTHORITY_TYPES = [
+  "legislation",
+  "government",
+  "acas",
+  "hse",
+  "pensions_regulator",
+  "fair_work_agency",
+  "tribunal",
+  "appellate_case_law",
+  "regulator",
+];
+
+test("an authority_type value outside the database's allowed enum is normalised, never sent as-is", () => {
+  const records = buildPersistableAuthorityRecords(
+    baseInput({
+      candidates: [candidate({ authorityType: "employment_tribunal" })],
+    })
+  );
+
+  assert.equal(records.length, 1);
+  assert.notEqual(records[0].authority_type, "employment_tribunal");
+  assert.ok(ALLOWED_AUTHORITY_TYPES.includes(records[0].authority_type));
+});

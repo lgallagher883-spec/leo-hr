@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     resource: `${origin}/api/mcp`,
-    authorization_servers: [`${supabaseUrl}/auth/v1`],
+    authorization_servers: [`${origin}/auth/v1`],
     scopes_supported: ["openid", "email", "profile"],
     bearer_methods_supported: ["header"],
     resource_documentation: `${origin}/dashboard/foundations/connections`,

@@ -101,6 +101,18 @@ export async function POST(request: Request) {
             "Employment Framework",
             "Organisation Structure",
             "Company Knowledge",
+            "Employee register: name, role, email, employment status and start date",
+            "Employee employment details: manager, probation end date, employment end date, reason for leaving and annual leave allowance",
+            "Employee timeline and related audit events where explicitly requested",
+          ],
+          prohibited_data: [
+            "medical information",
+            "DBS and safeguarding records",
+            "right to work documents and evidence",
+            "emergency contact details",
+            "employee document contents",
+            "banking and payroll details",
+            "SAR request contents",
           ],
           prohibited_actions: [
             "employee writes",
@@ -132,7 +144,11 @@ export async function POST(request: Request) {
       module_key: "Foundations",
       activity_type: "ChatGPT Connected",
       activity_summary: "ChatGPT read-only business assistant access approved.",
-      activity_details: { oauth_client_id: clientId, access_mode: "read_only" },
+      activity_details: {
+        oauth_client_id: clientId,
+        access_mode: "read_only",
+        permitted_data_categories: ["foundations", "limited_employee_record", "employee_timeline_on_request"],
+      },
     });
 
     return NextResponse.json({ success: true, connection: updateResult.data });

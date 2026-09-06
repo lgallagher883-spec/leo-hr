@@ -18,13 +18,7 @@ const tools = [
       properties: {
         section: {
           type: "string",
-          enum: [
-            "all",
-            "Company Profile",
-            "Employment Framework",
-            "Organisation Structure",
-            "Company Knowledge",
-          ],
+          enum: ["all", "Company Profile", "Employment Framework", "Organisation Structure", "Company Knowledge"],
           description: "The Foundations section to retrieve.",
         },
       },
@@ -36,18 +30,13 @@ const tools = [
         scopes: ["email", "profile"],
       },
     ],
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   {
     name: "leo_search_employees",
     title: "Search Leo employees",
     description:
-      "Read the authenticated organisation's employee register. Optionally search by name, role, email or status. Includes manager and employment/probation details where recorded. Read-only.",
+      "Read the authenticated organisation's limited employee register fields only: name, role, email, employment status, start date, manager, probation end date, employment end date, reason for leaving and annual leave allowance where recorded. Does not expose medical, DBS/safeguarding, right-to-work evidence, emergency contacts, document contents, banking/payroll or SAR data. Read-only.",
     inputSchema: {
       type: "object",
       properties: {
@@ -69,7 +58,7 @@ const tools = [
     name: "leo_get_employee",
     title: "Get Leo employee",
     description:
-      "Read one employee belonging to the authenticated organisation. Optionally include the employee timeline and related audit events. Read-only.",
+      "Read one employee belonging to the authenticated organisation using limited employment fields only. Optionally include the employee timeline and related audit events. Does not expose medical, DBS/safeguarding, right-to-work evidence, emergency contacts, document contents, banking/payroll or SAR data. Read-only.",
     inputSchema: {
       type: "object",
       properties: {
@@ -113,8 +102,6 @@ function toolResult(id: unknown, payload: Record<string, unknown>) {
 
 function oauthChallenge(request: Request, message: string) {
   const origin = new URL(request.url).origin;
-  const resourceMetadata = `${origin}/.well-known/oauth-protected-resource`;
-
   return NextResponse.json(
     {
       jsonrpc: "2.0",
@@ -124,31 +111,13 @@ function oauthChallenge(request: Request, message: string) {
     {
       status: 401,
       headers: {
-        "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadata}", scope="email profile"`,
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Expose-Headers": "WWW-Authenticate",
+        "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`,
       },
     },
   );
 }
 
-export async function GET(request: Request) {
-  const accept = request.headers.get("accept") || "";
-
-  // MCP Streamable HTTP clients may probe the endpoint with GET and
-  // Accept: text/event-stream. Leo is a stateless JSON-only MCP server and
-  // does not expose an SSE listener, so the MCP transport requires 405 here.
-  if (accept.includes("text/event-stream")) {
-    return new NextResponse(null, {
-      status: 405,
-      headers: {
-        Allow: "POST",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-
-  // Keep a lightweight browser/monitor health response for ordinary GETs.
+export async function GET() {
   return NextResponse.json({
     service: "Leo HR ChatGPT MCP",
     status: "available",
@@ -157,10 +126,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!request.headers.get("authorization")) {
-    return oauthChallenge(request, "Authentication is required to connect ChatGPT to Leo HR.");
-  }
-
   let body: {
     jsonrpc?: string;
     id?: unknown;
@@ -174,16 +139,6 @@ export async function POST(request: Request) {
     return rpcError(null, -32700, "Invalid JSON-RPC request.", 400);
   }
 
-  const authentication = await authenticateChatGptMcpRequest(request);
-
-  if (!authentication.ok) {
-    if (authentication.status === 401) {
-      return oauthChallenge(request, authentication.message);
-    }
-
-    return rpcError(body.id, -32003, authentication.message, 403);
-  }
-
   if (body.method === "initialize") {
     return rpcResult(body.id, {
       protocolVersion,
@@ -194,7 +149,7 @@ export async function POST(request: Request) {
         version: "0.1.0",
       },
       instructions:
-        "Leo HR provides organisation-approved, read-only business context. Do not infer access to data that is not returned by a Leo tool.",
+        "Leo HR provides organisation-approved, read-only business and limited workforce context. Only use data returned by an approved Leo tool. Do not infer access to sensitive employee data or any data that has not been returned.",
     });
   }
 
@@ -212,6 +167,16 @@ export async function POST(request: Request) {
 
   if (body.method !== "tools/call") {
     return rpcError(body.id, -32601, "Method not found.");
+  }
+
+  const authentication = await authenticateChatGptMcpRequest(request);
+
+  if (!authentication.ok) {
+    if (authentication.status === 401) {
+      return oauthChallenge(request, authentication.message);
+    }
+
+    return rpcError(body.id, -32003, authentication.message, 403);
   }
 
   const toolName = String(body.params?.name || "");
@@ -309,6 +274,8 @@ export async function POST(request: Request) {
     }> = [];
 
     if (ids.length > 0) {
+      // The employee IDs in this list come only from the organisation-scoped
+      // employee query above. No caller-supplied employee IDs are used here.
       const detailResult = await authentication.context.supabase
         .from("employee_employment_details")
         .select("employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance")
@@ -348,6 +315,9 @@ export async function POST(request: Request) {
     }
 
     const includeTimeline = args.include_timeline === true;
+
+    // This organisation-scoped parent lookup is the tenant boundary for every
+    // child employment/timeline query below.
     const employeeResult = await authentication.context.supabase
       .from("employees")
       .select("id,name,role,email,status,start_date")
@@ -358,6 +328,9 @@ export async function POST(request: Request) {
     if (employeeResult.error) return rpcError(body.id, -32000, "Leo could not retrieve the employee record.", 500);
     if (!employeeResult.data) return rpcError(body.id, -32004, "The employee record could not be found or accessed.", 404);
 
+    // Only reached after the employee has been proven to belong to the
+    // authenticated organisation. This avoids assuming employee_employment_details
+    // has an organisation_id column that may not exist in the current schema.
     const employmentResult = await authentication.context.supabase
       .from("employee_employment_details")
       .select("employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance")

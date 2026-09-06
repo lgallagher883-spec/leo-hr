@@ -30,6 +30,12 @@ const tools = [
       },
       additionalProperties: false,
     },
+    securitySchemes: [
+      {
+        type: "oauth2",
+        scopes: ["email", "profile"],
+      },
+    ],
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -56,6 +62,8 @@ function rpcError(id: unknown, code: number, message: string, status = 200) {
 
 function oauthChallenge(request: Request, message: string) {
   const origin = new URL(request.url).origin;
+  const resourceMetadata = `${origin}/.well-known/oauth-protected-resource`;
+
   return NextResponse.json(
     {
       jsonrpc: "2.0",
@@ -65,7 +73,9 @@ function oauthChallenge(request: Request, message: string) {
     {
       status: 401,
       headers: {
-        "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`,
+        "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadata}", scope="email profile"`,
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Expose-Headers": "WWW-Authenticate",
       },
     },
   );
@@ -80,6 +90,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!request.headers.get("authorization")) {
+    return oauthChallenge(request, "Authentication is required to connect ChatGPT to Leo HR.");
+  }
+
   let body: {
     jsonrpc?: string;
     id?: unknown;
@@ -91,6 +105,16 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     return rpcError(null, -32700, "Invalid JSON-RPC request.", 400);
+  }
+
+  const authentication = await authenticateChatGptMcpRequest(request);
+
+  if (!authentication.ok) {
+    if (authentication.status === 401) {
+      return oauthChallenge(request, authentication.message);
+    }
+
+    return rpcError(body.id, -32003, authentication.message, 403);
   }
 
   if (body.method === "initialize") {
@@ -121,16 +145,6 @@ export async function POST(request: Request) {
 
   if (body.method !== "tools/call") {
     return rpcError(body.id, -32601, "Method not found.");
-  }
-
-  const authentication = await authenticateChatGptMcpRequest(request);
-
-  if (!authentication.ok) {
-    if (authentication.status === 401) {
-      return oauthChallenge(request, authentication.message);
-    }
-
-    return rpcError(body.id, -32003, authentication.message, 403);
   }
 
   const toolName = String(body.params?.name || "");

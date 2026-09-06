@@ -30,8 +30,10 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+type LeoSupabaseClient = ReturnType<typeof createSupabaseClient>;
+
 export type ChatGptMcpContext = {
-  supabase: ReturnType<typeof createSupabaseClient>;
+  supabase: LeoSupabaseClient;
   userId: string;
   organisationId: string;
   role: "Owner" | "Senior";
@@ -66,18 +68,22 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
+  const supabase: LeoSupabaseClient = createSupabaseClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
       },
     },
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
-  });
+  );
 
   const userResult = await supabase.auth.getUser(token);
 

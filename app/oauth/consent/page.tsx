@@ -6,7 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthorizationDetails = {
-  client?: { name?: string | null; client_id?: string | null } | null;
+  authorization_id?: string;
+  redirect_url?: string;
+  client?: { id?: string | null; name?: string | null } | null;
 };
 
 function ConsentLoading() {
@@ -55,6 +57,14 @@ function OAuthConsentContent() {
         throw detailsError || new Error("The ChatGPT authorisation request is unavailable.");
       }
 
+      if (!("authorization_id" in data)) {
+        if ("redirect_url" in data && data.redirect_url) {
+          window.location.assign(data.redirect_url);
+          return;
+        }
+        throw new Error("The ChatGPT authorisation request could not be continued.");
+      }
+
       setDetails(data as AuthorizationDetails);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The connection request could not be loaded.");
@@ -71,7 +81,7 @@ function OAuthConsentContent() {
 
     try {
       if (approved) {
-        const clientId = details?.client?.client_id || null;
+        const clientId = details?.client?.id || null;
         const clientName = details?.client?.name || "ChatGPT";
         const approvalResponse = await fetch("/api/foundations/connections/chatgpt/approve", {
           method: "POST",

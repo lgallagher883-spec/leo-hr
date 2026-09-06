@@ -103,7 +103,7 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {
+  const resolvedRole = await resolveAuthoritativeUserRole(supabase, {
     userId: userResult.data.user.id,
     allowedStatuses: ["active", "accepted"],
   });
@@ -124,7 +124,7 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  const providerResult = await (supabase as any)
+  const providerResult = await supabase
     .from("connection_providers")
     .select("id")
     .eq("provider_key", "chatgpt")
@@ -140,7 +140,7 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  const connectionResult = await (supabase as any)
+  const connectionResult = await supabase
     .from("organisation_connections")
     .select(
       "id, status, external_account_id, connection_settings, is_archived",

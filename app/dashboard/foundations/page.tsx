@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,52 +15,56 @@ export default function FoundationsPage() {
   const router = useRouter();
 
   const [facts, setFacts] = useState<FoundationFact[]>([]);
+  const [canManageConnections, setCanManageConnections] = useState(false);
 
   useEffect(() => {
-    async function loadFacts() {
+    async function loadPage() {
       try {
-        const response = await fetch(
-          "/api/foundations",
-          {
+        const [foundationsResponse, connectionsResponse] = await Promise.all([
+          fetch("/api/foundations", {
             method: "GET",
             cache: "no-store",
             credentials: "include",
             headers: {
               Accept: "application/json",
             },
-          }
-        );
+          }),
+          fetch("/api/foundations/connections", {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+            },
+          }),
+        ]);
 
-        const result = await response
+        const foundationsResult = await foundationsResponse
           .json()
           .catch(() => null);
 
-        if (
-          !response.ok ||
-          !result?.success
-        ) {
+        if (!foundationsResponse.ok || !foundationsResult?.success) {
           throw new Error(
-            result?.error ||
+            foundationsResult?.error ||
               "Foundation facts could not be loaded."
           );
         }
 
         setFacts(
-          Array.isArray(result.facts)
-            ? (result.facts as FoundationFact[])
+          Array.isArray(foundationsResult.facts)
+            ? (foundationsResult.facts as FoundationFact[])
             : []
         );
-      } catch (error) {
-        console.error(
-          "Error loading foundation facts:",
-          error
-        );
 
+        setCanManageConnections(connectionsResponse.ok);
+      } catch (error) {
+        console.error("Error loading foundation facts:", error);
         setFacts([]);
+        setCanManageConnections(false);
       }
     }
 
-    loadFacts();
+    loadPage();
   }, []);
 
   function getSectionFacts(section: string) {
@@ -187,15 +191,17 @@ return sectionFacts
           }
         />
 
-        <FoundationCard
-  title="Connections"
-  description="Connect trusted platforms Leo can work with."
-  detail="Manage approved connections for Microsoft, Google, Canva, Xero, ElevenLabs and other supported services."
-  buttonLabel="Manage"
-  onClick={() =>
-    router.push("/dashboard/foundations/connections")
-  }
-/>
+        {canManageConnections ? (
+          <FoundationCard
+            title="Connections"
+            description="Connect trusted platforms Leo can work with."
+            detail="Manage approved connections for Microsoft, Google, Canva, Xero, ElevenLabs and other supported services."
+            buttonLabel="Manage"
+            onClick={() =>
+              router.push("/dashboard/foundations/connections")
+            }
+          />
+        ) : null}
 
         <FoundationCard
           title="Notifications"

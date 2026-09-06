@@ -352,6 +352,11 @@ export default function ConnectionsPage() {
       },
     });
 
+    if (response.status === 403) {
+      router.replace("/dashboard/foundations");
+      throw new Error("Connections access requires Owner or Senior permission.");
+    }
+
     const result = (await response.json()) as T & {
       success?: boolean;
       error?: string;
@@ -378,6 +383,11 @@ export default function ConnectionsPage() {
           cache: "no-store",
         }
       );
+
+      if (response.status === 403) {
+        router.replace("/dashboard/foundations");
+        return;
+      }
 
       const result = (await response.json()) as {
         success?: boolean;

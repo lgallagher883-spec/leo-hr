@@ -1,11 +1,23 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
-export default function OAuthLoginPage() {
+function LoginLoading() {
+  return (
+    <main style={{ minHeight: "100vh", background: "#F7F1FC", padding: "48px 20px", fontFamily: "Arial, sans-serif" }}>
+      <section style={{ maxWidth: 520, margin: "0 auto", background: "white", borderRadius: 20, padding: 32, boxShadow: "0 18px 50px rgba(62, 39, 77, 0.12)" }}>
+        <div style={{ color: "#6E5084", fontWeight: 800 }}>LEO HR™</div>
+        <h1>Sign in to approve ChatGPT</h1>
+        <p>Loading secure sign-in…</p>
+      </section>
+    </main>
+  );
+}
+
+function OAuthLoginContent() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
@@ -62,5 +74,13 @@ export default function OAuthLoginPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+export default function OAuthLoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <OAuthLoginContent />
+    </Suspense>
   );
 }

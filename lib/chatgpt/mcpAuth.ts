@@ -55,10 +55,6 @@ function createAdminSupabaseClient(url: string, serviceRoleKey: string) {
   });
 }
 
-function authDiagnostic(reason: string, details?: Record<string, unknown>) {
-  console.warn("[chatgpt-mcp-auth]", reason, details || {});
-}
-
 type LeoSupabaseClient = ReturnType<typeof createOauthSupabaseClient>;
 
 export type ChatGptMcpContext = {
@@ -70,6 +66,10 @@ export type ChatGptMcpContext = {
   connectionId: number;
 };
 
+function authLog(event: string, details?: Record<string, unknown>) {
+  console.warn("[chatgpt-mcp-auth]", event, details || {});
+}
+
 export async function authenticateChatGptMcpRequest(
   request: Request,
 ): Promise<
@@ -79,7 +79,7 @@ export async function authenticateChatGptMcpRequest(
   const token = readBearerToken(request);
 
   if (!token) {
-    authDiagnostic("missing_bearer_token");
+    authLog("missing_bearer_token");
     return {
       ok: false,
       status: 401,
@@ -92,8 +92,8 @@ export async function authenticateChatGptMcpRequest(
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-    authDiagnostic("missing_server_auth_configuration", {
-      hasUrl: Boolean(supabaseUrl),
+    authLog("server_auth_configuration_missing", {
+      hasSupabaseUrl: Boolean(supabaseUrl),
       hasAnonKey: Boolean(supabaseAnonKey),
       hasServiceRoleKey: Boolean(serviceRoleKey),
     });
@@ -114,8 +114,8 @@ export async function authenticateChatGptMcpRequest(
   const userResult = await supabase.auth.getUser(token);
 
   if (userResult.error || !userResult.data.user) {
-    authDiagnostic("invalid_or_expired_token", {
-      supabaseCode: userResult.error?.code || null,
+    authLog("oauth_token_invalid", {
+      errorCode: userResult.error?.code || null,
     });
     return {
       ok: false,
@@ -131,7 +131,7 @@ export async function authenticateChatGptMcpRequest(
       : "";
 
   if (!oauthClientId) {
-    authDiagnostic("missing_oauth_client_id_claim");
+    authLog("oauth_client_id_missing_from_token");
     return {
       ok: false,
       status: 401,
@@ -145,7 +145,7 @@ export async function authenticateChatGptMcpRequest(
   });
 
   if (!resolvedRole) {
-    authDiagnostic("no_active_organisation");
+    authLog("authoritative_role_not_found");
     return {
       ok: false,
       status: 403,
@@ -154,7 +154,7 @@ export async function authenticateChatGptMcpRequest(
   }
 
   if (resolvedRole.role !== "Owner" && resolvedRole.role !== "Senior") {
-    authDiagnostic("insufficient_role", { role: resolvedRole.role });
+    authLog("role_not_authorised", { role: resolvedRole.role });
     return {
       ok: false,
       status: 403,
@@ -162,9 +162,11 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  // connection_providers is intentionally not readable through end-user RLS.
-  // Resolve the catalogue row server-side, then continue all organisation-scoped
-  // checks with the caller's bearer-authenticated client so RLS still applies.
+  // The provider catalogue and organisation connection records are resolved
+  // server-side after the caller's identity, active organisation and Owner/Senior
+  // role have been established from the OAuth bearer token. This avoids relying
+  // on platform-operations RLS policies for connector bootstrap while retaining
+  // exact organisation and approved-client binding below.
   const providerResult = await admin
     .from("connection_providers")
     .select("id")
@@ -174,7 +176,7 @@ export async function authenticateChatGptMcpRequest(
     .maybeSingle();
 
   if (providerResult.error || !providerResult.data?.id) {
-    authDiagnostic("provider_lookup_failed", {
+    authLog("provider_lookup_failed", {
       code: providerResult.error?.code || null,
     });
     return {
@@ -184,7 +186,7 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  const connectionResult = await supabase
+  const connectionResult = await admin
     .from("organisation_connections")
     .select(
       "id, status, external_account_id, connection_settings, is_archived",
@@ -195,9 +197,8 @@ export async function authenticateChatGptMcpRequest(
     .maybeSingle();
 
   if (connectionResult.error || !connectionResult.data) {
-    authDiagnostic("organisation_connection_lookup_failed", {
+    authLog("organisation_connection_lookup_failed", {
       code: connectionResult.error?.code || null,
-      hasRow: Boolean(connectionResult.data),
     });
     return {
       ok: false,
@@ -220,8 +221,8 @@ export async function authenticateChatGptMcpRequest(
       : connection.external_account_id) || "";
 
   if (connection.status !== "Connected" || approvedClientId !== oauthClientId) {
-    authDiagnostic("connection_approval_mismatch", {
-      status: connection.status,
+    authLog("connection_approval_mismatch", {
+      connected: connection.status === "Connected",
       clientIdMatches: approvedClientId === oauthClientId,
     });
     return {
@@ -232,7 +233,7 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  authDiagnostic("authenticated", { role: resolvedRole.role });
+  authLog("authenticated");
 
   return {
     ok: true,

@@ -32,7 +32,7 @@ export default function OAuthConsentPage() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         const returnTo = encodeURIComponent(window.location.href);
-        router.replace(`/login?returnTo=${returnTo}`);
+        router.replace(`/oauth/login?returnTo=${returnTo}`);
         return;
       }
 

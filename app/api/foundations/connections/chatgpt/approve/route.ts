@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Please sign in to Leo before approving ChatGPT." }, { status: 401 });
     }
 
-    const role = await resolveAuthoritativeUserRole(supabase as any, {
+    const role = await resolveAuthoritativeUserRole(supabase, {
       userId: userResult.data.user.id,
       allowedStatuses: ["active", "accepted"],
     });
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "The ChatGPT OAuth client ID is unavailable." }, { status: 400 });
     }
 
-    const providerResult = await (admin as any)
+    const providerResult = await admin
       .from("connection_providers")
       .select("id")
       .eq("provider_key", "chatgpt")
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "The ChatGPT provider is not configured." }, { status: 404 });
     }
 
-    const connectionResult = await (admin as any)
+    const connectionResult = await admin
       .from("organisation_connections")
       .select("id, connection_settings")
       .eq("organisation_id", role.membership.organisation_id)
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         : {};
 
     const now = new Date().toISOString();
-    const updateResult = await (admin as any)
+    const updateResult = await admin
       .from("organisation_connections")
       .update({
         status: "Connected",
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: updateResult.error?.message || "The ChatGPT connection could not be approved." }, { status: 500 });
     }
 
-    await (admin as any).from("connection_activity_history").insert({
+    await admin.from("connection_activity_history").insert({
       organisation_id: role.membership.organisation_id,
       performed_by_user_id: userResult.data.user.id,
       provider_id: providerResult.data.id,

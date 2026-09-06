@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     jsonrpc?: string;
     id?: unknown;
     method?: string;
-    params?: Record<string, any>;
+    params?: Record<string, unknown>;
   };
 
   try {
@@ -134,7 +134,11 @@ export async function POST(request: Request) {
   }
 
   const toolName = String(body.params?.name || "");
-  const args = (body.params?.arguments || {}) as Record<string, unknown>;
+  const rawArguments = body.params?.arguments;
+  const args =
+    rawArguments && typeof rawArguments === "object" && !Array.isArray(rawArguments)
+      ? (rawArguments as Record<string, unknown>)
+      : {};
 
   if (toolName !== "leo_get_company_context") {
     return rpcError(body.id, -32602, "Unknown Leo tool.");
@@ -157,7 +161,7 @@ export async function POST(request: Request) {
     return rpcError(body.id, -32602, "The requested Foundations section is invalid.");
   }
 
-  let query = (authentication.context.supabase as any)
+  let query = authentication.context.supabase
     .from("organisation_foundations")
     .select("section,key,value,source")
     .eq("organisation_id", authentication.context.organisationId)

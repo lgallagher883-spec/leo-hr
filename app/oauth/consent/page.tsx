@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
 type AuthorizationDetails = {
-  authorizationUrl?: string;
   client?: { name?: string | null; client_id?: string | null } | null;
 };
 
 export default function OAuthConsentPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
+  const authorizationId = searchParams.get("authorization_id") || "";
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -20,10 +21,14 @@ export default function OAuthConsentPage() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [authorizationId]);
 
   async function load() {
     try {
+      if (!authorizationId) {
+        throw new Error("The ChatGPT authorisation request is missing its secure request ID.");
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         const returnTo = encodeURIComponent(window.location.href);
@@ -32,7 +37,7 @@ export default function OAuthConsentPage() {
       }
 
       const { data, error: detailsError } =
-        await supabase.auth.oauth.getAuthorizationDetails();
+        await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
 
       if (detailsError || !data) {
         throw detailsError || new Error("The ChatGPT authorisation request is unavailable.");
@@ -47,18 +52,12 @@ export default function OAuthConsentPage() {
   }
 
   async function decide(approved: boolean) {
+    if (!authorizationId) return;
+
     setSubmitting(true);
     setError("");
 
     try {
-      const { data, error: decisionError } = approved
-        ? await supabase.auth.oauth.approveAuthorization()
-        : await supabase.auth.oauth.denyAuthorization();
-
-      if (decisionError || !data?.redirect_to) {
-        throw decisionError || new Error("The authorisation decision could not be completed.");
-      }
-
       if (approved) {
         const clientId = details?.client?.client_id || null;
         const clientName = details?.client?.name || "ChatGPT";
@@ -74,7 +73,15 @@ export default function OAuthConsentPage() {
         }
       }
 
-      window.location.assign(data.redirect_to);
+      const { data, error: decisionError } = approved
+        ? await supabase.auth.oauth.approveAuthorization(authorizationId)
+        : await supabase.auth.oauth.denyAuthorization(authorizationId);
+
+      if (decisionError || !data?.redirect_url) {
+        throw decisionError || new Error("The authorisation decision could not be completed.");
+      }
+
+      window.location.assign(data.redirect_url);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The authorisation decision could not be completed.");
       setSubmitting(false);
@@ -104,14 +111,16 @@ export default function OAuthConsentPage() {
 
             {error && <div style={{ marginBottom: 18, color: "#9b1c1c" }}>{error}</div>}
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" disabled={submitting} onClick={() => void decide(true)} style={{ border: 0, borderRadius: 10, padding: "12px 18px", background: "#6E5084", color: "white", fontWeight: 700, cursor: "pointer" }}>
-                {submitting ? "Connecting…" : "Approve connection"}
-              </button>
-              <button type="button" disabled={submitting} onClick={() => void decide(false)} style={{ border: "1px solid #cfc7d4", borderRadius: 10, padding: "12px 18px", background: "white", color: "#3d3541", fontWeight: 700, cursor: "pointer" }}>
-                Cancel
-              </button>
-            </div>
+            {!error && (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <button type="button" disabled={submitting} onClick={() => void decide(true)} style={{ border: 0, borderRadius: 10, padding: "12px 18px", background: "#6E5084", color: "white", fontWeight: 700, cursor: "pointer" }}>
+                  {submitting ? "Connecting…" : "Approve connection"}
+                </button>
+                <button type="button" disabled={submitting} onClick={() => void decide(false)} style={{ border: "1px solid #cfc7d4", borderRadius: 10, padding: "12px 18px", background: "white", color: "#3d3541", fontWeight: 700, cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            )}
           </>
         )}
       </section>

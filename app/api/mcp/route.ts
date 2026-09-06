@@ -81,7 +81,23 @@ function oauthChallenge(request: Request, message: string) {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const accept = request.headers.get("accept") || "";
+
+  // MCP Streamable HTTP clients may probe the endpoint with GET and
+  // Accept: text/event-stream. Leo is a stateless JSON-only MCP server and
+  // does not expose an SSE listener, so the MCP transport requires 405 here.
+  if (accept.includes("text/event-stream")) {
+    return new NextResponse(null, {
+      status: 405,
+      headers: {
+        Allow: "POST",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
+  // Keep a lightweight browser/monitor health response for ordinary GETs.
   return NextResponse.json({
     service: "Leo HR ChatGPT MCP",
     status: "available",

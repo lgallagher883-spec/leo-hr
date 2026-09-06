@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
@@ -9,7 +9,19 @@ type AuthorizationDetails = {
   client?: { name?: string | null; client_id?: string | null } | null;
 };
 
-export default function OAuthConsentPage() {
+function ConsentLoading() {
+  return (
+    <main style={{ minHeight: "100vh", background: "#F7F1FC", padding: "48px 20px", fontFamily: "Arial, sans-serif" }}>
+      <section style={{ maxWidth: 640, margin: "0 auto", background: "white", borderRadius: 20, padding: 32, boxShadow: "0 18px 50px rgba(62, 39, 77, 0.12)" }}>
+        <div style={{ color: "#6E5084", fontWeight: 800, letterSpacing: 0.4 }}>LEO HR™</div>
+        <h1 style={{ margin: "12px 0 10px", fontSize: 30 }}>Connect ChatGPT to Leo</h1>
+        <p>Loading secure connection request…</p>
+      </section>
+    </main>
+  );
+}
+
+function OAuthConsentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
@@ -125,5 +137,13 @@ export default function OAuthConsentPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function OAuthConsentPage() {
+  return (
+    <Suspense fallback={<ConsentLoading />}>
+      <OAuthConsentContent />
+    </Suspense>
   );
 }

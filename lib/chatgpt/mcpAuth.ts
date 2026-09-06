@@ -45,6 +45,16 @@ function createOauthSupabaseClient(url: string, anonKey: string, token: string) 
   });
 }
 
+function createAdminSupabaseClient(url: string, serviceRoleKey: string) {
+  return createSupabaseClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 type LeoSupabaseClient = ReturnType<typeof createOauthSupabaseClient>;
 
 export type ChatGptMcpContext = {
@@ -74,8 +84,9 @@ export async function authenticateChatGptMcpRequest(
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
     return {
       ok: false,
       status: 401,
@@ -88,6 +99,7 @@ export async function authenticateChatGptMcpRequest(
     supabaseAnonKey,
     token,
   );
+  const admin = createAdminSupabaseClient(supabaseUrl, serviceRoleKey);
 
   const userResult = await supabase.auth.getUser(token);
 
@@ -134,7 +146,10 @@ export async function authenticateChatGptMcpRequest(
     };
   }
 
-  const providerResult = await supabase
+  // connection_providers is intentionally not readable through end-user RLS.
+  // Resolve the catalogue row server-side, then continue all organisation-scoped
+  // checks with the caller's bearer-authenticated client so RLS still applies.
+  const providerResult = await admin
     .from("connection_providers")
     .select("id")
     .eq("provider_key", "chatgpt")

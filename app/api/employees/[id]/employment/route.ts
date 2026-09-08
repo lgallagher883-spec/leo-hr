@@ -25,9 +25,48 @@ type EmploymentUpdateBody = {
   employment_end_date?: unknown;
   reason_for_leaving?: unknown;
   annual_leave_allowance?: unknown;
+  contracted_hours_per_week?: unknown;
+  contracted_days_per_week?: unknown;
+  working_days?: unknown;
+  working_pattern_type?: unknown;
+  part_year_worker?: unknown;
+  holiday_year_start_month?: unknown;
+  holiday_year_start_day?: unknown;
+  leave_entitlement_basis?: unknown;
+  bank_holiday_treatment?: unknown;
+  reserved_leave_days?: unknown;
 };
 
 export const dynamic = "force-dynamic";
+
+const EMPLOYMENT_DETAILS_SELECT =
+  "id,employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,contracted_hours_per_week,contracted_days_per_week,working_days,working_pattern_type,part_year_worker,holiday_year_start_month,holiday_year_start_day,leave_entitlement_basis,bank_holiday_treatment,reserved_leave_days,created_at,updated_at";
+
+const WORKING_DAYS = new Set([
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+]);
+
+const WORKING_PATTERN_TYPES = new Set([
+  "Fixed days",
+  "Fixed hours",
+  "Irregular hours",
+]);
+
+const LEAVE_ENTITLEMENT_BASES = new Set([
+  "Statutory",
+  "Contractual",
+]);
+
+const BANK_HOLIDAY_TREATMENTS = new Set([
+  "Included",
+  "Additional",
+]);
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -63,6 +102,114 @@ function readOptionalString(value: unknown): string | null {
 
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function readOptionalChoice(
+  value: unknown,
+  allowedValues: Set<string>,
+): string | null {
+  const text = readOptionalString(value);
+
+  if (!text || text === "Not set") return null;
+  if (!allowedValues.has(text)) {
+    throw new Error(`The selected value "${text}" is invalid.`);
+  }
+
+  return text;
+}
+
+function readOptionalNumber(
+  value: unknown,
+  {
+    minimum,
+    maximum,
+    label,
+  }: {
+    minimum: number;
+    maximum: number;
+    label: string;
+  },
+): number | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < minimum ||
+    parsed > maximum
+  ) {
+    throw new Error(
+      `${label} must be between ${minimum} and ${maximum}.`,
+    );
+  }
+
+  return parsed;
+}
+
+function readOptionalInteger(
+  value: unknown,
+  {
+    minimum,
+    maximum,
+    label,
+  }: {
+    minimum: number;
+    maximum: number;
+    label: string;
+  },
+): number | null {
+  const parsed = readOptionalNumber(value, {
+    minimum,
+    maximum,
+    label,
+  });
+
+  if (parsed === null) return null;
+
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label} must be a whole number.`);
+  }
+
+  return parsed;
+}
+
+function readOptionalBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (value === "true") return true;
+  if (value === "false") return false;
+
+  throw new Error("The part-year worker value is invalid.");
+}
+
+function readWorkingDays(value: unknown): string[] | null {
+  if (value === null || value === undefined) return null;
+  if (!Array.isArray(value)) {
+    throw new Error("Working days must be supplied as a list.");
+  }
+
+  const days = Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const invalidDay = days.find((day) => !WORKING_DAYS.has(day));
+
+  if (invalidDay) {
+    throw new Error(`"${invalidDay}" is not a valid working day.`);
+  }
+
+  return days.length > 0 ? days : null;
 }
 
 function normaliseEmployeeStatus(value: unknown): string {
@@ -303,9 +450,7 @@ export async function GET(
 
     const detailsResult = await admin
       .from("employee_employment_details")
-      .select(
-        "id,employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,created_at,updated_at",
-      )
+      .select(EMPLOYMENT_DETAILS_SELECT)
       .eq("employee_id", employeeId)
       .maybeSingle();
 
@@ -324,6 +469,16 @@ export async function GET(
           employment_end_date: null,
           reason_for_leaving: null,
           annual_leave_allowance: null,
+          contracted_hours_per_week: null,
+          contracted_days_per_week: null,
+          working_days: null,
+          working_pattern_type: null,
+          part_year_worker: null,
+          holiday_year_start_month: null,
+          holiday_year_start_day: null,
+          leave_entitlement_basis: null,
+          bank_holiday_treatment: null,
+          reserved_leave_days: null,
         },
       },
       {
@@ -465,6 +620,62 @@ export async function PATCH(
       annual_leave_allowance: readOptionalString(
         updates.annual_leave_allowance,
       ),
+      contracted_hours_per_week: readOptionalNumber(
+        updates.contracted_hours_per_week,
+        {
+          minimum: 0,
+          maximum: 168,
+          label: "Contracted hours per week",
+        },
+      ),
+      contracted_days_per_week: readOptionalNumber(
+        updates.contracted_days_per_week,
+        {
+          minimum: 0,
+          maximum: 7,
+          label: "Contracted days per week",
+        },
+      ),
+      working_days: readWorkingDays(updates.working_days),
+      working_pattern_type: readOptionalChoice(
+        updates.working_pattern_type,
+        WORKING_PATTERN_TYPES,
+      ),
+      part_year_worker: readOptionalBoolean(
+        updates.part_year_worker,
+      ),
+      holiday_year_start_month: readOptionalInteger(
+        updates.holiday_year_start_month,
+        {
+          minimum: 1,
+          maximum: 12,
+          label: "Holiday year start month",
+        },
+      ),
+      holiday_year_start_day: readOptionalInteger(
+        updates.holiday_year_start_day,
+        {
+          minimum: 1,
+          maximum: 31,
+          label: "Holiday year start day",
+        },
+      ),
+      leave_entitlement_basis: readOptionalChoice(
+        updates.leave_entitlement_basis,
+        LEAVE_ENTITLEMENT_BASES,
+      ),
+      bank_holiday_treatment: readOptionalChoice(
+        updates.bank_holiday_treatment,
+        BANK_HOLIDAY_TREATMENTS,
+      ),
+      reserved_leave_days: readOptionalNumber(
+        updates.reserved_leave_days,
+        {
+          minimum: 0,
+          maximum: 366,
+          label: "Reserved leave days",
+        },
+      ),
       updated_at: now,
     };
 
@@ -483,16 +694,12 @@ export async function PATCH(
           .from("employee_employment_details")
           .update(employmentPayload)
           .eq("id", existingDetails.data.id)
-          .select(
-            "id,employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,created_at,updated_at",
-          )
+          .select(EMPLOYMENT_DETAILS_SELECT)
           .single()
       : await admin
           .from("employee_employment_details")
           .insert(employmentPayload)
-          .select(
-            "id,employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,created_at,updated_at",
-          )
+          .select(EMPLOYMENT_DETAILS_SELECT)
           .single();
 
     if (detailsResult.error || !detailsResult.data) {
@@ -539,6 +746,24 @@ export async function PATCH(
         reason_for_leaving: detailsResult.data.reason_for_leaving,
         annual_leave_allowance:
           detailsResult.data.annual_leave_allowance,
+        contracted_hours_per_week:
+          detailsResult.data.contracted_hours_per_week,
+        contracted_days_per_week:
+          detailsResult.data.contracted_days_per_week,
+        working_days: detailsResult.data.working_days,
+        working_pattern_type:
+          detailsResult.data.working_pattern_type,
+        part_year_worker: detailsResult.data.part_year_worker,
+        holiday_year_start_month:
+          detailsResult.data.holiday_year_start_month,
+        holiday_year_start_day:
+          detailsResult.data.holiday_year_start_day,
+        leave_entitlement_basis:
+          detailsResult.data.leave_entitlement_basis,
+        bank_holiday_treatment:
+          detailsResult.data.bank_holiday_treatment,
+        reserved_leave_days:
+          detailsResult.data.reserved_leave_days,
       },
       metadata: {
         source_module: "Employees",
@@ -577,6 +802,13 @@ export async function PATCH(
           manager: detailsResult.data.manager,
           role: employeeResult.data.role,
           start_date: employeeResult.data.start_date,
+          working_pattern_type:
+            detailsResult.data.working_pattern_type,
+          working_days: detailsResult.data.working_days,
+          contracted_hours_per_week:
+            detailsResult.data.contracted_hours_per_week,
+          annual_leave_allowance:
+            detailsResult.data.annual_leave_allowance,
         },
         event_date: now,
         created_by: user.id,

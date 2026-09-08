@@ -310,7 +310,7 @@ export async function GET(
       );
     }
 
-    const [recordsResult, allowanceResult] = await Promise.all([
+    const [recordsResult, employmentDetailsResult] = await Promise.all([
       admin
         .from("employee_leave_records")
         .select("*")
@@ -318,7 +318,9 @@ export async function GET(
         .order("start_date", { ascending: false }),
       admin
         .from("employee_employment_details")
-        .select("annual_leave_allowance")
+        .select(
+          "annual_leave_allowance,working_days,working_pattern_type,contracted_days_per_week,contracted_hours_per_week",
+        )
         .eq("employee_id", employeeId)
         .maybeSingle(),
     ]);
@@ -327,8 +329,8 @@ export async function GET(
       throw new Error(recordsResult.error.message);
     }
 
-    if (allowanceResult.error) {
-      throw new Error(allowanceResult.error.message);
+    if (employmentDetailsResult.error) {
+      throw new Error(employmentDetailsResult.error.message);
     }
 
     return NextResponse.json(
@@ -337,7 +339,15 @@ export async function GET(
         currentUserId: user.id,
         platformRole: normaliseRole(accessResult.access.role),
         annualLeaveAllowance:
-          allowanceResult.data?.annual_leave_allowance ?? null,
+          employmentDetailsResult.data?.annual_leave_allowance ?? null,
+        workingDays:
+          employmentDetailsResult.data?.working_days ?? [],
+        workingPatternType:
+          employmentDetailsResult.data?.working_pattern_type ?? null,
+        contractedDaysPerWeek:
+          employmentDetailsResult.data?.contracted_days_per_week ?? null,
+        contractedHoursPerWeek:
+          employmentDetailsResult.data?.contracted_hours_per_week ?? null,
         records: recordsResult.data ?? [],
       },
       {

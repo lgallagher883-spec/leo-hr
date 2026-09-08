@@ -95,6 +95,10 @@ type LeaveApiResponse = {
   records?: LeaveRecord[];
   record?: LeaveRecord;
   annualLeaveAllowance?: string | number | null;
+  workingDays?: string[] | null;
+  workingPatternType?: string | null;
+  contractedDaysPerWeek?: string | number | null;
+  contractedHoursPerWeek?: string | number | null;
   platformRole?: PlatformRole;
   currentUserId?: string | null;
   error?: string;
@@ -290,6 +294,7 @@ const initialFormState: LeaveFormState = {
 export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
   const [records, setRecords] = useState<ParsedLeaveRecord[]>([]);
   const [annualLeaveAllowance, setAnnualLeaveAllowance] = useState(0);
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
 
   const [platformRole, setPlatformRole] =
     useState<PlatformRole>("Employee");
@@ -386,6 +391,11 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       setAnnualLeaveAllowance(
         Number(result.annualLeaveAllowance || 0) || 0
       );
+      setWorkingDays(
+        Array.isArray(result.workingDays)
+          ? result.workingDays.filter(isWorkingDayName)
+          : []
+      );
     } catch (error) {
       console.error("Error loading leave records:", error);
       showMessage(
@@ -408,20 +418,22 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     const calculatedDays = calculateRequestedDays(
       form.startDate,
       form.endDate,
-      form.dayPortion
+      form.dayPortion,
+      workingDays
     );
 
     setForm((current) => ({
       ...current,
       calculatedDays,
     }));
-  }, [form.startDate, form.endDate, form.dayPortion]);
+  }, [form.startDate, form.endDate, form.dayPortion, workingDays]);
 
   useEffect(() => {
     const calculatedDays = calculateRequestedDays(
       editForm.startDate,
       editForm.endDate,
-      editForm.dayPortion
+      editForm.dayPortion,
+      workingDays
     );
 
     setEditForm((current) => ({
@@ -432,6 +444,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     editForm.startDate,
     editForm.endDate,
     editForm.dayPortion,
+    workingDays,
   ]);
 
   const annualLeaveRecords = useMemo(
@@ -2448,10 +2461,30 @@ function compareDateOnly(
   return first > second ? 1 : -1;
 }
 
+const workingDayNames = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+type WorkingDayName = (typeof workingDayNames)[number];
+
+function isWorkingDayName(value: unknown): value is WorkingDayName {
+  return (
+    typeof value === "string" &&
+    workingDayNames.includes(value as WorkingDayName)
+  );
+}
+
 function calculateRequestedDays(
   startDate: string,
   endDate: string,
-  dayPortion: DayPortion
+  dayPortion: DayPortion,
+  employeeWorkingDays: string[] = []
 ): number {
   if (!startDate) return 0;
 
@@ -2460,13 +2493,25 @@ function calculateRequestedDays(
 
   if (!start || !end || end < start) return 0;
 
+  /*
+    Use the employee's saved normal working days when available.
+    Existing employees without a saved pattern retain the previous
+    Monday-Friday fallback until their employment details are completed.
+  */
+  const validWorkingDays = employeeWorkingDays.filter(isWorkingDayName);
+  const workingDaySet = new Set<WorkingDayName>(
+    validWorkingDays.length > 0
+      ? validWorkingDays
+      : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  );
+
   let total = 0;
   const cursor = new Date(start);
 
   while (cursor <= end) {
-    const dayOfWeek = cursor.getDay();
+    const dayName = workingDayNames[cursor.getDay()];
 
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    if (workingDaySet.has(dayName)) {
       total += 1;
     }
 
@@ -2478,8 +2523,16 @@ function calculateRequestedDays(
     (dayPortion === "Half day - morning" ||
       dayPortion === "Half day - afternoon")
   ) {
+    /*
+      The current UI has one day-portion selector for the request.
+      For a single working day, a half day is 0.5.
+      For a multi-day request, preserve the existing behaviour and
+      treat one boundary working day as a half day.
+    */
     if (startDate === (endDate || startDate)) {
-      return 0.5;
+      return workingDaySet.has(workingDayNames[start.getDay()])
+        ? 0.5
+        : 0;
     }
 
     return Math.max(total - 0.5, 0.5);

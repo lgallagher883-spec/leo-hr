@@ -189,7 +189,7 @@ const quickActions: QuickAction[] = [
   {
     label: "Update employment",
     section: "Employment",
-    description: "Review or update the employeeÔÇÖs employment information.",
+    description: "Review or update the employee’s employment information.",
     minimumRole: "Senior",
   },
   {
@@ -201,7 +201,7 @@ const quickActions: QuickAction[] = [
   {
     label: "Record absence",
     section: "Leave & Absence",
-    description: "Open the employeeÔÇÖs leave and absence record.",
+    description: "Open the employee’s leave and absence record.",
     minimumRole: "Manager",
   },
   {
@@ -535,7 +535,7 @@ export default function EmployeeProfilePage() {
         onClick={() => router.push("/dashboard/employees")}
         style={backButtonStyle}
       >
-        <span aria-hidden="true">ÔåÉ</span>
+        <span aria-hidden="true">←</span>
         <span>All employees</span>
       </button>
 
@@ -746,7 +746,7 @@ export default function EmployeeProfilePage() {
             <SectionShell
               eyebrow="Employment"
               title="Employment details"
-              description="Maintain the employeeÔÇÖs current employment information and status."
+              description="Maintain the employee’s current employment information and status."
             >
               <EmploymentDetails
                 employeeId={employee.id}
@@ -763,7 +763,7 @@ export default function EmployeeProfilePage() {
             <SectionShell
               eyebrow="Compliance"
               title="Compliance summary"
-              description="Review the employeeÔÇÖs current checks, evidence and upcoming renewal dates."
+              description="Review the employee’s current checks, evidence and upcoming renewal dates."
             >
               <ComplianceSummary employeeId={employee.id} />
             </SectionShell>
@@ -856,7 +856,7 @@ export default function EmployeeProfilePage() {
             <SectionShell
               eyebrow="Eligibility"
               title="Right to Work"
-              description="Maintain evidence, review dates and the employeeÔÇÖs current Right to Work position."
+              description="Maintain evidence, review dates and the employee’s current Right to Work position."
             >
               <RightToWork employeeId={employee.id} />
             </SectionShell>
@@ -896,7 +896,7 @@ export default function EmployeeProfilePage() {
             <SectionShell
               eyebrow="Emergency information"
               title="Emergency contacts"
-              description="Maintain the employeeÔÇÖs nominated emergency-contact information."
+              description="Maintain the employee’s nominated emergency-contact information."
             >
               <EmergencyContacts employeeId={employee.id} />
             </SectionShell>
@@ -931,7 +931,7 @@ export default function EmployeeProfilePage() {
                 description={
                   isArchived
                     ? "Restoring will return the employee to the active employee register."
-                    : "The employeeÔÇÖs documents, Matters, learning, compliance records and history will remain preserved."
+                    : "The employee’s documents, Matters, learning, compliance records and history will remain preserved."
                 }
               >
                 <div style={archiveExplanationStyle}>
@@ -2289,3 +2289,4 @@ const pageStateMessageStyle: CSSProperties = {
   lineHeight: 1.6,
   fontSize: "14px",
 };
+

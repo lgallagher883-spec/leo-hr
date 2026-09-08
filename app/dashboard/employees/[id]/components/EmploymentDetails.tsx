@@ -33,7 +33,17 @@ type EmploymentDetailsRecord = {
   probation_end_date?: string | null;
   employment_end_date?: string | null;
   reason_for_leaving?: string | null;
-  annual_leave_allowance?: string | null;
+  annual_leave_allowance?: string | number | null;
+  contracted_hours_per_week?: string | number | null;
+  contracted_days_per_week?: string | number | null;
+  working_days?: string[] | null;
+  working_pattern_type?: string | null;
+  part_year_worker?: boolean | null;
+  holiday_year_start_month?: string | number | null;
+  holiday_year_start_day?: string | number | null;
+  leave_entitlement_basis?: string | null;
+  bank_holiday_treatment?: string | null;
+  reserved_leave_days?: string | number | null;
 };
 
 type EmploymentResponse = {
@@ -43,10 +53,40 @@ type EmploymentResponse = {
   error?: string;
 };
 
+const WORKING_DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+const MONTHS = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
 function normaliseStatusForForm(value: string | null | undefined): string {
   if (value === "Former Employee") return "Former";
   if (value === "Archived") return "Archived";
   return "Active";
+}
+
+function displayValue(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
 }
 
 export default function EmploymentDetails({
@@ -70,6 +110,24 @@ export default function EmploymentDetails({
   const [employmentEndDate, setEmploymentEndDate] = useState("");
   const [reasonForLeaving, setReasonForLeaving] = useState("");
   const [annualLeaveAllowance, setAnnualLeaveAllowance] = useState("");
+
+  const [contractedHoursPerWeek, setContractedHoursPerWeek] =
+    useState("");
+  const [contractedDaysPerWeek, setContractedDaysPerWeek] =
+    useState("");
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
+  const [workingPatternType, setWorkingPatternType] =
+    useState("Not set");
+  const [partYearWorker, setPartYearWorker] = useState(false);
+  const [holidayYearStartMonth, setHolidayYearStartMonth] =
+    useState("");
+  const [holidayYearStartDay, setHolidayYearStartDay] =
+    useState("");
+  const [leaveEntitlementBasis, setLeaveEntitlementBasis] =
+    useState("Not set");
+  const [bankHolidayTreatment, setBankHolidayTreatment] =
+    useState("Not set");
+  const [reservedLeaveDays, setReservedLeaveDays] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -123,7 +181,39 @@ export default function EmploymentDetails({
         setProbationEndDate(details.probation_end_date || "");
         setEmploymentEndDate(details.employment_end_date || "");
         setReasonForLeaving(details.reason_for_leaving || "");
-        setAnnualLeaveAllowance(details.annual_leave_allowance || "");
+        setAnnualLeaveAllowance(
+          displayValue(details.annual_leave_allowance),
+        );
+        setContractedHoursPerWeek(
+          displayValue(details.contracted_hours_per_week),
+        );
+        setContractedDaysPerWeek(
+          displayValue(details.contracted_days_per_week),
+        );
+        setWorkingDays(
+          Array.isArray(details.working_days)
+            ? details.working_days
+            : [],
+        );
+        setWorkingPatternType(
+          details.working_pattern_type || "Not set",
+        );
+        setPartYearWorker(Boolean(details.part_year_worker));
+        setHolidayYearStartMonth(
+          displayValue(details.holiday_year_start_month),
+        );
+        setHolidayYearStartDay(
+          displayValue(details.holiday_year_start_day),
+        );
+        setLeaveEntitlementBasis(
+          details.leave_entitlement_basis || "Not set",
+        );
+        setBankHolidayTreatment(
+          details.bank_holiday_treatment || "Not set",
+        );
+        setReservedLeaveDays(
+          displayValue(details.reserved_leave_days),
+        );
       } catch (error) {
         console.error("Error loading employment details:", error);
 
@@ -147,6 +237,14 @@ export default function EmploymentDetails({
       cancelled = true;
     };
   }, [employeeId]);
+
+  function toggleWorkingDay(day: string) {
+    setWorkingDays((current) =>
+      current.includes(day)
+        ? current.filter((item) => item !== day)
+        : [...current, day],
+    );
+  }
 
   async function saveEmploymentDetails() {
     if (!name.trim()) {
@@ -179,6 +277,16 @@ export default function EmploymentDetails({
               employment_end_date: employmentEndDate,
               reason_for_leaving: reasonForLeaving,
               annual_leave_allowance: annualLeaveAllowance,
+              contracted_hours_per_week: contractedHoursPerWeek,
+              contracted_days_per_week: contractedDaysPerWeek,
+              working_days: workingDays,
+              working_pattern_type: workingPatternType,
+              part_year_worker: partYearWorker,
+              holiday_year_start_month: holidayYearStartMonth,
+              holiday_year_start_day: holidayYearStartDay,
+              leave_entitlement_basis: leaveEntitlementBasis,
+              bank_holiday_treatment: bankHolidayTreatment,
+              reserved_leave_days: reservedLeaveDays,
             },
           }),
         },
@@ -205,18 +313,44 @@ export default function EmploymentDetails({
       }
 
       if (result.employmentDetails) {
-        setManager(result.employmentDetails.manager || "");
-        setProbationEndDate(
-          result.employmentDetails.probation_end_date || "",
-        );
-        setEmploymentEndDate(
-          result.employmentDetails.employment_end_date || "",
-        );
-        setReasonForLeaving(
-          result.employmentDetails.reason_for_leaving || "",
-        );
+        const details = result.employmentDetails;
+
+        setManager(details.manager || "");
+        setProbationEndDate(details.probation_end_date || "");
+        setEmploymentEndDate(details.employment_end_date || "");
+        setReasonForLeaving(details.reason_for_leaving || "");
         setAnnualLeaveAllowance(
-          result.employmentDetails.annual_leave_allowance || "",
+          displayValue(details.annual_leave_allowance),
+        );
+        setContractedHoursPerWeek(
+          displayValue(details.contracted_hours_per_week),
+        );
+        setContractedDaysPerWeek(
+          displayValue(details.contracted_days_per_week),
+        );
+        setWorkingDays(
+          Array.isArray(details.working_days)
+            ? details.working_days
+            : [],
+        );
+        setWorkingPatternType(
+          details.working_pattern_type || "Not set",
+        );
+        setPartYearWorker(Boolean(details.part_year_worker));
+        setHolidayYearStartMonth(
+          displayValue(details.holiday_year_start_month),
+        );
+        setHolidayYearStartDay(
+          displayValue(details.holiday_year_start_day),
+        );
+        setLeaveEntitlementBasis(
+          details.leave_entitlement_basis || "Not set",
+        );
+        setBankHolidayTreatment(
+          details.bank_holiday_treatment || "Not set",
+        );
+        setReservedLeaveDays(
+          displayValue(details.reserved_leave_days),
         );
       }
 
@@ -308,6 +442,213 @@ export default function EmploymentDetails({
         placeholder="Optional"
       />
 
+      <div
+        style={{
+          marginTop: "22px",
+          marginBottom: "14px",
+          paddingTop: "18px",
+          borderTop: "1px solid #E5E7EB",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "15px",
+            fontWeight: 700,
+            color: "#374151",
+          }}
+        >
+          Working &amp; Holiday Pattern
+        </div>
+        <div
+          style={{
+            marginTop: "4px",
+            maxWidth: "720px",
+            fontSize: "13px",
+            lineHeight: 1.5,
+            color: "#6B7280",
+          }}
+        >
+          Record the employee&apos;s normal working arrangement and
+          contractual holiday setup. Leo will use this information for
+          leave calculations once the holiday calculation engine is
+          enabled.
+        </div>
+      </div>
+
+      <SelectField
+        label="Working Pattern"
+        value={workingPatternType}
+        onChange={setWorkingPatternType}
+        options={[
+          "Not set",
+          "Fixed days",
+          "Fixed hours",
+          "Irregular hours",
+        ]}
+        small
+      />
+
+      <Field
+        label="Contracted Hours Per Week"
+        value={contractedHoursPerWeek}
+        onChange={setContractedHoursPerWeek}
+        placeholder="e.g. 37.5"
+        type="number"
+        small
+      />
+
+      <Field
+        label="Contracted Days Per Week"
+        value={contractedDaysPerWeek}
+        onChange={setContractedDaysPerWeek}
+        placeholder="e.g. 5"
+        type="number"
+        small
+      />
+
+      <div style={{ marginBottom: "16px" }}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: "#6B7280",
+            marginBottom: "7px",
+          }}
+        >
+          Normal Working Days
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+          }}
+        >
+          {WORKING_DAYS.map((day) => {
+            const selected = workingDays.includes(day);
+
+            return (
+              <label
+                key={day}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  padding: "8px 10px",
+                  border: selected
+                    ? "1px solid #6E5084"
+                    : "1px solid #E5E7EB",
+                  borderRadius: "8px",
+                  background: selected ? "#F7F1FC" : "#FFFFFF",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  color: "#374151",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => toggleWorkingDay(day)}
+                />
+                {day}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "9px",
+          marginBottom: "16px",
+          fontSize: "13px",
+          color: "#374151",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={partYearWorker}
+          onChange={(event) =>
+            setPartYearWorker(event.target.checked)
+          }
+        />
+        Part-year worker
+      </label>
+
+      <div style={{ marginBottom: "16px" }}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: "#6B7280",
+            marginBottom: "7px",
+          }}
+        >
+          Holiday Year Starts
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px",
+          }}
+        >
+          <select
+            value={holidayYearStartDay}
+            onChange={(event) =>
+              setHolidayYearStartDay(event.target.value)
+            }
+            style={{
+              width: "120px",
+              padding: "10px",
+              border: "1px solid #E5E7EB",
+              borderRadius: "8px",
+              background: "#FFFFFF",
+            }}
+          >
+            <option value="">Day</option>
+            {Array.from({ length: 31 }, (_, index) => index + 1).map(
+              (day) => (
+                <option key={day} value={String(day)}>
+                  {day}
+                </option>
+              ),
+            )}
+          </select>
+
+          <select
+            value={holidayYearStartMonth}
+            onChange={(event) =>
+              setHolidayYearStartMonth(event.target.value)
+            }
+            style={{
+              width: "180px",
+              padding: "10px",
+              border: "1px solid #E5E7EB",
+              borderRadius: "8px",
+              background: "#FFFFFF",
+            }}
+          >
+            <option value="">Month</option>
+            {MONTHS.map((month) => (
+              <option key={month.value} value={month.value}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <SelectField
+        label="Leave Entitlement Basis"
+        value={leaveEntitlementBasis}
+        onChange={setLeaveEntitlementBasis}
+        options={["Not set", "Statutory", "Contractual"]}
+        small
+      />
+
       <Field
         label="Annual Leave Entitlement (days)"
         value={annualLeaveAllowance}
@@ -316,6 +657,39 @@ export default function EmploymentDetails({
         type="number"
         small
       />
+
+      <SelectField
+        label="Bank Holidays"
+        value={bankHolidayTreatment}
+        onChange={setBankHolidayTreatment}
+        options={["Not set", "Included", "Additional"]}
+        small
+      />
+
+      <Field
+        label="Reserved / Shutdown Leave Days"
+        value={reservedLeaveDays}
+        onChange={setReservedLeaveDays}
+        placeholder="e.g. 3"
+        type="number"
+        small
+      />
+
+      <div
+        style={{
+          marginTop: "-4px",
+          marginBottom: "18px",
+          maxWidth: "720px",
+          fontSize: "12px",
+          lineHeight: 1.5,
+          color: "#6B7280",
+        }}
+      >
+        Reserved or shutdown days form part of the employee&apos;s
+        entitlement unless the employment terms provide otherwise. This
+        field records the organisation&apos;s setup; it does not add
+        extra leave automatically.
+      </div>
 
       <SaveButton
         onClick={saveEmploymentDetails}

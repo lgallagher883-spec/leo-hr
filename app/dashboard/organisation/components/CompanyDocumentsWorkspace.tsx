@@ -17,47 +17,56 @@ const folders = [
   {
     title: "Procedures",
     description: "Store the organisation's operational procedures.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/procedures",
+    available: true,
   },
   {
     title: "Employee Handbook",
     description: "Hold the organisation's current employee handbook.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/employee-handbook",
+    available: true,
   },
   {
     title: "Contracts",
     description: "Store organisation-wide contract templates.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/contracts",
+    available: true,
   },
   {
     title: "Offer Letters",
     description: "Keep the organisation's offer letter templates.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/offer-letters",
+    available: true,
   },
   {
     title: "Company Forms",
     description: "Manage forms created for use within the organisation.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/company-forms",
+    available: true,
   },
   {
     title: "Risk Assessments",
     description: "Store organisational risk assessments and reviews.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/risk-assessments",
+    available: true,
   },
   {
     title: "Health & Safety",
     description: "Keep health and safety documentation together.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/health-and-safety",
+    available: true,
   },
   {
     title: "Templates",
     description: "Store reusable internal document templates.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/templates",
+    available: true,
   },
   {
     title: "Other Documents",
     description: "Hold other organisation-wide documents.",
-    available: false,
+    href: "/dashboard/organisation/company-documents/other-documents",
+    available: true,
   },
 ];
 
@@ -85,7 +94,11 @@ export default function CompanyDocumentsWorkspace({
       <div className="folders">
         {folders.map((folder) =>
           folder.available && folder.href ? (
-            <Link className="company-document-card" href={folder.href} key={folder.title}>
+            <Link
+              className="company-document-card"
+              href={folder.href}
+              key={folder.title}
+            >
               <span className="folder-icon" aria-hidden="true">
                 ▢
               </span>

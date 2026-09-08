@@ -37,6 +37,28 @@ function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
 }
 
+function isSupportedDocumentFile(fileName: string, folder: string) {
+  const fileExtension = extension(fileName);
+  const standardExtensions = ["doc", "docx", "pdf"];
+  const riskAssessmentExtensions = [
+    ...standardExtensions,
+    "xls",
+    "xlsx",
+  ];
+
+  return (
+    folder === "Risk Assessment"
+      ? riskAssessmentExtensions
+      : standardExtensions
+  ).includes(fileExtension);
+}
+
+function supportedDocumentLabel(folder: string) {
+  return folder === "Risk Assessment"
+    ? "Word, PDF or Excel"
+    : "Word or PDF";
+}
+
 export async function POST(request: Request) {
   const uploadedPaths: string[] = [];
 
@@ -127,17 +149,6 @@ export async function POST(request: Request) {
         );
       }
 
-      const fileExtension = extension(replacementFile.name);
-      if (!["doc", "docx", "pdf"].includes(fileExtension)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `${replacementFile.name} is not a supported Word or PDF document.`,
-          },
-          { status: 400 },
-        );
-      }
-
       const { data: current, error: currentError } = await admin
         .from("company_documents")
         .select(
@@ -158,6 +169,16 @@ export async function POST(request: Request) {
       if (!allowedFolders.has(currentFolder)) {
         return NextResponse.json(
           { success: false, error: "The document folder is invalid." },
+          { status: 400 },
+        );
+      }
+
+      if (!isSupportedDocumentFile(replacementFile.name, currentFolder)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${replacementFile.name} is not a supported ${supportedDocumentLabel(currentFolder)} document.`,
+          },
           { status: 400 },
         );
       }
@@ -294,14 +315,14 @@ export async function POST(request: Request) {
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
       const name = text(details[index]?.name);
-      const fileExtension = extension(file.name);
-
       if (!name) {
         throw new Error(`A document name is missing for ${file.name}.`);
       }
 
-      if (!["doc", "docx", "pdf"].includes(fileExtension)) {
-        throw new Error(`${file.name} is not a supported Word or PDF document.`);
+      if (!isSupportedDocumentFile(file.name, folder)) {
+        throw new Error(
+          `${file.name} is not a supported ${supportedDocumentLabel(folder)} document.`,
+        );
       }
 
       const folderSlug = folder

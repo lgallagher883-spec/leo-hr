@@ -103,8 +103,36 @@ function getExtension(fileName: string | null | undefined) {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
 }
 
-function isSupportedFile(file: File) {
-  return ["doc", "docx", "pdf"].includes(getExtension(file.name));
+function isSupportedFile(
+  file: File,
+  folder: CompanyDocumentFolder,
+) {
+  const extension = getExtension(file.name);
+
+  const standardExtensions = ["doc", "docx", "pdf"];
+  const riskAssessmentExtensions = [
+    ...standardExtensions,
+    "xls",
+    "xlsx",
+  ];
+
+  return (
+    folder === "Risk Assessment"
+      ? riskAssessmentExtensions
+      : standardExtensions
+  ).includes(extension);
+}
+
+function acceptedFileTypes(folder: CompanyDocumentFolder) {
+  return folder === "Risk Assessment"
+    ? ".doc,.docx,.pdf,.xls,.xlsx"
+    : ".doc,.docx,.pdf";
+}
+
+function acceptedFileTypesLabel(folder: CompanyDocumentFolder) {
+  return folder === "Risk Assessment"
+    ? "DOC, DOCX, PDF, XLS and XLSX"
+    : "DOC, DOCX and PDF";
 }
 
 function isWord(fileName: string | null) {
@@ -256,7 +284,9 @@ export default function CompanyDocumentsLibrary({
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const selectedFiles = Array.from(event.target.files ?? []);
-    const supported = selectedFiles.filter(isSupportedFile);
+    const supported = selectedFiles.filter((file) =>
+      isSupportedFile(file, folder),
+    );
     const rejected = selectedFiles.length - supported.length;
 
     const items = supported.map((file, index) => ({
@@ -272,7 +302,7 @@ export default function CompanyDocumentsLibrary({
         type: "error",
         message: `${rejected} unsupported file${
           rejected === 1 ? " was" : "s were"
-        } skipped. Only DOC, DOCX and PDF files are accepted.`,
+        } skipped. Only ${acceptedFileTypesLabel(folder)} files are accepted.`,
       });
     } else {
       setNotice(null);
@@ -295,7 +325,10 @@ export default function CompanyDocumentsLibrary({
     if (uploadItems.length === 0) {
       setNotice({
         type: "error",
-        message: "Choose at least one Word or PDF document.",
+        message:
+          folder === "Risk Assessment"
+            ? "Choose at least one Word, PDF or Excel document."
+            : "Choose at least one Word or PDF document.",
       });
       return;
     }
@@ -536,10 +569,10 @@ export default function CompanyDocumentsLibrary({
     event.preventDefault();
     if (!dialog || dialog.type !== "replace") return;
 
-    if (!replacementFile || !isSupportedFile(replacementFile)) {
+    if (!replacementFile || !isSupportedFile(replacementFile, folder)) {
       setNotice({
         type: "error",
-        message: "Choose a DOC, DOCX or PDF replacement document.",
+        message: `Choose a ${acceptedFileTypesLabel(folder)} replacement document.`,
       });
       return;
     }
@@ -698,8 +731,9 @@ export default function CompanyDocumentsLibrary({
                 <p className="section-eyebrow">Add company documents</p>
                 <h2>Upload {pluralLabel.toLowerCase()}</h2>
                 <p>
-                  Select one or several Word or PDF documents. Each file will be
-                  stored as a separate organisation document.
+                  {folder === "Risk Assessment"
+                    ? "Select one or several Word, PDF or Excel documents. Each file will be stored as a separate organisation document."
+                    : "Select one or several Word or PDF documents. Each file will be stored as a separate organisation document."}
                 </p>
               </div>
 
@@ -718,12 +752,14 @@ export default function CompanyDocumentsLibrary({
                 <span>Documents</span>
                 <input
                   type="file"
-                  accept=".doc,.docx,.pdf"
+                  accept={acceptedFileTypes(folder)}
                   multiple
                   onChange={handleFiles}
                   disabled={working}
                 />
-                <small>Accepted file types: DOC, DOCX and PDF.</small>
+                <small>
+                  Accepted file types: {acceptedFileTypesLabel(folder)}.
+                </small>
               </label>
 
               {uploadItems.length > 0 ? (
@@ -1096,7 +1132,7 @@ export default function CompanyDocumentsLibrary({
                   <span>Replacement document</span>
                   <input
                     type="file"
-                    accept=".doc,.docx,.pdf"
+                    accept={acceptedFileTypes(folder)}
                     onChange={(event) =>
                       setReplacementFile(event.target.files?.[0] ?? null)
                     }

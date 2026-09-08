@@ -90,15 +90,28 @@ type LeaveView = "Requests" | "Upcoming" | "History";
 
 type MessageTone = "success" | "error" | "information";
 
+type BankHolidayEvent = {
+  title: string;
+  date: string;
+  notes: string;
+};
+
 type LeaveApiResponse = {
   success?: boolean;
   records?: LeaveRecord[];
   record?: LeaveRecord;
   annualLeaveAllowance?: string | number | null;
+  currentLeaveYearStart?: string | null;
+  currentLeaveYearEnd?: string | null;
   workingDays?: string[] | null;
   workingPatternType?: string | null;
   contractedDaysPerWeek?: string | number | null;
   contractedHoursPerWeek?: string | number | null;
+  bankHolidayTreatment?: string | null;
+  bankHolidayRegion?: string | null;
+  bankHolidays?: BankHolidayEvent[];
+  bankHolidayWorkingDays?: number;
+  includedBankHolidayDays?: number;
   platformRole?: PlatformRole;
   currentUserId?: string | null;
   error?: string;
@@ -294,7 +307,21 @@ const initialFormState: LeaveFormState = {
 export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
   const [records, setRecords] = useState<ParsedLeaveRecord[]>([]);
   const [annualLeaveAllowance, setAnnualLeaveAllowance] = useState(0);
+  const [currentLeaveYearStart, setCurrentLeaveYearStart] =
+    useState<string | null>(null);
+  const [currentLeaveYearEnd, setCurrentLeaveYearEnd] =
+    useState<string | null>(null);
   const [workingDays, setWorkingDays] = useState<string[]>([]);
+  const [bankHolidayTreatment, setBankHolidayTreatment] =
+    useState<string | null>(null);
+  const [bankHolidayRegion, setBankHolidayRegion] =
+    useState("England and Wales");
+  const [bankHolidays, setBankHolidays] =
+    useState<BankHolidayEvent[]>([]);
+  const [bankHolidayWorkingDays, setBankHolidayWorkingDays] =
+    useState(0);
+  const [includedBankHolidayDays, setIncludedBankHolidayDays] =
+    useState(0);
 
   const [platformRole, setPlatformRole] =
     useState<PlatformRole>("Employee");
@@ -391,10 +418,23 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       setAnnualLeaveAllowance(
         Number(result.annualLeaveAllowance || 0) || 0
       );
+      setCurrentLeaveYearStart(result.currentLeaveYearStart || null);
+      setCurrentLeaveYearEnd(result.currentLeaveYearEnd || null);
       setWorkingDays(
         Array.isArray(result.workingDays)
           ? result.workingDays.filter(isWorkingDayName)
           : []
+      );
+      setBankHolidayTreatment(result.bankHolidayTreatment || null);
+      setBankHolidayRegion(result.bankHolidayRegion || "England and Wales");
+      setBankHolidays(
+        Array.isArray(result.bankHolidays) ? result.bankHolidays : []
+      );
+      setBankHolidayWorkingDays(
+        Number(result.bankHolidayWorkingDays || 0) || 0
+      );
+      setIncludedBankHolidayDays(
+        Number(result.includedBankHolidayDays || 0) || 0
       );
     } catch (error) {
       console.error("Error loading leave records:", error);
@@ -419,21 +459,32 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       form.startDate,
       form.endDate,
       form.dayPortion,
-      workingDays
+      workingDays,
+      bankHolidays,
+      bankHolidayTreatment
     );
 
     setForm((current) => ({
       ...current,
       calculatedDays,
     }));
-  }, [form.startDate, form.endDate, form.dayPortion, workingDays]);
+  }, [
+    form.startDate,
+    form.endDate,
+    form.dayPortion,
+    workingDays,
+    bankHolidays,
+    bankHolidayTreatment,
+  ]);
 
   useEffect(() => {
     const calculatedDays = calculateRequestedDays(
       editForm.startDate,
       editForm.endDate,
       editForm.dayPortion,
-      workingDays
+      workingDays,
+      bankHolidays,
+      bankHolidayTreatment
     );
 
     setEditForm((current) => ({
@@ -445,14 +496,22 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     editForm.endDate,
     editForm.dayPortion,
     workingDays,
+    bankHolidays,
+    bankHolidayTreatment,
   ]);
 
   const annualLeaveRecords = useMemo(
     () =>
-      records.filter((record) =>
-        doesLeaveTypeDeductAnnualLeave(record.leave_type)
+      records.filter(
+        (record) =>
+          doesLeaveTypeDeductAnnualLeave(record.leave_type) &&
+          isRecordInLeaveYear(
+            record,
+            currentLeaveYearStart,
+            currentLeaveYearEnd
+          )
       ),
-    [records]
+    [records, currentLeaveYearStart, currentLeaveYearEnd]
   );
 
   const annualLeaveTaken = useMemo(
@@ -493,7 +552,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
   );
 
   const annualLeaveConfirmed =
-    annualLeaveTaken + annualLeaveBooked;
+    annualLeaveTaken + annualLeaveBooked + includedBankHolidayDays;
 
   const annualLeaveRemaining = Math.max(
     annualLeaveAllowance - annualLeaveConfirmed,
@@ -1241,7 +1300,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
         <SummaryCard
           label="Annual entitlement"
           value={formatDays(annualLeaveAllowance)}
-          supportingText="Current recorded entitlement."
+          supportingText="Current holiday-year entitlement."
         />
 
         <SummaryCard
@@ -1263,12 +1322,97 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
         />
 
         <SummaryCard
+          label="Bank holidays"
+          value={formatDays(
+            bankHolidayTreatment === "Included"
+              ? includedBankHolidayDays
+              : bankHolidayWorkingDays
+          )}
+          supportingText={
+            bankHolidayTreatment === "Included"
+              ? "Normal working-day bank holidays reserved from entitlement."
+              : bankHolidayTreatment === "Additional"
+              ? "Normal working-day bank holidays provided in addition to entitlement."
+              : "Bank-holiday treatment has not been set."
+          }
+        />
+
+        <SummaryCard
           label="Remaining"
           value={formatDays(annualLeaveRemaining)}
           supportingText="Confirmed balance after approved leave."
           emphasis
         />
       </div>
+
+      {bankHolidays.length > 0 && (
+        <Panel
+          title="Bank holiday calendar"
+          description={`Official GOV.UK bank holidays for ${bankHolidayRegion} that fall within this employee's current holiday year and employment dates.`}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "10px",
+            }}
+          >
+            {bankHolidays.map((holiday) => {
+              const fallsOnWorkingDay = isBankHolidayWorkingDay(
+                holiday,
+                workingDays
+              );
+
+              return (
+                <div
+                  key={`${holiday.date}-${holiday.title}`}
+                  style={{
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
+                    background: fallsOnWorkingDay ? "#FAF7FC" : "#FFFFFF",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      color: "#31243A",
+                    }}
+                  >
+                    {holiday.title}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "4px",
+                      fontSize: "13px",
+                      color: "#4B5563",
+                    }}
+                  >
+                    {formatDate(holiday.date)}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "6px",
+                      fontSize: "12px",
+                      lineHeight: 1.45,
+                      color: "#6B7280",
+                    }}
+                  >
+                    {!fallsOnWorkingDay
+                      ? "Falls outside this employee's normal working days, so it does not affect their leave balance."
+                      : bankHolidayTreatment === "Included"
+                      ? "Falls on a normal working day and is reserved from the employee's annual entitlement."
+                      : bankHolidayTreatment === "Additional"
+                      ? "Falls on a normal working day and is provided in addition to the employee's annual entitlement."
+                      : "Falls on a normal working day. Set Bank Holidays in Employment Details to Included or Additional to apply balance treatment."}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
 
       {message && (
         <MessageBox tone={messageTone}>{message}</MessageBox>
@@ -2480,11 +2624,28 @@ function isWorkingDayName(value: unknown): value is WorkingDayName {
   );
 }
 
+function isBankHolidayWorkingDay(
+  holiday: BankHolidayEvent,
+  employeeWorkingDays: string[]
+): boolean {
+  const date = parseDateOnly(holiday.date);
+
+  if (!date) return false;
+
+  const validWorkingDays = employeeWorkingDays.filter(isWorkingDayName);
+  if (validWorkingDays.length === 0) return false;
+
+  const dayName = workingDayNames[date.getDay()];
+  return validWorkingDays.includes(dayName);
+}
+
 function calculateRequestedDays(
   startDate: string,
   endDate: string,
   dayPortion: DayPortion,
-  employeeWorkingDays: string[] = []
+  employeeWorkingDays: string[] = [],
+  bankHolidays: BankHolidayEvent[] = [],
+  bankHolidayTreatment: string | null = null
 ): number {
   if (!startDate) return 0;
 
@@ -2505,13 +2666,24 @@ function calculateRequestedDays(
       : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
   );
 
+  const bankHolidayDateSet = new Set(
+    bankHolidayTreatment === "Included" ||
+      bankHolidayTreatment === "Additional"
+      ? bankHolidays.map((holiday) => holiday.date)
+      : []
+  );
+
   let total = 0;
   const cursor = new Date(start);
 
   while (cursor <= end) {
     const dayName = workingDayNames[cursor.getDay()];
+    const dateValue = toDateOnlyValue(cursor);
 
-    if (workingDaySet.has(dayName)) {
+    if (
+      workingDaySet.has(dayName) &&
+      !bankHolidayDateSet.has(dateValue)
+    ) {
       total += 1;
     }
 
@@ -2530,9 +2702,11 @@ function calculateRequestedDays(
       treat one boundary working day as a half day.
     */
     if (startDate === (endDate || startDate)) {
-      return workingDaySet.has(workingDayNames[start.getDay()])
-        ? 0.5
-        : 0;
+      const startDayName = workingDayNames[start.getDay()];
+      const isWorkingDay = workingDaySet.has(startDayName);
+      const isBankHoliday = bankHolidayDateSet.has(startDate);
+
+      return isWorkingDay && !isBankHoliday ? 0.5 : 0;
     }
 
     return Math.max(total - 0.5, 0.5);
@@ -2563,6 +2737,26 @@ function sumLeaveDays(
 
     return total + (Number.isNaN(value) ? 0 : value);
   }, 0);
+}
+
+function isRecordInLeaveYear(
+  record: ParsedLeaveRecord,
+  leaveYearStart: string | null,
+  leaveYearEnd: string | null
+): boolean {
+  if (!leaveYearStart || !leaveYearEnd) return true;
+
+  const recordStart = record.start_date;
+  const recordEnd = record.end_date || record.start_date;
+
+  if (!recordStart || !recordEnd) return false;
+
+  return dateRangesOverlap(
+    recordStart,
+    recordEnd,
+    leaveYearStart,
+    leaveYearEnd
+  );
 }
 
 function dateRangesOverlap(

@@ -14,6 +14,19 @@ type AccessContext = {
   permissionKeys: Set<string>;
 };
 
+type BankHolidayEvent = {
+  title: string;
+  date: string;
+  notes: string;
+};
+
+type GovUkBankHolidayResponse = {
+  "england-and-wales"?: {
+    division?: string;
+    events?: BankHolidayEvent[];
+  };
+};
+
 type LeaveBody = {
   action?: unknown;
   recordId?: unknown;
@@ -74,6 +87,320 @@ function readNumber(value: unknown): number | null {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function createValidDate(
+  year: number,
+  month: number,
+  day: number,
+): Date | null {
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function addYearsClamped(date: Date, years: number): Date {
+  const targetYear = date.getFullYear() + years;
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const exact = createValidDate(targetYear, month, day);
+
+  if (exact) return exact;
+  return new Date(targetYear, month, 0);
+}
+
+function addMonthsClamped(date: Date, months: number): Date {
+  const totalMonths = date.getFullYear() * 12 + date.getMonth() + months;
+  const targetYear = Math.floor(totalMonths / 12);
+  const targetMonthIndex = totalMonths % 12;
+  const day = date.getDate();
+  const lastDayOfTargetMonth = new Date(
+    targetYear,
+    targetMonthIndex + 1,
+    0,
+  ).getDate();
+
+  return new Date(
+    targetYear,
+    targetMonthIndex,
+    Math.min(day, lastDayOfTargetMonth),
+  );
+}
+
+function parseDateOnlyValue(value: unknown): Date | null {
+  if (typeof value !== "string" || !value) return null;
+
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toDateOnlyValue(date: Date): string {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function roundToTwo(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function roundUpToNextHalfDay(value: number): number {
+  const scaled = value * 2;
+  const nearestWhole = Math.round(scaled);
+  const normalisedScaled =
+    Math.abs(scaled - nearestWhole) < 1e-9
+      ? nearestWhole
+      : scaled;
+
+  return Math.ceil(normalisedScaled) / 2;
+}
+
+function getCurrentLeaveYear(
+  startMonthValue: unknown,
+  startDayValue: unknown,
+): { start: Date; end: Date } | null {
+  const month = Number(startMonthValue);
+  const day = Number(startDayValue);
+
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let start = createValidDate(today.getFullYear(), month, day);
+  if (!start) return null;
+
+  if (start > today) {
+    start = createValidDate(today.getFullYear() - 1, month, day);
+  }
+
+  if (!start) return null;
+
+  const nextStart = addYearsClamped(start, 1);
+  const end = new Date(nextStart);
+  end.setDate(end.getDate() - 1);
+
+  return { start, end };
+}
+
+function countMonthsStarted(
+  employmentStart: Date,
+  leaveYearEnd: Date,
+): number {
+  let count = 0;
+
+  for (let monthOffset = 0; monthOffset < 12; monthOffset += 1) {
+    const monthStart = addMonthsClamped(employmentStart, monthOffset);
+
+    if (monthStart <= leaveYearEnd) {
+      count += 1;
+    } else {
+      break;
+    }
+  }
+
+  return Math.min(count, 12);
+}
+
+function inclusiveCalendarDays(start: Date, end: Date): number {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const utcStart = Date.UTC(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate(),
+  );
+  const utcEnd = Date.UTC(
+    end.getFullYear(),
+    end.getMonth(),
+    end.getDate(),
+  );
+
+  return Math.floor((utcEnd - utcStart) / millisecondsPerDay) + 1;
+}
+
+type EmploymentLeaveDetails = {
+  annual_leave_allowance?: string | number | null;
+  working_days?: string[] | null;
+  working_pattern_type?: string | null;
+  contracted_days_per_week?: string | number | null;
+  contracted_hours_per_week?: string | number | null;
+  employment_end_date?: string | null;
+  part_year_worker?: boolean | null;
+  holiday_year_start_month?: string | number | null;
+  holiday_year_start_day?: string | number | null;
+  leave_entitlement_basis?: string | null;
+  bank_holiday_treatment?: string | null;
+};
+
+function calculateCurrentStatutoryDays(
+  details: EmploymentLeaveDetails,
+  employmentStartDate: string | null | undefined,
+): number | null {
+  if (
+    details.leave_entitlement_basis !== "Statutory" ||
+    details.working_pattern_type !== "Fixed days" ||
+    details.part_year_worker
+  ) {
+    return null;
+  }
+
+  const daysPerWeek = Number(details.contracted_days_per_week);
+
+  if (
+    !Number.isFinite(daysPerWeek) ||
+    daysPerWeek <= 0 ||
+    daysPerWeek > 7
+  ) {
+    return null;
+  }
+
+  const fullYearEntitlement = roundToTwo(
+    Math.min(daysPerWeek * 5.6, 28),
+  );
+  const leaveYear = getCurrentLeaveYear(
+    details.holiday_year_start_month,
+    details.holiday_year_start_day,
+  );
+  const employmentStart = parseDateOnlyValue(employmentStartDate);
+
+  if (!leaveYear || !employmentStart) return null;
+
+  const employmentEnd = parseDateOnlyValue(details.employment_end_date);
+
+  if (
+    employmentStart > leaveYear.end ||
+    (employmentEnd && employmentEnd < leaveYear.start)
+  ) {
+    return null;
+  }
+
+  if (employmentEnd && employmentEnd < leaveYear.end) {
+    const effectiveStart =
+      employmentStart > leaveYear.start
+        ? employmentStart
+        : leaveYear.start;
+
+    if (employmentEnd < effectiveStart) return null;
+
+    const employmentDays = inclusiveCalendarDays(
+      effectiveStart,
+      employmentEnd,
+    );
+    const leaveYearDays = inclusiveCalendarDays(
+      leaveYear.start,
+      leaveYear.end,
+    );
+
+    return roundToTwo(
+      fullYearEntitlement * (employmentDays / leaveYearDays),
+    );
+  }
+
+  if (employmentStart > leaveYear.start) {
+    const monthsStarted = countMonthsStarted(
+      employmentStart,
+      leaveYear.end,
+    );
+
+    return roundUpToNextHalfDay(
+      fullYearEntitlement * (monthsStarted / 12),
+    );
+  }
+
+  return fullYearEntitlement;
+}
+
+async function getEnglandAndWalesBankHolidays(): Promise<BankHolidayEvent[]> {
+  try {
+    const response = await fetch("https://www.gov.uk/bank-holidays.json", {
+      headers: {
+        Accept: "application/json",
+      },
+      next: {
+        revalidate: 24 * 60 * 60,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`GOV.UK bank-holiday feed returned ${response.status}.`);
+    }
+
+    const data = (await response.json()) as GovUkBankHolidayResponse;
+    const events = data["england-and-wales"]?.events;
+
+    if (!Array.isArray(events)) {
+      throw new Error("GOV.UK bank-holiday feed did not contain England and Wales events.");
+    }
+
+    return events.filter(
+      (event) =>
+        typeof event?.title === "string" &&
+        typeof event?.date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(event.date),
+    );
+  } catch (error) {
+    console.error("GOV.UK bank holidays could not be loaded:", error);
+    return [];
+  }
+}
+
+function getRelevantBankHolidays(
+  events: BankHolidayEvent[],
+  leaveYear: { start: Date; end: Date } | null,
+  employmentStartValue: string | null | undefined,
+  employmentEndValue: string | null | undefined,
+): BankHolidayEvent[] {
+  if (!leaveYear) return [];
+
+  const leaveYearStart = toDateOnlyValue(leaveYear.start);
+  const leaveYearEnd = toDateOnlyValue(leaveYear.end);
+  const employmentStart = employmentStartValue || leaveYearStart;
+  const employmentEnd = employmentEndValue || leaveYearEnd;
+
+  return events.filter(
+    (event) =>
+      event.date >= leaveYearStart &&
+      event.date <= leaveYearEnd &&
+      event.date >= employmentStart &&
+      event.date <= employmentEnd,
+  );
+}
+
+function countBankHolidayWorkingDays(
+  events: BankHolidayEvent[],
+  workingDays: string[] | null | undefined,
+): number {
+  const normalWorkingDays = new Set(workingDays ?? []);
+
+  if (normalWorkingDays.size === 0) return 0;
+
+  return events.reduce((count, event) => {
+    const date = parseDateOnlyValue(event.date);
+
+    if (!date) return count;
+
+    const dayName = date.toLocaleDateString("en-GB", { weekday: "long" });
+    return normalWorkingDays.has(dayName) ? count + 1 : count;
+  }, 0);
 }
 
 function normaliseRole(value: string): "Owner" | "Senior" | "Manager" | "Employee" {
@@ -237,7 +564,7 @@ async function verifyEmployee(
 ) {
   const result = await admin
     .from("employees")
-    .select("id,name")
+    .select("id,name,start_date")
     .eq("id", employeeId)
     .eq("organisation_id", organisationId)
     .maybeSingle();
@@ -319,7 +646,7 @@ export async function GET(
       admin
         .from("employee_employment_details")
         .select(
-          "annual_leave_allowance,working_days,working_pattern_type,contracted_days_per_week,contracted_hours_per_week",
+          "annual_leave_allowance,working_days,working_pattern_type,contracted_days_per_week,contracted_hours_per_week,employment_end_date,part_year_worker,holiday_year_start_month,holiday_year_start_day,leave_entitlement_basis,bank_holiday_treatment",
         )
         .eq("employee_id", employeeId)
         .maybeSingle(),
@@ -333,21 +660,63 @@ export async function GET(
       throw new Error(employmentDetailsResult.error.message);
     }
 
+    const employmentDetails =
+      (employmentDetailsResult.data ?? {}) as EmploymentLeaveDetails;
+    const currentLeaveYear = getCurrentLeaveYear(
+      employmentDetails.holiday_year_start_month,
+      employmentDetails.holiday_year_start_day,
+    );
+    const calculatedStatutoryDays = calculateCurrentStatutoryDays(
+      employmentDetails,
+      employee.start_date,
+    );
+    const annualLeaveAllowance =
+      employmentDetails.leave_entitlement_basis === "Statutory"
+        ? calculatedStatutoryDays
+        : employmentDetails.annual_leave_allowance ?? null;
+
+    const allBankHolidays = await getEnglandAndWalesBankHolidays();
+    const bankHolidays = getRelevantBankHolidays(
+      allBankHolidays,
+      currentLeaveYear,
+      employee.start_date,
+      employmentDetails.employment_end_date,
+    );
+    const bankHolidayWorkingDays = countBankHolidayWorkingDays(
+      bankHolidays,
+      employmentDetails.working_days,
+    );
+    const includedBankHolidayDays =
+      employmentDetails.bank_holiday_treatment === "Included"
+        ? bankHolidayWorkingDays
+        : 0;
+
     return NextResponse.json(
       {
         success: true,
         currentUserId: user.id,
         platformRole: normaliseRole(accessResult.access.role),
-        annualLeaveAllowance:
-          employmentDetailsResult.data?.annual_leave_allowance ?? null,
+        annualLeaveAllowance,
+        currentLeaveYearStart: currentLeaveYear
+          ? toDateOnlyValue(currentLeaveYear.start)
+          : null,
+        currentLeaveYearEnd: currentLeaveYear
+          ? toDateOnlyValue(currentLeaveYear.end)
+          : null,
         workingDays:
-          employmentDetailsResult.data?.working_days ?? [],
+          employmentDetails.working_days ?? [],
         workingPatternType:
-          employmentDetailsResult.data?.working_pattern_type ?? null,
+          employmentDetails.working_pattern_type ?? null,
         contractedDaysPerWeek:
-          employmentDetailsResult.data?.contracted_days_per_week ?? null,
+          employmentDetails.contracted_days_per_week ?? null,
         contractedHoursPerWeek:
-          employmentDetailsResult.data?.contracted_hours_per_week ?? null,
+          employmentDetails.contracted_hours_per_week ?? null,
+        bankHolidayTreatment:
+          employmentDetails.bank_holiday_treatment ?? null,
+        bankHolidayRegion: "England and Wales",
+        bankHolidays,
+        bankHolidayWorkingDays,
+        includedBankHolidayDays,
         records: recordsResult.data ?? [],
       },
       {

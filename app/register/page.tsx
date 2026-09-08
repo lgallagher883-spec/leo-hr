@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   FormEvent,
@@ -152,7 +152,7 @@ export default function RegisterPage() {
   function validateForm() {
     const errors: Record<string, string> = {};
 
-    if (!selectedPlan) {
+    if (!isPilotRegistration && !selectedPlan) {
       errors.plan =
         "Select either Free 7 Day Trial or a paid subscription to continue.";
     }
@@ -257,7 +257,7 @@ export default function RegisterPage() {
 
     if (!validateForm()) return;
 
-    if (!selectedPlan) {
+    if (!isPilotRegistration && !selectedPlan) {
       return;
     }
 
@@ -783,7 +783,9 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className={styles["create-account-button"]}
-                disabled={loading || !selectedPlan}
+                disabled={
+                  loading || (!selectedPlan && !isPilotRegistration)
+                }
               >
                 {loading
                   ? "Creating account…"

@@ -257,7 +257,7 @@ export default function EmployeesPage() {
   const [importHistory, setImportHistory] = useState<ImportHistoryRecord[]>([]);
 
   const [platformRole, setPlatformRole] =
-    useState<PlatformRole>("Employee");
+    useState<PlatformRole>("Owner");
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -302,7 +302,7 @@ export default function EmployeesPage() {
   const canAddEmployee = hasPermission("Senior");
 
   const loadCurrentUser = useCallback(async () => {
-    setPlatformRole("Employee");
+    setPlatformRole("Owner");
   }, []);
 
   const loadEmployees = useCallback(async () => {
@@ -857,31 +857,17 @@ export default function EmployeesPage() {
   }
 
   function downloadLeoTemplate() {
-    const worksheet = XLSX.utils.aoa_to_sheet([leoTemplateHeaders]);
-
-    worksheet["!cols"] = leoTemplateHeaders.map((header) => ({
-      wch: Math.max(header.length + 4, 18),
-    }));
-
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
-
-    XLSX.writeFile(workbook, "LEO-Employee-Import-Template.xlsx");
+    downloadStaticFile(
+      "/templates/LEO-HR-Employee-Import-Template.xlsx",
+      "LEO-HR-Employee-Import-Template.xlsx"
+    );
   }
 
   function downloadSampleFile() {
-    const worksheet = XLSX.utils.json_to_sheet(sampleRows);
-
-    worksheet["!cols"] = leoTemplateHeaders.map((header) => ({
-      wch: Math.max(header.length + 4, 18),
-    }));
-
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
-
-    XLSX.writeFile(workbook, "LEO-Employee-Import-Sample.xlsx");
+    downloadStaticFile(
+      "/templates/LEO-HR-Employee-Import-Sample.xlsx",
+      "LEO-HR-Employee-Import-Sample.xlsx"
+    );
   }
 
   function exportCurrentEmployeeView() {
@@ -1264,7 +1250,7 @@ export default function EmployeesPage() {
                 </div>
 
                 <div style={employeeCardFooterStyle}>
-                  <span>Open employee workspace</span>
+                  <span>View employee</span>
                   <span aria-hidden="true">→</span>
                 </div>
               </button>
@@ -1416,13 +1402,14 @@ export default function EmployeesPage() {
                   </Panel>
 
                   <Panel
-                    title="Import mode"
-                    description="Choose how Leo should handle new and existing employee records."
+                    title="What would you like Leo to do?"
+                    description="Choose an option based on whether the employees in your spreadsheet are already in Leo. You can review everything before changes are made."
                   >
                     <div style={importModeGridStyle}>
                       <ImportModeOption
-                        title="Create and update"
-                        description="Create new employees and update confidently matched existing records."
+                        title="Add new & update existing"
+                        description="Best for a full workforce spreadsheet. Adds employees who aren’t in Leo and updates employees who are already there. Example: importing your latest staff list."
+                        badge="Recommended for most imports"
                         selected={importMode === "create_and_update"}
                         onSelect={() =>
                           setImportMode("create_and_update")
@@ -1430,15 +1417,15 @@ export default function EmployeesPage() {
                       />
 
                       <ImportModeOption
-                        title="Create new only"
-                        description="Create new employees and skip any existing matches."
+                        title="Add new employees only"
+                        description="Adds employees who aren’t already in Leo and leaves existing employee records unchanged. Example: adding several new starters at once."
                         selected={importMode === "create_new"}
                         onSelect={() => setImportMode("create_new")}
                       />
 
                       <ImportModeOption
-                        title="Update existing only"
-                        description="Update matched employees without creating new records."
+                        title="Update existing employees only"
+                        description="Updates employees already in Leo without creating new records. Example: updating job roles, managers or leave allowances in bulk."
                         selected={importMode === "update_existing"}
                         onSelect={() =>
                           setImportMode("update_existing")
@@ -1446,8 +1433,8 @@ export default function EmployeesPage() {
                       />
 
                       <ImportModeOption
-                        title="Preview only"
-                        description="Validate the entire file without changing employee records."
+                        title="Check my spreadsheet only"
+                        description="Checks the file for matching, missing information and errors without changing anything in Leo. Example: checking a file before your first import."
                         selected={importMode === "preview_only"}
                         onSelect={() => setImportMode("preview_only")}
                       />
@@ -2040,11 +2027,13 @@ function ActionCard({
 function ImportModeOption({
   title,
   description,
+  badge,
   selected,
   onSelect,
 }: {
   title: string;
   description: string;
+  badge?: string;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -2054,6 +2043,7 @@ function ImportModeOption({
       onClick={onSelect}
       style={selected ? selectedImportModeStyle : importModeStyle}
     >
+      {badge ? <div style={importModeBadgeStyle}>{badge}</div> : null}
       <div style={importModeTitleStyle}>{title}</div>
       <div style={importModeDescriptionStyle}>{description}</div>
     </button>
@@ -2108,6 +2098,15 @@ function PageState({
       )}
     </div>
   );
+}
+
+function downloadStaticFile(path: string, fileName: string) {
+  const link = document.createElement("a");
+  link.href = path;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function normalisePlatformRole(value: string): PlatformRole {
@@ -3467,6 +3466,19 @@ const selectedImportModeStyle: CSSProperties = {
   ...importModeStyle,
   background: "#F7F1FC",
   border: "1px solid #CDB2E2",
+};
+
+const importModeBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  background: "#F5FFF9",
+  color: "#356653",
+  border: "1px solid #CDE7DA",
+  padding: "4px 8px",
+  fontSize: "10px",
+  fontWeight: 900,
+  marginBottom: "8px",
 };
 
 const importModeTitleStyle: CSSProperties = {

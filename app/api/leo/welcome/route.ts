@@ -191,7 +191,6 @@ export async function POST(req: Request) {
         key: decision.key,
         value: decision.value,
         source: "Welcome Brief",
-        updated_by: user.id,
       }));
 
     for (const fact of factsToSave) {

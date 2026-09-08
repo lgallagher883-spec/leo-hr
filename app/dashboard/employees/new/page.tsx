@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -62,7 +62,7 @@ export default function NewEmployeePage() {
 
       <h1 style={{ margin: 0 }}>Add employee</h1>
       <p style={{ color: "#6B7280", marginTop: "8px" }}>
-        Create a staff record so Matters and documents can be linked to this employee.
+        Create an employee record so employment information, Matters and documents can be linked to the correct person.
       </p>
 
       <div style={cardStyle}>
@@ -82,6 +82,7 @@ export default function NewEmployeePage() {
         <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ ...inputStyle, maxWidth: "260px", background: "#fff" }}>
           <option>Active</option>
           <option>Former Employee</option>
+          <option>Archived</option>
         </select>
 
         <button

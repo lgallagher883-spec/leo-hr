@@ -305,7 +305,7 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
               label="Driving Licence Number"
               value={drivingLicenceNumber}
               onChange={setDrivingLicenceNumber}
-              placeholder="Optional"
+              placeholder="Enter driving licence number"
             />
 
             <Field

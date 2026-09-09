@@ -65,7 +65,7 @@ async function authoriseInvitationManager(
   const { data: invitation, error: invitationError } = await admin
     .from("organisation_invitations")
     .select(
-      "id, organisation_id, email, role, invitation_status, expires_at, created_at",
+      "id, organisation_id, employee_id, email, role, invitation_status, expires_at, created_at",
     )
     .eq("id", invitationId)
     .maybeSingle();
@@ -185,7 +185,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const now = new Date();
     const expiresAt = new Date(
-      now.getTime() + 7 * 24 * 60 * 60 * 1000,
+      now.getTime() + 5 * 24 * 60 * 60 * 1000,
     ).toISOString();
 
     const { data, error } = await admin
@@ -198,6 +198,7 @@ export async function POST(request: Request, context: RouteContext) {
         cancelled_at: null,
         updated_at: now.toISOString(),
         metadata: {
+          employee_id: invitation.employee_id,
           resent_at: now.toISOString(),
           resent_by: user.id,
           source: "organisation_people_access",
@@ -224,10 +225,11 @@ export async function POST(request: Request, context: RouteContext) {
 
     const { error: inviteEmailError } =
       await admin.auth.admin.inviteUserByEmail(invitation.email, {
-        redirectTo: `${redirectTo}/auth/callback`,
+        redirectTo: `${redirectTo}/auth/accept-invitation`,
         data: {
           organisation_invitation_id: invitation.id,
           organisation_id: invitation.organisation_id,
+          employee_id: invitation.employee_id,
           organisation_role: invitation.role,
           invited_by: user.id,
         },

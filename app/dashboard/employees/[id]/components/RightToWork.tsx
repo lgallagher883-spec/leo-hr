@@ -19,6 +19,10 @@ type RightToWorkProps = {
 type RightToWorkRecord = {
   id: number;
   nationality: string;
+  evidence_type: string | null;
+  checked_by: string | null;
+  document_reference: string | null;
+  evidence_start_date: string | null;
   immigration_status: string | null;
   visa_or_permit_type: string | null;
   share_code: string | null;
@@ -39,10 +43,25 @@ const nationalityOptions = [
   "Other",
 ];
 
+const evidenceTypeOptions = [
+  "Passport",
+  "Online right to work check / share code",
+  "Biometric residence document",
+  "Immigration status document",
+  "Certificate of Application",
+  "Application Registration Card",
+  "Birth / adoption certificate with supporting evidence",
+  "Other acceptable evidence",
+];
+
 export default function RightToWork({ employeeId }: RightToWorkProps) {
   const [records, setRecords] = useState<RightToWorkRecord[]>([]);
 
   const [nationality, setNationality] = useState("English");
+  const [evidenceType, setEvidenceType] = useState("Passport");
+  const [checkedBy, setCheckedBy] = useState("");
+  const [documentReference, setDocumentReference] = useState("");
+  const [evidenceStartDate, setEvidenceStartDate] = useState("");
   const [immigrationStatus, setImmigrationStatus] = useState("");
   const [visaOrPermitType, setVisaOrPermitType] = useState("");
   const [shareCode, setShareCode] = useState("");
@@ -62,7 +81,7 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     const { data, error } = await supabase
       .from("employee_right_to_work")
       .select(
-        "id, nationality, immigration_status, visa_or_permit_type, share_code, right_to_work_expiry, restrictions, check_completed_date, next_review_date, notes, created_at"
+        "id, nationality, evidence_type, checked_by, document_reference, evidence_start_date, immigration_status, visa_or_permit_type, share_code, right_to_work_expiry, restrictions, check_completed_date, next_review_date, notes, created_at"
       )
       .eq("employee_id", employeeId)
       .order("created_at", { ascending: false });
@@ -82,6 +101,21 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   }, [employeeId]);
 
   async function saveRecord() {
+    if (!evidenceType.trim()) {
+      setMessage("Please select the evidence type checked.");
+      return;
+    }
+
+    if (!checkedBy.trim()) {
+      setMessage("Please enter who completed the right to work check.");
+      return;
+    }
+
+    if (!checkCompletedDate) {
+      setMessage("Please enter the date the right to work check was completed.");
+      return;
+    }
+
     if (isOtherNationality) {
       if (!immigrationStatus.trim()) {
         setMessage("Please enter the immigration status.");
@@ -106,6 +140,10 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
       {
         employee_id: employeeId,
         nationality,
+        evidence_type: evidenceType || null,
+        checked_by: checkedBy || null,
+        document_reference: documentReference || null,
+        evidence_start_date: evidenceStartDate || null,
         immigration_status: immigrationStatus || null,
         visa_or_permit_type: visaOrPermitType || null,
         share_code: shareCode || null,
@@ -126,6 +164,10 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     }
 
     setNationality("English");
+    setEvidenceType("Passport");
+    setCheckedBy("");
+    setDocumentReference("");
+    setEvidenceStartDate("");
     setImmigrationStatus("");
     setVisaOrPermitType("");
     setShareCode("");
@@ -142,8 +184,8 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   return (
     <ProfileSection title="Right to Work">
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
-        Record right to work checks and review dates. If nationality is marked as
-        Other, visa or permit details should be completed.
+        Record the evidence checked, who completed the check and any relevant
+        document, visa or review dates.
       </p>
 
       <SelectField
@@ -154,17 +196,57 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
         small
       />
 
+      <SelectField
+        label="Evidence Seen"
+        value={evidenceType}
+        onChange={setEvidenceType}
+        options={evidenceTypeOptions}
+      />
+
+      <div style={formGridStyle}>
+        <Field
+          label="Checked By"
+          value={checkedBy}
+          onChange={setCheckedBy}
+          placeholder="Name of person who completed the check"
+        />
+
+        <Field
+          label="Document / Reference Number"
+          value={documentReference}
+          onChange={setDocumentReference}
+          placeholder="Passport, permit or evidence reference"
+        />
+
+        <Field
+          label="Evidence Start / Valid From Date"
+          value={evidenceStartDate}
+          onChange={setEvidenceStartDate}
+          type="date"
+          small
+        />
+
+        <Field
+          label="Check Completed Date"
+          value={checkCompletedDate}
+          onChange={setCheckCompletedDate}
+          type="date"
+          small
+        />
+      </div>
+
       {!isOtherNationality && (
         <div style={noticeStyle}>
-          British / UK nationality selected. Visa fields are not required, but
-          you should still record the right to work check date and any notes.
+          British / UK nationality selected. Record the evidence actually checked
+          and the date of the right to work check. Time-limited immigration fields
+          are only needed where relevant.
         </div>
       )}
 
       {isOtherNationality && (
         <div style={warningStyle}>
-          Other nationality selected. Complete visa / permit details, expiry date
-          and review information.
+          Other nationality selected. Complete the relevant immigration, visa or
+          permit details, expiry date and review information.
         </div>
       )}
 
@@ -207,14 +289,6 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
           />
         </>
       )}
-
-      <Field
-        label="Check Completed Date"
-        value={checkCompletedDate}
-        onChange={setCheckCompletedDate}
-        type="date"
-        small
-      />
 
       <Field
         label="Next Review Date"
@@ -264,6 +338,7 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
               >
                 <div style={{ fontWeight: 800 }}>
                   {record.nationality}
+                  {record.evidence_type ? ` · ${record.evidence_type}` : ""}
                   {record.visa_or_permit_type
                     ? ` · ${record.visa_or_permit_type}`
                     : ""}
@@ -271,8 +346,23 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
 
                 <div style={{ color: "#6B7280", fontSize: "13px", marginTop: "4px" }}>
                   Check completed: {record.check_completed_date || "Not set"} ·
-                  Next review: {record.next_review_date || "Not set"}
+                  Checked by: {record.checked_by || "Not set"} · Next review:{" "}
+                  {record.next_review_date || "Not set"}
                 </div>
+
+                {record.document_reference && (
+                  <div style={{ marginTop: "8px" }}>
+                    <strong>Document / reference:</strong>{" "}
+                    {record.document_reference}
+                  </div>
+                )}
+
+                {record.evidence_start_date && (
+                  <div style={{ marginTop: "8px" }}>
+                    <strong>Evidence valid from:</strong>{" "}
+                    {record.evidence_start_date}
+                  </div>
+                )}
 
                 {record.right_to_work_expiry && (
                   <div style={{ marginTop: "8px" }}>
@@ -310,6 +400,13 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     </ProfileSection>
   );
 }
+
+const formGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "10px 16px",
+  alignItems: "start",
+};
 
 const noticeStyle: React.CSSProperties = {
   background: "#F9FAFB",

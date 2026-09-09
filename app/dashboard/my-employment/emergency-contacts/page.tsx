@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import mobileStyles from "../MyEmployment.module.css";
+import { useEffect, useState } from "react";
 
 type EmergencyContactRecord = {
   id?: number;
@@ -22,13 +21,7 @@ type ContactForm = {
   address: string;
 };
 
-const emptyContact: ContactForm = {
-  fullName: "",
-  relationship: "",
-  phone: "",
-  email: "",
-  address: "",
-};
+const emptyContact: ContactForm = { fullName: "", relationship: "", phone: "", email: "", address: "" };
 
 function toForm(record: EmergencyContactRecord | undefined): ContactForm {
   return {
@@ -38,10 +31,6 @@ function toForm(record: EmergencyContactRecord | undefined): ContactForm {
     email: record?.email || "",
     address: record?.address || "",
   };
-}
-
-function displayValue(value: string | null | undefined) {
-  return value?.trim() || "Not recorded";
 }
 
 export default function EmergencyContactsPage() {
@@ -57,55 +46,17 @@ export default function EmergencyContactsPage() {
 
   async function loadContacts() {
     setLoading(true);
-    setError("");
-
     try {
-      const response = await fetch("/api/my-employment/emergency-contacts", {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-
-      const payload = (await response.json().catch(() => null)) as
-        | {
-            success?: boolean;
-            employeeLinked?: boolean;
-            contacts?: EmergencyContactRecord[];
-            error?: string;
-          }
-        | null;
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(
-          payload?.error || "Your emergency contacts could not be loaded.",
-        );
-      }
-
-      const nextContacts = Array.isArray(payload.contacts)
-        ? payload.contacts
-        : [];
-
+      const response = await fetch("/api/my-employment/emergency-contacts", { cache: "no-store", headers: { Accept: "application/json" } });
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; employeeLinked?: boolean; contacts?: EmergencyContactRecord[]; error?: string } | null;
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Your emergency contacts could not be loaded.");
+      const next = Array.isArray(payload.contacts) ? payload.contacts : [];
       setEmployeeLinked(payload.employeeLinked !== false);
-      setContacts(nextContacts);
-      setContactOne(
-        toForm(
-          nextContacts.find(
-            (contact) => contact.contact_number === 1,
-          ),
-        ),
-      );
-      setContactTwo(
-        toForm(
-          nextContacts.find(
-            (contact) => contact.contact_number === 2,
-          ),
-        ),
-      );
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Your emergency contacts could not be loaded.",
-      );
+      setContacts(next);
+      setContactOne(toForm(next.find((item) => item.contact_number === 1)));
+      setContactTwo(toForm(next.find((item) => item.contact_number === 2)));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Your emergency contacts could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -115,658 +66,140 @@ export default function EmergencyContactsPage() {
     void loadContacts();
   }, []);
 
-  const primaryContact =
-    contacts.find((contact) => contact.contact_number === 1) ??
-    contacts[0] ??
-    undefined;
-
-  const desktopContactFields = useMemo(
-    () => [
-      ["Primary emergency contact", displayValue(primaryContact?.full_name)],
-      ["Relationship", displayValue(primaryContact?.relationship)],
-      ["Primary telephone", displayValue(primaryContact?.phone)],
-      ["Secondary telephone", "Not recorded"],
-      ["Email address", displayValue(primaryContact?.email)],
-      ["Preferred contact method", "Not recorded"],
-    ],
-    [primaryContact],
-  );
-
-  const confirmationLabel = loading
-    ? "Loading"
-    : error
-      ? "Unavailable"
-      : !employeeLinked
-        ? "Not linked"
-        : primaryContact
-          ? "Recorded"
-          : "Not confirmed";
-
-  const displayContacts = useMemo(
-    () => [
-      {
-        title: "Primary contact",
-        record: contacts.find(
-          (contact) => contact.contact_number === 1,
-        ),
-      },
-      {
-        title: "Second contact",
-        record: contacts.find(
-          (contact) => contact.contact_number === 2,
-        ),
-      },
-    ],
-    [contacts],
-  );
-
   async function saveContacts() {
     setSaving(true);
     setMessage("");
     setError("");
-
     try {
-      const response = await fetch(
-        "/api/my-employment/emergency-contacts",
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            contacts: [
-              {
-                contactNumber: 1,
-                fullName: contactOne.fullName,
-                relationship: contactOne.relationship,
-                phone: contactOne.phone,
-                email: contactOne.email,
-                address: contactOne.address,
-              },
-              {
-                contactNumber: 2,
-                fullName: contactTwo.fullName,
-                relationship: contactTwo.relationship,
-                phone: contactTwo.phone,
-                email: contactTwo.email,
-                address: contactTwo.address,
-              },
-            ],
-          }),
-        },
-      );
-
-      const payload = (await response.json().catch(() => null)) as
-        | {
-            success?: boolean;
-            contacts?: EmergencyContactRecord[];
-            error?: string;
-          }
-        | null;
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(
-          payload?.error || "Your emergency contacts could not be saved.",
-        );
-      }
-
-      const nextContacts = Array.isArray(payload.contacts)
-        ? payload.contacts
-        : [];
-
-      setContacts(nextContacts);
-      setContactOne(
-        toForm(
-          nextContacts.find(
-            (contact) => contact.contact_number === 1,
-          ),
-        ),
-      );
-      setContactTwo(
-        toForm(
-          nextContacts.find(
-            (contact) => contact.contact_number === 2,
-          ),
-        ),
-      );
+      const response = await fetch("/api/my-employment/emergency-contacts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          contacts: [
+            { contactNumber: 1, fullName: contactOne.fullName, relationship: contactOne.relationship, phone: contactOne.phone, email: contactOne.email, address: contactOne.address },
+            { contactNumber: 2, fullName: contactTwo.fullName, relationship: contactTwo.relationship, phone: contactTwo.phone, email: contactTwo.email, address: contactTwo.address },
+          ],
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; contacts?: EmergencyContactRecord[]; error?: string } | null;
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Your emergency contacts could not be saved.");
+      const next = Array.isArray(payload.contacts) ? payload.contacts : [];
+      setContacts(next);
+      setContactOne(toForm(next.find((item) => item.contact_number === 1)));
+      setContactTwo(toForm(next.find((item) => item.contact_number === 2)));
       setEditing(false);
-      setMessage("Emergency contacts updated.");
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Your emergency contacts could not be saved.",
-      );
+      setMessage("Emergency contacts updated. Your organisation has an audited record of the change.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Your emergency contacts could not be saved.");
     } finally {
       setSaving(false);
     }
   }
 
+  function cancelEditing() {
+    setEditing(false);
+    setMessage("");
+    setError("");
+    setContactOne(toForm(contacts.find((item) => item.contact_number === 1)));
+    setContactTwo(toForm(contacts.find((item) => item.contact_number === 2)));
+  }
+
   return (
-    <>
-      {/* PHONE-ONLY employee app */}
-      <main
-        className={`${mobileStyles.employeeMobileOnly} ${mobileStyles.employeeMobilePage} ${mobileStyles.mobileSectionStack}`}
-        style={{ maxWidth: 1200, margin: "0 auto" }}
-      >
-        <header>
-          <h1 style={{ margin: 0, color: "#6E5084", fontSize: 32 }}>
-            Emergency Contacts
-          </h1>
-        </header>
+    <main style={pageStyle}>
+      <header style={headerStyle}>
+        <div>
+          <p style={eyebrow}>Employee workspace</p>
+          <h1 style={titleStyle}>Emergency Contacts</h1>
+          <p style={introStyle}>Review and maintain the emergency contact details held for you.</p>
+        </div>
+        <Link href="/dashboard/my-employment" style={backLink}>← Back to My Employment</Link>
+      </header>
 
-        {loading ? (
-          <section className={mobileStyles.mobileCompactCard} style={cardStyle}>
-            Loading your emergency contacts...
-          </section>
-        ) : error && contacts.length === 0 ? (
-          <section className={mobileStyles.mobileCompactCard} style={cardStyle}>
-            <span style={{ color: "#8F3B3B" }}>{error}</span>
-          </section>
-        ) : !employeeLinked ? (
-          <section className={mobileStyles.mobileCompactCard} style={cardStyle}>
-            Your employee record is not available.
-          </section>
-        ) : editing ? (
-          <>
-            <ContactFormCard
-              title="Primary contact"
-              value={contactOne}
-              onChange={setContactOne}
-            />
+      <section style={noticeCard}>
+        <strong style={{ color: "#6E5084" }}>Restricted personal information</strong>
+        <p style={{ margin: "7px 0 0", color: "#526071", lineHeight: 1.6 }}>Emergency-contact details are used only where necessary. Changes you make are recorded in Leo HR's audit trail.</p>
+      </section>
 
-            <ContactFormCard
-              title="Second contact"
-              value={contactTwo}
-              onChange={setContactTwo}
-            />
+      {error ? <div style={errorCard}>{error}</div> : null}
+      {message ? <div style={successCard}>{message}</div> : null}
 
-            {message ? <div style={messageStyle}>{message}</div> : null}
-            {error ? <div style={errorStyle}>{error}</div> : null}
-
-            <div className={mobileStyles.mobileActionRow}>
-              <button
-                type="button"
-                className={mobileStyles.mobilePrimaryButton}
-                onClick={() => void saveContacts()}
-                disabled={saving}
-                style={buttonStyle}
-              >
-                {saving ? "Saving..." : "Save contacts"}
-              </button>
-
-              <button
-                type="button"
-                className={mobileStyles.mobileSecondaryButton}
-                onClick={() => {
-                  setEditing(false);
-                  setMessage("");
-                  setError("");
-                  setContactOne(
-                    toForm(
-                      contacts.find(
-                        (contact) => contact.contact_number === 1,
-                      ),
-                    ),
-                  );
-                  setContactTwo(
-                    toForm(
-                      contacts.find(
-                        (contact) => contact.contact_number === 2,
-                      ),
-                    ),
-                  );
-                }}
-                disabled={saving}
-                style={buttonStyle}
-              >
-                Cancel
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {displayContacts.map(({ title, record }) => (
-              <section
-                key={title}
-                className={mobileStyles.mobileCompactCard}
-                style={cardStyle}
-              >
-                <h2 style={sectionHeadingStyle}>{title}</h2>
-                <MobileRecordRow label="Name" value={record?.full_name} />
-                <MobileRecordRow
-                  label="Relationship"
-                  value={record?.relationship}
-                />
-                <MobileRecordRow label="Phone" value={record?.phone} />
-                <MobileRecordRow label="Email" value={record?.email} />
-                <MobileRecordRow label="Address" value={record?.address} />
-              </section>
-            ))}
-
-            {message ? <div style={messageStyle}>{message}</div> : null}
-            {error ? <div style={errorStyle}>{error}</div> : null}
-
-            <button
-              type="button"
-              className={mobileStyles.mobilePrimaryButton}
-              onClick={() => setEditing(true)}
-              style={{ ...buttonStyle, width: "fit-content" }}
-            >
-              Update contacts
-            </button>
-          </>
-        )}
-      </main>
-
-      {/* EXISTING EMPLOYEE DESKTOP PRESENTATION — intentionally preserved */}
-      <main
-        className={mobileStyles.employeeDesktopOnly}
-        style={{ maxWidth: 1200, margin: "0 auto" }}
-      >
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 20,
-            flexWrap: "wrap",
-            marginBottom: 24,
-          }}
-        >
-          <div>
-            <p
-              style={{
-                margin: "0 0 8px",
-                color: "#6E5084",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-            >
-              Employee workspace
-            </p>
-
-            <h1
-              style={{
-                margin: 0,
-                color: "#6E5084",
-                fontSize: 32,
-                lineHeight: 1.2,
-              }}
-            >
-              Emergency Contacts
-            </h1>
-
-            <p
-              style={{
-                margin: "8px 0 0",
-                color: "#64748B",
-                fontSize: 15,
-                lineHeight: 1.55,
-              }}
-            >
-              Review the emergency-contact information held by your organisation.
-            </p>
+      {loading ? (
+        <section style={card}>Loading your emergency contacts...</section>
+      ) : !employeeLinked ? (
+        <section style={card}>Your account has not yet been linked to an employee record.</section>
+      ) : editing ? (
+        <div style={{ display: "grid", gap: 18 }}>
+          <ContactEditor title="Primary contact" value={contactOne} onChange={setContactOne} />
+          <ContactEditor title="Second contact" value={contactTwo} onChange={setContactTwo} />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => void saveContacts()} disabled={saving} style={primaryButton}>{saving ? "Saving..." : "Save contacts"}</button>
+            <button type="button" onClick={cancelEditing} disabled={saving} style={secondaryButton}>Cancel</button>
           </div>
-
-          <Link
-            href="/dashboard/my-employment"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              minHeight: 42,
-              padding: "9px 15px",
-              borderRadius: 11,
-              border: "1px solid #CDB2E2",
-              background: "#FFFFFF",
-              color: "#6E5084",
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 700,
-            }}
-          >
-            ← Back to My Employment
-          </Link>
-        </header>
-
-        <section
-          style={{
-            marginBottom: 20,
-            padding: 20,
-            borderRadius: 16,
-            border: "1px solid #E4D3EE",
-            background: "#F7F1FC",
-          }}
-        >
-          <strong style={{ color: "#6E5084", fontSize: 15 }}>
-            Restricted personal information
-          </strong>
-
-          <p
-            style={{
-              margin: "7px 0 0",
-              color: "#526071",
-              fontSize: 13,
-              lineHeight: 1.55,
-            }}
-          >
-            Emergency-contact details are used only where necessary during an
-            urgent situation. Access and changes should be recorded securely.
-          </p>
-        </section>
-
-        <section
-          style={{
-            overflow: "hidden",
-            borderRadius: 18,
-            border: "1px solid #E8E2EB",
-            background: "#FFFFFF",
-            boxShadow: "0 8px 22px rgba(17, 24, 39, 0.05)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 16,
-              padding: 22,
-              borderBottom: "1px solid #EEEAF1",
-            }}
-          >
-            <div>
-              <h2 style={{ margin: 0, color: "#2F2635", fontSize: 18 }}>
-                Contact details
-              </h2>
-
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  color: "#64748B",
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                }}
-              >
-                Your nominated contact and the details currently held.
-              </p>
-            </div>
-
-            <span
-              style={{
-                flexShrink: 0,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid #D8DCE2",
-                background: "#F8FAFC",
-                color: "#64748B",
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              {confirmationLabel}
-            </span>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 18 }}>
+          <div style={responsiveGrid}>
+            <ContactCard title="Primary contact" record={contacts.find((item) => item.contact_number === 1)} />
+            <ContactCard title="Second contact" record={contacts.find((item) => item.contact_number === 2)} />
           </div>
-
-          <div style={{ padding: "8px 22px 22px" }}>
-            {loading ? (
-              <div style={{ padding: "24px 0", color: "#64748B", fontSize: 13 }}>
-                Leo HR is loading your emergency-contact information.
-              </div>
-            ) : error ? (
-              <div
-                style={{
-                  padding: "24px 0",
-                  color: "#8F3B3B",
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                }}
-              >
-                {error}
-              </div>
-            ) : !employeeLinked ? (
-              <div
-                style={{
-                  padding: "24px 0",
-                  color: "#64748B",
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                }}
-              >
-                Your account has not yet been linked to an employee record.
-              </div>
-            ) : (
-              desktopContactFields.map(([label, value]) => (
-                <div
-                  key={label}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "minmax(190px, 0.8fr) minmax(0, 1.2fr)",
-                    gap: 20,
-                    padding: "15px 0",
-                    borderBottom: "1px solid #F0EDF2",
-                  }}
-                >
-                  <div
-                    style={{
-                      color: "#64748B",
-                      fontSize: 13,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {label}
-                  </div>
-
-                  <div
-                    style={{
-                      color:
-                        value === "Not recorded" ? "#94A3B8" : "#2F2635",
-                      fontSize: 13,
-                      fontWeight: 650,
-                    }}
-                  >
-                    {value}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section
-          style={{
-            marginTop: 20,
-            padding: 22,
-            borderRadius: 18,
-            border: "1px solid #E8E2EB",
-            background: "#FFFFFF",
-            boxShadow: "0 8px 22px rgba(17, 24, 39, 0.05)",
-          }}
-        >
-          <h2 style={{ margin: 0, color: "#2F2635", fontSize: 17 }}>
-            Confirmation
-          </h2>
-
-          <p
-            style={{
-              margin: "7px 0 0",
-              color: "#64748B",
-              fontSize: 13,
-              lineHeight: 1.55,
-            }}
-          >
-            Once employee self-service changes are enabled, you will be able to
-            add, update and confirm your emergency contacts here. Changes will
-            follow the same secure employee record and audit process already
-            used by the main Employees workspace.
-          </p>
-
-          <button
-            type="button"
-            disabled
-            style={{
-              marginTop: 16,
-              minHeight: 42,
-              padding: "9px 15px",
-              borderRadius: 11,
-              border: "1px solid #D8DCE2",
-              background: "#F8FAFC",
-              color: "#94A3B8",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "not-allowed",
-            }}
-          >
-            Update emergency contacts
-          </button>
-        </section>
-      </main>
-    </>
+          <button type="button" onClick={() => setEditing(true)} style={{ ...primaryButton, width: "fit-content" }}>Update contacts</button>
+        </div>
+      )}
+    </main>
   );
 }
 
-function ContactFormCard({
-  title,
-  value,
-  onChange,
-}: {
-  title: string;
-  value: ContactForm;
-  onChange: (value: ContactForm) => void;
-}) {
-  const field = (key: keyof ContactForm, next: string) =>
-    onChange({ ...value, [key]: next });
-
+function ContactCard({ title, record }: { title: string; record?: EmergencyContactRecord }) {
   return (
-    <section className={mobileStyles.mobileCompactCard} style={cardStyle}>
-      <h2 style={sectionHeadingStyle}>{title}</h2>
+    <section style={card}>
+      <h2 style={heading}>{title}</h2>
+      <InfoRow label="Name" value={record?.full_name || "Not recorded"} />
+      <InfoRow label="Relationship" value={record?.relationship || "Not recorded"} />
+      <InfoRow label="Phone" value={record?.phone || "Not recorded"} />
+      <InfoRow label="Email" value={record?.email || "Not recorded"} />
+      <InfoRow label="Address" value={record?.address || "Not recorded"} />
+    </section>
+  );
+}
 
-      <div
-        className={mobileStyles.mobileFormGrid}
-        style={{ display: "grid", gap: 12 }}
-      >
-        <FormField label="Full name">
-          <input
-            value={value.fullName}
-            onChange={(event) => field("fullName", event.target.value)}
-          />
-        </FormField>
-
-        <FormField label="Relationship">
-          <input
-            value={value.relationship}
-            onChange={(event) => field("relationship", event.target.value)}
-          />
-        </FormField>
-
-        <FormField label="Phone">
-          <input
-            type="tel"
-            value={value.phone}
-            onChange={(event) => field("phone", event.target.value)}
-          />
-        </FormField>
-
-        <FormField label="Email">
-          <input
-            type="email"
-            value={value.email}
-            onChange={(event) => field("email", event.target.value)}
-          />
-        </FormField>
-
-        <FormField label="Address">
-          <textarea
-            value={value.address}
-            onChange={(event) => field("address", event.target.value)}
-          />
-        </FormField>
+function ContactEditor({ title, value, onChange }: { title: string; value: ContactForm; onChange: (next: ContactForm) => void }) {
+  return (
+    <section style={card}>
+      <h2 style={heading}>{title}</h2>
+      <div style={formGrid}>
+        <Field label="Full name" value={value.fullName} onChange={(fullName) => onChange({ ...value, fullName })} />
+        <Field label="Relationship" value={value.relationship} onChange={(relationship) => onChange({ ...value, relationship })} />
+        <Field label="Phone" value={value.phone} onChange={(phone) => onChange({ ...value, phone })} />
+        <Field label="Email" type="email" value={value.email} onChange={(email) => onChange({ ...value, email })} />
+        <Field label="Address" value={value.address} onChange={(address) => onChange({ ...value, address })} wide />
       </div>
     </section>
   );
 }
 
-function FormField({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className={mobileStyles.mobileFormField}>
-      <span>{label}</span>
-      {children}
-    </label>
-  );
+function Field({ label, value, onChange, type = "text", wide = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; wide?: boolean }) {
+  return <label style={{ display: "grid", gap: 7, gridColumn: wide ? "1 / -1" : undefined }}><span style={labelStyle}>{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle} /></label>;
 }
 
-function MobileRecordRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null | undefined;
-}) {
-  return (
-    <div
-      className={mobileStyles.mobileRecordRow}
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: 20,
-        padding: "12px 0",
-        borderBottom: "1px solid #F0EDF2",
-      }}
-    >
-      <span
-        className={mobileStyles.mobileRecordLabel}
-        style={{ color: "#64748B", fontWeight: 700 }}
-      >
-        {label}
-      </span>
-
-      <span
-        className={mobileStyles.mobileRecordValue}
-        style={{
-          color: value ? "#2F2635" : "#94A3B8",
-          fontWeight: 600,
-          textAlign: "right",
-        }}
-      >
-        {value || "Not recorded"}
-      </span>
-    </div>
-  );
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return <div style={infoRow}><span style={labelStyle}>{label}</span><span style={{ color: value === "Not recorded" ? "#94A3B8" : "#2F2635", fontWeight: 600, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span></div>;
 }
 
-const cardStyle = {
-  background: "#FFFFFF",
-  border: "1px solid #E8E2EB",
-  borderRadius: 18,
-  padding: 20,
-  boxShadow: "0 8px 22px rgba(17,24,39,.05)",
-} as const;
-
-const sectionHeadingStyle = {
-  margin: "0 0 10px",
-  color: "#6E5084",
-  fontSize: 18,
-} as const;
-
-const buttonStyle = {
-  padding: "10px 15px",
-} as const;
-
-const messageStyle = {
-  color: "#356653",
-  fontSize: 13,
-} as const;
-
-const errorStyle = {
-  color: "#8F3B3B",
-  fontSize: 13,
-} as const;
+const pageStyle = { maxWidth: 1200, margin: "0 auto", paddingBottom: 32 } as const;
+const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap" as const, marginBottom: 22 };
+const eyebrow = { margin: "0 0 7px", color: "#6E5084", fontWeight: 800, fontSize: 12, textTransform: "uppercase" as const, letterSpacing: "0.08em" };
+const titleStyle = { margin: 0, color: "#6E5084", fontSize: 32 } as const;
+const introStyle = { color: "#64748B", lineHeight: 1.6 } as const;
+const noticeCard = { background: "#F7F1FC", border: "1px solid #E4D3EE", borderRadius: 16, padding: 20, marginBottom: 20 } as const;
+const card = { background: "#FFFFFF", border: "1px solid #E8E2EB", borderRadius: 18, padding: 22, boxShadow: "0 8px 22px rgba(17,24,39,.05)" } as const;
+const heading = { margin: "0 0 14px", color: "#2F2635", fontSize: 18 } as const;
+const responsiveGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 18 } as const;
+const infoRow = { display: "flex", justifyContent: "space-between", gap: 20, padding: "12px 0", borderBottom: "1px solid #F0EDF2" } as const;
+const labelStyle = { color: "#64748B", fontWeight: 700 } as const;
+const formGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 } as const;
+const inputStyle = { width: "100%", boxSizing: "border-box" as const, minHeight: 44, border: "1px solid #D9CEE7", borderRadius: 10, padding: "10px 12px", font: "inherit", color: "#2F2635" } as const;
+const primaryButton = { border: 0, borderRadius: 10, background: "#6E5084", color: "#fff", padding: "11px 16px", fontWeight: 800, cursor: "pointer" } as const;
+const secondaryButton = { border: "1px solid #CDB2E2", borderRadius: 10, background: "#fff", color: "#6E5084", padding: "10px 16px", fontWeight: 700, cursor: "pointer" } as const;
+const backLink = { display: "inline-block", textDecoration: "none", color: "#6E5084", border: "1px solid #CDB2E2", borderRadius: 10, padding: "10px 16px", fontWeight: 700 } as const;
+const errorCard = { ...card, color: "#8F3B3B", marginBottom: 16 } as const;
+const successCard = { ...card, color: "#356653", marginBottom: 16, background: "#F5FFF9" } as const;

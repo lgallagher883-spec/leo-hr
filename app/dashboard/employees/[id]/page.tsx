@@ -15,7 +15,6 @@ import LeaveAbsence from "./components/LeaveAbsence";
 import RightToWork from "./components/RightToWork";
 import TrainingLogs from "./components/TrainingLogs";
 
-import { createClient } from "@supabase/supabase-js";
 import { useParams, useRouter } from "next/navigation";
 import {
   type CSSProperties,
@@ -25,11 +24,6 @@ import {
   useMemo,
   useState,
 } from "react";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
@@ -172,39 +166,23 @@ export default function EmployeeProfilePage() {
 
   const resolvePlatformRole = useCallback(async () => {
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const response = await fetch("/api/current-access", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
 
-      if (userError || !user) {
-        setPlatformRole("Employee");
-        return;
+      const result = (await response.json()) as {
+        success?: boolean;
+        role?: unknown;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Your employee workspace access could not be resolved.");
       }
 
-      const { data: organisationId, error: organisationError } = await supabase.rpc(
-        "leo_current_organisation_id"
-      );
-
-      if (organisationError || typeof organisationId !== "string" || !organisationId) {
-        setPlatformRole("Employee");
-        return;
-      }
-
-      const { data: membership, error: membershipError } = await supabase
-        .from("organisation_memberships")
-        .select("role")
-        .eq("organisation_id", organisationId)
-        .eq("user_id", user.id)
-        .eq("membership_status", "active")
-        .maybeSingle();
-
-      if (membershipError || !membership) {
-        setPlatformRole("Employee");
-        return;
-      }
-
-      setPlatformRole(normalisePlatformRole(membership.role));
+      setPlatformRole(normalisePlatformRole(result.role));
     } catch (error) {
       console.error("Employee workspace role could not be resolved:", error);
       setPlatformRole("Employee");
@@ -610,7 +588,7 @@ function PageState({ title, message, actionLabel, onAction }: { title: string; m
 function normalisePlatformRole(value: unknown): PlatformRole {
   const role = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (role === "owner") return "Owner";
-  if (role === "senior") return "Senior";
+  if (role === "senior" || role === "hr") return "Senior";
   if (role === "manager") return "Manager";
   return "Employee";
 }
@@ -638,8 +616,10 @@ function formatDate(value: string | null): string {
 
 function formatDateTime(value: string | null): string {
   if (!value) return "Date not recorded";
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) return formatDate(value);
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? formatDate(value) : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }).format(date);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }).format(date);
 }
 
 function serviceLength(startDate: string): string {

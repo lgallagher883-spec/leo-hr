@@ -195,6 +195,33 @@ async function loadLinkedRecruitmentDocuments(
     }) as DocumentRecord[];
 }
 
+
+async function loadCompanyDocumentsSharedWithEveryone(
+  supabase: ReturnType<typeof getAdminClient>,
+  organisationId: string,
+) {
+  const result = await supabase
+    .from("company_documents")
+    .select(
+      "id,name,document_type,file_name,file_path,created_at,updated_at,status",
+    )
+    .eq("organisation_id", organisationId)
+    .eq("access_level", "everyone")
+    .or("status.is.null,status.eq.active")
+    .order("name", { ascending: true });
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  return (result.data ?? []).map((row) => ({
+    ...row,
+    source_table: "company_documents",
+    source_record_id: row.id,
+    visible_to_employee: true,
+  })) as DocumentRecord[];
+}
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
@@ -410,11 +437,19 @@ export async function GET(request: Request) {
       }
     }
 
+    const admin = getAdminClient();
+    const companyDocuments =
+      await loadCompanyDocumentsSharedWithEveryone(
+        admin,
+        organisationId,
+      );
+
     return NextResponse.json({
       success: true,
       employeeLinked: true,
       documents,
       sourceTable,
+      companyDocuments,
     });
   } catch (error) {
     console.error("LEO employee documents API failed:", error);

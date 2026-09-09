@@ -26,7 +26,7 @@ function getAdminClient() {
 }
 
 async function requireOrganisationAccess(
-  allowedRoles: Array<"owner" | "senior" | "manager">,
+  allowedRoles: Array<"owner" | "senior" | "manager" | "employee">,
 ) {
   const sessionClient = await createClient();
 
@@ -82,6 +82,11 @@ async function requireOrganisationAccess(
     user,
     admin,
     organisationId: resolvedRole.membership.organisation_id,
+    roleKey: resolvedRole.roleKey as
+      | "owner"
+      | "senior"
+      | "manager"
+      | "employee",
   };
 }
 
@@ -91,6 +96,7 @@ export async function GET(request: Request) {
       "owner",
       "senior",
       "manager",
+      "employee",
     ]);
 
     if (!access.ok) {
@@ -104,9 +110,15 @@ export async function GET(request: Request) {
     let query = access.admin
       .from("company_documents")
       .select(
-        "id, name, notes, document_type, file_name, file_path, created_at, updated_at, status, archived_at, document_group_id, version_number, previous_version_id, replaced_by_id",
+        "id, name, notes, document_type, file_name, file_path, created_at, updated_at, status, archived_at, document_group_id, version_number, previous_version_id, replaced_by_id, access_level",
       )
       .eq("organisation_id", access.organisationId);
+
+    if (access.roleKey === "manager") {
+      query = query.in("access_level", ["everyone", "management"]);
+    } else if (access.roleKey === "employee") {
+      query = query.eq("access_level", "everyone");
+    }
 
     if (groupId) {
       query = query
@@ -135,6 +147,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       documents: result.data ?? [],
+      canManage:
+        access.roleKey === "owner" || access.roleKey === "senior",
     });
   } catch (error) {
     console.error("Company documents could not be loaded:", error);

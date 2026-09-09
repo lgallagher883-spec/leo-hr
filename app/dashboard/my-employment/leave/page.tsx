@@ -18,6 +18,12 @@ type LeaveRecord = {
   created_at: string | null;
 };
 
+type BankHolidayEvent = {
+  title: string;
+  date: string;
+  notes: string;
+};
+
 const employeeLeaveTypes = [
   "Annual Leave",
   "Half Day Leave",
@@ -120,6 +126,13 @@ function statusStyle(status: string): CSSProperties {
 export default function MyLeavePage() {
   const [records, setRecords] = useState<LeaveRecord[]>([]);
   const [allowance, setAllowance] = useState(0);
+  const [currentLeaveYearStart, setCurrentLeaveYearStart] = useState<string | null>(null);
+  const [currentLeaveYearEnd, setCurrentLeaveYearEnd] = useState<string | null>(null);
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
+  const [bankHolidayTreatment, setBankHolidayTreatment] = useState<string | null>(null);
+  const [bankHolidays, setBankHolidays] = useState<BankHolidayEvent[]>([]);
+  const [bankHolidayWorkingDays, setBankHolidayWorkingDays] = useState(0);
+  const [includedBankHolidayDays, setIncludedBankHolidayDays] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [employeeLinked, setEmployeeLinked] = useState(true);
@@ -155,6 +168,14 @@ export default function MyLeavePage() {
           success?: boolean;
           employeeLinked?: boolean;
           allowance?: number | string | null;
+          currentLeaveYearStart?: string | null;
+          currentLeaveYearEnd?: string | null;
+          workingDays?: string[] | null;
+          bankHolidayTreatment?: string | null;
+          bankHolidayRegion?: string | null;
+          bankHolidays?: BankHolidayEvent[];
+          bankHolidayWorkingDays?: number | null;
+          includedBankHolidayDays?: number | null;
           records?: LeaveRecord[];
           error?: string;
         };
@@ -179,6 +200,13 @@ export default function MyLeavePage() {
           setEmployeeLinked(false);
           setRecords([]);
           setAllowance(0);
+          setCurrentLeaveYearStart(null);
+          setCurrentLeaveYearEnd(null);
+          setWorkingDays([]);
+          setBankHolidayTreatment(null);
+          setBankHolidays([]);
+          setBankHolidayWorkingDays(0);
+          setIncludedBankHolidayDays(0);
           setLoading(false);
 
           return;
@@ -195,6 +223,21 @@ export default function MyLeavePage() {
         setEmployeeLinked(true);
         setRecords(leaveRecords);
         setAllowance(annualLeaveAllowance);
+        setCurrentLeaveYearStart(result.currentLeaveYearStart ?? null);
+        setCurrentLeaveYearEnd(result.currentLeaveYearEnd ?? null);
+        setWorkingDays(
+          Array.isArray(result.workingDays) ? result.workingDays : [],
+        );
+        setBankHolidayTreatment(result.bankHolidayTreatment ?? null);
+        setBankHolidays(
+          Array.isArray(result.bankHolidays) ? result.bankHolidays : [],
+        );
+        setBankHolidayWorkingDays(
+          numberValue(result.bankHolidayWorkingDays),
+        );
+        setIncludedBankHolidayDays(
+          numberValue(result.includedBankHolidayDays),
+        );
         setLoading(false);
       } catch (error) {
         console.error("Leo HR employee leave load failed:", error);
@@ -222,12 +265,27 @@ export default function MyLeavePage() {
       records.filter((record) => {
         const leaveType = record.leave_type?.trim().toLowerCase();
 
-        return (
+        const isAnnualLeave =
           leaveType === "annual leave" ||
-          leaveType === "half day leave"
+          leaveType === "half day leave";
+
+        if (!isAnnualLeave) return false;
+
+        if (!currentLeaveYearStart || !currentLeaveYearEnd) {
+          return true;
+        }
+
+        const recordStart = record.start_date;
+        const recordEnd = record.end_date || record.start_date;
+
+        if (!recordStart || !recordEnd) return false;
+
+        return (
+          recordStart <= currentLeaveYearEnd &&
+          recordEnd >= currentLeaveYearStart
         );
       }),
-    [records],
+    [records, currentLeaveYearStart, currentLeaveYearEnd],
   );
 
   const annualLeaveTaken = useMemo(
@@ -324,7 +382,7 @@ export default function MyLeavePage() {
     annualLeaveTaken + annualLeaveBooked;
 
   const annualLeaveRemaining = Math.max(
-    allowance - annualLeaveConfirmed,
+    allowance - includedBankHolidayDays - annualLeaveConfirmed,
     0,
   );
 
@@ -340,9 +398,21 @@ export default function MyLeavePage() {
     });
   }, [records]);
 
+  const bankHolidayDates = useMemo(
+    () => new Set(bankHolidays.map((event) => event.date)),
+    [bankHolidays],
+  );
+
   const requestedDays = useMemo(
-    () => calculateRequestedDays(startDate, endDate || startDate, dayPortion),
-    [startDate, endDate, dayPortion],
+    () =>
+      calculateRequestedDays(
+        startDate,
+        endDate || startDate,
+        dayPortion,
+        workingDays,
+        bankHolidayDates,
+      ),
+    [startDate, endDate, dayPortion, workingDays, bankHolidayDates],
   );
 
   const requestDeductsAnnualLeave =
@@ -492,7 +562,7 @@ export default function MyLeavePage() {
             <SummaryCard
               label="Annual entitlement"
               value={`${formatDays(allowance)} days`}
-              supportingText="Your recorded annual leave allowance"
+              supportingText="Your current holiday-year entitlement"
             />
 
             <SummaryCard
@@ -514,11 +584,80 @@ export default function MyLeavePage() {
             />
 
             <SummaryCard
+              label="Bank holidays"
+              value={`${formatDays(bankHolidayWorkingDays)} days`}
+              supportingText={
+                bankHolidayTreatment === "Included"
+                  ? "Normal working-day bank holidays included within your entitlement"
+                  : bankHolidayTreatment === "Additional"
+                    ? "Normal working-day bank holidays provided in addition to your entitlement"
+                    : "Normal working-day bank holidays in your current holiday year"
+              }
+            />
+
+            <SummaryCard
               label="Remaining"
               value={`${formatDays(annualLeaveRemaining)} days`}
               supportingText="Confirmed balance after approved leave"
             />
           </section>
+
+          {bankHolidays.length > 0 ? (
+            <section style={bankHolidayPanelStyle}>
+              <div style={panelHeadingStyle}>
+                <div>
+                  <h2 style={panelTitleStyle}>Your bank holidays</h2>
+                  <p style={panelTextStyle}>
+                    England and Wales bank holidays in your current holiday year.
+                    {bankHolidayTreatment === "Included"
+                      ? " Bank holidays that fall on your normal working days form part of your annual entitlement."
+                      : bankHolidayTreatment === "Additional"
+                        ? " Bank holidays that fall on your normal working days are provided in addition to your annual entitlement."
+                        : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div style={bankHolidayListStyle}>
+                {bankHolidays.map((event) => {
+                  const applies = bankHolidayAppliesToWorkingPattern(
+                    event.date,
+                    workingDays,
+                  );
+
+                  return (
+                    <div
+                      key={`${event.date}-${event.title}`}
+                      style={{
+                        ...bankHolidayRowStyle,
+                        background: applies ? "#F7F1FC" : "#FFFFFF",
+                        borderColor: applies ? "#E4D3EE" : "#ECE8EF",
+                      }}
+                    >
+                      <div>
+                        <strong style={bankHolidayTitleStyle}>
+                          {event.title}
+                        </strong>
+                        <div style={bankHolidayDateStyle}>
+                          {formatDate(event.date)}
+                        </div>
+                      </div>
+
+                      <span style={bankHolidayStatusStyle}>
+                        {applies
+                          ? bankHolidayTreatment === "Included"
+                            ? "Included in entitlement"
+                            : bankHolidayTreatment === "Additional"
+                              ? "Additional"
+                              : "Normal working day"
+                          : "Non-working day"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
 
           <section className={mobileStyles.leaveRequestPanel} style={informationPanelStyle}>
             <div style={{ width: "100%" }}>
@@ -834,6 +973,8 @@ function calculateRequestedDays(
     | "Full day"
     | "Half day - morning"
     | "Half day - afternoon",
+  workingDays: string[],
+  bankHolidayDates: Set<string>,
 ) {
   if (!startDate) return 0;
 
@@ -848,13 +989,30 @@ function calculateRequestedDays(
     return 0;
   }
 
+  const normalWorkingDays = new Set(
+    workingDays.length > 0
+      ? workingDays
+      : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  );
+
   let total = 0;
   const cursor = new Date(start);
 
   while (cursor <= end) {
-    const day = cursor.getDay();
+    const dateKey = [
+      cursor.getFullYear(),
+      String(cursor.getMonth() + 1).padStart(2, "0"),
+      String(cursor.getDate()).padStart(2, "0"),
+    ].join("-");
 
-    if (day !== 0 && day !== 6) {
+    const dayName = cursor.toLocaleDateString("en-GB", {
+      weekday: "long",
+    });
+
+    if (
+      normalWorkingDays.has(dayName) &&
+      !bankHolidayDates.has(dateKey)
+    ) {
       total += 1;
     }
 
@@ -875,7 +1033,72 @@ function calculateRequestedDays(
   return total;
 }
 
+function bankHolidayAppliesToWorkingPattern(
+  dateValue: string,
+  workingDays: string[],
+) {
+  const date = new Date(`${dateValue}T12:00:00`);
 
+  if (Number.isNaN(date.getTime())) return false;
+
+  const normalWorkingDays = new Set(
+    workingDays.length > 0
+      ? workingDays
+      : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  );
+  const dayName = date.toLocaleDateString("en-GB", {
+    weekday: "long",
+  });
+
+  return normalWorkingDays.has(dayName);
+}
+
+
+
+const bankHolidayPanelStyle: CSSProperties = {
+  marginBottom: "20px",
+  padding: "20px",
+  borderRadius: "16px",
+  background: "#FFFFFF",
+  border: "1px solid #E8E2EB",
+  boxShadow: "0 8px 22px rgba(17, 24, 39, 0.05)",
+};
+
+const bankHolidayListStyle: CSSProperties = {
+  display: "grid",
+  gap: "9px",
+};
+
+const bankHolidayRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  padding: "12px 14px",
+  borderRadius: "12px",
+  border: "1px solid #ECE8EF",
+};
+
+const bankHolidayTitleStyle: CSSProperties = {
+  color: "#2F2635",
+  fontSize: "13px",
+  lineHeight: 1.4,
+};
+
+const bankHolidayDateStyle: CSSProperties = {
+  marginTop: "3px",
+  color: "#64748B",
+  fontSize: "12px",
+};
+
+const bankHolidayStatusStyle: CSSProperties = {
+  flexShrink: 0,
+  color: "#6E5084",
+  fontSize: "11px",
+  lineHeight: 1.3,
+  fontWeight: 750,
+  textAlign: "right",
+};
 
 const requestHeadingStyle: CSSProperties = {
   display: "flex",

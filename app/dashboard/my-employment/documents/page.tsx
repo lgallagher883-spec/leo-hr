@@ -10,6 +10,7 @@ type DocumentsResponse = {
   success?: boolean;
   employeeLinked?: boolean;
   documents?: DocumentRecord[];
+  companyDocuments?: DocumentRecord[];
   error?: string;
 };
 
@@ -146,6 +147,7 @@ function normaliseDocument(
 
 export default function MyDocumentsPage() {
   const [records, setRecords] = useState<DocumentRecord[]>([]);
+  const [companyRecords, setCompanyRecords] = useState<DocumentRecord[]>([]);
   const [employeeLinked, setEmployeeLinked] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -189,6 +191,11 @@ export default function MyDocumentsPage() {
             ? result.documents
             : [],
         );
+        setCompanyRecords(
+          Array.isArray(result.companyDocuments)
+            ? result.companyDocuments
+            : [],
+        );
         setLoading(false);
       } catch (error) {
         console.error("Leo HR documents page load failed:", error);
@@ -228,6 +235,22 @@ export default function MyDocumentsPage() {
     );
   }, [records]);
 
+  const companyDocuments = useMemo<DisplayDocument[]>(
+    () =>
+      companyRecords.map((record, index) => {
+        const document = normaliseDocument(record, index);
+
+        return {
+          ...document,
+          sourceTable: "company_documents",
+          status:
+            firstText(record, ["document_type"]) || "Company document",
+          available: Boolean(document.documentId),
+        };
+      }),
+    [companyRecords],
+  );
+
   async function openDocument(document: DisplayDocument) {
     if (!document.available || !document.documentId) return;
 
@@ -235,6 +258,15 @@ export default function MyDocumentsPage() {
     setOpenError("");
 
     try {
+      if (document.sourceTable === "company_documents") {
+        window.open(
+          `/api/company-documents/${encodeURIComponent(document.documentId)}/open`,
+          "_blank",
+          "noopener,noreferrer",
+        );
+        return;
+      }
+
       const query = new URLSearchParams({
         action: "open",
         documentId: document.documentId,
@@ -327,7 +359,94 @@ export default function MyDocumentsPage() {
           complete that link before your documents can appear.
         </div>
       ) : (
+        <div style={{ display: "grid", gap: 30 }}>
+          <DocumentSection
+            title="Your documents"
+            description="Employment documents and records that relate specifically to you."
+            documents={documents}
+            openingKey={openingKey}
+            onOpen={openDocument}
+          />
+
+          <DocumentSection
+            title="Company documents"
+            description="Policies, procedures and other company documents your organisation has made available to everyone."
+            documents={companyDocuments}
+            openingKey={openingKey}
+            onOpen={openDocument}
+            emptyMessage="There are no company documents shared with everyone yet."
+          />
+        </div>
+      )}
+
+      <div style={{ marginTop: 24 }}>
+        <Link
+          className={mobileStyles.mobileBackLink}
+          href="/dashboard/my-employment"
+          style={{
+            textDecoration: "none",
+            color: "#6E5084",
+            border: "1px solid #CDB2E2",
+            borderRadius: 10,
+            padding: "10px 16px",
+            display: "inline-block",
+            fontWeight: 700,
+          }}
+        >
+          ← Back to My Employment
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+
+function DocumentSection({
+  title,
+  description,
+  documents,
+  openingKey,
+  onOpen,
+  emptyMessage,
+}: {
+  title: string;
+  description: string;
+  documents: DisplayDocument[];
+  openingKey: string | null;
+  onOpen: (document: DisplayDocument) => Promise<void>;
+  emptyMessage?: string;
+}) {
+  return (
+    <section>
+      <div style={{ marginBottom: 14 }}>
+        <h2
+          style={{
+            margin: 0,
+            color: "#6E5084",
+            fontSize: 22,
+            lineHeight: 1.3,
+          }}
+        >
+          {title}
+        </h2>
+        <p
+          style={{
+            margin: "5px 0 0",
+            color: "#64748B",
+            lineHeight: 1.5,
+          }}
+        >
+          {description}
+        </p>
+      </div>
+
+      {documents.length === 0 ? (
+        <div style={messageCard}>
+          {emptyMessage ?? "No documents are available."}
+        </div>
+      ) : (
         <div
+          className={mobileStyles.mobileDocumentList}
           style={{
             display: "grid",
             gap: 16,
@@ -335,7 +454,8 @@ export default function MyDocumentsPage() {
         >
           {documents.map((document) => (
             <div
-              key={document.key}
+              key={`${document.sourceTable}-${document.key}`}
+              className={mobileStyles.mobileDocumentRow}
               style={{
                 background: "#fff",
                 border: "1px solid #E8E2EB",
@@ -349,11 +469,12 @@ export default function MyDocumentsPage() {
                   "0 8px 22px rgba(17,24,39,.05)",
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div
                   style={{
                     fontWeight: 700,
                     fontSize: 16,
+                    overflowWrap: "anywhere",
                   }}
                 >
                   {document.title}
@@ -371,7 +492,7 @@ export default function MyDocumentsPage() {
 
               <button
                 type="button"
-                onClick={() => void openDocument(document)}
+                onClick={() => void onOpen(document)}
                 disabled={
                   !document.available ||
                   openingKey === document.key
@@ -405,25 +526,7 @@ export default function MyDocumentsPage() {
           ))}
         </div>
       )}
-
-      <div style={{ marginTop: 24 }}>
-        <Link
-          className={mobileStyles.mobileBackLink}
-          href="/dashboard/my-employment"
-          style={{
-            textDecoration: "none",
-            color: "#6E5084",
-            border: "1px solid #CDB2E2",
-            borderRadius: 10,
-            padding: "10px 16px",
-            display: "inline-block",
-            fontWeight: 700,
-          }}
-        >
-          ← Back to My Employment
-        </Link>
-      </div>
-    </main>
+    </section>
   );
 }
 

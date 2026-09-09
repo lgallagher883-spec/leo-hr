@@ -7,6 +7,20 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type RoleKey = "owner" | "senior" | "manager" | "employee";
+
+function canViewDocument(
+  roleKey: RoleKey,
+  accessLevel: string | null | undefined,
+) {
+  if (roleKey === "owner" || roleKey === "senior") return true;
+  if (roleKey === "manager") {
+    return accessLevel === "everyone" || accessLevel === "management";
+  }
+
+  return accessLevel === "everyone";
+}
+
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,7 +71,7 @@ export async function GET(
     const { id } = await context.params;
     const documentResult = await admin
       .from("company_documents")
-      .select("id, file_path, file_name")
+      .select("id, file_path, file_name, access_level")
       .eq("id", id)
       .eq(
         "organisation_id",
@@ -72,6 +86,37 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: "The document could not be found." },
         { status: 404 },
+      );
+    }
+
+    const rawRoleKey = resolvedRole.roleKey;
+
+    if (
+      !["owner", "senior", "manager", "employee"].includes(rawRoleKey)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You do not have permission to view this document.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const roleKey = rawRoleKey as RoleKey;
+
+    if (
+      !canViewDocument(
+        roleKey,
+        documentResult.data.access_level,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You do not have permission to view this document.",
+        },
+        { status: 403 },
       );
     }
 

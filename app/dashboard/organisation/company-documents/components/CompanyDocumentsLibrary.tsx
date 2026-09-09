@@ -23,6 +23,11 @@ export type CompanyDocumentFolder =
   | "Template"
   | "Other Document";
 
+type CompanyDocumentAccessLevel =
+  | "everyone"
+  | "management"
+  | "owner_senior";
+
 type CompanyDocument = {
   id: number | string;
   name: string;
@@ -38,6 +43,7 @@ type CompanyDocument = {
   version_number?: number | null;
   previous_version_id?: number | string | null;
   replaced_by_id?: number | string | null;
+  access_level?: CompanyDocumentAccessLevel | null;
 };
 
 type UploadItem = {
@@ -71,6 +77,28 @@ type CompanyDocumentsLibraryProps = {
   description: string;
   iconLetter?: string;
 };
+
+const COMPANY_DOCUMENT_ACCESS_LEVELS: Array<{
+  value: CompanyDocumentAccessLevel;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "everyone",
+    label: "Everyone",
+    description: "Owner, Senior, Manager and Employee users can view this document.",
+  },
+  {
+    value: "management",
+    label: "Management only",
+    description: "Owner, Senior and Manager users can view this document.",
+  },
+  {
+    value: "owner_senior",
+    label: "Owner & Senior only",
+    description: "Only Owner and Senior users can view this document.",
+  },
+];
 
 const COMPANY_DOCUMENT_FOLDERS: CompanyDocumentFolder[] = [
   "Policy",
@@ -151,6 +179,15 @@ function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
 }
 
+function accessLevelLabel(
+  value: CompanyDocumentAccessLevel | null | undefined,
+) {
+  return (
+    COMPANY_DOCUMENT_ACCESS_LEVELS.find((item) => item.value === value)?.label ??
+    "Management only"
+  );
+}
+
 function routeForFolder(folder: CompanyDocumentFolder) {
   const routes: Record<CompanyDocumentFolder, string> = {
     Policy: "policies",
@@ -205,12 +242,17 @@ export default function CompanyDocumentsLibrary({
   const [showUpload, setShowUpload] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [uploadNotes, setUploadNotes] = useState("");
+  const [uploadAccessLevel, setUploadAccessLevel] =
+    useState<CompanyDocumentAccessLevel>("owner_senior");
+  const [canManage, setCanManage] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | number | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
   const [dialogName, setDialogName] = useState("");
   const [dialogNotes, setDialogNotes] = useState("");
+  const [dialogAccessLevel, setDialogAccessLevel] =
+    useState<CompanyDocumentAccessLevel>("management");
   const [dialogFolder, setDialogFolder] =
     useState<CompanyDocumentFolder>(folder);
   const [replacementFile, setReplacementFile] = useState<File | null>(null);
@@ -251,6 +293,7 @@ export default function CompanyDocumentsLibrary({
       const payload = (await response.json()) as {
         success?: boolean;
         documents?: CompanyDocument[];
+        canManage?: boolean;
         error?: string;
       };
 
@@ -261,6 +304,7 @@ export default function CompanyDocumentsLibrary({
       }
 
       setDocuments(payload.documents ?? []);
+      setCanManage(Boolean(payload.canManage));
     } catch (error) {
       console.error("Company documents could not be loaded:", error);
       setDocuments([]);
@@ -279,6 +323,7 @@ export default function CompanyDocumentsLibrary({
   function resetUpload() {
     setUploadItems([]);
     setUploadNotes("");
+    setUploadAccessLevel("owner_senior");
     setShowUpload(false);
   }
 
@@ -348,6 +393,7 @@ export default function CompanyDocumentsLibrary({
       const formData = new FormData();
       formData.set("folder", folder);
       formData.set("notes", uploadNotes.trim());
+      formData.set("accessLevel", uploadAccessLevel);
       formData.set(
         "documents",
         JSON.stringify(
@@ -407,6 +453,9 @@ export default function CompanyDocumentsLibrary({
     setDialog(nextDialog);
     setDialogName(nextDialog.document.name);
     setDialogNotes(nextDialog.document.notes ?? "");
+    setDialogAccessLevel(
+      nextDialog.document.access_level ?? "management",
+    );
     setDialogFolder(
       (nextDialog.document.document_type as CompanyDocumentFolder) ?? folder,
     );
@@ -497,6 +546,7 @@ export default function CompanyDocumentsLibrary({
       {
         name,
         notes: dialogNotes.trim() || null,
+        accessLevel: dialogAccessLevel,
       },
       "Document details updated.",
     );
@@ -711,17 +761,19 @@ export default function CompanyDocumentsLibrary({
             />
           </div>
 
-          <button
-            className="upload-button"
-            type="button"
-            onClick={() => {
-              setNotice(null);
-              setShowUpload((current) => !current);
-            }}
-          >
-            <span aria-hidden="true">＋</span>
-            Upload {pluralLabel.toLowerCase()}
-          </button>
+          {canManage ? (
+            <button
+              className="upload-button"
+              type="button"
+              onClick={() => {
+                setNotice(null);
+                setShowUpload((current) => !current);
+              }}
+            >
+              <span aria-hidden="true">＋</span>
+              Upload {pluralLabel.toLowerCase()}
+            </button>
+          ) : null}
         </div>
 
         {showUpload ? (
@@ -796,6 +848,32 @@ export default function CompanyDocumentsLibrary({
               ) : null}
 
               <label className="field">
+                <span>Who can view these documents?</span>
+                <select
+                  value={uploadAccessLevel}
+                  onChange={(event) =>
+                    setUploadAccessLevel(
+                      event.target.value as CompanyDocumentAccessLevel,
+                    )
+                  }
+                  disabled={working}
+                >
+                  {COMPANY_DOCUMENT_ACCESS_LEVELS.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  {
+                    COMPANY_DOCUMENT_ACCESS_LEVELS.find(
+                      (item) => item.value === uploadAccessLevel,
+                    )?.description
+                  }
+                </small>
+              </label>
+
+              <label className="field">
                 <span>Notes for this batch</span>
                 <textarea
                   value={uploadNotes}
@@ -865,13 +943,18 @@ export default function CompanyDocumentsLibrary({
                     <div>
                       <h3>{document.name}</h3>
                       {document.notes ? <p>{document.notes}</p> : null}
-                      <span className="updated-label">
-                        Uploaded {formatDate(document.created_at)}
-                        {document.version_number &&
-                        document.version_number > 1
-                          ? ` · Version ${document.version_number}`
-                          : ""}
-                      </span>
+                      <div className="document-meta">
+                        <span className="updated-label">
+                          Uploaded {formatDate(document.created_at)}
+                          {document.version_number &&
+                          document.version_number > 1
+                            ? ` · Version ${document.version_number}`
+                            : ""}
+                        </span>
+                        <span className="access-badge">
+                          {accessLevelLabel(document.access_level)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -927,87 +1010,89 @@ export default function CompanyDocumentsLibrary({
                       Ask Leo
                     </Link>
 
-                    <div
-                      className="more-wrap"
-                      ref={openMenuId === document.id ? menuRef : null}
-                    >
-                      <button
-                        className="more-button"
-                        type="button"
-                        aria-label={`More actions for ${document.name}`}
-                        aria-expanded={openMenuId === document.id}
-                        onClick={() =>
-                          setOpenMenuId((current) =>
-                            current === document.id ? null : document.id,
-                          )
-                        }
+                    {canManage ? (
+                      <div
+                        className="more-wrap"
+                        ref={openMenuId === document.id ? menuRef : null}
                       >
-                        ⋯
-                      </button>
+                        <button
+                          className="more-button"
+                          type="button"
+                          aria-label={`More actions for ${document.name}`}
+                          aria-expanded={openMenuId === document.id}
+                          onClick={() =>
+                            setOpenMenuId((current) =>
+                              current === document.id ? null : document.id,
+                            )
+                          }
+                        >
+                          ⋯
+                        </button>
 
-                      {openMenuId === document.id ? (
-                        <div className="more-menu">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "rename", document })
-                            }
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "edit", document })
-                            }
-                          >
-                            Edit details
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "replace", document })
-                            }
-                          >
-                            Replace document
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "move", document })
-                            }
-                          >
-                            Move to another folder
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "versions", document })
-                            }
-                          >
-                            View version history
-                          </button>
-                          <div className="menu-divider" />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "archive", document })
-                            }
-                          >
-                            Archive document
-                          </button>
-                          <button
-                            className="danger-action"
-                            type="button"
-                            onClick={() =>
-                              openDialog({ type: "delete", document })
-                            }
-                          >
-                            Delete document
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
+                        {openMenuId === document.id ? (
+                          <div className="more-menu">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "rename", document })
+                              }
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "edit", document })
+                              }
+                            >
+                              Edit details
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "replace", document })
+                              }
+                            >
+                              Replace document
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "move", document })
+                              }
+                            >
+                              Move to another folder
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "versions", document })
+                              }
+                            >
+                              View version history
+                            </button>
+                            <div className="menu-divider" />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "archive", document })
+                              }
+                            >
+                              Archive document
+                            </button>
+                            <button
+                              className="danger-action"
+                              type="button"
+                              onClick={() =>
+                                openDialog({ type: "delete", document })
+                              }
+                            >
+                              Delete document
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               ))}
@@ -1116,6 +1201,30 @@ export default function CompanyDocumentsLibrary({
                     onChange={(event) => setDialogNotes(event.target.value)}
                     maxLength={600}
                   />
+                </label>
+                <label className="field">
+                  <span>Who can view this document?</span>
+                  <select
+                    value={dialogAccessLevel}
+                    onChange={(event) =>
+                      setDialogAccessLevel(
+                        event.target.value as CompanyDocumentAccessLevel,
+                      )
+                    }
+                  >
+                    {COMPANY_DOCUMENT_ACCESS_LEVELS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <small>
+                    {
+                      COMPANY_DOCUMENT_ACCESS_LEVELS.find(
+                        (item) => item.value === dialogAccessLevel,
+                      )?.description
+                    }
+                  </small>
                 </label>
                 <ModalActions working={working} onCancel={closeDialog} />
               </form>
@@ -1602,12 +1711,32 @@ export default function CompanyDocumentsLibrary({
           line-height: 1.55;
         }
 
+        .document-meta {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          margin-top: 10px;
+        }
+
         .updated-label {
           display: inline-block;
-          margin-top: 10px;
           color: #7d6989;
           font-size: 11px;
           font-weight: 700;
+        }
+
+        .access-badge {
+          display: inline-flex;
+          align-items: center;
+          min-height: 24px;
+          padding: 0 9px;
+          border: 1px solid #e1d4e8;
+          border-radius: 999px;
+          background: #f7f1fc;
+          color: #6e5084;
+          font-size: 11px;
+          font-weight: 800;
         }
 
         .document-actions {

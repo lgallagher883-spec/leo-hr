@@ -7,6 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const allowedAccessLevels = new Set([
+  "everyone",
+  "management",
+  "owner_senior",
+]);
+
 const allowedFolders = new Set([
   "Policy",
   "Procedure",
@@ -149,6 +155,7 @@ export async function PATCH(
       changes.name = name;
     } else if (action === "edit") {
       const name = cleanText(body.name, 180);
+      const accessLevel = cleanText(body.accessLevel, 40);
 
       if (!name) {
         return NextResponse.json(
@@ -157,8 +164,16 @@ export async function PATCH(
         );
       }
 
+      if (!allowedAccessLevels.has(accessLevel)) {
+        return NextResponse.json(
+          { success: false, error: "The document access level is invalid." },
+          { status: 400 },
+        );
+      }
+
       changes.name = name;
       changes.notes = cleanText(body.notes, 600) || null;
+      changes.access_level = accessLevel;
     } else if (action === "move") {
       const folder = cleanText(body.folder, 80);
 

@@ -12,6 +12,12 @@ type UploadDetails = {
   originalFileName?: unknown;
 };
 
+const allowedAccessLevels = new Set([
+  "everyone",
+  "management",
+  "owner_senior",
+]);
+
 const allowedFolders = new Set([
   "Policy",
   "Procedure",
@@ -152,7 +158,7 @@ export async function POST(request: Request) {
       const { data: current, error: currentError } = await admin
         .from("company_documents")
         .select(
-          "id, organisation_id, name, notes, document_type, document_group_id, version_number, status",
+          "id, organisation_id, name, notes, document_type, document_group_id, version_number, status, access_level",
         )
         .eq("id", documentId)
         .eq("organisation_id", organisationId)
@@ -227,6 +233,7 @@ export async function POST(request: Request) {
           document_group_id: groupId,
           version_number: currentVersion + 1,
           previous_version_id: current.id,
+          access_level: current.access_level || "management",
         })
         .select("id")
         .single();
@@ -273,6 +280,8 @@ export async function POST(request: Request) {
 
     const folder = text(formData.get("folder"));
     const notes = text(formData.get("notes")) || null;
+    const accessLevel =
+      text(formData.get("accessLevel")) || "owner_senior";
     const rawDocuments = text(formData.get("documents"));
     const files = formData
       .getAll("files")
@@ -281,6 +290,13 @@ export async function POST(request: Request) {
     if (!allowedFolders.has(folder)) {
       return NextResponse.json(
         { success: false, error: "The document folder is invalid." },
+        { status: 400 },
+      );
+    }
+
+    if (!allowedAccessLevels.has(accessLevel)) {
+      return NextResponse.json(
+        { success: false, error: "The document access level is invalid." },
         { status: 400 },
       );
     }
@@ -364,6 +380,7 @@ export async function POST(request: Request) {
         file_url: null,
         status: "active",
         version_number: 1,
+        access_level: accessLevel,
       });
     }
 

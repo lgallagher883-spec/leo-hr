@@ -13,7 +13,7 @@ export async function createSignatureEnvelope(admin: SupabaseClient, input: Crea
     emailSubject: input.emailSubject,
     emailBlurb: input.emailMessage || undefined,
     documents:[{ documentBase64: input.documentBase64, name: input.documentName, fileExtension: input.documentExtension || input.documentName.split(".").pop() || "pdf", documentId:"1" }],
-    recipients:{ signers: input.recipients.map((r,i)=>({ email:r.email, name:r.name, recipientId:String(i+1), routingOrder:String(r.routingOrder || i+1), tabs:{ signHereTabs:[{ documentId:"1", pageNumber:"1", anchorString:"/sn1/", anchorIgnoreIfNotPresent:"true" }] } })) },
+    recipients:{ signers: input.recipients.map((r,i)=>({ email:r.email, name:r.name, recipientId:String(i+1), routingOrder:String(r.routingOrder || i+1), tabs:{ signHereTabs:[{ documentId:"1", pageNumber:"1", anchorString:input.sourceModule==="Probation"?`/sn${i+1}/`:"/sn1/", anchorIgnoreIfNotPresent:"true" }] } })) },
     status: input.sendImmediately===false ? "created" : "sent",
   });
   if(!provider.envelopeId) throw new Error(provider.message || "DocuSign did not return an envelope ID.");

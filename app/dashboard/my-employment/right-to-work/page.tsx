@@ -230,12 +230,6 @@ export default function MyRightToWorkPage() {
 
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <p
-        className={mobileStyles.rightToWorkMobileHide}
-        style={{ color: "#6E5084", fontWeight: 700 }}
-      >
-        Employee workspace
-      </p>
 
       <h1
         style={{

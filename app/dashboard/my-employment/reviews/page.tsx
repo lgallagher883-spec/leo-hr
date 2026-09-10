@@ -95,11 +95,11 @@ export default function MyReviewsPage() {
       </p>
 
       <h1 style={{ fontSize: 32, color: "#6E5084", margin: "8px 0" }}>
-        Upcoming Reviews
+        Your Probation
       </h1>
 
       <p className={mobileStyles.employeeMobileHide} style={{ color: "#64748B", marginBottom: 24 }}>
-        View scheduled and completed probation reviews.
+        View your probation progress, scheduled reviews and completed review records.
       </p>
 
       {!loading && !loadError && probation ? (
@@ -126,6 +126,10 @@ export default function MyReviewsPage() {
             </div>
           </div>
         </section>
+      ) : null}
+
+      {!loading && !loadError && visibleReviews.length > 0 ? (
+        <h2 style={sectionHeadingStyle}>Your reviews</h2>
       ) : null}
 
       {loading ? (
@@ -242,3 +246,5 @@ const detailParagraphStyle = { margin: 0, color: "#526071", lineHeight: 1.55, wh
 const printLinkStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "fit-content", border: "1px solid #D7C9E1", background: "#fff", color: "#6E5084", borderRadius: 10, padding: "9px 12px", fontWeight: 700, textDecoration: "none" } as const;
 
 const signatureStatusStyle = { background: "#F8FAFC", color: "#526071", border: "1px solid #E2E8F0", padding: "4px 8px", borderRadius: 999, fontWeight: 700, fontSize: 11 } as const;
+
+const sectionHeadingStyle = { margin: "4px 0 12px", color: "#2F2634", fontSize: 20 } as const;

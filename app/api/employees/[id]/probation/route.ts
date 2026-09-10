@@ -1361,7 +1361,16 @@ async function buildProbationReviewPdf(
         section("Notice arrangements", typeof decision.notice_arrangements === "string" ? decision.notice_arrangements : null);
       }
     }
-    doc.moveDown(1); doc.fontSize(9).fillColor("#6B7280").text("Generated from the employee probation record in LEO HR. Signature confirms acknowledgement of the recorded review, not necessarily agreement with every comment.", { lineGap: 2 });
+    doc.moveDown(1);
+    doc.fontSize(12).fillColor("#6E5084").text("Acknowledgement and signatures");
+    doc.moveDown(0.4);
+    doc.fontSize(10).fillColor("#1F2937").text("Employee signature");
+    doc.fontSize(1).fillColor("#FFFFFF").text("/sn1/");
+    doc.moveDown(0.8);
+    doc.fontSize(10).fillColor("#1F2937").text("Employer / manager signature");
+    doc.fontSize(1).fillColor("#FFFFFF").text("/sn2/");
+    doc.moveDown(1);
+    doc.fontSize(9).fillColor("#6B7280").text("Generated from the employee probation record in LEO HR. Signature confirms acknowledgement of the recorded review, not necessarily agreement with every comment.", { lineGap: 2 });
     doc.end();
   });
 }

@@ -37,6 +37,10 @@ export type ProbationReview = {
   agreed_actions: string | null;
 };
 
+export function isAdHocProbationReview(review: ProbationReview): boolean {
+  return review.review_type === "Ad-hoc Review";
+}
+
 export type FinalOutcome =
   | ""
   | "Permanent Employment"

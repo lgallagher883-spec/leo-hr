@@ -23,7 +23,11 @@ type ReviewRecord = {
   scheduled_date: string | null;
   completed_date: string | null;
   status: string | null;
+  manager_name: string | null;
+  employee_comments: string | null;
+  manager_comments: string | null;
   progress_summary: string | null;
+  support_required: string | null;
   agreed_actions: string | null;
 };
 
@@ -42,6 +46,7 @@ export default function MyReviewsPage() {
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
   const [probation, setProbation] = useState<ProbationSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [openReviewId, setOpenReviewId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -144,14 +149,33 @@ export default function MyReviewsPage() {
                 <span style={statusStyle}>{review.status || "Scheduled"}</span>
               </div>
 
+              {review.review_type === "Ad-hoc Review" ? (
+                <div style={adHocBadgeStyle}>Additional probation review</div>
+              ) : null}
+
               {review.progress_summary ? (
                 <p style={detailTextStyle}>{review.progress_summary}</p>
               ) : null}
 
-              {review.agreed_actions ? (
-                <div style={detailBoxStyle}>
-                  <strong>Agreed actions</strong>
-                  <p style={{ margin: "6px 0 0" }}>{review.agreed_actions}</p>
+              <button
+                type="button"
+                onClick={() => setOpenReviewId((current) => current === review.id ? null : review.id)}
+                style={detailsButtonStyle}
+                aria-expanded={openReviewId === review.id}
+              >
+                {openReviewId === review.id ? "Hide review details" : "View review details"}
+              </button>
+
+              {openReviewId === review.id ? (
+                <div style={detailsPanelStyle}>
+                  {review.manager_name ? <div style={detailSectionStyle}><strong>Manager</strong><p style={detailParagraphStyle}>{review.manager_name}</p></div> : null}
+                  {review.employee_comments ? <div style={detailSectionStyle}><strong>Your comments</strong><p style={detailParagraphStyle}>{review.employee_comments}</p></div> : null}
+                  {review.manager_comments ? <div style={detailSectionStyle}><strong>Manager comments</strong><p style={detailParagraphStyle}>{review.manager_comments}</p></div> : null}
+                  {review.support_required ? <div style={detailSectionStyle}><strong>Support agreed</strong><p style={detailParagraphStyle}>{review.support_required}</p></div> : null}
+                  {review.agreed_actions ? <div style={detailSectionStyle}><strong>Agreed actions</strong><p style={detailParagraphStyle}>{review.agreed_actions}</p></div> : null}
+                  {!review.employee_comments && !review.manager_comments && !review.support_required && !review.agreed_actions ? (
+                    <p style={{ margin: 0, color: "#64748B" }}>No additional review notes are available yet.</p>
+                  ) : null}
                 </div>
               ) : null}
             </article>
@@ -183,3 +207,8 @@ const overviewTextStyle = { margin: 0, color: "#64748B", lineHeight: 1.5 } as co
 const overviewGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 } as const;
 const overviewItemStyle = { display: "grid", gap: 4, background: "#F8FAFC", borderRadius: 12, padding: 12, color: "#334155" } as const;
 const overviewLabelStyle = { fontSize: 11, color: "#64748B", fontWeight: 700, textTransform: "uppercase" } as const;
+const adHocBadgeStyle = { display: "inline-block", marginTop: 14, background: "#F7F1FC", border: "1px solid #DFCDE9", color: "#6E5084", borderRadius: 999, padding: "5px 9px", fontSize: 11, fontWeight: 800 } as const;
+const detailsButtonStyle = { marginTop: 14, border: "1px solid #D7C9E1", background: "#fff", color: "#6E5084", borderRadius: 10, padding: "9px 12px", fontWeight: 700, cursor: "pointer" } as const;
+const detailsPanelStyle = { display: "grid", gap: 12, marginTop: 12, padding: 14, borderRadius: 12, background: "#FBF9FC", border: "1px solid #ECE5EF" } as const;
+const detailSectionStyle = { display: "grid", gap: 4, color: "#334155" } as const;
+const detailParagraphStyle = { margin: 0, color: "#526071", lineHeight: 1.55, whiteSpace: "pre-wrap" } as const;

@@ -543,7 +543,6 @@ export default function EmployeeProfilePage() {
         <div style={headerIdentityStyle}>
           <div style={headerTitleRowStyle}>
             <div>
-              <div style={eyebrowStyle}>Employee workspace</div>
               <h1 style={employeeNameStyle}>{employee.name}</h1>
             </div>
 

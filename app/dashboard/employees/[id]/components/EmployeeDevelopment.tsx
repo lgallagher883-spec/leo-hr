@@ -3,7 +3,6 @@
 import { useState } from "react";
 import ProbationWorkspace from "./development/probation/ProbationWorkspace";
 import DevelopmentRecordsWorkspace from "./development/shared/DevelopmentRecordsWorkspace";
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 type Props = {
   employeeId: number;
@@ -42,16 +41,6 @@ export default function EmployeeDevelopment({
           support and professional milestones.
         </p>
       </div>
-
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext={activeSection === "Probation" ? "probation" : "development"}
-        defaultPrompt={
-          activeSection === "Probation"
-            ? "Draft a probation review communication that confirms progress, support required and the next review checkpoint."
-            : "Draft a concise development update that records progress, agreed actions and the next accountable step."
-        }
-      />
 
       <div style={navigationGridStyle}>
         {sections.map((section) => (

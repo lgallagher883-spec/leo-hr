@@ -453,8 +453,19 @@ export default function ProbationWorkspace({
                     )}
                   </div>
 
-                  <div style={reviewStatusStyle}>
-                    {review.status}
+                  <div style={{ display: "grid", gap: "6px", justifyItems: "end" }}>
+                    <div style={reviewStatusStyle}>{review.status}</div>
+                    {review.signature_status ? (
+                      <div style={signatureStatusStyle}>
+                        {review.signature_status === "completed"
+                          ? "Signed"
+                          : review.signature_status === "sent"
+                            ? "Signature sent"
+                            : review.signature_status === "delivered"
+                              ? "Awaiting signature"
+                              : "Signature " + review.signature_status}
+                      </div>
+                    ) : null}
                   </div>
                 </button>
               );
@@ -1768,3 +1779,5 @@ const signatureHintStyle: React.CSSProperties = {
   fontSize: "13px",
   lineHeight: 1.45,
 };
+
+const signatureStatusStyle: React.CSSProperties = { background: "#F8FAFC", color: "#526071", border: "1px solid #E2E8F0", padding: "4px 8px", borderRadius: "999px", fontWeight: 700, fontSize: "11px" };

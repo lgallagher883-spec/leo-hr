@@ -176,6 +176,17 @@ export default function MyReviewsPage() {
                   {!review.employee_comments && !review.manager_comments && !review.support_required && !review.agreed_actions ? (
                     <p style={{ margin: 0, color: "#64748B" }}>No additional review notes are available yet.</p>
                   ) : null}
+
+                  {review.status === "Completed" ? (
+                    <a
+                      href={"/api/my-employment/reviews/" + review.id + "/document"}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={printLinkStyle}
+                    >
+                      Print review
+                    </a>
+                  ) : null}
                 </div>
               ) : null}
             </article>
@@ -212,3 +223,5 @@ const detailsButtonStyle = { marginTop: 14, border: "1px solid #D7C9E1", backgro
 const detailsPanelStyle = { display: "grid", gap: 12, marginTop: 12, padding: 14, borderRadius: 12, background: "#FBF9FC", border: "1px solid #ECE5EF" } as const;
 const detailSectionStyle = { display: "grid", gap: 4, color: "#334155" } as const;
 const detailParagraphStyle = { margin: 0, color: "#526071", lineHeight: 1.55, whiteSpace: "pre-wrap" } as const;
+
+const printLinkStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "fit-content", border: "1px solid #D7C9E1", background: "#fff", color: "#6E5084", borderRadius: 10, padding: "9px 12px", fontWeight: 700, textDecoration: "none" } as const;

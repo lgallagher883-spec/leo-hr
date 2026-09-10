@@ -373,30 +373,41 @@ export default function PoliciesPage() {
       const filePath =
         `${folderName}/${Date.now()}-${safeFileName}`;
 
-      const uploadResult =
-        await supabase.storage
-          .from("policy-documents")
-          .upload(filePath, file);
+      const uploadForm = new FormData();
+      uploadForm.append("sourceTable", "policy_register");
+      uploadForm.append("resourceType", resourceType);
+      uploadForm.append("file", file);
 
-      if (uploadResult.error) {
-        console.error(
-          uploadResult.error
-        );
+      const uploadResponse = await fetch(
+        "/api/knowledge/resources/file",
+        {
+          method: "POST",
+          body: uploadForm,
+        }
+      );
+
+      const uploadResult =
+        await uploadResponse.json();
+
+      if (
+        !uploadResponse.ok ||
+        !uploadResult?.success ||
+        !uploadResult?.filePath
+      ) {
+        console.error(uploadResult);
 
         alert(
-          "Resource could not be uploaded."
+          uploadResult?.error ||
+            "Resource could not be uploaded."
         );
 
         return;
       }
 
-      const publicUrlResult =
-        supabase.storage
-          .from("policy-documents")
-          .getPublicUrl(filePath);
+      const filePath =
+        uploadResult.filePath as string;
 
-      const fileUrl =
-        publicUrlResult.data.publicUrl;
+      const fileUrl = null;
 
       const {
         data: savedResource,
@@ -600,36 +611,53 @@ export default function PoliciesPage() {
             ? "policy-documents"
             : "company-documents";
 
-        const uploadResult =
-          await supabase.storage
-            .from(storageBucket)
-            .upload(
-              newFilePath,
-              selectedFile
-            );
+        const uploadForm = new FormData();
+        uploadForm.append(
+          "sourceTable",
+          resource.sourceTable
+        );
+        uploadForm.append(
+          "resourceType",
+          resource.type
+        );
+        uploadForm.append(
+          "file",
+          selectedFile
+        );
 
-        if (uploadResult.error) {
+        const uploadResponse = await fetch(
+          "/api/knowledge/resources/file",
+          {
+            method: "POST",
+            body: uploadForm,
+          }
+        );
+
+        const uploadResult =
+          await uploadResponse.json();
+
+        if (
+          !uploadResponse.ok ||
+          !uploadResult?.success ||
+          !uploadResult?.filePath
+        ) {
           console.error(
             "Replacement upload failed:",
-            uploadResult.error
+            uploadResult
           );
 
           alert(
-            "The replacement file could not be uploaded."
+            uploadResult?.error ||
+              "The replacement file could not be uploaded."
           );
 
           return;
         }
 
-        const publicUrlResult =
-          supabase.storage
-            .from(storageBucket)
-            .getPublicUrl(
-              newFilePath
-            );
+        const newFilePath =
+          uploadResult.filePath as string;
 
-        const newFileUrl =
-          publicUrlResult.data.publicUrl;
+        const newFileUrl = null;
 
         const response = await fetch(
           "/api/knowledge/resources/manage",
@@ -1984,7 +2012,7 @@ const ResourceCard = memo(function ResourceCard({
         ?.toLowerCase()
         .endsWith(".docx")
     ) &&
-    Boolean(resource.fileUrl);
+    Boolean(resource.filePath);
 
   const reviewStatus =
     getStatus(
@@ -2102,9 +2130,13 @@ const ResourceCard = memo(function ResourceCard({
       )}
 
       <div style={resourceActionsStyle}>
-        {resource.fileUrl && (
+        {resource.filePath && (
           <a
-            href={resource.fileUrl}
+            href={`/api/knowledge/resources/file?sourceTable=${encodeURIComponent(
+              resource.sourceTable
+            )}&id=${encodeURIComponent(
+              String(resource.recordId)
+            )}`}
             target="_blank"
             rel="noreferrer"
             style={primaryActionStyle}

@@ -22,7 +22,7 @@ type Props = {
   employeeId: number;
 };
 
-type ViewerSummary = { name: string; email: string };
+type ViewerSummary = { name: string; email: string; role: string };
 
 type ProbationApiResponse = {
   success?: boolean;
@@ -61,6 +61,8 @@ export default function ProbationWorkspace({
   const [adHocReason, setAdHocReason] = useState("");
   const [addingAdHoc, setAddingAdHoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const canManageProbation = viewer?.role === "owner" || viewer?.role === "senior" || viewer?.role === "manager";
 
   const askLeoPrompt = employee
     ? "I am reviewing probation for " + employee.name + ". Please help me assess progress, support, review evidence and fair next steps, including whether an extension may be appropriate."
@@ -234,14 +236,9 @@ export default function ProbationWorkspace({
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <Link href={askLeoHref} style={askLeoLinkStyle}>
-            <span aria-hidden="true">✦</span>
-            Ask Leo
-          </Link>
-          <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>
-            Probation guidance
-          </Link>
-          {!probation && !showStartForm && (
+          {canManageProbation ? <Link href={askLeoHref} style={askLeoLinkStyle}><span aria-hidden="true">✦</span>Ask Leo</Link> : null}
+          {canManageProbation ? <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>Probation guidance</Link> : null}
+          {canManageProbation && !probation && !showStartForm && (
             <button type="button" onClick={() => setShowStartForm(true)} style={primaryButtonStyle}>
               Start Probation
             </button>
@@ -391,13 +388,15 @@ export default function ProbationWorkspace({
             />
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", margin: "18px 0 12px" }}>
-            <button type="button" onClick={() => setShowAdHocForm((current) => !current)} style={secondaryButtonStyle}>
-              {showAdHocForm ? "Cancel ad-hoc review" : "+ Add ad-hoc review"}
-            </button>
-          </div>
+          {canManageProbation ? (
+            <div style={{ display: "flex", justifyContent: "flex-end", margin: "18px 0 12px" }}>
+              <button type="button" onClick={() => setShowAdHocForm((current) => !current)} style={secondaryButtonStyle}>
+                {showAdHocForm ? "Cancel ad-hoc review" : "+ Add ad-hoc review"}
+              </button>
+            </div>
+          ) : null}
 
-          {showAdHocForm && (
+          {canManageProbation && showAdHocForm && (
             <div style={formPanelStyle}>
               <h4 style={formTitleStyle}>Add ad-hoc probation review</h4>
               <p style={formDescriptionStyle}>Log an extra probation conversation when something needs to be discussed outside the standard review schedule.</p>

@@ -111,11 +111,11 @@ export default function MyReviewsPage() {
       </p>
 
       <h1 style={{ fontSize: 32, color: "#6E5084", margin: "8px 0" }}>
-        Upcoming Reviews
+        Your Reviews
       </h1>
 
       <p className={mobileStyles.employeeMobileHide} style={{ color: "#64748B", marginBottom: 24 }}>
-        View your probation, performance and development reviews in one place.
+        View your upcoming reviews, probation progress and completed review records in one place.
       </p>
 
       {!loading && !loadError && probation ? (

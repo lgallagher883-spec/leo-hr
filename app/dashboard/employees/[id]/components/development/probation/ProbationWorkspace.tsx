@@ -728,6 +728,17 @@ function StandardProbationReviewForm({
             : "Complete Review"
         }
       />
+
+      {review.status === "Completed" && (
+        <div style={recordActionsStyle}>
+          <button type="button" onClick={() => window.print()} style={secondaryButtonStyle}>
+            Print review
+          </button>
+          <div style={signatureHintStyle}>
+            DocuSign will be available here once the review document is generated and both signers are confirmed.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1675,4 +1686,22 @@ const secondaryLinkStyle: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 700,
   textDecoration: "none",
+};
+
+
+const recordActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginTop: "14px",
+  paddingTop: "14px",
+  borderTop: "1px solid #E5E7EB",
+};
+
+const signatureHintStyle: React.CSSProperties = {
+  flex: "1 1 260px",
+  color: "#6B7280",
+  fontSize: "13px",
+  lineHeight: 1.45,
 };

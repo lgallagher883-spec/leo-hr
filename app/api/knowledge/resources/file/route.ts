@@ -35,7 +35,7 @@ function safeFileName(value: string) {
     .replace(/_+/g, "_") || "document";
 }
 
-async function authorisedContext() {
+async function authorisedContext(permissionKey: string) {
   const session = await createSessionClient();
   const {
     data: { user },
@@ -74,7 +74,7 @@ async function authorisedContext() {
     "leo_has_permission",
     {
       target_organisation_id: organisationId,
-      target_permission_key: "hr_resources.view",
+      target_permission_key: permissionKey,
       target_user_id: user.id,
     },
   );
@@ -109,7 +109,7 @@ function parseSourceTable(value: unknown): SourceTable | null {
 
 export async function POST(request: Request) {
   try {
-    const access = await authorisedContext();
+    const access = await authorisedContext("hr_resources.manage");
     if (!access.ok) return access.response;
 
     const formData = await request.formData();
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const access = await authorisedContext();
+    const access = await authorisedContext("hr_resources.view");
     if (!access.ok) return access.response;
 
     const url = new URL(request.url);

@@ -1,6 +1,7 @@
 export type EmployeeSummary = {
   id: number;
   name: string;
+  email: string | null;
   start_date: string | null;
 };
 

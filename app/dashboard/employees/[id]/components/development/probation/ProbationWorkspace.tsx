@@ -419,9 +419,9 @@ export default function ProbationWorkspace({
                 <button
                   key={review.id}
                   type="button"
-                  onClick={() =>
-                    setSelectedReview(review)
-                  }
+                  onClick={() => {
+                    if (canManageProbation) setSelectedReview(review);
+                  }}
                   style={
                     isFinalReview
                       ? finalReviewButtonStyle
@@ -492,7 +492,7 @@ export default function ProbationWorkspace({
             })}
           </div>
 
-        {selectedReview &&
+        {canManageProbation && selectedReview &&
   selectedReview.review_type !== "Final Review" && (
     <StandardProbationReviewForm
       employeeId={employeeId}
@@ -507,7 +507,7 @@ export default function ProbationWorkspace({
     />
   )}
 
-{selectedReview &&
+{canManageProbation && selectedReview &&
   selectedReview.review_type === "Final Review" && (
     <FinalProbationReviewForm
       employeeId={employeeId}
@@ -524,11 +524,13 @@ export default function ProbationWorkspace({
     />
   )}
 
-<ProbationDocuments
-  employeeId={employeeId}
-  probation={probation}
-  reviews={reviews}
-/>
+{canManageProbation ? (
+  <ProbationDocuments
+    employeeId={employeeId}
+    probation={probation}
+    reviews={reviews}
+  />
+) : null}
         </>
       )}
     </div>

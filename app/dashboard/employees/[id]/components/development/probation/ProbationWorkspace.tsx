@@ -15,7 +15,6 @@ import {
   getTodayDate,
 } from "./probationHelpers";
 import ProbationDocuments from "./ProbationDocuments";
-import EmployeeLifecycleIntelligence from "../../EmployeeLifecycleIntelligence";
 import SendForSignatureModal from "@/components/docusign/SendForSignatureModal";
 
 type Props = {
@@ -237,7 +236,7 @@ export default function ProbationWorkspace({
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {canManageProbation ? <Link href={askLeoHref} style={askLeoLinkStyle}><span aria-hidden="true">✦</span>Ask Leo</Link> : null}
-          {canManageProbation ? <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>Probation guidance</Link> : null}
+          {canManageProbation ? <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>Probation Policy</Link> : null}
           {canManageProbation && !probation && !showStartForm && (
             <button type="button" onClick={() => setShowStartForm(true)} style={primaryButtonStyle}>
               Start Probation
@@ -249,12 +248,6 @@ export default function ProbationWorkspace({
       {errorMessage && (
         <div style={errorStyle}>{errorMessage}</div>
       )}
-
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="probation"
-        defaultPrompt="Draft a probation checkpoint communication with current progress, support measures and the next formal decision point."
-      />
 
       {!probation && showStartForm && (
         <div style={formPanelStyle}>

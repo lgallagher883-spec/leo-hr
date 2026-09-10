@@ -229,15 +229,6 @@ export default function EmploymentDetailsPage() {
         margin: "0 auto",
       }}
     >
-      <p
-        style={{
-          color: "#6E5084",
-          fontWeight: 700,
-          marginBottom: 8,
-        }}
-      >
-        Employee Workspace
-      </p>
 
       <h1
         style={{

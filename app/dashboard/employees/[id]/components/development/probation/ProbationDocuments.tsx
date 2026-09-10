@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import { useEffect, useMemo, useState } from "react";
 import type {
   ProbationRecord,
@@ -8,10 +8,7 @@ import type {
 } from "./types";
 import { formatDate } from "./probationHelpers";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
 type Props = {
   employeeId: number;

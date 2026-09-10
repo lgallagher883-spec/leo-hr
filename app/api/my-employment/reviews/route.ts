@@ -98,6 +98,16 @@ export async function GET() {
 
     if (probation.error) throw new Error(probation.error.message);
 
+    const developmentReviews = await admin
+      .from("employee_development_records")
+      .select("id,title,record_date,manager_name,summary,employee_comments,manager_comments,agreed_actions,support_required,next_review_date,status")
+      .eq("employee_id", employee.data.id)
+      .eq("record_type", "Review")
+      .eq("is_archived", false)
+      .order("record_date", { ascending: false });
+
+    if (developmentReviews.error) throw new Error(developmentReviews.error.message);
+
     const reviews = await admin
       .from("probation_reviews")
       .select(
@@ -139,6 +149,7 @@ export async function GET() {
       success: true,
       employeeLinked: true,
       probation: probation.data ?? null,
+      developmentReviews: developmentReviews.data ?? [],
       reviews: reviewRows.map((review) => ({
         ...review,
         signature_status: signatureByReview.get(String(review.id))?.status ?? null,

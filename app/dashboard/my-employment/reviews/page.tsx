@@ -17,6 +17,20 @@ type ProbationSummary = {
   final_outcome_date: string | null;
 };
 
+type DevelopmentReviewRecord = {
+  id: number;
+  title: string;
+  record_date: string;
+  manager_name: string | null;
+  summary: string | null;
+  employee_comments: string | null;
+  manager_comments: string | null;
+  agreed_actions: string | null;
+  support_required: string | null;
+  next_review_date: string | null;
+  status: string;
+};
+
 type ReviewRecord = {
   id: number;
   review_type: string | null;
@@ -46,6 +60,7 @@ function formatDate(value: string | null) {
 
 export default function MyReviewsPage() {
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
+  const [developmentReviews, setDevelopmentReviews] = useState<DevelopmentReviewRecord[]>([]);
   const [probation, setProbation] = useState<ProbationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [openReviewId, setOpenReviewId] = useState<number | null>(null);
@@ -60,13 +75,14 @@ export default function MyReviewsPage() {
           headers: { Accept: "application/json" },
         });
         const result = (await response.json().catch(() => null)) as
-          | { success?: boolean; probation?: ProbationSummary | null; reviews?: ReviewRecord[]; error?: string }
+          | { success?: boolean; probation?: ProbationSummary | null; developmentReviews?: DevelopmentReviewRecord[]; reviews?: ReviewRecord[]; error?: string }
           | null;
         if (!response.ok || !result?.success) {
           throw new Error(result?.error || "Your reviews could not be loaded.");
         }
         if (active) {
           setProbation(result.probation || null);
+          setDevelopmentReviews(Array.isArray(result.developmentReviews) ? result.developmentReviews : []);
           setReviews(Array.isArray(result.reviews) ? result.reviews : []);
         }
       } catch (error) {
@@ -95,48 +111,61 @@ export default function MyReviewsPage() {
       </p>
 
       <h1 style={{ fontSize: 32, color: "#6E5084", margin: "8px 0" }}>
-        Your Probation
+        Your Reviews
       </h1>
 
       <p className={mobileStyles.employeeMobileHide} style={{ color: "#64748B", marginBottom: 24 }}>
-        View your probation progress, scheduled reviews and completed review records.
+        View your upcoming reviews, probation progress and completed review records in one place.
       </p>
 
       {!loading && !loadError && probation ? (
         <section style={overviewStyle}>
           <div>
-            <p style={eyebrowStyle}>Your probation</p>
+            <p style={eyebrowStyle}>Probation</p>
             <h2 style={overviewTitleStyle}>{probation.status}</h2>
             <p style={overviewTextStyle}>
-              Your current probation end date is {formatDate(probation.current_end_date)}.
+              Current end date: {formatDate(probation.current_end_date)}.
             </p>
           </div>
           <div style={overviewGridStyle}>
-            <div style={overviewItemStyle}>
-              <span style={overviewLabelStyle}>Started</span>
-              <strong>{formatDate(probation.probation_start_date)}</strong>
-            </div>
-            <div style={overviewItemStyle}>
-              <span style={overviewLabelStyle}>Current end date</span>
-              <strong>{formatDate(probation.current_end_date)}</strong>
-            </div>
-            <div style={overviewItemStyle}>
-              <span style={overviewLabelStyle}>Final decision by</span>
-              <strong>{formatDate(probation.final_decision_deadline)}</strong>
-            </div>
+            <div style={overviewItemStyle}><span style={overviewLabelStyle}>Started</span><strong>{formatDate(probation.probation_start_date)}</strong></div>
+            <div style={overviewItemStyle}><span style={overviewLabelStyle}>Current end date</span><strong>{formatDate(probation.current_end_date)}</strong></div>
+            <div style={overviewItemStyle}><span style={overviewLabelStyle}>Final decision by</span><strong>{formatDate(probation.final_decision_deadline)}</strong></div>
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && !loadError && developmentReviews.length > 0 ? (
+        <section style={{ marginBottom: 22 }}>
+          <h2 style={sectionHeadingStyle}>Performance & development reviews</h2>
+          <div style={{ display: "grid", gap: 16 }}>
+            {developmentReviews.map((review) => (
+              <article key={review.id} style={cardStyle}>
+                <div className={mobileStyles.reviewHeader} style={reviewHeaderStyle}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 18 }}>{review.title}</h3>
+                    <p style={{ margin: "8px 0 0", color: "#64748B" }}>{formatDate(review.record_date)}</p>
+                  </div>
+                  <span style={statusStyle}>{review.status}</span>
+                </div>
+                {review.summary ? <p style={detailTextStyle}>{review.summary}</p> : null}
+                {review.agreed_actions ? <div style={detailBoxStyle}><strong>Agreed actions</strong><p style={{ margin: "6px 0 0" }}>{review.agreed_actions}</p></div> : null}
+                {review.next_review_date ? <p style={{ margin: "12px 0 0", color: "#64748B" }}>Next review: {formatDate(review.next_review_date)}</p> : null}
+              </article>
+            ))}
           </div>
         </section>
       ) : null}
 
       {!loading && !loadError && visibleReviews.length > 0 ? (
-        <h2 style={sectionHeadingStyle}>Your reviews</h2>
+        <h2 style={sectionHeadingStyle}>Probation reviews</h2>
       ) : null}
 
       {loading ? (
         <div style={messageStyle}>Loading your reviews...</div>
       ) : loadError ? (
         <div style={{ ...messageStyle, color: "#8F3B3B" }}>{loadError}</div>
-      ) : visibleReviews.length === 0 ? (
+      ) : visibleReviews.length === 0 && developmentReviews.length === 0 && !probation ? (
         <div style={messageStyle}>No reviews are currently scheduled.</div>
       ) : (
         <div style={{ display: "grid", gap: 16 }}>

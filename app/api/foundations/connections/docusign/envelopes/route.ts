@@ -59,6 +59,20 @@ export async function POST(request:Request){
     }
     const sourceModule=text(body.sourceModule) as SignatureSourceModule;
     const sourceRecordId=text(body.sourceRecordId);
+    let probationContext:any=null;
+    if(sourceModule==="Probation"){
+      const reviewId=Number(sourceRecordId);
+      if(!Number.isInteger(reviewId)||reviewId<=0){
+        return NextResponse.json({success:false,error:"The probation review reference is not valid."},{status:400});
+      }
+      const review=await a.admin.from("probation_reviews").select("id,probation_id,employee_id,review_type").eq("id",reviewId).eq("is_archived",false).maybeSingle();
+      if(review.error) throw new Error(review.error.message);
+      if(!review.data) return NextResponse.json({success:false,error:"The probation review could not be found."},{status:404});
+      const employee=await a.admin.from("employees").select("id,name").eq("id",review.data.employee_id).eq("organisation_id",a.organisationId).maybeSingle();
+      if(employee.error) throw new Error(employee.error.message);
+      if(!employee.data) return NextResponse.json({success:false,error:"You do not have access to the employee linked to this probation review."},{status:403});
+      probationContext={reviewId:review.data.id,probationId:review.data.probation_id,employeeId:review.data.employee_id,reviewType:review.data.review_type,employeeName:employee.data.name};
+    }
     const envelope=await createSignatureEnvelope(a.admin,{
       organisationId:a.organisationId,
       connectionId,
@@ -75,25 +89,15 @@ export async function POST(request:Request){
       createdByUserId:a.user.id,
     });
 
-    if(sourceModule==="Probation"){
-      const reviewId=Number(sourceRecordId);
-      if(Number.isInteger(reviewId)&&reviewId>0){
-        const review=await a.admin.from("probation_reviews").select("id,probation_id,employee_id,review_type").eq("id",reviewId).eq("is_archived",false).maybeSingle();
-        if(!review.error&&review.data){
-          const employee=await a.admin.from("employees").select("id,name").eq("id",review.data.employee_id).eq("organisation_id",a.organisationId).maybeSingle();
-          if(!employee.error&&employee.data){
-            const now=new Date().toISOString();
-            const action=body.sendImmediately===false?"Probation review signature draft created":"Probation review sent for signature";
-            const description=review.data.review_type+" was "+(body.sendImmediately===false?"prepared as a DocuSign draft":"sent for electronic signature")+" for "+employee.data.name+".";
-            const audit=await a.admin.from("audit_logs").insert({organisation_id:a.organisationId,user_id:a.user.id,user_email:a.user.email||null,action,action_category:"Employee",entity_type:"Employee",entity_id:String(employee.data.id),entity_name:employee.data.name,description,new_values:{probation_id:review.data.probation_id,review_id:review.data.id,signature_envelope_id:envelope.id,provider_envelope_id:envelope.provider_envelope_id,recipient_count:recipients.length},metadata:{source_module:"Probation",provider:"DocuSign"},source_page:"/dashboard/employees/"+employee.data.id,created_at:now});
-            if(audit.error) console.warn("Probation DocuSign audit event could not be written:",audit.error);
-            const timeline=await a.admin.from("employee_timeline").insert({organisation_id:a.organisationId,employee_id:employee.data.id,event_type:"Probation",title:action,description,status:"Completed",source_module:"Probation",source_record_id:String(review.data.id),metadata:{probation_id:review.data.probation_id,review_id:review.data.id,signature_envelope_id:envelope.id,provider_envelope_id:envelope.provider_envelope_id},event_date:now,created_by:a.user.id,created_at:now});
-            if(timeline.error) console.warn("Probation DocuSign timeline event could not be written:",timeline.error);
-          }
-        }
-      }
+    if(probationContext){
+      const now=new Date().toISOString();
+      const action=body.sendImmediately===false?"Probation review signature draft created":"Probation review sent for signature";
+      const description=probationContext.reviewType+" was "+(body.sendImmediately===false?"prepared as a DocuSign draft":"sent for electronic signature")+" for "+probationContext.employeeName+".";
+      const audit=await a.admin.from("audit_logs").insert({organisation_id:a.organisationId,user_id:a.user.id,user_email:a.user.email||null,action,action_category:"Employee",entity_type:"Employee",entity_id:String(probationContext.employeeId),entity_name:probationContext.employeeName,description,new_values:{probation_id:probationContext.probationId,review_id:probationContext.reviewId,signature_envelope_id:envelope.id,provider_envelope_id:envelope.provider_envelope_id,recipient_count:recipients.length},metadata:{source_module:"Probation",provider:"DocuSign"},source_page:"/dashboard/employees/"+probationContext.employeeId,created_at:now});
+      if(audit.error) console.warn("Probation DocuSign audit event could not be written:",audit.error);
+      const timeline=await a.admin.from("employee_timeline").insert({organisation_id:a.organisationId,employee_id:probationContext.employeeId,event_type:"Probation",title:action,description,status:"Completed",source_module:"Probation",source_record_id:String(probationContext.reviewId),metadata:{probation_id:probationContext.probationId,review_id:probationContext.reviewId,signature_envelope_id:envelope.id,provider_envelope_id:envelope.provider_envelope_id},event_date:now,created_by:a.user.id,created_at:now});
+      if(timeline.error) console.warn("Probation DocuSign timeline event could not be written:",timeline.error);
     }
-
     return NextResponse.json({success:true,envelope},{status:201});
   }catch(error){
     return NextResponse.json({success:false,error:error instanceof Error?error.message:"The document could not be sent for signature."},{status:500});

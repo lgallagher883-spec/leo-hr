@@ -527,7 +527,6 @@ export default function MyLeavePage() {
     <main className={mobileStyles.leavePage} style={pageStyle}>
       <header className={mobileStyles.leaveHeader} style={headerStyle}>
         <div>
-          <p className={mobileStyles.leaveEyebrow} style={eyebrowStyle}>Employee workspace</p>
           <h1 style={titleStyle}>My Leave</h1>
           <p style={subtitleStyle}>
             Review your leave entitlement, upcoming time away and recorded

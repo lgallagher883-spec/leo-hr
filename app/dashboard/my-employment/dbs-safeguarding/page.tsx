@@ -71,9 +71,6 @@ export default function DbsSafeguardingPage() {
 
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <p className={mobileStyles.employeeMobileHide} style={{ color: "#6E5084", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>
-        Employee workspace
-      </p>
 
       <h1 className={mobileStyles.employeeDesktopTitle} style={{ fontSize: 32, color: "#6E5084", margin: "8px 0" }}>
         DBS &amp; Safeguarding

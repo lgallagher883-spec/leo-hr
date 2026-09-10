@@ -109,11 +109,41 @@ export async function GET() {
 
     if (reviews.error) throw new Error(reviews.error.message);
 
+    const reviewRows = reviews.data ?? [];
+    const reviewIds = reviewRows.map((review) => String(review.id));
+    const signatureByReview = new Map<string, { status: string; completed_at: string | null }>();
+
+    if (reviewIds.length) {
+      const signatures = await admin
+        .from("signature_envelopes")
+        .select("source_record_id,status,completed_at,created_at")
+        .eq("organisation_id", organisationId)
+        .eq("source_module", "Probation")
+        .in("source_record_id", reviewIds)
+        .order("created_at", { ascending: false });
+
+      if (signatures.error) throw new Error(signatures.error.message);
+
+      for (const envelope of signatures.data ?? []) {
+        const key = String(envelope.source_record_id);
+        if (!signatureByReview.has(key)) {
+          signatureByReview.set(key, {
+            status: String(envelope.status || "created"),
+            completed_at: envelope.completed_at || null,
+          });
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       employeeLinked: true,
       probation: probation.data ?? null,
-      reviews: reviews.data ?? [],
+      reviews: reviewRows.map((review) => ({
+        ...review,
+        signature_status: signatureByReview.get(String(review.id))?.status ?? null,
+        signature_completed_at: signatureByReview.get(String(review.id))?.completed_at ?? null,
+      })),
     });
   } catch (error) {
     console.error("Leo HR employee reviews API failed:", error);

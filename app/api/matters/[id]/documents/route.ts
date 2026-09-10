@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 const MATTER_DOCUMENTS_BUCKET = "matter-documents";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("Supabase administrator credentials are not configured.");
+  }
+
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 type RouteContext = {
@@ -403,7 +417,7 @@ export async function POST(request: Request, context: RouteContext) {
 
       const fileBuffer = Buffer.from(await fileValue.arrayBuffer());
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await getAdminClient().storage
         .from(MATTER_DOCUMENTS_BUCKET)
         .upload(storagePath, fileBuffer, {
           contentType: fileValue.type || "application/octet-stream",
@@ -446,7 +460,7 @@ export async function POST(request: Request, context: RouteContext) {
       if (error || !data) {
         console.error("Matter document record could not be saved:", error);
 
-        await supabase.storage
+        await getAdminClient().storage
           .from(MATTER_DOCUMENTS_BUCKET)
           .remove([storagePath]);
 
@@ -470,7 +484,7 @@ export async function POST(request: Request, context: RouteContext) {
       console.error("Matter document upload failed:", error);
 
       if (storagePath) {
-        await supabase.storage
+        await getAdminClient().storage
           .from(MATTER_DOCUMENTS_BUCKET)
           .remove([storagePath]);
       }

@@ -61,30 +61,41 @@ export default function DocumentsPage() {
 
     setUploading(true);
 
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const filePath = `${Date.now()}-${safeFileName}`;
+    const uploadForm = new FormData();
+    uploadForm.append("sourceTable", "company_documents");
+    uploadForm.append("resourceType", "company-document");
+    uploadForm.append("file", file);
 
-    const uploadResult = await supabase.storage
-      .from("company-documents")
-      .upload(filePath, file);
+    const uploadResponse = await fetch(
+      "/api/knowledge/resources/file",
+      {
+        method: "POST",
+        body: uploadForm,
+      }
+    );
 
-    if (uploadResult.error) {
-      console.error(uploadResult.error);
-      alert("Document could not be uploaded.");
+    const uploadResult = await uploadResponse.json();
+
+    if (
+      !uploadResponse.ok ||
+      !uploadResult?.success ||
+      !uploadResult?.filePath
+    ) {
+      console.error(uploadResult);
+      alert(
+        uploadResult?.error ||
+          "Document could not be uploaded."
+      );
       setUploading(false);
       return;
     }
-
-    const publicUrlResult = supabase.storage
-      .from("company-documents")
-      .getPublicUrl(filePath);
 
     const { error } = await supabase.from("company_documents").insert({
       name: name.trim(),
       notes: notes.trim() || null,
       file_name: file.name,
-      file_path: filePath,
-      file_url: publicUrlResult.data.publicUrl,
+      file_path: uploadResult.filePath,
+      file_url: null,
     });
 
     if (error) {
@@ -195,9 +206,11 @@ export default function DocumentsPage() {
                   <td style={tdStyle}>{formatDate(doc.created_at)}</td>
                   <td style={tdStyle}>{doc.notes || "—"}</td>
                   <td style={tdStyle}>
-                    {doc.file_url ? (
+                    {doc.file_path ? (
                       <a
-                        href={doc.file_url}
+                        href={`/api/knowledge/resources/file?sourceTable=company_documents&id=${encodeURIComponent(
+                          String(doc.id)
+                        )}`}
                         target="_blank"
                         rel="noreferrer"
                         style={openButtonStyle}

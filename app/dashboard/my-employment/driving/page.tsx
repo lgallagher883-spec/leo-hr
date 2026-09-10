@@ -113,7 +113,6 @@ export default function DrivingPage() {
   return (
     <main style={pageStyle}>
       <header style={{ marginBottom: 24 }}>
-        <p style={eyebrow}>Employee workspace</p>
         <h1 style={titleStyle}>Driving</h1>
         <p style={introStyle}>Review the driving and vehicle information your organisation holds and upload supporting evidence.</p>
       </header>

@@ -373,7 +373,6 @@ export default function MyLearningPage() {
     <main style={pageStyle}>
       <header style={headerStyle}>
         <div>
-          <p className={mobileStyles.employeeMobileHide} style={eyebrowStyle}>Employee workspace</p>
           <h1 style={titleStyle}>My Learning</h1>
           <p className={mobileStyles.employeeMobileHide} style={subtitleStyle}>
             Review assigned learning, development pathways, progress and

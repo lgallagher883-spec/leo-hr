@@ -199,7 +199,6 @@ export default function MyDocumentsPage() {
   return (
     <main style={pageStyle}>
       <header style={{ marginBottom: 26 }}>
-        <p style={eyebrow}>Employee workspace</p>
         <h1 style={titleStyle}>My Documents</h1>
         <p style={introStyle}>View documents that relate specifically to your employment and company documents shared with you.</p>
       </header>

@@ -5,6 +5,18 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import mobileStyles from "../MyEmployment.module.css";
 
+type ProbationSummary = {
+  id: number;
+  status: string;
+  probation_start_date: string;
+  standard_end_date: string;
+  current_end_date: string;
+  final_decision_deadline: string;
+  extension_end_date: string | null;
+  final_outcome: string | null;
+  final_outcome_date: string | null;
+};
+
 type ReviewRecord = {
   id: number;
   review_type: string | null;
@@ -28,6 +40,7 @@ function formatDate(value: string | null) {
 
 export default function MyReviewsPage() {
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
+  const [probation, setProbation] = useState<ProbationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -40,12 +53,15 @@ export default function MyReviewsPage() {
           headers: { Accept: "application/json" },
         });
         const result = (await response.json().catch(() => null)) as
-          | { success?: boolean; reviews?: ReviewRecord[]; error?: string }
+          | { success?: boolean; probation?: ProbationSummary | null; reviews?: ReviewRecord[]; error?: string }
           | null;
         if (!response.ok || !result?.success) {
           throw new Error(result?.error || "Your reviews could not be loaded.");
         }
-        if (active) setReviews(Array.isArray(result.reviews) ? result.reviews : []);
+        if (active) {
+          setProbation(result.probation || null);
+          setReviews(Array.isArray(result.reviews) ? result.reviews : []);
+        }
       } catch (error) {
         if (active) {
           setLoadError(error instanceof Error ? error.message : "Your reviews could not be loaded.");
@@ -78,6 +94,32 @@ export default function MyReviewsPage() {
       <p className={mobileStyles.employeeMobileHide} style={{ color: "#64748B", marginBottom: 24 }}>
         View scheduled and completed probation reviews.
       </p>
+
+      {!loading && !loadError && probation ? (
+        <section style={overviewStyle}>
+          <div>
+            <p style={eyebrowStyle}>Your probation</p>
+            <h2 style={overviewTitleStyle}>{probation.status}</h2>
+            <p style={overviewTextStyle}>
+              Your current probation end date is {formatDate(probation.current_end_date)}.
+            </p>
+          </div>
+          <div style={overviewGridStyle}>
+            <div style={overviewItemStyle}>
+              <span style={overviewLabelStyle}>Started</span>
+              <strong>{formatDate(probation.probation_start_date)}</strong>
+            </div>
+            <div style={overviewItemStyle}>
+              <span style={overviewLabelStyle}>Current end date</span>
+              <strong>{formatDate(probation.current_end_date)}</strong>
+            </div>
+            <div style={overviewItemStyle}>
+              <span style={overviewLabelStyle}>Final decision by</span>
+              <strong>{formatDate(probation.final_decision_deadline)}</strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {loading ? (
         <div style={messageStyle}>Loading your reviews...</div>
@@ -133,3 +175,11 @@ const statusStyle = { background: "#F7F1FC", color: "#6E5084", border: "1px soli
 const detailTextStyle = { margin: "16px 0 0", color: "#526071", lineHeight: 1.55 } as const;
 const detailBoxStyle = { marginTop: 14, padding: 14, borderRadius: 12, background: "#F8FAFC", color: "#526071" } as const;
 const backStyle = { display: "inline-block", textDecoration: "none", color: "#6E5084", border: "1px solid #CDB2E2", borderRadius: 10, padding: "10px 16px", fontWeight: 700 } as const;
+
+const overviewStyle = { display: "grid", gap: 18, background: "#fff", border: "1px solid #E8E2EB", borderRadius: 18, padding: 20, marginBottom: 18, boxShadow: "0 8px 22px rgba(17,24,39,.05)" } as const;
+const eyebrowStyle = { margin: 0, color: "#6E5084", fontSize: 12, fontWeight: 800, textTransform: "uppercase" } as const;
+const overviewTitleStyle = { margin: "6px 0 4px", fontSize: 22, color: "#2F2634" } as const;
+const overviewTextStyle = { margin: 0, color: "#64748B", lineHeight: 1.5 } as const;
+const overviewGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 } as const;
+const overviewItemStyle = { display: "grid", gap: 4, background: "#F8FAFC", borderRadius: 12, padding: 12, color: "#334155" } as const;
+const overviewLabelStyle = { fontSize: 11, color: "#64748B", fontWeight: 700, textTransform: "uppercase" } as const;

@@ -529,7 +529,7 @@ export default function ProbationDocuments({
 
         {availableEmployeeDocuments.length === 0 ? (
           <div style={mutedTextStyle}>
-            No unlinked employee documents are available.
+            No other employee documents are available to link.
           </div>
         ) : (
           <>
@@ -732,7 +732,11 @@ const existingSectionStyle: React.CSSProperties = {
 };
 
 const historySectionStyle: React.CSSProperties = {
-  marginTop: "20px",
+  marginTop: "14px",
+  padding: "16px",
+  background: "#F9FAFB",
+  border: "1px solid #E5E7EB",
+  borderRadius: "12px",
 };
 
 const sectionTitleStyle: React.CSSProperties = {

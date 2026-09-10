@@ -318,7 +318,35 @@ export async function GET(
       if (reviewResult.error) throw new Error(reviewResult.error.message);
       if (!reviewResult.data) return NextResponse.json({ success:false, error:"The probation review could not be found." }, { status:404 });
       if (reviewResult.data.status !== "Completed") return NextResponse.json({ success:false, error:"Complete the review before generating its document." }, { status:409 });
-      const pdf = await buildProbationReviewPdf(employee, reviewResult.data);
+      const probationForDocument = await admin
+        .from("employee_probations")
+        .select("id,status,extension_reason,extension_end_date,final_outcome,final_outcome_date")
+        .eq("id", reviewResult.data.probation_id)
+        .eq("employee_id", employeeId)
+        .eq("is_archived", false)
+        .maybeSingle();
+      if (probationForDocument.error) throw new Error(probationForDocument.error.message);
+
+      let decisionForDocument: Record<string, unknown> | null = null;
+      if (reviewResult.data.review_type === "Final Review") {
+        const decision = await admin
+          .from("probation_decisions")
+          .select("decision,decision_reason,support_provided,evidence_considered,employee_response,notice_arrangements,final_summary")
+          .eq("probation_id", reviewResult.data.probation_id)
+          .eq("employee_id", employeeId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (decision.error) throw new Error(decision.error.message);
+        decisionForDocument = decision.data || null;
+      }
+
+      const pdf = await buildProbationReviewPdf(
+        employee,
+        reviewResult.data,
+        probationForDocument.data || null,
+        decisionForDocument,
+      );
       const safeName = String(employee.name || "employee").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
       return new Response(pdf, { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":"inline; filename=\"" + (safeName || "employee") + "-probation-review-" + reviewDocumentId + ".pdf\"", "Cache-Control":"no-store" } });
     }
@@ -1298,6 +1326,8 @@ async function writeProbationEvents({
 async function buildProbationReviewPdf(
   employee: { id: number; name: string; email?: string | null; start_date?: string | null },
   review: { id:number; review_type:string; scheduled_date:string; completed_date:string|null; manager_name:string|null; attendees:string|null; employee_comments:string|null; manager_comments:string|null; progress_summary:string|null; support_required:string|null; agreed_actions:string|null },
+  probation: { status?: string | null; extension_reason?: string | null; extension_end_date?: string | null; final_outcome?: string | null; final_outcome_date?: string | null } | null = null,
+  decision: Record<string, unknown> | null = null,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 54 });
@@ -1310,7 +1340,27 @@ async function buildProbationReviewPdf(
     const row = (label:string, value:string|null|undefined) => { doc.fontSize(9).fillColor("#6B7280").text(label.toUpperCase()); doc.fontSize(11).fillColor("#111827").text(value || "Not recorded"); doc.moveDown(0.65); };
     row("Employee", employee.name); row("Review", review.review_type); row("Scheduled date", review.scheduled_date); row("Review held", review.completed_date); row("Manager", review.manager_name); row("Attendees", review.attendees);
     const section = (title:string, value:string|null|undefined) => { doc.moveDown(0.35); doc.fontSize(12).fillColor("#6E5084").text(title); doc.moveDown(0.2); doc.fontSize(10.5).fillColor("#1F2937").text(value || "Not recorded", { lineGap: 3 }); doc.moveDown(0.75); };
-    section("Review summary", review.progress_summary); section("Employee comments", review.employee_comments); section("Manager comments", review.manager_comments); section("Support required", review.support_required); section("Agreed actions", review.agreed_actions);
+    section("Review summary", review.progress_summary);
+    section("Employee comments", review.employee_comments);
+    section("Manager comments", review.manager_comments);
+    section("Support required", review.support_required);
+    section("Agreed actions", review.agreed_actions);
+
+    if (review.review_type === "Final Review" && probation) {
+      section("Final outcome", probation.final_outcome);
+      section("Outcome date", probation.final_outcome_date);
+      if (probation.final_outcome === "Extend Probation") {
+        section("Extension reason", probation.extension_reason);
+        section("Extension end date", probation.extension_end_date);
+      }
+      if (decision) {
+        section("Decision reason", typeof decision.decision_reason === "string" ? decision.decision_reason : null);
+        section("Support provided", typeof decision.support_provided === "string" ? decision.support_provided : null);
+        section("Evidence considered", typeof decision.evidence_considered === "string" ? decision.evidence_considered : null);
+        section("Employee response", typeof decision.employee_response === "string" ? decision.employee_response : null);
+        section("Notice arrangements", typeof decision.notice_arrangements === "string" ? decision.notice_arrangements : null);
+      }
+    }
     doc.moveDown(1); doc.fontSize(9).fillColor("#6B7280").text("Generated from the employee probation record in LEO HR. Signature confirms acknowledgement of the recorded review, not necessarily agreement with every comment.", { lineGap: 2 });
     doc.end();
   });

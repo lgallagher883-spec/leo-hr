@@ -425,6 +425,7 @@ export async function GET(
                 ? user.user_metadata.name
                 : user.email || "Employer",
           email: user.email || "",
+          role: accessResult.access.role,
         },
         probation: probationResult.data ?? null,
         reviews,

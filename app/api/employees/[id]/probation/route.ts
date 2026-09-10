@@ -389,6 +389,15 @@ export async function GET(
       {
         success: true,
         employee,
+        viewer: {
+          name:
+            typeof user.user_metadata?.full_name === "string"
+              ? user.user_metadata.full_name
+              : typeof user.user_metadata?.name === "string"
+                ? user.user_metadata.name
+                : user.email || "Employer",
+          email: user.email || "",
+        },
         probation: probationResult.data ?? null,
         reviews,
       },

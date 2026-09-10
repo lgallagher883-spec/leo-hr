@@ -62,6 +62,15 @@ export default function ProbationWorkspace({
   const [addingAdHoc, setAddingAdHoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const askLeoPrompt = employee
+    ? "I am reviewing probation for " + employee.name + ". Please help me assess progress, support, review evidence and fair next steps, including whether an extension may be appropriate."
+    : "I am reviewing an employee probation period. Please help me assess progress, support, review evidence and fair next steps.";
+  const askLeoHref =
+    "/dashboard/ask-leo?prompt=" + encodeURIComponent(askLeoPrompt) +
+    "&resourceTitle=" + encodeURIComponent("Employee probation") +
+    "&resourceType=" + encodeURIComponent("Probation") +
+    "&returnUrl=" + encodeURIComponent("/dashboard/employees/" + employeeId);
+
   useEffect(() => {
     void loadProbationWorkspace();
   }, [employeeId]);
@@ -225,6 +234,10 @@ export default function ProbationWorkspace({
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Link href={askLeoHref} style={askLeoLinkStyle}>
+            <span aria-hidden="true">✦</span>
+            Ask Leo
+          </Link>
           <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>
             Probation guidance
           </Link>
@@ -1494,6 +1507,7 @@ const workspaceHeaderStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: "16px",
+  flexWrap: "wrap",
   marginBottom: "20px",
 };
 
@@ -1706,6 +1720,7 @@ const reviewButtonStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "12px",
+  flexWrap: "wrap",
   background: "#FFFFFF",
   border: "1px solid #E5E7EB",
   borderRadius: "12px",
@@ -1882,3 +1897,19 @@ const signatureHintStyle: React.CSSProperties = {
 };
 
 const signatureStatusStyle: React.CSSProperties = { background: "#F8FAFC", color: "#526071", border: "1px solid #E2E8F0", padding: "4px 8px", borderRadius: "999px", fontWeight: 700, fontSize: "11px" };
+
+const askLeoLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  minHeight: "40px",
+  padding: "8px 14px",
+  border: "1px solid #CDB2E2",
+  borderRadius: "10px",
+  background: "#F7F1FC",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 700,
+  textDecoration: "none",
+};

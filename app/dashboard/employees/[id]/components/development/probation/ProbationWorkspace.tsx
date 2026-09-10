@@ -48,6 +48,10 @@ export default function ProbationWorkspace({
   const [showStartForm, setShowStartForm] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [starting, setStarting] = useState(false);
+  const [showAdHocForm, setShowAdHocForm] = useState(false);
+  const [adHocDate, setAdHocDate] = useState(getTodayDate());
+  const [adHocReason, setAdHocReason] = useState("");
+  const [addingAdHoc, setAddingAdHoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -164,6 +168,31 @@ export default function ProbationWorkspace({
     }
   }
 
+
+  async function addAdHocReview() {
+    if (!probation) return;
+    if (!adHocDate || !adHocReason.trim()) {
+      setErrorMessage("Enter the review date and why the ad-hoc review is needed.");
+      return;
+    }
+    setAddingAdHoc(true);
+    setErrorMessage("");
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/probation`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ action: "add_ad_hoc_review", probationId: probation.id, completedDate: adHocDate, adHocReason: adHocReason.trim() }),
+      });
+      const result = (await response.json().catch(() => null)) as ProbationApiResponse | null;
+      if (!response.ok || !result?.success) throw new Error(result?.error || "The ad-hoc review could not be added.");
+      setShowAdHocForm(false); setAdHocDate(getTodayDate()); setAdHocReason("");
+      await loadProbationWorkspace();
+      if (result.review) setSelectedReview(result.review);
+    } catch (error) {
+      console.error("Error adding ad-hoc probation review:", error);
+      setErrorMessage(error instanceof Error ? error.message : "The ad-hoc review could not be added.");
+    } finally { setAddingAdHoc(false); }
+  }
 
   if (loading) {
     return (
@@ -338,10 +367,30 @@ export default function ProbationWorkspace({
             />
           </div>
 
+          <div style={{ display: "flex", justifyContent: "flex-end", margin: "18px 0 12px" }}>
+            <button type="button" onClick={() => setShowAdHocForm((current) => !current)} style={secondaryButtonStyle}>
+              {showAdHocForm ? "Cancel ad-hoc review" : "+ Add ad-hoc review"}
+            </button>
+          </div>
+
+          {showAdHocForm && (
+            <div style={formPanelStyle}>
+              <h4 style={formTitleStyle}>Add ad-hoc probation review</h4>
+              <p style={formDescriptionStyle}>Log an extra probation conversation when something needs to be discussed outside the standard review schedule.</p>
+              <FormField label="Review date"><input type="date" value={adHocDate} onChange={(event) => setAdHocDate(event.target.value)} style={inputStyle} /></FormField>
+              <FormField label="Reason for review"><input type="text" value={adHocReason} onChange={(event) => setAdHocReason(event.target.value)} placeholder="For example: progress concern, support check-in or positive progress" style={fullWidthInputStyle} /></FormField>
+              <div style={formActionsStyle}>
+                <button type="button" onClick={() => setShowAdHocForm(false)} disabled={addingAdHoc} style={secondaryButtonStyle}>Cancel</button>
+                <button type="button" onClick={() => void addAdHocReview()} disabled={addingAdHoc} style={primaryButtonStyle}>{addingAdHoc ? "Adding review..." : "Create ad-hoc review"}</button>
+              </div>
+            </div>
+          )}
+
           <div style={reviewListStyle}>
             {reviews.map((review) => {
               const isFinalReview =
                 review.review_type === "Final Review";
+              const isAdHocReview = review.review_type === "Ad-hoc Review";
 
               return (
                 <button
@@ -365,6 +414,7 @@ export default function ProbationWorkspace({
                       </div>
                     )}
 
+                    {isAdHocReview && <div style={{ color: "#6E5084", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>Additional Review</div>}
                     <div style={reviewTypeStyle}>
                       {review.review_type}
                     </div>

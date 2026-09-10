@@ -16,6 +16,7 @@ import {
 } from "./probationHelpers";
 import ProbationDocuments from "./ProbationDocuments";
 import EmployeeLifecycleIntelligence from "../../EmployeeLifecycleIntelligence";
+import SendForSignatureModal from "@/components/docusign/SendForSignatureModal";
 
 type Props = {
   employeeId: number;
@@ -464,6 +465,7 @@ export default function ProbationWorkspace({
   selectedReview.review_type !== "Final Review" && (
     <StandardProbationReviewForm
       employeeId={employeeId}
+      employee={employee}
       review={selectedReview}
       onClose={() => setSelectedReview(null)}
       onSaved={async () => {
@@ -501,11 +503,13 @@ export default function ProbationWorkspace({
 
 function StandardProbationReviewForm({
   employeeId,
+  employee,
   review,
   onClose,
   onSaved,
 }: {
   employeeId: number;
+  employee: EmployeeSummary | null;
   review: ProbationReview;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -539,6 +543,9 @@ function StandardProbationReviewForm({
     useState(review.agreed_actions || "");
 
   const [saving, setSaving] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [signatureDocumentBase64, setSignatureDocumentBase64] = useState("");
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -613,6 +620,47 @@ function StandardProbationReviewForm({
   }
 
 
+  async function loadReviewPdf(): Promise<Blob> {
+    const response = await fetch("/api/employees/" + employeeId + "/probation?reviewDocument=" + review.id, { credentials: "include", cache: "no-store" });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || "The review document could not be generated.");
+    }
+    return response.blob();
+  }
+
+  async function printReviewDocument() {
+    setDocumentBusy(true); setErrorMessage("");
+    try {
+      const blob = await loadReviewPdf();
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) throw new Error("Allow pop-ups to open the printable review.");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The review document could not be opened.");
+    } finally { setDocumentBusy(false); }
+  }
+
+  async function prepareSignatureDocument() {
+    setDocumentBusy(true); setErrorMessage("");
+    try {
+      const blob = await loadReviewPdf();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = typeof reader.result === "string" ? reader.result : "";
+          resolve(value.includes(",") ? value.split(",")[1] : value);
+        };
+        reader.onerror = () => reject(new Error("The review document could not be prepared for signature."));
+        reader.readAsDataURL(blob);
+      });
+      setSignatureDocumentBase64(base64);
+      setSignatureOpen(true);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The review document could not be prepared for signature.");
+    } finally { setDocumentBusy(false); }
+  }
   return (
     <div style={reviewFormPanelStyle}>
       <ReviewFormHeader
@@ -731,14 +779,29 @@ function StandardProbationReviewForm({
 
       {review.status === "Completed" && (
         <div style={recordActionsStyle}>
-          <button type="button" onClick={() => window.print()} style={secondaryButtonStyle}>
-            Print review
+          <button type="button" onClick={() => void printReviewDocument()} disabled={documentBusy} style={secondaryButtonStyle}>
+            {documentBusy ? "Preparing..." : "Print review"}
+          </button>
+          <button type="button" onClick={() => void prepareSignatureDocument()} disabled={documentBusy} style={primaryButtonStyle}>
+            Send via DocuSign
           </button>
           <div style={signatureHintStyle}>
-            DocuSign will be available here once the review document is generated and both signers are confirmed.
+            Send the completed review to the employee and any additional signer through the organisation&apos;s connected DocuSign account.
           </div>
         </div>
       )}
+
+      <SendForSignatureModal
+        open={signatureOpen}
+        onClose={() => setSignatureOpen(false)}
+        sourceModule="Probation"
+        sourceRecordId={String(review.id)}
+        documentName={(employee?.name || "Employee").replace(/[^a-z0-9]+/gi, "-") + "-" + review.review_type.replace(/[^a-z0-9]+/gi, "-") + ".pdf"}
+        documentBase64={signatureDocumentBase64}
+        defaultRecipientName={employee?.name || ""}
+        defaultRecipientEmail={employee?.email || ""}
+        emailSubject={"Please sign: " + review.review_type + " probation review"}
+      />
     </div>
   );
 }

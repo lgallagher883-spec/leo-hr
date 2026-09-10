@@ -22,9 +22,12 @@ type Props = {
   employeeId: number;
 };
 
+type ViewerSummary = { name: string; email: string };
+
 type ProbationApiResponse = {
   success?: boolean;
   employee?: EmployeeSummary;
+  viewer?: ViewerSummary;
   probation?: ProbationRecord | null;
   reviews?: ProbationReview[];
   review?: ProbationReview;
@@ -39,6 +42,9 @@ export default function ProbationWorkspace({
 
   const [probation, setProbation] =
     useState<ProbationRecord | null>(null);
+
+  const [viewer, setViewer] =
+    useState<ViewerSummary | null>(null);
 
   const [reviews, setReviews] =
     useState<ProbationReview[]>([]);
@@ -89,6 +95,7 @@ export default function ProbationWorkspace({
       }
 
       setEmployee(result.employee);
+      setViewer(result.viewer || null);
       setProbation(result.probation || null);
       setReviews(
         Array.isArray(result.reviews)
@@ -102,6 +109,7 @@ export default function ProbationWorkspace({
     } catch (error) {
       console.error("Error loading probation workspace:", error);
       setEmployee(null);
+      setViewer(null);
       setProbation(null);
       setReviews([]);
       setErrorMessage(
@@ -477,6 +485,7 @@ export default function ProbationWorkspace({
     <StandardProbationReviewForm
       employeeId={employeeId}
       employee={employee}
+      viewer={viewer}
       review={selectedReview}
       onClose={() => setSelectedReview(null)}
       onSaved={async () => {
@@ -515,12 +524,14 @@ export default function ProbationWorkspace({
 function StandardProbationReviewForm({
   employeeId,
   employee,
+  viewer,
   review,
   onClose,
   onSaved,
 }: {
   employeeId: number;
   employee: EmployeeSummary | null;
+  viewer: ViewerSummary | null;
   review: ProbationReview;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -811,6 +822,8 @@ function StandardProbationReviewForm({
         documentBase64={signatureDocumentBase64}
         defaultRecipientName={employee?.name || ""}
         defaultRecipientEmail={employee?.email || ""}
+        secondaryRecipientName={viewer?.name || ""}
+        secondaryRecipientEmail={viewer?.email || ""}
         emailSubject={"Please sign: " + review.review_type + " probation review"}
       />
     </div>

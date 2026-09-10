@@ -168,7 +168,7 @@ async function loadOwnedSourceResource(args: {
 
 export async function POST(request: Request) {
   try {
-    const access = await requireAuthorisedContext("hr_resources.view");
+    const access = await requireAuthorisedContext("hr_resources.manage");
 
     if (!access.ok) {
       return access.response;

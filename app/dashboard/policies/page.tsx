@@ -359,20 +359,6 @@ export default function PoliciesPage() {
       const originalFileName =
         file.name;
 
-      const safeFileName =
-        originalFileName.replace(
-          /[^a-zA-Z0-9.-]/g,
-          "_"
-        );
-
-      const folderName =
-        resourceType
-          .toLowerCase()
-          .replaceAll(" ", "-");
-
-      const filePath =
-        `${folderName}/${Date.now()}-${safeFileName}`;
-
       const uploadForm = new FormData();
       uploadForm.append("sourceTable", "policy_register");
       uploadForm.append("resourceType", resourceType);
@@ -591,26 +577,6 @@ export default function PoliciesPage() {
       setActionInProgress(actionKey);
 
       try {
-        const safeFileName =
-          selectedFile.name.replace(
-            /[^a-zA-Z0-9.-]/g,
-            "_"
-          );
-
-        const folderName =
-          resource.type
-            .toLowerCase()
-            .replaceAll(" ", "-");
-
-        const newFilePath =
-          `${folderName}/versions/${Date.now()}-${safeFileName}`;
-
-        const storageBucket =
-          resource.sourceTable ===
-          "policy_register"
-            ? "policy-documents"
-            : "company-documents";
-
         const uploadForm = new FormData();
         uploadForm.append(
           "sourceTable",

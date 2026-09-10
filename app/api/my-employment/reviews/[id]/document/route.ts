@@ -43,7 +43,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (review.data.status !== "Completed") return NextResponse.json({ success:false, error:"Only completed reviews can be printed." }, { status:409 });
 
     const pdf = await buildPdf(employee.data.name, review.data);
-    return new Response(pdf, { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":"inline; filename=\"probation-review-" + reviewId + ".pdf\"", "Cache-Control":"no-store" } });
+    return new Response(new Uint8Array(pdf), { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":"inline; filename=\"probation-review-" + reviewId + ".pdf\"", "Cache-Control":"no-store" } });
   } catch (error) {
     return NextResponse.json({ success:false, error:error instanceof Error ? error.message : "The review document could not be generated." }, { status:500 });
   }

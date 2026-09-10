@@ -36,6 +36,8 @@ export type ProbationReview = {
   progress_summary: string | null;
   support_required: string | null;
   agreed_actions: string | null;
+  signature_status?: string | null;
+  signature_completed_at?: string | null;
 };
 
 export function isAdHocProbationReview(review: ProbationReview): boolean {

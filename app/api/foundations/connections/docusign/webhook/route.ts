@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { transferCompletedProbationSignatureToEmployee } from "@/lib/docusign/envelopes";
 
 export const dynamic="force-dynamic";
 
@@ -46,6 +47,42 @@ export async function POST(request:Request){
       updated_at:now,
     }).eq("id",found.data.id);
     if(update.error) throw new Error(update.error.message);
+
+    if(
+      status==="completed" &&
+      String(found.data.source_module||"")==="Probation"
+    ){
+      try{
+        await transferCompletedProbationSignatureToEmployee(
+          db,
+          String(found.data.organisation_id),
+          {
+            ...found.data,
+            status,
+            provider_status:providerStatus||null,
+            ...timestamps,
+            updated_at:now,
+          },
+        );
+      }catch(transferError){
+        const message=
+          transferError instanceof Error
+            ? transferError.message
+            : "The signed probation review could not be transferred.";
+        console.error("Probation DocuSign transfer failed:",transferError);
+        await db.from("signature_envelopes").update({
+          last_error_code:"probation_document_transfer_failed",
+          last_error_message:message,
+          metadata:{
+            ...(found.data.metadata||{}),
+            probation_transfer_last_attempt_at:now,
+            probation_transfer_last_error:message,
+          },
+          updated_at:now,
+        }).eq("id",found.data.id);
+      }
+    }
+
     return NextResponse.json({success:true});
   }catch(error){
     console.error("DocuSign webhook failed:",error);

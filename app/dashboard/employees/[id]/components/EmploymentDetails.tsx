@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 import Field from "./Field";
 import ProfileSection from "./ProfileSection";
 import SaveButton from "./SaveButton";
@@ -821,11 +820,6 @@ export default function EmploymentDetails({
 
   return (
     <ProfileSection title="Employment Details">
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="employment"
-        defaultPrompt="Draft a concise employment status update that confirms role, manager accountability, and the next agreed check-in."
-      />
 
       <Field
         label="Full Name"

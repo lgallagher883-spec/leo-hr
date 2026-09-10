@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = { params: Promise<{ id: string }> };
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("Supabase administrator credentials are not configured.");
+  }
+
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 const writeRoles = new Set<PlatformRole>(["owner", "senior", "manager"]);
 const talentPoolStatuses = new Set(["not_added", "active", "do_not_contact", "withdrawn", "archived"]);
 const employmentTypes = new Set(["not_recorded", "full_time", "part_time", "temporary", "fixed_term", "casual", "flexible"]);
@@ -47,7 +61,7 @@ function payload(input: any, userId: string, existing: any) {
 function filesFromFormData(formData: FormData) { const result: Array<{ file: File; type: "cv" | "cover_letter" | "other"; title: string }> = []; const cv = formData.get("cv"); const cover = formData.get("coverLetter"); if (cv instanceof File && cv.size) result.push({ file: cv, type: "cv", title: "CV" }); if (cover instanceof File && cover.size) result.push({ file: cover, type: "cover_letter", title: "Cover Letter" }); for (const entry of formData.getAll("supportingDocuments")) if (entry instanceof File && entry.size) result.push({ file: entry, type: "other", title: entry.name.replace(/\.[^.]+$/, "") }); return result; }
 async function uploadDocuments(supabase: any, organisationId: string, candidateId: string, files: ReturnType<typeof filesFromFormData>) {
   const paths: string[] = [];
-  try { for (const item of files) { if (item.file.size > maxFileSize) throw new Error(`${item.file.name} exceeds the 15 MB upload limit.`); if (item.file.type && !allowedMimeTypes.has(item.file.type)) throw new Error(`${item.file.name} is not an allowed document type.`); const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-"); const filePath = `${organisationId}/${candidateId}/${crypto.randomUUID()}-${safeName}`; const bytes = new Uint8Array(await item.file.arrayBuffer()); const upload = await supabase.storage.from("leo-talent-candidate-documents").upload(filePath, bytes, { cacheControl: "3600", upsert: false, contentType: item.file.type || undefined }); if (upload.error) throw new Error(`${item.file.name} could not be uploaded.`); paths.push(filePath); const record = await supabase.from("leo_talent_candidate_documents").insert({ organisation_id: organisationId, candidate_id: candidateId, document_type: item.type, title: item.title, file_name: item.file.name, file_path: filePath, mime_type: item.file.type || null, file_size_bytes: item.file.size }); if (record.error) throw new Error(`${item.file.name} could not be linked to the candidate record.`); } } catch (error) { if (paths.length) await supabase.storage.from("leo-talent-candidate-documents").remove(paths); throw error; }
+  try { for (const item of files) { if (item.file.size > maxFileSize) throw new Error(`${item.file.name} exceeds the 15 MB upload limit.`); if (item.file.type && !allowedMimeTypes.has(item.file.type)) throw new Error(`${item.file.name} is not an allowed document type.`); const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-"); const filePath = `${organisationId}/${candidateId}/${crypto.randomUUID()}-${safeName}`; const bytes = new Uint8Array(await item.file.arrayBuffer()); const upload = await getAdminClient().storage.from("leo-talent-candidate-documents").upload(filePath, bytes, { cacheControl: "3600", upsert: false, contentType: item.file.type || undefined }); if (upload.error) throw new Error(`${item.file.name} could not be uploaded.`); paths.push(filePath); const record = await supabase.from("leo_talent_candidate_documents").insert({ organisation_id: organisationId, candidate_id: candidateId, document_type: item.type, title: item.title, file_name: item.file.name, file_path: filePath, mime_type: item.file.type || null, file_size_bytes: item.file.size }); if (record.error) throw new Error(`${item.file.name} could not be linked to the candidate record.`); } } catch (error) { if (paths.length) await getAdminClient().storage.from("leo-talent-candidate-documents").remove(paths); throw error; }
 }
 
 export async function PATCH(request: Request, context: RouteContext) {

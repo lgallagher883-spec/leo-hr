@@ -29,6 +29,8 @@ type ReviewRecord = {
   progress_summary: string | null;
   support_required: string | null;
   agreed_actions: string | null;
+  signature_status?: string | null;
+  signature_completed_at?: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -146,7 +148,20 @@ export default function MyReviewsPage() {
                   </p>
                 </div>
 
-                <span style={statusStyle}>{review.status || "Scheduled"}</span>
+                <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+                  <span style={statusStyle}>{review.status || "Scheduled"}</span>
+                  {review.signature_status ? (
+                    <span style={signatureStatusStyle}>
+                      {review.signature_status === "completed"
+                        ? "Signed"
+                        : review.signature_status === "sent"
+                          ? "Signature sent"
+                          : review.signature_status === "delivered"
+                            ? "Awaiting signature"
+                            : "Signature " + review.signature_status}
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               {review.review_type === "Ad-hoc Review" ? (
@@ -225,3 +240,5 @@ const detailSectionStyle = { display: "grid", gap: 4, color: "#334155" } as cons
 const detailParagraphStyle = { margin: 0, color: "#526071", lineHeight: 1.55, whiteSpace: "pre-wrap" } as const;
 
 const printLinkStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "fit-content", border: "1px solid #D7C9E1", background: "#fff", color: "#6E5084", borderRadius: 10, padding: "9px 12px", fontWeight: 700, textDecoration: "none" } as const;
+
+const signatureStatusStyle = { background: "#F8FAFC", color: "#526071", border: "1px solid #E2E8F0", padding: "4px 8px", borderRadius: 999, fontWeight: 700, fontSize: 11 } as const;

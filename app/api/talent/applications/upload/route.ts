@@ -345,6 +345,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: canManageTalent, error: permissionError } =
+      await (supabase as any).rpc("leo_has_permission", {
+        target_organisation_id: vacancy.organisation_id,
+        target_permission_key: "leo_talent.manage",
+        target_user_id: user.id,
+      });
+
+    if (permissionError || !canManageTalent) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: permissionError
+            ? "Your Talent permission could not be verified."
+            : "You do not have permission to add applications for this organisation.",
+        },
+        { status: permissionError ? 500 : 403 },
+      );
+    }
+
     let candidateId: string | null = null;
     let existingCandidate: any = null;
 

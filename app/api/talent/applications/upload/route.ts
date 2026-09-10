@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { findSafeCandidateByOrganisationAndEmail } from "@/lib/talent/candidateDedup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("Supabase administrator credentials are not configured.");
+  }
+
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 const documentTypes = ["cv", "cover_letter", "application_form", "portfolio"] as const;
 type DocumentType = (typeof documentTypes)[number];
@@ -474,7 +488,7 @@ export async function POST(request: Request) {
 
       const buffer = Buffer.from(await file.arrayBuffer());
 
-      const { error: storageError } = await supabase.storage
+      const { error: storageError } = await getAdminClient().storage
         .from("leo-talent-candidate-documents")
         .upload(path, buffer, {
           cacheControl: "3600",

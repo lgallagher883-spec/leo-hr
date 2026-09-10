@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import PDFDocument from "pdfkit";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +45,7 @@ type ProbationBody = {
 };
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -238,7 +240,7 @@ async function verifyEmployee(
 ) {
   const result = await admin
     .from("employees")
-    .select("id,name,start_date")
+    .select("id,name,email,start_date")
     .eq("id", employeeId)
     .eq("organisation_id", organisationId)
     .maybeSingle();
@@ -251,7 +253,7 @@ async function verifyEmployee(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: RouteContext,
 ) {
   try {
@@ -303,12 +305,22 @@ export async function GET(
 
     if (!employee) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "The employee record could not be found or accessed.",
-        },
+        { success: false, error: "The employee record could not be found or accessed." },
         { status: 404 },
       );
+    }
+
+    const reviewDocumentId = readPositiveInteger(new URL(request.url).searchParams.get("reviewDocument"));
+    if (reviewDocumentId) {
+      const reviewResult = await admin.from("probation_reviews")
+        .select("id,probation_id,employee_id,review_type,review_week,scheduled_date,completed_date,status,manager_name,attendees,employee_comments,manager_comments,progress_summary,support_required,agreed_actions")
+        .eq("id", reviewDocumentId).eq("employee_id", employeeId).eq("is_archived", false).maybeSingle();
+      if (reviewResult.error) throw new Error(reviewResult.error.message);
+      if (!reviewResult.data) return NextResponse.json({ success:false, error:"The probation review could not be found." }, { status:404 });
+      if (reviewResult.data.status !== "Completed") return NextResponse.json({ success:false, error:"Complete the review before generating its document." }, { status:409 });
+      const pdf = await buildProbationReviewPdf(employee, reviewResult.data);
+      const safeName = String(employee.name || "employee").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+      return new Response(pdf, { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":"inline; filename=\"" + (safeName || "employee") + "-probation-review-" + reviewDocumentId + ".pdf\"", "Cache-Control":"no-store" } });
     }
 
     const probationResult = await admin
@@ -1242,4 +1254,25 @@ async function writeProbationEvents({
       timelineResult.error,
     );
   }
+}
+
+async function buildProbationReviewPdf(
+  employee: { id: number; name: string; email?: string | null; start_date?: string | null },
+  review: { id:number; review_type:string; scheduled_date:string; completed_date:string|null; manager_name:string|null; attendees:string|null; employee_comments:string|null; manager_comments:string|null; progress_summary:string|null; support_required:string|null; agreed_actions:string|null },
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 54 });
+    const chunks: Buffer[] = [];
+    doc.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+    doc.fontSize(20).fillColor("#6E5084").text("Probation Review Record");
+    doc.moveDown(0.3); doc.fontSize(11).fillColor("#4B5563").text("LEO HR"); doc.moveDown(1);
+    const row = (label:string, value:string|null|undefined) => { doc.fontSize(9).fillColor("#6B7280").text(label.toUpperCase()); doc.fontSize(11).fillColor("#111827").text(value || "Not recorded"); doc.moveDown(0.65); };
+    row("Employee", employee.name); row("Review", review.review_type); row("Scheduled date", review.scheduled_date); row("Review held", review.completed_date); row("Manager", review.manager_name); row("Attendees", review.attendees);
+    const section = (title:string, value:string|null|undefined) => { doc.moveDown(0.35); doc.fontSize(12).fillColor("#6E5084").text(title); doc.moveDown(0.2); doc.fontSize(10.5).fillColor("#1F2937").text(value || "Not recorded", { lineGap: 3 }); doc.moveDown(0.75); };
+    section("Review summary", review.progress_summary); section("Employee comments", review.employee_comments); section("Manager comments", review.manager_comments); section("Support required", review.support_required); section("Agreed actions", review.agreed_actions);
+    doc.moveDown(1); doc.fontSize(9).fillColor("#6B7280").text("Generated from the employee probation record in LEO HR. Signature confirms acknowledgement of the recorded review, not necessarily agreement with every comment.", { lineGap: 2 });
+    doc.end();
+  });
 }

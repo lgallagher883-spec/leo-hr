@@ -296,6 +296,13 @@ export async function GET(
       return accessResult.response;
     }
 
+    if (accessResult.access.role === "employee") {
+      return NextResponse.json(
+        { success: false, error: "Employee accounts should use My Employment to view probation information." },
+        { status: 403 },
+      );
+    }
+
     const admin = getAdminClient();
     const employee = await verifyEmployee(
       admin,

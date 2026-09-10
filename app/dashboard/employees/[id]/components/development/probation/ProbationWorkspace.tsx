@@ -831,6 +831,7 @@ function StandardProbationReviewForm({
       <SendForSignatureModal
         open={signatureOpen}
         onClose={() => setSignatureOpen(false)}
+        onSent={() => void onSaved()}
         sourceModule="Probation"
         sourceRecordId={String(review.id)}
         documentName={(employee?.name || "Employee").replace(/[^a-z0-9]+/gi, "-") + "-" + review.review_type.replace(/[^a-z0-9]+/gi, "-") + ".pdf"}
@@ -1367,6 +1368,7 @@ function FinalProbationReviewForm({
       <SendForSignatureModal
         open={signatureOpen}
         onClose={() => setSignatureOpen(false)}
+        onSent={() => void onSaved()}
         sourceModule="Probation"
         sourceRecordId={String(review.id)}
         documentName={(employee?.name || "Employee").replace(/[^a-z0-9]+/gi, "-") + "-Final-Probation-Review.pdf"}

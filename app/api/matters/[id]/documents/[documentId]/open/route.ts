@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 const MATTER_DOCUMENTS_BUCKET = "matter-documents";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("Supabase administrator credentials are not configured.");
+  }
+
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 type RouteContext = {
   params: Promise<{
@@ -110,7 +124,7 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await getAdminClient().storage
     .from(MATTER_DOCUMENTS_BUCKET)
     .createSignedUrl(document.storage_path, 60);
 

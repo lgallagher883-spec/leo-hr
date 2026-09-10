@@ -359,44 +359,41 @@ export default function PoliciesPage() {
       const originalFileName =
         file.name;
 
-      const safeFileName =
-        originalFileName.replace(
-          /[^a-zA-Z0-9.-]/g,
-          "_"
-        );
+      const uploadForm = new FormData();
+      uploadForm.append("sourceTable", "policy_register");
+      uploadForm.append("resourceType", resourceType);
+      uploadForm.append("file", file);
 
-      const folderName =
-        resourceType
-          .toLowerCase()
-          .replaceAll(" ", "-");
-
-      const filePath =
-        `${folderName}/${Date.now()}-${safeFileName}`;
+      const uploadResponse = await fetch(
+        "/api/knowledge/resources/file",
+        {
+          method: "POST",
+          body: uploadForm,
+        }
+      );
 
       const uploadResult =
-        await supabase.storage
-          .from("policy-documents")
-          .upload(filePath, file);
+        await uploadResponse.json();
 
-      if (uploadResult.error) {
-        console.error(
-          uploadResult.error
-        );
+      if (
+        !uploadResponse.ok ||
+        !uploadResult?.success ||
+        !uploadResult?.filePath
+      ) {
+        console.error(uploadResult);
 
         alert(
-          "Resource could not be uploaded."
+          uploadResult?.error ||
+            "Resource could not be uploaded."
         );
 
         return;
       }
 
-      const publicUrlResult =
-        supabase.storage
-          .from("policy-documents")
-          .getPublicUrl(filePath);
+      const filePath =
+        uploadResult.filePath as string;
 
-      const fileUrl =
-        publicUrlResult.data.publicUrl;
+      const fileUrl = null;
 
       const {
         data: savedResource,
@@ -580,56 +577,53 @@ export default function PoliciesPage() {
       setActionInProgress(actionKey);
 
       try {
-        const safeFileName =
-          selectedFile.name.replace(
-            /[^a-zA-Z0-9.-]/g,
-            "_"
-          );
-
-        const folderName =
+        const uploadForm = new FormData();
+        uploadForm.append(
+          "sourceTable",
+          resource.sourceTable
+        );
+        uploadForm.append(
+          "resourceType",
           resource.type
-            .toLowerCase()
-            .replaceAll(" ", "-");
+        );
+        uploadForm.append(
+          "file",
+          selectedFile
+        );
 
-        const newFilePath =
-          `${folderName}/versions/${Date.now()}-${safeFileName}`;
-
-        const storageBucket =
-          resource.sourceTable ===
-          "policy_register"
-            ? "policy-documents"
-            : "company-documents";
+        const uploadResponse = await fetch(
+          "/api/knowledge/resources/file",
+          {
+            method: "POST",
+            body: uploadForm,
+          }
+        );
 
         const uploadResult =
-          await supabase.storage
-            .from(storageBucket)
-            .upload(
-              newFilePath,
-              selectedFile
-            );
+          await uploadResponse.json();
 
-        if (uploadResult.error) {
+        if (
+          !uploadResponse.ok ||
+          !uploadResult?.success ||
+          !uploadResult?.filePath
+        ) {
           console.error(
             "Replacement upload failed:",
-            uploadResult.error
+            uploadResult
           );
 
           alert(
-            "The replacement file could not be uploaded."
+            uploadResult?.error ||
+              "The replacement file could not be uploaded."
           );
 
           return;
         }
 
-        const publicUrlResult =
-          supabase.storage
-            .from(storageBucket)
-            .getPublicUrl(
-              newFilePath
-            );
+        const newFilePath =
+          uploadResult.filePath as string;
 
-        const newFileUrl =
-          publicUrlResult.data.publicUrl;
+        const newFileUrl = null;
 
         const response = await fetch(
           "/api/knowledge/resources/manage",
@@ -1984,7 +1978,7 @@ const ResourceCard = memo(function ResourceCard({
         ?.toLowerCase()
         .endsWith(".docx")
     ) &&
-    Boolean(resource.fileUrl);
+    Boolean(resource.filePath);
 
   const reviewStatus =
     getStatus(
@@ -2102,9 +2096,13 @@ const ResourceCard = memo(function ResourceCard({
       )}
 
       <div style={resourceActionsStyle}>
-        {resource.fileUrl && (
+        {resource.filePath && (
           <a
-            href={resource.fileUrl}
+            href={`/api/knowledge/resources/file?sourceTable=${encodeURIComponent(
+              resource.sourceTable
+            )}&id=${encodeURIComponent(
+              String(resource.recordId)
+            )}`}
             target="_blank"
             rel="noreferrer"
             style={primaryActionStyle}

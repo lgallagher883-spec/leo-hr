@@ -117,6 +117,31 @@ export async function POST(req: Request) {
       );
     }
 
+    const {
+      data: canUseAskLeo,
+      error: askLeoPermissionError,
+    } = await (supabase as any).rpc(
+      "leo_has_permission",
+      {
+        target_organisation_id: organisationId,
+        target_permission_key: "ask_leo.use",
+        target_user_id: user.id,
+      }
+    );
+
+    if (askLeoPermissionError || !canUseAskLeo) {
+      return NextResponse.json(
+        {
+          error: askLeoPermissionError
+            ? "Your Ask Leo permission could not be verified."
+            : "You do not have permission to use Ask Leo.",
+        },
+        {
+          status: askLeoPermissionError ? 500 : 403,
+        }
+      );
+    }
+
     const body = (await req.json()) as AskLeoRequestBody;
 
     const latestMessage =

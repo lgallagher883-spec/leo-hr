@@ -178,74 +178,46 @@ export default function ProbationDocuments({
     setMessage("");
     setErrorMessage("");
 
-    const safeFileName = selectedFile.name.replace(
-      /[^a-zA-Z0-9.\-_]/g,
-      "_"
-    );
-
-    const filePath = `${employeeId}/${Date.now()}-${safeFileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("employee-documents")
-      .upload(filePath, selectedFile);
-
-    if (uploadError) {
-      console.error(
-        "Error uploading probation document:",
-        uploadError
-      );
-      setErrorMessage(
-        "The probation document file could not be uploaded."
-      );
-      setUploading(false);
-      return;
-    }
-
     const documentTitle =
       title.trim() || selectedFile.name;
 
-    const {
-      data: createdDocument,
-      error: documentError,
-    } = await supabase
-      .from("employee_documents")
-      .insert({
-        employee_id: employeeId,
-        title: documentTitle,
-        document_type: documentType,
-        file_name: selectedFile.name,
-        file_path: filePath,
-        file_type: selectedFile.type || null,
-        notes: notes.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .select(
-        `
-        id,
-        employee_id,
-        title,
-        document_type,
-        file_name,
-        file_path,
-        file_type,
-        notes,
-        created_at
-        `
-      )
-      .single();
+    const uploadForm = new FormData();
+    uploadForm.append("file", selectedFile);
+    uploadForm.append("title", documentTitle);
+    uploadForm.append("documentType", documentType);
 
-    if (documentError || !createdDocument) {
+    if (notes.trim()) {
+      uploadForm.append("notes", notes.trim());
+    }
+
+    const uploadResponse = await fetch(
+      `/api/employees/${employeeId}/documents`,
+      {
+        method: "POST",
+        body: uploadForm,
+      }
+    );
+
+    const uploadResult = await uploadResponse
+      .json()
+      .catch(() => null);
+
+    const createdDocument = uploadResult?.document as
+      | EmployeeDocument
+      | undefined;
+
+    if (
+      !uploadResponse.ok ||
+      !uploadResult?.success ||
+      !createdDocument
+    ) {
       console.error(
-        "Error saving employee document:",
-        documentError
+        "Error uploading probation document:",
+        uploadResult
       );
-
-      await supabase.storage
-        .from("employee-documents")
-        .remove([filePath]);
-
       setErrorMessage(
-        "The probation document record could not be saved."
+        uploadResult?.error ||
+          "The probation document file could not be uploaded."
       );
       setUploading(false);
       return;
@@ -267,17 +239,8 @@ export default function ProbationDocuments({
         linkError
       );
 
-      await supabase
-        .from("employee_documents")
-        .delete()
-        .eq("id", createdDocument.id);
-
-      await supabase.storage
-        .from("employee-documents")
-        .remove([filePath]);
-
       setErrorMessage(
-        "The document could not be linked to probation."
+        "The document was uploaded to the employee record but could not be linked to probation. It has been preserved in Employee Documents."
       );
       setUploading(false);
       return;
@@ -341,19 +304,38 @@ export default function ProbationDocuments({
     await loadDocuments();
   }
 
-  async function openDocument(filePath: string) {
-    const { data, error } = await supabase.storage
-      .from("employee-documents")
-      .createSignedUrl(filePath, 60);
+  async function openDocument(documentId: number) {
+    try {
+      const response = await fetch(
+        `/api/employees/${employeeId}/documents?documentId=${encodeURIComponent(
+          String(documentId)
+        )}&action=open`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
 
-    if (error) {
+      const result = await response
+        .json()
+        .catch(() => null);
+
+      if (
+        !response.ok ||
+        !result?.success ||
+        !result?.signedUrl
+      ) {
+        setErrorMessage(
+          result?.error ||
+            "The document could not be opened."
+        );
+        return;
+      }
+
+      window.open(result.signedUrl, "_blank");
+    } catch (error) {
       console.error("Error opening document:", error);
       setErrorMessage("The document could not be opened.");
-      return;
-    }
-
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, "_blank");
     }
   }
 
@@ -623,7 +605,7 @@ export default function ProbationDocuments({
                       type="button"
                       onClick={() =>
                         void openDocument(
-                          document.file_path
+                          document.id
                         )
                       }
                       style={openButtonStyle}

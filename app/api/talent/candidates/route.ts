@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,19 @@ import {
 } from "@/lib/talent/candidateDedup";
 
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("Supabase administrator credentials are not configured.");
+  }
+
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 type UploadItem = { file: File; type: "cv" | "cover_letter" | "other"; title: string };
 
 const writeRoles = new Set<PlatformRole>(["owner", "senior", "manager"]);
@@ -134,7 +148,7 @@ async function uploadDocuments(supabase: any, organisationId: string, candidateI
       const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
       const filePath = `${organisationId}/${candidateId}/${crypto.randomUUID()}-${safeName}`;
       const bytes = new Uint8Array(await item.file.arrayBuffer());
-      const uploadResult = await supabase.storage.from("leo-talent-candidate-documents").upload(filePath, bytes, {
+      const uploadResult = await getAdminClient().storage.from("leo-talent-candidate-documents").upload(filePath, bytes, {
         cacheControl: "3600",
         upsert: false,
         contentType: item.file.type || undefined,
@@ -155,7 +169,7 @@ async function uploadDocuments(supabase: any, organisationId: string, candidateI
       if (documentResult.error) throw new Error(`${item.file.name} could not be linked to the candidate record.`);
     }
   } catch (error) {
-    if (uploadedPaths.length > 0) await supabase.storage.from("leo-talent-candidate-documents").remove(uploadedPaths);
+    if (uploadedPaths.length > 0) await getAdminClient().storage.from("leo-talent-candidate-documents").remove(uploadedPaths);
     throw error;
   }
 }

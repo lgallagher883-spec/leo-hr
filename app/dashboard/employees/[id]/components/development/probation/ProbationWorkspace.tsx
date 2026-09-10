@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   FinalOutcome,
@@ -214,15 +215,16 @@ export default function ProbationWorkspace({
           </p>
         </div>
 
-        {!probation && !showStartForm && (
-          <button
-            type="button"
-            onClick={() => setShowStartForm(true)}
-            style={primaryButtonStyle}
-          >
-            Start Probation
-          </button>
-        )}
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>
+            Probation guidance
+          </Link>
+          {!probation && !showStartForm && (
+            <button type="button" onClick={() => setShowStartForm(true)} style={primaryButtonStyle}>
+              Start Probation
+            </button>
+          )}
+        </div>
       </div>
 
       {errorMessage && (
@@ -1658,4 +1660,19 @@ const terminationNoticeStyle: React.CSSProperties = {
   color: "#9A3412",
   fontSize: "14px",
   lineHeight: 1.6,
+};
+
+const secondaryLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "40px",
+  padding: "8px 14px",
+  border: "1px solid #D8CCE2",
+  borderRadius: "10px",
+  background: "#FFFFFF",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 700,
+  textDecoration: "none",
 };

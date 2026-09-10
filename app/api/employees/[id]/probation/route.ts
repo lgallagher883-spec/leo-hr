@@ -348,7 +348,7 @@ export async function GET(
         decisionForDocument,
       );
       const safeName = String(employee.name || "employee").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
-      return new Response(pdf, { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":"inline; filename=\"" + (safeName || "employee") + "-probation-review-" + reviewDocumentId + ".pdf\"", "Cache-Control":"no-store" } });
+      return new Response(new Uint8Array(pdf), { status:200, headers:{ "Content-Type":"application/pdf", "Content-Disposition":"inline; filename=\"" + (safeName || "employee") + "-probation-review-" + reviewDocumentId + ".pdf\"", "Cache-Control":"no-store" } });
     }
 
     const probationResult = await admin

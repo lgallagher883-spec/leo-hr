@@ -329,28 +329,30 @@ export async function transferCompletedProbationSignatureToEmployee(
     if (timeline.error) throw new Error("The signed review was saved but the employee timeline could not be updated: " + timeline.error.message);
   }
 
-  const audit = await admin.from("audit_logs").insert({
-    organisation_id: organisationId,
-    user_id: envelopeRecord.created_by_user_id || null,
-    action: "Probation review electronically signed",
-    action_category: "Employee",
-    entity_type: "Employee",
-    entity_id: String(review.data.employee_id),
-    entity_name: employee.data.name,
-    description: review.data.review_type + " was electronically signed via DocuSign.",
-    new_values: {
-      probation_id: review.data.probation_id,
-      review_id: review.data.id,
-      signature_envelope_id: envelopeRecord.id,
-      employee_document_id: employeeDocumentId,
-    },
-    metadata: { source_module: "Probation", provider: "DocuSign" },
-    source_page: "/dashboard/employees/" + review.data.employee_id,
-    created_at: now,
-  });
+  if (!timelineExisting.data) {
+    const audit = await admin.from("audit_logs").insert({
+      organisation_id: organisationId,
+      user_id: envelopeRecord.created_by_user_id || null,
+      action: "Probation review electronically signed",
+      action_category: "Employee",
+      entity_type: "Employee",
+      entity_id: String(review.data.employee_id),
+      entity_name: employee.data.name,
+      description: review.data.review_type + " was electronically signed via DocuSign.",
+      new_values: {
+        probation_id: review.data.probation_id,
+        review_id: review.data.id,
+        signature_envelope_id: envelopeRecord.id,
+        employee_document_id: employeeDocumentId,
+      },
+      metadata: { source_module: "Probation", provider: "DocuSign" },
+      source_page: "/dashboard/employees/" + review.data.employee_id,
+      created_at: now,
+    });
 
-  if (audit.error) {
-    console.warn("Probation signature audit event could not be written:", audit.error);
+    if (audit.error) {
+      console.warn("Probation signature audit event could not be written:", audit.error);
+    }
   }
 
   await admin

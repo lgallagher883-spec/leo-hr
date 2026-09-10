@@ -499,6 +499,8 @@ export default function ProbationWorkspace({
   selectedReview.review_type === "Final Review" && (
     <FinalProbationReviewForm
       employeeId={employeeId}
+      employee={employee}
+      viewer={viewer}
       review={selectedReview}
       probation={probation}
       employeeName={employee?.name || "Employee"}
@@ -832,6 +834,8 @@ function StandardProbationReviewForm({
 
 function FinalProbationReviewForm({
   employeeId,
+  employee,
+  viewer,
   review,
   probation,
   employeeName,
@@ -839,6 +843,8 @@ function FinalProbationReviewForm({
   onSaved,
 }: {
   employeeId: number;
+  employee: EmployeeSummary | null;
+  viewer: ViewerSummary | null;
   review: ProbationReview;
   probation: ProbationRecord;
   employeeName: string;
@@ -892,6 +898,9 @@ function FinalProbationReviewForm({
     useState("");
 
   const [saving, setSaving] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [signatureDocumentBase64, setSignatureDocumentBase64] = useState("");
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -1018,6 +1027,57 @@ function FinalProbationReviewForm({
     probation.standard_end_date,
     1
   );
+
+  async function loadFinalReviewPdf(): Promise<Blob> {
+    const response = await fetch(
+      "/api/employees/" + employeeId + "/probation?reviewDocument=" + review.id,
+      { credentials: "include", cache: "no-store" }
+    );
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || "The Final Review document could not be generated.");
+    }
+    return response.blob();
+  }
+
+  async function printFinalReviewDocument() {
+    setDocumentBusy(true);
+    setErrorMessage("");
+    try {
+      const blob = await loadFinalReviewPdf();
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) throw new Error("Allow pop-ups to open the printable Final Review.");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The Final Review document could not be opened.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
+
+  async function prepareFinalSignatureDocument() {
+    setDocumentBusy(true);
+    setErrorMessage("");
+    try {
+      const blob = await loadFinalReviewPdf();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = typeof reader.result === "string" ? reader.result : "";
+          resolve(value.includes(",") ? value.split(",")[1] : value);
+        };
+        reader.onerror = () => reject(new Error("The Final Review document could not be prepared for signature."));
+        reader.readAsDataURL(blob);
+      });
+      setSignatureDocumentBase64(base64);
+      setSignatureOpen(true);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The Final Review document could not be prepared for signature.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
 
   return (
     <div style={finalReviewPanelStyle}>
@@ -1275,6 +1335,34 @@ function FinalProbationReviewForm({
           void saveFinalReview()
         }
         saveLabel="Record Final Outcome"
+      />
+
+      {review.status === "Completed" && (
+        <div style={recordActionsStyle}>
+          <button type="button" onClick={() => void printFinalReviewDocument()} disabled={documentBusy} style={secondaryButtonStyle}>
+            {documentBusy ? "Preparing..." : "Print Final Review"}
+          </button>
+          <button type="button" onClick={() => void prepareFinalSignatureDocument()} disabled={documentBusy} style={primaryButtonStyle}>
+            Send via DocuSign
+          </button>
+          <div style={signatureHintStyle}>
+            The signed Final Review will be linked back to this probation record and the employee document record.
+          </div>
+        </div>
+      )}
+
+      <SendForSignatureModal
+        open={signatureOpen}
+        onClose={() => setSignatureOpen(false)}
+        sourceModule="Probation"
+        sourceRecordId={String(review.id)}
+        documentName={(employee?.name || "Employee").replace(/[^a-z0-9]+/gi, "-") + "-Final-Probation-Review.pdf"}
+        documentBase64={signatureDocumentBase64}
+        defaultRecipientName={employee?.name || ""}
+        defaultRecipientEmail={employee?.email || ""}
+        secondaryRecipientName={viewer?.name || ""}
+        secondaryRecipientEmail={viewer?.email || ""}
+        emailSubject="Please sign: Final probation review"
       />
     </div>
   );

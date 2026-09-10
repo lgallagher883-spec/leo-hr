@@ -40,6 +40,7 @@ type ProbationBody = {
   employeeResponse?: unknown;
   noticeArrangements?: unknown;
   employeeName?: unknown;
+  adHocReason?: unknown;
 };
 
 export const dynamic = "force-dynamic";
@@ -417,6 +418,91 @@ export async function POST(
 
     const body = (await request.json().catch(() => ({}))) as ProbationBody;
     const action = readOptionalString(body.action);
+
+    if (action === "add_ad_hoc_review") {
+      const probationId = readPositiveInteger(body.probationId);
+      const scheduledDate = readOptionalString(body.completedDate);
+      const reason = readOptionalString(body.adHocReason);
+
+      if (!probationId || !scheduledDate || !reason) {
+        return NextResponse.json(
+          { success: false, error: "Probation, review date and reason are required." },
+          { status: 400 },
+        );
+      }
+
+      const admin = getAdminClient();
+      const employee = await verifyEmployee(
+        admin,
+        accessResult.access.organisationId,
+        employeeId,
+      );
+
+      if (!employee) {
+        return NextResponse.json(
+          { success: false, error: "The employee record could not be found or accessed." },
+          { status: 404 },
+        );
+      }
+
+      const probation = await admin
+        .from("employee_probations")
+        .select("id")
+        .eq("id", probationId)
+        .eq("employee_id", employeeId)
+        .eq("is_archived", false)
+        .maybeSingle();
+
+      if (probation.error) throw new Error(probation.error.message);
+      if (!probation.data) {
+        return NextResponse.json(
+          { success: false, error: "The probation record could not be found or accessed." },
+          { status: 404 },
+        );
+      }
+
+      const reviewResult = await admin
+        .from("probation_reviews")
+        .insert({
+          probation_id: probationId,
+          employee_id: employeeId,
+          review_type: "Ad-hoc Review",
+          review_week: null,
+          scheduled_date: scheduledDate,
+          status: "Scheduled",
+          progress_summary: reason,
+        })
+        .select(
+          "id,probation_id,employee_id,review_type,review_week,scheduled_date,completed_date,status,manager_name,attendees,employee_comments,manager_comments,progress_summary,support_required,agreed_actions",
+        )
+        .single();
+
+      if (reviewResult.error || !reviewResult.data) {
+        throw new Error(reviewResult.error?.message || "The ad-hoc review could not be created.");
+      }
+
+      await writeProbationEvents({
+        admin,
+        request,
+        user,
+        organisationId: accessResult.access.organisationId,
+        employee,
+        title: "Ad-hoc probation review added",
+        description: `An ad-hoc probation review was added for ${employee.name}.`,
+        sourceRecordId: String(reviewResult.data.id),
+        metadata: {
+          probation_id: probationId,
+          review_type: "Ad-hoc Review",
+          scheduled_date: scheduledDate,
+          reason,
+        },
+      });
+
+      return NextResponse.json(
+        { success: true, review: reviewResult.data },
+        { status: 201 },
+      );
+    }
 
     if (action !== "start") {
       return NextResponse.json(

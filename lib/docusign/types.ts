@@ -1,4 +1,4 @@
-export type SignatureSourceModule = "Talent" | "Employees" | "Matters" | "Documents" | "Policies" | "Other";
+export type SignatureSourceModule = "Talent" | "Employees" | "Probation" | "Matters" | "Documents" | "Policies" | "Other";
 export type SignatureEnvelopeStatus = "created" | "sent" | "delivered" | "completed" | "declined" | "voided" | "expired" | "error";
 
 export type SignatureRecipient = {

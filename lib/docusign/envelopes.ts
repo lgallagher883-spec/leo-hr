@@ -13,7 +13,7 @@ export async function createSignatureEnvelope(admin: SupabaseClient, input: Crea
     emailSubject: input.emailSubject,
     emailBlurb: input.emailMessage || undefined,
     documents:[{ documentBase64: input.documentBase64, name: input.documentName, fileExtension: input.documentExtension || input.documentName.split(".").pop() || "pdf", documentId:"1" }],
-    recipients:{ signers: input.recipients.map((r,i)=>({ email:r.email, name:r.name, recipientId:String(i+1), routingOrder:String(r.routingOrder || i+1), tabs:{ signHereTabs:[{ documentId:"1", pageNumber:"1", anchorString:"/sn1/", anchorIgnoreIfNotPresent:"true" }] } })) },
+    recipients:{ signers: input.recipients.map((r,i)=>({ email:r.email, name:r.name, recipientId:String(i+1), routingOrder:String(r.routingOrder || i+1), tabs:{ signHereTabs:[{ documentId:"1", pageNumber:"1", anchorString:input.sourceModule==="Probation"?`/sn${i+1}/`:"/sn1/", anchorIgnoreIfNotPresent:"true" }] } })) },
     status: input.sendImmediately===false ? "created" : "sent",
   });
   if(!provider.envelopeId) throw new Error(provider.message || "DocuSign did not return an envelope ID.");
@@ -77,11 +77,17 @@ export async function refreshSignatureEnvelope(admin: SupabaseClient, organisati
   if (String(update.data.status || "").toLowerCase() === "completed") {
     try {
       const transferResult =
-        await transferCompletedSignatureToEmployee(
-          admin,
-          organisationId,
-          update.data,
-        );
+        String(update.data.source_module || "") === "Probation"
+          ? await transferCompletedProbationSignatureToEmployee(
+              admin,
+              organisationId,
+              update.data,
+            )
+          : await transferCompletedSignatureToEmployee(
+              admin,
+              organisationId,
+              update.data,
+            );
 
       const transferRecordedAt = new Date().toISOString();
 
@@ -165,6 +171,215 @@ export async function downloadEnvelopeDocuments(admin: SupabaseClient, organisat
   return docuSignBinaryRequest(context,`/envelopes/${encodeURIComponent(envelopeId)}/documents/combined`);
 }
 
+
+export async function transferCompletedProbationSignatureToEmployee(
+  admin: SupabaseClient,
+  organisationId: string,
+  envelopeRecord: Record<string, any>,
+) {
+  if (
+    String(envelopeRecord.status || "").toLowerCase() !== "completed" ||
+    String(envelopeRecord.source_module || "") !== "Probation"
+  ) {
+    return { transferred: false, reason: "not_eligible" };
+  }
+
+  const reviewId = Number(envelopeRecord.source_record_id);
+  if (!Number.isInteger(reviewId) || reviewId <= 0) {
+    throw new Error("The signed probation review reference is not valid.");
+  }
+
+  const review = await admin
+    .from("probation_reviews")
+    .select("id,probation_id,employee_id,review_type")
+    .eq("id", reviewId)
+    .eq("is_archived", false)
+    .maybeSingle();
+
+  if (review.error) throw new Error(review.error.message);
+  if (!review.data) throw new Error("The probation review linked to this signature could not be found.");
+
+  const employee = await admin
+    .from("employees")
+    .select("id,name")
+    .eq("id", review.data.employee_id)
+    .eq("organisation_id", organisationId)
+    .maybeSingle();
+
+  if (employee.error) throw new Error(employee.error.message);
+  if (!employee.data) throw new Error("The employee linked to this probation review could not be found.");
+
+  const storagePath = review.data.employee_id + "/docusign/" + envelopeRecord.provider_envelope_id + "-signed.pdf";
+
+  const existingDocument = await admin
+    .from("employee_documents")
+    .select("id,file_path")
+    .eq("employee_id", review.data.employee_id)
+    .eq("file_path", storagePath)
+    .maybeSingle();
+
+  if (existingDocument.error) throw new Error(existingDocument.error.message);
+
+  let employeeDocumentId = existingDocument.data?.id || null;
+
+  if (!employeeDocumentId) {
+    const downloaded = await downloadEnvelopeDocuments(
+      admin,
+      organisationId,
+      envelopeRecord.provider_envelope_id,
+    );
+
+    const upload = await admin.storage
+      .from("employee-documents")
+      .upload(storagePath, downloaded.data, {
+        contentType: downloaded.contentType || "application/pdf",
+        upsert: false,
+      });
+
+    if (upload.error) {
+      throw new Error("The signed probation review could not be stored: " + upload.error.message);
+    }
+
+    const fileName =
+      downloaded.fileName ||
+      String(envelopeRecord.document_name || "probation-review").replace(/\.[^.]+$/, "") + "-signed.pdf";
+
+    const documentInsert = await admin
+      .from("employee_documents")
+      .insert({
+        employee_id: review.data.employee_id,
+        title: review.data.review_type + " - Signed Review",
+        document_type: "Probation Review",
+        file_name: fileName,
+        file_path: storagePath,
+        file_type: downloaded.contentType || "application/pdf",
+        notes: "Electronically signed via DocuSign. Envelope: " + envelopeRecord.provider_envelope_id,
+        updated_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (documentInsert.error || !documentInsert.data) {
+      await admin.storage.from("employee-documents").remove([storagePath]);
+      throw new Error(documentInsert.error?.message || "The signed probation review was stored but its employee document record could not be created.");
+    }
+
+    employeeDocumentId = documentInsert.data.id;
+  }
+
+  const existingLink = await admin
+    .from("probation_documents")
+    .select("id")
+    .eq("probation_id", review.data.probation_id)
+    .eq("employee_document_id", employeeDocumentId)
+    .eq("is_archived", false)
+    .maybeSingle();
+
+  if (existingLink.error) throw new Error(existingLink.error.message);
+
+  if (!existingLink.data) {
+    const link = await admin
+      .from("probation_documents")
+      .insert({
+        probation_id: review.data.probation_id,
+        employee_id: review.data.employee_id,
+        employee_document_id: employeeDocumentId,
+        review_id: review.data.id,
+        document_type: review.data.review_type,
+        linked_by: envelopeRecord.created_by_user_id || null,
+      });
+
+    if (link.error) throw new Error("The signed review was saved but could not be linked to probation: " + link.error.message);
+  }
+
+  const now = new Date().toISOString();
+
+  const timelineExisting = await admin
+    .from("employee_timeline")
+    .select("id")
+    .eq("organisation_id", organisationId)
+    .eq("employee_id", review.data.employee_id)
+    .eq("source_module", "DocuSign")
+    .eq("source_record_id", envelopeRecord.provider_envelope_id)
+    .maybeSingle();
+
+  if (timelineExisting.error) throw new Error(timelineExisting.error.message);
+
+  if (!timelineExisting.data) {
+    const timeline = await admin.from("employee_timeline").insert({
+      organisation_id: organisationId,
+      employee_id: review.data.employee_id,
+      event_type: "Document Signed",
+      title: "Probation review electronically signed",
+      description: review.data.review_type + " was electronically signed via DocuSign.",
+      status: "Completed",
+      source_module: "DocuSign",
+      source_record_id: envelopeRecord.provider_envelope_id,
+      metadata: {
+        signature_envelope_id: envelopeRecord.id,
+        review_id: review.data.id,
+        probation_id: review.data.probation_id,
+        employee_document_id: employeeDocumentId,
+      },
+      event_date: envelopeRecord.completed_at || now,
+      created_by: envelopeRecord.created_by_user_id || null,
+      created_at: now,
+    });
+
+    if (timeline.error) throw new Error("The signed review was saved but the employee timeline could not be updated: " + timeline.error.message);
+  }
+
+  if (!timelineExisting.data) {
+    const audit = await admin.from("audit_logs").insert({
+      organisation_id: organisationId,
+      user_id: envelopeRecord.created_by_user_id || null,
+      action: "Probation review electronically signed",
+      action_category: "Employee",
+      entity_type: "Employee",
+      entity_id: String(review.data.employee_id),
+      entity_name: employee.data.name,
+      description: review.data.review_type + " was electronically signed via DocuSign.",
+      new_values: {
+        probation_id: review.data.probation_id,
+        review_id: review.data.id,
+        signature_envelope_id: envelopeRecord.id,
+        employee_document_id: employeeDocumentId,
+      },
+      metadata: { source_module: "Probation", provider: "DocuSign" },
+      source_page: "/dashboard/employees/" + review.data.employee_id,
+      created_at: now,
+    });
+
+    if (audit.error) {
+      console.warn("Probation signature audit event could not be written:", audit.error);
+    }
+  }
+
+  await admin
+    .from("signature_envelopes")
+    .update({
+      completed_document_path: storagePath,
+      metadata: {
+        ...(envelopeRecord.metadata || {}),
+        employee_transfer_status: "completed",
+        employee_id: review.data.employee_id,
+        employee_document_id: employeeDocumentId,
+        probation_id: review.data.probation_id,
+        review_id: review.data.id,
+        transferred_at: now,
+      },
+      updated_at: now,
+    })
+    .eq("id", envelopeRecord.id);
+
+  return {
+    transferred: true,
+    employeeId: review.data.employee_id,
+    documentId: employeeDocumentId,
+    reviewId: review.data.id,
+    alreadyTransferred: Boolean(existingDocument.data),
+  };
+}
 
 export async function transferCompletedSignatureToEmployee(
   admin: SupabaseClient,

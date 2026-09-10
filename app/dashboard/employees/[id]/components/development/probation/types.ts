@@ -1,6 +1,7 @@
 export type EmployeeSummary = {
   id: number;
   name: string;
+  email: string | null;
   start_date: string | null;
 };
 
@@ -35,7 +36,13 @@ export type ProbationReview = {
   progress_summary: string | null;
   support_required: string | null;
   agreed_actions: string | null;
+  signature_status?: string | null;
+  signature_completed_at?: string | null;
 };
+
+export function isAdHocProbationReview(review: ProbationReview): boolean {
+  return review.review_type === "Ad-hoc Review";
+}
 
 export type FinalOutcome =
   | ""

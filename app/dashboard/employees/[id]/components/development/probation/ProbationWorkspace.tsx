@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   FinalOutcome,
@@ -15,14 +16,18 @@ import {
 } from "./probationHelpers";
 import ProbationDocuments from "./ProbationDocuments";
 import EmployeeLifecycleIntelligence from "../../EmployeeLifecycleIntelligence";
+import SendForSignatureModal from "@/components/docusign/SendForSignatureModal";
 
 type Props = {
   employeeId: number;
 };
 
+type ViewerSummary = { name: string; email: string; role: string };
+
 type ProbationApiResponse = {
   success?: boolean;
   employee?: EmployeeSummary;
+  viewer?: ViewerSummary;
   probation?: ProbationRecord | null;
   reviews?: ProbationReview[];
   review?: ProbationReview;
@@ -38,6 +43,9 @@ export default function ProbationWorkspace({
   const [probation, setProbation] =
     useState<ProbationRecord | null>(null);
 
+  const [viewer, setViewer] =
+    useState<ViewerSummary | null>(null);
+
   const [reviews, setReviews] =
     useState<ProbationReview[]>([]);
 
@@ -48,7 +56,22 @@ export default function ProbationWorkspace({
   const [showStartForm, setShowStartForm] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [starting, setStarting] = useState(false);
+  const [showAdHocForm, setShowAdHocForm] = useState(false);
+  const [adHocDate, setAdHocDate] = useState(getTodayDate());
+  const [adHocReason, setAdHocReason] = useState("");
+  const [addingAdHoc, setAddingAdHoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const canManageProbation = viewer?.role === "owner" || viewer?.role === "senior" || viewer?.role === "manager";
+
+  const askLeoPrompt = employee
+    ? "I am reviewing probation for " + employee.name + ". Please help me assess progress, support, review evidence and fair next steps, including whether an extension may be appropriate."
+    : "I am reviewing an employee probation period. Please help me assess progress, support, review evidence and fair next steps.";
+  const askLeoHref =
+    "/dashboard/ask-leo?prompt=" + encodeURIComponent(askLeoPrompt) +
+    "&resourceTitle=" + encodeURIComponent("Employee probation") +
+    "&resourceType=" + encodeURIComponent("Probation") +
+    "&returnUrl=" + encodeURIComponent("/dashboard/employees/" + employeeId);
 
   useEffect(() => {
     void loadProbationWorkspace();
@@ -83,6 +106,7 @@ export default function ProbationWorkspace({
       }
 
       setEmployee(result.employee);
+      setViewer(result.viewer || null);
       setProbation(result.probation || null);
       setReviews(
         Array.isArray(result.reviews)
@@ -96,6 +120,7 @@ export default function ProbationWorkspace({
     } catch (error) {
       console.error("Error loading probation workspace:", error);
       setEmployee(null);
+      setViewer(null);
       setProbation(null);
       setReviews([]);
       setErrorMessage(
@@ -165,6 +190,31 @@ export default function ProbationWorkspace({
   }
 
 
+  async function addAdHocReview() {
+    if (!probation) return;
+    if (!adHocDate || !adHocReason.trim()) {
+      setErrorMessage("Enter the review date and why the ad-hoc review is needed.");
+      return;
+    }
+    setAddingAdHoc(true);
+    setErrorMessage("");
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/probation`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ action: "add_ad_hoc_review", probationId: probation.id, completedDate: adHocDate, adHocReason: adHocReason.trim() }),
+      });
+      const result = (await response.json().catch(() => null)) as ProbationApiResponse | null;
+      if (!response.ok || !result?.success) throw new Error(result?.error || "The ad-hoc review could not be added.");
+      setShowAdHocForm(false); setAdHocDate(getTodayDate()); setAdHocReason("");
+      await loadProbationWorkspace();
+      if (result.review) setSelectedReview(result.review);
+    } catch (error) {
+      console.error("Error adding ad-hoc probation review:", error);
+      setErrorMessage(error instanceof Error ? error.message : "The ad-hoc review could not be added.");
+    } finally { setAddingAdHoc(false); }
+  }
+
   if (loading) {
     return (
       <div style={loadingStyle}>
@@ -185,15 +235,15 @@ export default function ProbationWorkspace({
           </p>
         </div>
 
-        {!probation && !showStartForm && (
-          <button
-            type="button"
-            onClick={() => setShowStartForm(true)}
-            style={primaryButtonStyle}
-          >
-            Start Probation
-          </button>
-        )}
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {canManageProbation ? <Link href={askLeoHref} style={askLeoLinkStyle}><span aria-hidden="true">✦</span>Ask Leo</Link> : null}
+          {canManageProbation ? <Link href="/dashboard/policies/factsheets/probation-periods" style={secondaryLinkStyle}>Probation guidance</Link> : null}
+          {canManageProbation && !probation && !showStartForm && (
+            <button type="button" onClick={() => setShowStartForm(true)} style={primaryButtonStyle}>
+              Start Probation
+            </button>
+          )}
+        </div>
       </div>
 
       {errorMessage && (
@@ -338,18 +388,40 @@ export default function ProbationWorkspace({
             />
           </div>
 
+          {canManageProbation ? (
+            <div style={{ display: "flex", justifyContent: "flex-end", margin: "18px 0 12px" }}>
+              <button type="button" onClick={() => setShowAdHocForm((current) => !current)} style={secondaryButtonStyle}>
+                {showAdHocForm ? "Cancel ad-hoc review" : "+ Add ad-hoc review"}
+              </button>
+            </div>
+          ) : null}
+
+          {canManageProbation && showAdHocForm && (
+            <div style={formPanelStyle}>
+              <h4 style={formTitleStyle}>Add ad-hoc probation review</h4>
+              <p style={formDescriptionStyle}>Log an extra probation conversation when something needs to be discussed outside the standard review schedule.</p>
+              <FormField label="Review date"><input type="date" value={adHocDate} onChange={(event) => setAdHocDate(event.target.value)} style={inputStyle} /></FormField>
+              <FormField label="Reason for review"><input type="text" value={adHocReason} onChange={(event) => setAdHocReason(event.target.value)} placeholder="For example: progress concern, support check-in or positive progress" style={fullWidthInputStyle} /></FormField>
+              <div style={formActionsStyle}>
+                <button type="button" onClick={() => setShowAdHocForm(false)} disabled={addingAdHoc} style={secondaryButtonStyle}>Cancel</button>
+                <button type="button" onClick={() => void addAdHocReview()} disabled={addingAdHoc} style={primaryButtonStyle}>{addingAdHoc ? "Adding review..." : "Create ad-hoc review"}</button>
+              </div>
+            </div>
+          )}
+
           <div style={reviewListStyle}>
             {reviews.map((review) => {
               const isFinalReview =
                 review.review_type === "Final Review";
+              const isAdHocReview = review.review_type === "Ad-hoc Review";
 
               return (
                 <button
                   key={review.id}
                   type="button"
-                  onClick={() =>
-                    setSelectedReview(review)
-                  }
+                  onClick={() => {
+                    if (canManageProbation) setSelectedReview(review);
+                  }}
                   style={
                     isFinalReview
                       ? finalReviewButtonStyle
@@ -365,6 +437,7 @@ export default function ProbationWorkspace({
                       </div>
                     )}
 
+                    {isAdHocReview && <div style={{ color: "#6E5084", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>Additional Review</div>}
                     <div style={reviewTypeStyle}>
                       {review.review_type}
                     </div>
@@ -400,18 +473,31 @@ export default function ProbationWorkspace({
                     )}
                   </div>
 
-                  <div style={reviewStatusStyle}>
-                    {review.status}
+                  <div style={{ display: "grid", gap: "6px", justifyItems: "end" }}>
+                    <div style={reviewStatusStyle}>{review.status}</div>
+                    {review.signature_status ? (
+                      <div style={signatureStatusStyle}>
+                        {review.signature_status === "completed"
+                          ? "Signed"
+                          : review.signature_status === "sent"
+                            ? "Signature sent"
+                            : review.signature_status === "delivered"
+                              ? "Awaiting signature"
+                              : "Signature " + review.signature_status}
+                      </div>
+                    ) : null}
                   </div>
                 </button>
               );
             })}
           </div>
 
-        {selectedReview &&
+        {canManageProbation && selectedReview &&
   selectedReview.review_type !== "Final Review" && (
     <StandardProbationReviewForm
       employeeId={employeeId}
+      employee={employee}
+      viewer={viewer}
       review={selectedReview}
       onClose={() => setSelectedReview(null)}
       onSaved={async () => {
@@ -421,10 +507,12 @@ export default function ProbationWorkspace({
     />
   )}
 
-{selectedReview &&
+{canManageProbation && selectedReview &&
   selectedReview.review_type === "Final Review" && (
     <FinalProbationReviewForm
       employeeId={employeeId}
+      employee={employee}
+      viewer={viewer}
       review={selectedReview}
       probation={probation}
       employeeName={employee?.name || "Employee"}
@@ -436,11 +524,13 @@ export default function ProbationWorkspace({
     />
   )}
 
-<ProbationDocuments
-  employeeId={employeeId}
-  probation={probation}
-  reviews={reviews}
-/>
+{canManageProbation ? (
+  <ProbationDocuments
+    employeeId={employeeId}
+    probation={probation}
+    reviews={reviews}
+  />
+) : null}
         </>
       )}
     </div>
@@ -449,11 +539,15 @@ export default function ProbationWorkspace({
 
 function StandardProbationReviewForm({
   employeeId,
+  employee,
+  viewer,
   review,
   onClose,
   onSaved,
 }: {
   employeeId: number;
+  employee: EmployeeSummary | null;
+  viewer: ViewerSummary | null;
   review: ProbationReview;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -487,6 +581,9 @@ function StandardProbationReviewForm({
     useState(review.agreed_actions || "");
 
   const [saving, setSaving] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [signatureDocumentBase64, setSignatureDocumentBase64] = useState("");
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -561,6 +658,47 @@ function StandardProbationReviewForm({
   }
 
 
+  async function loadReviewPdf(): Promise<Blob> {
+    const response = await fetch("/api/employees/" + employeeId + "/probation?reviewDocument=" + review.id, { credentials: "include", cache: "no-store" });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || "The review document could not be generated.");
+    }
+    return response.blob();
+  }
+
+  async function printReviewDocument() {
+    setDocumentBusy(true); setErrorMessage("");
+    try {
+      const blob = await loadReviewPdf();
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) throw new Error("Allow pop-ups to open the printable review.");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The review document could not be opened.");
+    } finally { setDocumentBusy(false); }
+  }
+
+  async function prepareSignatureDocument() {
+    setDocumentBusy(true); setErrorMessage("");
+    try {
+      const blob = await loadReviewPdf();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = typeof reader.result === "string" ? reader.result : "";
+          resolve(value.includes(",") ? value.split(",")[1] : value);
+        };
+        reader.onerror = () => reject(new Error("The review document could not be prepared for signature."));
+        reader.readAsDataURL(blob);
+      });
+      setSignatureDocumentBase64(base64);
+      setSignatureOpen(true);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The review document could not be prepared for signature.");
+    } finally { setDocumentBusy(false); }
+  }
   return (
     <div style={reviewFormPanelStyle}>
       <ReviewFormHeader
@@ -676,12 +814,43 @@ function StandardProbationReviewForm({
             : "Complete Review"
         }
       />
+
+      {review.status === "Completed" && (
+        <div style={recordActionsStyle}>
+          <button type="button" onClick={() => void printReviewDocument()} disabled={documentBusy} style={secondaryButtonStyle}>
+            {documentBusy ? "Preparing..." : "Print review"}
+          </button>
+          <button type="button" onClick={() => void prepareSignatureDocument()} disabled={documentBusy} style={primaryButtonStyle}>
+            Send via DocuSign
+          </button>
+          <div style={signatureHintStyle}>
+            Send the completed review to the employee and any additional signer through the organisation&apos;s connected DocuSign account.
+          </div>
+        </div>
+      )}
+
+      <SendForSignatureModal
+        open={signatureOpen}
+        onClose={() => setSignatureOpen(false)}
+        onSent={() => void onSaved()}
+        sourceModule="Probation"
+        sourceRecordId={String(review.id)}
+        documentName={(employee?.name || "Employee").replace(/[^a-z0-9]+/gi, "-") + "-" + review.review_type.replace(/[^a-z0-9]+/gi, "-") + ".pdf"}
+        documentBase64={signatureDocumentBase64}
+        defaultRecipientName={employee?.name || ""}
+        defaultRecipientEmail={employee?.email || ""}
+        secondaryRecipientName={viewer?.name || ""}
+        secondaryRecipientEmail={viewer?.email || ""}
+        emailSubject={"Please sign: " + review.review_type + " probation review"}
+      />
     </div>
   );
 }
 
 function FinalProbationReviewForm({
   employeeId,
+  employee,
+  viewer,
   review,
   probation,
   employeeName,
@@ -689,6 +858,8 @@ function FinalProbationReviewForm({
   onSaved,
 }: {
   employeeId: number;
+  employee: EmployeeSummary | null;
+  viewer: ViewerSummary | null;
   review: ProbationReview;
   probation: ProbationRecord;
   employeeName: string;
@@ -742,6 +913,9 @@ function FinalProbationReviewForm({
     useState("");
 
   const [saving, setSaving] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [signatureDocumentBase64, setSignatureDocumentBase64] = useState("");
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -868,6 +1042,57 @@ function FinalProbationReviewForm({
     probation.standard_end_date,
     1
   );
+
+  async function loadFinalReviewPdf(): Promise<Blob> {
+    const response = await fetch(
+      "/api/employees/" + employeeId + "/probation?reviewDocument=" + review.id,
+      { credentials: "include", cache: "no-store" }
+    );
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || "The Final Review document could not be generated.");
+    }
+    return response.blob();
+  }
+
+  async function printFinalReviewDocument() {
+    setDocumentBusy(true);
+    setErrorMessage("");
+    try {
+      const blob = await loadFinalReviewPdf();
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) throw new Error("Allow pop-ups to open the printable Final Review.");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The Final Review document could not be opened.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
+
+  async function prepareFinalSignatureDocument() {
+    setDocumentBusy(true);
+    setErrorMessage("");
+    try {
+      const blob = await loadFinalReviewPdf();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = typeof reader.result === "string" ? reader.result : "";
+          resolve(value.includes(",") ? value.split(",")[1] : value);
+        };
+        reader.onerror = () => reject(new Error("The Final Review document could not be prepared for signature."));
+        reader.readAsDataURL(blob);
+      });
+      setSignatureDocumentBase64(base64);
+      setSignatureOpen(true);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The Final Review document could not be prepared for signature.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
 
   return (
     <div style={finalReviewPanelStyle}>
@@ -1126,6 +1351,35 @@ function FinalProbationReviewForm({
         }
         saveLabel="Record Final Outcome"
       />
+
+      {review.status === "Completed" && (
+        <div style={recordActionsStyle}>
+          <button type="button" onClick={() => void printFinalReviewDocument()} disabled={documentBusy} style={secondaryButtonStyle}>
+            {documentBusy ? "Preparing..." : "Print Final Review"}
+          </button>
+          <button type="button" onClick={() => void prepareFinalSignatureDocument()} disabled={documentBusy} style={primaryButtonStyle}>
+            Send via DocuSign
+          </button>
+          <div style={signatureHintStyle}>
+            The signed Final Review will be linked back to this probation record and the employee document record.
+          </div>
+        </div>
+      )}
+
+      <SendForSignatureModal
+        open={signatureOpen}
+        onClose={() => setSignatureOpen(false)}
+        onSent={() => void onSaved()}
+        sourceModule="Probation"
+        sourceRecordId={String(review.id)}
+        documentName={(employee?.name || "Employee").replace(/[^a-z0-9]+/gi, "-") + "-Final-Probation-Review.pdf"}
+        documentBase64={signatureDocumentBase64}
+        defaultRecipientName={employee?.name || ""}
+        defaultRecipientEmail={employee?.email || ""}
+        secondaryRecipientName={viewer?.name || ""}
+        secondaryRecipientEmail={viewer?.email || ""}
+        emailSubject="Please sign: Final probation review"
+      />
     </div>
   );
 }
@@ -1256,6 +1510,7 @@ const workspaceHeaderStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: "16px",
+  flexWrap: "wrap",
   marginBottom: "20px",
 };
 
@@ -1468,6 +1723,7 @@ const reviewButtonStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "12px",
+  flexWrap: "wrap",
   background: "#FFFFFF",
   border: "1px solid #E5E7EB",
   borderRadius: "12px",
@@ -1608,4 +1864,55 @@ const terminationNoticeStyle: React.CSSProperties = {
   color: "#9A3412",
   fontSize: "14px",
   lineHeight: 1.6,
+};
+
+const secondaryLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "40px",
+  padding: "8px 14px",
+  border: "1px solid #D8CCE2",
+  borderRadius: "10px",
+  background: "#FFFFFF",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 700,
+  textDecoration: "none",
+};
+
+
+const recordActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginTop: "14px",
+  paddingTop: "14px",
+  borderTop: "1px solid #E5E7EB",
+};
+
+const signatureHintStyle: React.CSSProperties = {
+  flex: "1 1 260px",
+  color: "#6B7280",
+  fontSize: "13px",
+  lineHeight: 1.45,
+};
+
+const signatureStatusStyle: React.CSSProperties = { background: "#F8FAFC", color: "#526071", border: "1px solid #E2E8F0", padding: "4px 8px", borderRadius: "999px", fontWeight: 700, fontSize: "11px" };
+
+const askLeoLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  minHeight: "40px",
+  padding: "8px 14px",
+  border: "1px solid #CDB2E2",
+  borderRadius: "10px",
+  background: "#F7F1FC",
+  color: "#6E5084",
+  fontSize: "14px",
+  fontWeight: 700,
+  textDecoration: "none",
 };

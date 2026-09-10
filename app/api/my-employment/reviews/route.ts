@@ -89,6 +89,15 @@ export async function GET() {
       });
     }
 
+    const probation = await admin
+      .from("employee_probations")
+      .select("id,status,probation_start_date,standard_end_date,current_end_date,final_decision_deadline,extension_end_date,final_outcome,final_outcome_date")
+      .eq("employee_id", employee.data.id)
+      .eq("is_archived", false)
+      .maybeSingle();
+
+    if (probation.error) throw new Error(probation.error.message);
+
     const reviews = await admin
       .from("probation_reviews")
       .select(
@@ -103,6 +112,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       employeeLinked: true,
+      probation: probation.data ?? null,
       reviews: reviews.data ?? [],
     });
   } catch (error) {

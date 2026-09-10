@@ -868,11 +868,17 @@ export async function POST(request: Request) {
         : null;
 
       const allBankHolidays = await getEnglandAndWalesBankHolidays();
-      const relevantBankHolidays = getRelevantBankHolidays(
-        allBankHolidays,
-        currentLeaveYear,
-        employeeResult.data.start_date,
-        employmentDetails?.employment_end_date,
+      const employmentStart =
+        employeeResult.data.start_date || startDate;
+      const employmentEnd =
+        employmentDetails?.employment_end_date || endDate;
+
+      const relevantBankHolidays = allBankHolidays.filter(
+        (event) =>
+          event.date >= startDate &&
+          event.date <= endDate &&
+          event.date >= employmentStart &&
+          event.date <= employmentEnd,
       );
       const bankHolidayDates = new Set(
         relevantBankHolidays.map((event) => event.date),

@@ -16,6 +16,8 @@ type Props = {
   documentFile?: File | null;
   defaultRecipientName?: string;
   defaultRecipientEmail?: string;
+  secondaryRecipientName?: string;
+  secondaryRecipientEmail?: string;
   emailSubject?: string;
 };
 
@@ -53,13 +55,25 @@ export default function SendForSignatureModal({
   documentFile,
   defaultRecipientName = "",
   defaultRecipientEmail = "",
+  secondaryRecipientName = "",
+  secondaryRecipientEmail = "",
   emailSubject,
 }: Props) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connectionId, setConnectionId] = useState("");
-  const [recipients, setRecipients] = useState<SignatureRecipient[]>([
-    { name: defaultRecipientName, email: defaultRecipientEmail, routingOrder: 1 },
-  ]);
+  const [recipients, setRecipients] = useState<SignatureRecipient[]>(() => {
+    const initial: SignatureRecipient[] = [
+      { name: defaultRecipientName, email: defaultRecipientEmail, routingOrder: 1 },
+    ];
+    if (secondaryRecipientName || secondaryRecipientEmail) {
+      initial.push({
+        name: secondaryRecipientName,
+        email: secondaryRecipientEmail,
+        routingOrder: 2,
+      });
+    }
+    return initial;
+  });
   const [subject, setSubject] = useState(emailSubject || `Please sign: ${documentName}`);
   const [message, setMessage] = useState("Please review and sign the attached document.");
   const [sendImmediately, setSendImmediately] = useState(true);
@@ -85,11 +99,21 @@ export default function SendForSignatureModal({
 
   useEffect(() => {
     if (!open) return;
-    setRecipients([{ name: defaultRecipientName, email: defaultRecipientEmail, routingOrder: 1 }]);
+    const initial: SignatureRecipient[] = [
+      { name: defaultRecipientName, email: defaultRecipientEmail, routingOrder: 1 },
+    ];
+    if (secondaryRecipientName || secondaryRecipientEmail) {
+      initial.push({
+        name: secondaryRecipientName,
+        email: secondaryRecipientEmail,
+        routingOrder: 2,
+      });
+    }
+    setRecipients(initial);
     setSubject(emailSubject || `Please sign: ${documentName}`);
     setError("");
     void loadConnections();
-  }, [defaultRecipientEmail, defaultRecipientName, documentName, emailSubject, open]);
+  }, [defaultRecipientEmail, defaultRecipientName, secondaryRecipientEmail, secondaryRecipientName, documentName, emailSubject, open]);
 
   async function loadConnections() {
     setLoadingConnections(true);

@@ -153,6 +153,25 @@ async function loadContext(
   };
 }
 
+function providerWorkforceForCareCheck(
+  workingWithChildren: unknown,
+  workingWithVulnerableAdults: unknown,
+): string | null {
+  const children = text(workingWithChildren).toLowerCase();
+  const adults = text(workingWithVulnerableAdults).toLowerCase();
+
+  if (!children && !adults) return null;
+
+  const worksWithChildren = children === "yes" || children === "true";
+  const worksWithAdults = adults === "yes" || adults === "true";
+
+  if (worksWithChildren && worksWithAdults) return "child_and_adult";
+  if (worksWithChildren) return "child";
+  if (worksWithAdults) return "adult";
+
+  return "other";
+}
+
 function leoDbsStatusForCareCheck(providerStatus: unknown): string {
   const status = text(providerStatus).toUpperCase();
 
@@ -191,6 +210,11 @@ async function saveCareCheckState({
       : {};
 
   const leoStatus = leoDbsStatusForCareCheck(careCheck.statusCode);
+  const providerWorkforce = providerWorkforceForCareCheck(
+    careCheck.workingWithChildren,
+    careCheck.workingWithVulnerableAdults,
+  );
+  const existingWorkforce = text(existingPayload.workforce);
   const nextPayload = {
     ...existingPayload,
     roleRequiresDBS: Boolean(context.vacancy?.requires_dbs),
@@ -198,6 +222,7 @@ async function saveCareCheckState({
       ? (context.vacancy?.dbs_level ?? existingPayload.requirement ?? "enhanced")
       : "not_required",
     status: leoStatus,
+    workforce: existingWorkforce || providerWorkforce || "",
     applicationReference:
       text(careCheck.applicationReference) || text(existingPayload.applicationReference),
     applicationSubmittedDate:
@@ -389,6 +414,8 @@ export async function POST(request: Request, routeContext: RouteContext) {
         isCurrentStatus: status.isCurrentStatus,
         responseCode: status.responseCode,
         responseMessage: status.responseMessage,
+        workingWithVulnerableAdults: status.workingWithVulnerableAdults,
+        workingWithChildren: status.workingWithChildren,
         providerCheckType: "X",
         providerInviteType: "DI",
         vacancyDbsLevel: context.vacancy?.dbs_level ?? null,
@@ -438,6 +465,8 @@ export async function POST(request: Request, routeContext: RouteContext) {
         isCurrentStatus: status.isCurrentStatus,
         responseCode: status.responseCode,
         responseMessage: status.responseMessage,
+        workingWithVulnerableAdults: status.workingWithVulnerableAdults,
+        workingWithChildren: status.workingWithChildren,
       };
 
       await saveCareCheckState({

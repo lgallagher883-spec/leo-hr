@@ -66,3 +66,13 @@ test("employee import supports basic RTW, working pattern, emergency contact and
   assert.match(employeeImportApi, /employee_emergency_contacts/);
   assert.match(employeeImportApi, /continuous_service_date/);
 });
+
+
+const mcpRoute = read("app/api/mcp/route.ts");
+
+test("ChatGPT MCP accepts legacy read-only tool names", () => {
+  assert.match(mcpRoute, /leo_get_employee:\s*"leo_get_employee_overview"/);
+  assert.match(mcpRoute, /leo_list_employees:\s*"leo_search_employees"/);
+  assert.match(mcpRoute, /leo_attention:\s*"leo_get_attention_summary"/);
+  assert.match(mcpRoute, /legacyToolAliases\[requestedToolName\] \|\| requestedToolName/);
+});

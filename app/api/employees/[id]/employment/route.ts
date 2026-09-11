@@ -25,6 +25,7 @@ type EmploymentUpdateBody = {
   employment_end_date?: unknown;
   reason_for_leaving?: unknown;
   annual_leave_allowance?: unknown;
+  continuous_service_date?: unknown;
   contracted_hours_per_week?: unknown;
   contracted_days_per_week?: unknown;
   working_days?: unknown;
@@ -40,7 +41,7 @@ type EmploymentUpdateBody = {
 export const dynamic = "force-dynamic";
 
 const EMPLOYMENT_DETAILS_SELECT =
-  "id,employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,contracted_hours_per_week,contracted_days_per_week,working_days,working_pattern_type,part_year_worker,holiday_year_start_month,holiday_year_start_day,leave_entitlement_basis,bank_holiday_treatment,reserved_leave_days,created_at,updated_at";
+  "id,employee_id,manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,continuous_service_date,contracted_hours_per_week,contracted_days_per_week,working_days,working_pattern_type,part_year_worker,holiday_year_start_month,holiday_year_start_day,leave_entitlement_basis,bank_holiday_treatment,reserved_leave_days,created_at,updated_at";
 
 const WORKING_DAYS = new Set([
   "Monday",
@@ -469,6 +470,7 @@ export async function GET(
           employment_end_date: null,
           reason_for_leaving: null,
           annual_leave_allowance: null,
+          continuous_service_date: null,
           contracted_hours_per_week: null,
           contracted_days_per_week: null,
           working_days: null,
@@ -620,6 +622,9 @@ export async function PATCH(
       annual_leave_allowance: readOptionalString(
         updates.annual_leave_allowance,
       ),
+      continuous_service_date: readOptionalString(
+        updates.continuous_service_date,
+      ),
       contracted_hours_per_week: readOptionalNumber(
         updates.contracted_hours_per_week,
         {
@@ -746,6 +751,8 @@ export async function PATCH(
         reason_for_leaving: detailsResult.data.reason_for_leaving,
         annual_leave_allowance:
           detailsResult.data.annual_leave_allowance,
+        continuous_service_date:
+          detailsResult.data.continuous_service_date,
         contracted_hours_per_week:
           detailsResult.data.contracted_hours_per_week,
         contracted_days_per_week:

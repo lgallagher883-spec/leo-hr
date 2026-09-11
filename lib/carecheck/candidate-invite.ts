@@ -136,9 +136,14 @@ export async function sendCareCheckCandidateInvite(
   const resultCode = getTagValue(rawResponse, "resultCode");
   const resultMessage = getTagValue(rawResponse, "resultMessage");
   const faultString = getTagValue(rawResponse, "faultstring");
+  const validationError = getTagValue(rawResponse, "ValidationError");
 
   if (faultString) {
-    throw new Error(`CareCheck SOAP fault: ${faultString}`);
+    throw new Error(
+      validationError
+        ? `CareCheck SOAP fault: ${faultString} — ${validationError}`
+        : `CareCheck SOAP fault: ${faultString}`,
+    );
   }
 
   if (response.status < 200 || response.status >= 300) {

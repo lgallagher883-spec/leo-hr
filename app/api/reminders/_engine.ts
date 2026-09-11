@@ -804,6 +804,7 @@ async function generateAndPersist(args: {
         admin,
         employeeIds,
         scopedEmployees: scopedEmployeeMap as any,
+        standardReminderDays,
       })),
     );
   }

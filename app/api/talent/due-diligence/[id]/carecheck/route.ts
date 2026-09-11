@@ -230,6 +230,17 @@ async function saveCareCheckState({
 }
 
 export async function POST(request: Request, routeContext: RouteContext) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "CareCheck candidate actions are currently limited to development while production provider codes and credentials are being confirmed.",
+      },
+      { status: 409 },
+    );
+  }
+
   try {
     const { id } = await routeContext.params;
     const supabase = await createClient();

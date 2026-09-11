@@ -7,7 +7,7 @@ import { useState } from "react";
 const resourceTitle = "Annual Leave & Holiday Entitlement";
 const resourceId = "annual-leave";
 const resourceSummary =
-  "A practical guide to managing annual leave and holiday entitlement fairly and lawfully from January 2027.";
+  "A practical guide to calculating, paying and managing annual leave fairly and lawfully, with practical examples for common working patterns.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO factsheet "${resourceTitle}".`,
@@ -145,7 +145,9 @@ export default function AnnualLeavePage() {
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -468,7 +470,7 @@ export default function AnnualLeavePage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 11 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -512,49 +514,66 @@ export default function AnnualLeavePage() {
         <div className="content-layout">
           <article className="document" id="resource-content">
 <h2>Annual leave and holiday entitlement</h2>
-<p>Annual leave allows employees to take paid time away from work for rest and wellbeing. Employers should manage holiday fairly, consistently and in accordance with statutory and contractual entitlements.</p>
+<p>Most workers are entitled to 5.6 weeks of paid statutory holiday each leave year. For someone working five days a week this is normally 28 days. Statutory entitlement is capped at 28 days for workers who work more than five days a week, although contracts can provide more.</p>
 
 <div className="notice">
 <strong>LEO Professional Recommendation</strong>
-<p>Publish a clear annual leave policy, encourage employees to book leave throughout the year and operate a transparent approval process. Keep accurate records and avoid creating situations where employees are unable to take their statutory entitlement.</p>
+<p>Record the holiday year, statutory and contractual entitlement, bank-holiday treatment, request rules, carry-over rules and holiday-pay method. Keep the calculation used for starters, leavers and irregular-hours workers so the decision can be checked later.</p>
 </div>
 
-<h2>Employer responsibilities</h2>
+<h2>Regular-hours workers</h2>
 <ul>
-<li>Provide at least the statutory minimum paid holiday entitlement.</li>
-<li>Explain how leave should be requested and approved.</li>
-<li>Keep accurate holiday records.</li>
-<li>Apply approval decisions consistently.</li>
-<li>Pay holiday correctly, including any contractual enhancements.</li>
+<li><strong>Five days a week:</strong> 5 × 5.6 = 28 days statutory leave.</li>
+<li><strong>Three days a week:</strong> 3 × 5.6 = 16.8 days statutory leave.</li>
+<li><strong>First-year monthly accrual:</strong> an employer may use one-twelfth of annual entitlement for each month. A five-day worker with 28 days annual entitlement accrues 7 days after three months: 28 ÷ 12 × 3.</li>
 </ul>
 
-<h2>Managing annual leave</h2>
-<p>Employers may refuse or require leave on particular dates provided they give the required notice and act reasonably. Operational requirements should be balanced with employee wellbeing and fairness across the workforce.</p>
-
-<h2>Carry-over of leave</h2>
-<p>Carry-over may arise where legislation, contractual terms or exceptional circumstances permit it. Employers should encourage employees to take leave during the holiday year wherever possible.</p>
-
-<h2>Common legal risks</h2>
+<h2>Irregular-hours and part-year workers</h2>
+<p>For leave years beginning on or after 1 April 2024, statutory leave for irregular-hours and part-year workers is normally accrued at 12.07% of hours worked in each pay period.</p>
 <ul>
-<li>Failing to provide statutory holiday entitlement.</li>
-<li>Incorrect holiday pay calculations.</li>
-<li>Applying inconsistent approval decisions.</li>
-<li>Refusing leave without reasonable business justification.</li>
-<li>Keeping inaccurate holiday records.</li>
+<li><strong>30 hours worked:</strong> 30 × 12.07% = 3.621 hours, rounded to 4 hours because a fraction of 0.5 hours or more rounds up.</li>
+<li><strong>68 hours worked:</strong> 68 × 12.07% = 8.2076 hours, rounded to 8 hours.</li>
+</ul>
+<p>If contractual holiday is greater than the statutory minimum, the percentage used for additional contractual entitlement may need to be adjusted.</p>
+
+<h2>Holiday pay</h2>
+<p>A worker must receive the holiday pay required by the Working Time Regulations and their contract. For regular-hours workers, at least four weeks of statutory leave must reflect normal remuneration. This can include payments such as regular overtime, commission and certain status-related payments where they form part of normal pay. The remaining 1.6 weeks may be paid at basic rate unless the contract provides more.</p>
+<p>For irregular-hours and part-year workers, employers can use rolled-up holiday pay for leave years beginning on or after 1 April 2024 where the statutory conditions are met. It should be calculated and shown separately from basic pay. Rolled-up holiday pay is not the statutory method for regular-hours workers.</p>
+
+<h2>Carry-over</h2>
+<ul>
+<li>Check the contract or policy for permitted carry-over of contractual leave.</li>
+<li>If a regular-hours worker cannot take statutory leave because of sickness, up to four weeks can normally be carried forward, subject to the statutory time limit.</li>
+<li>Irregular-hours and part-year workers can have different sickness carry-over rules and may carry up to 5.6 weeks in the circumstances provided by law.</li>
+<li>Untaken statutory leave must be capable of carrying over where family-related leave prevented the worker from taking it.</li>
+<li>A worker may also gain carry-over rights where the employer failed to provide a reasonable opportunity to take leave, failed to encourage them to take it, or failed to warn that leave would otherwise be lost.</li>
 </ul>
 
-<h2>Key points for employers</h2>
+<h2>Requesting, refusing and requiring leave</h2>
+<p>Employers can set a reasonable holiday-request process and may refuse requested dates for genuine business reasons. Employers can also require leave to be taken at particular times if the required notice is given. Apply rules consistently and avoid practices that make it unrealistic for workers to take their statutory entitlement.</p>
+
+<h2>Starter and leaver checks</h2>
 <ul>
-<li>Maintain a clear holiday policy.</li>
-<li>Record all annual leave accurately.</li>
-<li>Apply approval decisions consistently.</li>
-<li>Encourage employees to use their leave.</li>
-<li>Deal with disputes promptly and fairly.</li>
+<li>Confirm the leave year and working pattern.</li>
+<li>Calculate accrued entitlement to the relevant date.</li>
+<li>Deduct leave already taken.</li>
+<li>Check contractual rules for enhanced leave.</li>
+<li>On termination, pay for accrued untaken statutory leave and deal with excess leave only where a lawful contractual deduction is available.</li>
+</ul>
+
+<h2>Decision record</h2>
+<ul>
+<li>Worker type: regular hours, irregular hours or part-year.</li>
+<li>Working pattern and hours used.</li>
+<li>Statutory entitlement and any contractual enhancement.</li>
+<li>Calculation method and rounding.</li>
+<li>Leave taken, carried over and remaining.</li>
+<li>Holiday-pay method and pay elements included.</li>
 </ul>
 
 <div className="notice">
-<strong>Legal position — January 2027</strong>
-<p>This factsheet reflects the law in England &amp; Wales as at January 2027. Employers should comply with statutory annual leave requirements, contractual obligations and current case law principles when calculating and managing holiday entitlement and holiday pay.</p>
+<strong>Legal review — 11 September 2026</strong>
+<p>Reviewed against current GOV.UK holiday entitlement and holiday pay guidance for England and Wales. The 12.07% accrual method applies to qualifying irregular-hours and part-year workers for leave years beginning on or after 1 April 2024. Check current official guidance where sickness, family leave, variable pay or unusual working patterns make the calculation more complex.</p>
 </div>
 </article>
 
@@ -565,13 +584,13 @@ export default function AnnualLeavePage() {
                 Topic: Annual Leave & Holiday Entitlement<br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 11 September 2026
                 <br />
-                Version: 1.0
+                Version: 1.1
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 11 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 

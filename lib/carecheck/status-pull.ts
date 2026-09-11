@@ -1,4 +1,4 @@
-import { careCheckConfig } from "./client";
+import { getCareCheckConfig } from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT =
@@ -49,10 +49,13 @@ function readBoolean(value: string | null): boolean | null {
   return null;
 }
 
-function buildStatusPullEnvelope(applicationReference: string): string {
+function buildStatusPullEnvelope(
+  applicationReference: string,
+  config: ReturnType<typeof getCareCheckConfig>,
+): string {
   const securityHeader = createCareCheckWsSecurityHeader({
-    username: careCheckConfig.username,
-    password: careCheckConfig.password,
+    username: config.username,
+    password: config.password,
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -73,6 +76,8 @@ function buildStatusPullEnvelope(applicationReference: string): string {
 export async function pullCareCheckApplicationStatus(
   applicationReference: string,
 ): Promise<CareCheckStatusResult> {
+  const careCheckConfig = getCareCheckConfig();
+
   if (careCheckConfig.environment !== "sandbox") {
     throw new Error(
       "Production CareCheck status pull is not configured yet.",
@@ -85,7 +90,7 @@ export async function pullCareCheckApplicationStatus(
     throw new Error("CareCheck application reference is required.");
   }
 
-  const envelope = buildStatusPullEnvelope(reference);
+  const envelope = buildStatusPullEnvelope(reference, careCheckConfig);
 
   const response = await fetch(
     CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT,

@@ -20,6 +20,7 @@ import DrivingDetails from "./shared/DrivingDetails";
 import VehicleDetails from "./shared/VehicleDetails";
 import SharedDocumentsDetails from "./shared/SharedDocumentsDetails";
 import AppointmentDecisionDetails from "./shared/AppointmentDecisionDetails";
+import CareCheckDBSPanel from "./shared/CareCheckDBSPanel";
 
 type SharedKey =
   | "identity_verification"
@@ -595,7 +596,34 @@ export default function DueDiligenceWorkspace() {
               {activeTab === "identity" ? <IdentityVerificationDetails {...sharedProps("identity_verification")} /> : null}
               {activeTab === "right_to_work" ? <RightToWorkDetails {...sharedProps("right_to_work")} /> : null}
               {activeTab === "references" ? <ReferencesDetails {...sharedProps("references")} value={{ ...valueFor("references"), referencesRequired: true, minimumReferencesRequired: selected.vacancy?.required_reference_count ?? 1 }} /> : null}
-              {activeTab === "dbs" ? <DBSDetails {...sharedProps("dbs")} value={{ ...valueFor("dbs"), roleRequiresDBS: Boolean(selected.vacancy?.requires_dbs), requirement: selected.vacancy?.requires_dbs ? (selected.vacancy?.dbs_level ?? "enhanced") : "not_required" }} /> : null}
+              {activeTab === "dbs" ? (
+                <>
+                  <CareCheckDBSPanel
+                    profileId={selected.profile.id}
+                    candidateEmail={selected.candidate?.email}
+                    required={Boolean(selected.vacancy?.requires_dbs)}
+                    dbsLevel={selected.vacancy?.dbs_level}
+                    careCheck={
+                      valueFor("dbs")?.careCheck &&
+                      typeof valueFor("dbs").careCheck === "object"
+                        ? valueFor("dbs").careCheck
+                        : null
+                    }
+                    canManage={role !== "employee"}
+                    onUpdated={() => loadDetails(selected, false)}
+                  />
+                  <DBSDetails
+                    {...sharedProps("dbs")}
+                    value={{
+                      ...valueFor("dbs"),
+                      roleRequiresDBS: Boolean(selected.vacancy?.requires_dbs),
+                      requirement: selected.vacancy?.requires_dbs
+                        ? (selected.vacancy?.dbs_level ?? "enhanced")
+                        : "not_required",
+                    }}
+                  />
+                </>
+              ) : null}
               {activeTab === "overseas" ? <OverseasChecksDetails {...sharedProps("overseas_checks")} value={{ ...valueFor("overseas_checks"), overseasChecksRequired: Boolean(selected.vacancy?.overseas_check_required_if_applicable) }} /> : null}
               {activeTab === "qualifications" ? <QualificationsDetails {...sharedProps("qualifications")} value={{ ...valueFor("qualifications"), qualificationRequiredForRole: Boolean(selected.vacancy?.requires_qualification_checks) }} /> : null}
               {activeTab === "registrations" ? <ProfessionalRegistrationsDetails {...sharedProps("professional_registrations")} /> : null}

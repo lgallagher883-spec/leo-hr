@@ -65,7 +65,7 @@ async function authoriseInvitationManager(
   const { data: invitation, error: invitationError } = await admin
     .from("organisation_invitations")
     .select(
-      "id, organisation_id, employee_id, email, role, invitation_status, expires_at, created_at",
+      "id, organisation_id, employee_id, email, role, invitation_status, invitation_token, invited_by, expires_at, cancelled_at, metadata, created_at, updated_at",
     )
     .eq("id", invitationId)
     .maybeSingle();
@@ -183,6 +183,16 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const previousInvitationState = {
+      invitation_token: invitation.invitation_token,
+      invitation_status: invitation.invitation_status,
+      invited_by: invitation.invited_by,
+      expires_at: invitation.expires_at,
+      cancelled_at: invitation.cancelled_at,
+      metadata: invitation.metadata,
+      updated_at: invitation.updated_at,
+    };
+
     const now = new Date();
     const expiresAt = new Date(
       now.getTime() + 5 * 24 * 60 * 60 * 1000,
@@ -240,6 +250,19 @@ export async function POST(request: Request, context: RouteContext) {
         "Supabase invitation resend email failed:",
         inviteEmailError,
       );
+
+      const { error: rollbackError } = await admin
+        .from("organisation_invitations")
+        .update(previousInvitationState)
+        .eq("id", invitationId)
+        .eq("updated_at", now.toISOString());
+
+      if (rollbackError) {
+        console.error(
+          "Organisation invitation resend rollback failed:",
+          rollbackError,
+        );
+      }
 
       return NextResponse.json(
         {

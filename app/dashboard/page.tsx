@@ -54,6 +54,15 @@ type ComplianceIntelligenceResponse = {
   intelligence?: ComplianceIntelligence;
 };
 
+type FoundationFact = {
+  section?: string;
+};
+
+type FoundationsResponse = {
+  success?: boolean;
+  facts?: FoundationFact[];
+};
+
 type DashboardPriority = {
   summary: string;
   actionLabel: string;
@@ -230,6 +239,7 @@ function DashboardPageContent() {
 
   const [leoPrompt, setLeoPrompt] = useState("");
   const [employeeCount, setEmployeeCount] = useState<number | null>(null);
+  const [foundationFacts, setFoundationFacts] = useState<FoundationFact[]>([]);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [insightPayload, setInsightPayload] =
     useState<InsightPayload | null>(null);
@@ -290,6 +300,7 @@ function DashboardPageContent() {
         employeeResult,
         insightsResult,
         complianceResult,
+        foundationsResult,
       ] = await Promise.all([
         supabase.auth.getUser(),
         supabase
@@ -332,6 +343,23 @@ function DashboardPageContent() {
             return payload?.success ? payload : null;
           })
           .catch(() => null),
+        fetch("/api/foundations", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        })
+          .then(async (response) => {
+            if (!response.ok) return null;
+            const payload =
+              (await response.json().catch(() => null)) as
+                | FoundationsResponse
+                | null;
+            return payload?.success ? payload : null;
+          })
+          .catch(() => null),
       ]);
 
       if (!active) return;
@@ -360,6 +388,12 @@ function DashboardPageContent() {
       if (complianceResult?.intelligence) {
         setComplianceIntelligence(complianceResult.intelligence);
       }
+
+      setFoundationFacts(
+        Array.isArray(foundationsResult?.facts)
+          ? foundationsResult.facts
+          : [],
+      );
 
       if (employeeResult.error) {
         console.error(
@@ -542,6 +576,55 @@ function DashboardPageContent() {
     urgentMatters,
   ]);
 
+  const foundationSections = useMemo(
+    () =>
+      new Set(
+        foundationFacts
+          .map((fact) => fact.section?.trim())
+          .filter((section): section is string => Boolean(section)),
+      ),
+    [foundationFacts],
+  );
+
+  const setupSteps = useMemo(
+    () => [
+      {
+        id: "welcome",
+        label: "Complete the Welcome Brief",
+        complete: foundationFacts.length > 0,
+        path: "/dashboard/welcome-brief",
+      },
+      {
+        id: "profile",
+        label: "Confirm your Company Profile",
+        complete: foundationSections.has("Company Profile"),
+        path: "/dashboard/foundations/company-profile",
+      },
+      {
+        id: "employment",
+        label: "Set your Employment Framework",
+        complete: foundationSections.has("Employment Framework"),
+        path: "/dashboard/foundations/employment-framework",
+      },
+      {
+        id: "structure",
+        label: "Add your Organisation Structure",
+        complete: foundationSections.has("Organisation Structure"),
+        path: "/dashboard/foundations/organisation-structure",
+      },
+      {
+        id: "employees",
+        label: "Add or import your employees",
+        complete: typeof employeeCount === "number" && employeeCount > 0,
+        path: "/dashboard/employees",
+      },
+    ],
+    [employeeCount, foundationFacts.length, foundationSections],
+  );
+
+  const setupComplete = setupSteps.every((step) => step.complete);
+  const completedSetupSteps = setupSteps.filter((step) => step.complete).length;
+
   return (
     <main style={pageStyle}>
       <header style={headerStyle}>
@@ -563,6 +646,48 @@ function DashboardPageContent() {
           + New Matter
         </button>
       </header>
+
+      {!setupComplete ? (
+        <section style={setupCardStyle} aria-labelledby="getting-started-heading">
+          <div style={setupHeaderStyle}>
+            <div>
+              <div style={setupEyebrowStyle}>Getting started</div>
+              <h2 id="getting-started-heading" style={setupTitleStyle}>
+                Finish setting up Leo
+              </h2>
+              <p style={setupTextStyle}>
+                {completedSetupSteps} of {setupSteps.length} essentials are complete.
+                You can use Leo while you finish these, but completing them helps
+                Leo understand your organisation and makes onboarding future
+                employees much quicker.
+              </p>
+            </div>
+
+            <div style={setupProgressStyle}>
+              {Math.round((completedSetupSteps / setupSteps.length) * 100)}%
+            </div>
+          </div>
+
+          <div style={setupListStyle}>
+            {setupSteps.map((step) => (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => router.push(step.path)}
+                style={{
+                  ...setupStepStyle,
+                  ...(step.complete ? setupStepCompleteStyle : {}),
+                }}
+              >
+                <span style={setupCheckStyle} aria-hidden="true">
+                  {step.complete ? "✓" : "→"}
+                </span>
+                <span>{step.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section style={askLeoCardStyle} aria-labelledby="ask-leo-heading">
         <div style={sparkleCircleStyle} aria-hidden="true">
@@ -771,6 +896,99 @@ const primaryButtonStyle: CSSProperties = {
   fontWeight: 700,
   cursor: "pointer",
   boxShadow: "0 6px 16px rgba(110, 80, 132, 0.16)",
+};
+
+const setupCardStyle: CSSProperties = {
+  marginBottom: "24px",
+  padding: "22px",
+  borderRadius: "18px",
+  border: "1px solid #DCCCE7",
+  background: "#FFFFFF",
+  boxShadow: "0 8px 22px rgba(110, 80, 132, 0.06)",
+};
+
+const setupHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "18px",
+  flexWrap: "wrap",
+};
+
+const setupEyebrowStyle: CSSProperties = {
+  color: "#6E5084",
+  fontSize: "11px",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
+const setupTitleStyle: CSSProperties = {
+  margin: "5px 0 6px",
+  color: "#2F2635",
+  fontSize: "21px",
+};
+
+const setupTextStyle: CSSProperties = {
+  maxWidth: "760px",
+  margin: 0,
+  color: "#6B7280",
+  fontSize: "14px",
+  lineHeight: 1.55,
+};
+
+const setupProgressStyle: CSSProperties = {
+  minWidth: "58px",
+  height: "58px",
+  display: "grid",
+  placeItems: "center",
+  borderRadius: "999px",
+  background: "#F7F1FC",
+  color: "#6E5084",
+  fontSize: "15px",
+  fontWeight: 800,
+};
+
+const setupListStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "9px",
+  marginTop: "16px",
+};
+
+const setupStepStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  minHeight: "44px",
+  padding: "10px 12px",
+  border: "1px solid #E7DFEB",
+  borderRadius: "11px",
+  background: "#FAF8FB",
+  color: "#4A4050",
+  textAlign: "left",
+  fontSize: "13px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const setupStepCompleteStyle: CSSProperties = {
+  background: "#F5FFF9",
+  borderColor: "#CCE7D9",
+  color: "#356653",
+};
+
+const setupCheckStyle: CSSProperties = {
+  width: "24px",
+  height: "24px",
+  flexShrink: 0,
+  display: "grid",
+  placeItems: "center",
+  borderRadius: "999px",
+  background: "#FFFFFF",
+  border: "1px solid currentColor",
+  fontSize: "12px",
+  fontWeight: 800,
 };
 
 const askLeoCardStyle: CSSProperties = {

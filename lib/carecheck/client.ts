@@ -5,7 +5,7 @@ type CareCheckConfig = {
   organisationReference: string;
 };
 
-function getCareCheckConfig(): CareCheckConfig {
+export function getCareCheckConfig(): CareCheckConfig {
   const environment = process.env.CARECHECK_ENV;
   const username = process.env.CARECHECK_USERNAME?.trim();
   const password = process.env.CARECHECK_PASSWORD;
@@ -39,5 +39,3 @@ function getCareCheckConfig(): CareCheckConfig {
     organisationReference,
   };
 }
-
-export const careCheckConfig = getCareCheckConfig();

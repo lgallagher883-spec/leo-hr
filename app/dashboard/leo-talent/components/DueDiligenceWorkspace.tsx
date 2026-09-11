@@ -714,7 +714,7 @@ function Overview({
             item.key === "dbs"
               ? careCheckDbsStatus(shared.dbs?.payload) ?? storedStatus
               : storedStatus;
-          return <div key={item.key} style={styles.requirementRow}><div><strong>{item.label}</strong><small>{item.required ? "Required for this appointment" : "Not required by the vacancy"}</small></div><Status status={status} /></div>;
+          return <div key={item.key} style={styles.requirementRow}><div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}><strong>{item.label}</strong><small>{item.required ? "Required for this appointment" : "Not required by the vacancy"}</small></div><Status status={status} /></div>;
         })}
       </div>
     </section>

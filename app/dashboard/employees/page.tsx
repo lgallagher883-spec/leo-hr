@@ -923,17 +923,26 @@ export default function EmployeesPage() {
   }
 
   function downloadLeoTemplate() {
-    downloadStaticFile(
-      "/templates/LEO-HR-Employee-Import-Template.xlsx",
-      "LEO-HR-Employee-Import-Template.xlsx"
+    const blankRow = Object.fromEntries(
+      leoTemplateHeaders.map((header) => [header, ""])
     );
+    const worksheet = XLSX.utils.json_to_sheet([blankRow], {
+      header: leoTemplateHeaders,
+    });
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "LEO-HR-Employee-Import-Template.xlsx");
   }
 
   function downloadSampleFile() {
-    downloadStaticFile(
-      "/templates/LEO-HR-Employee-Import-Sample.xlsx",
-      "LEO-HR-Employee-Import-Sample.xlsx"
-    );
+    const worksheet = XLSX.utils.json_to_sheet(sampleRows, {
+      header: leoTemplateHeaders,
+    });
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "LEO-HR-Employee-Import-Sample.xlsx");
   }
 
   function exportCurrentEmployeeView() {

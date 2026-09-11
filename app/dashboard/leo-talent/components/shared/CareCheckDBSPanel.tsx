@@ -54,6 +54,7 @@ export default function CareCheckDBSPanel({
 
   const applicationReference = careCheck?.applicationReference?.trim() || "";
   const hasApplication = Boolean(applicationReference);
+  const developmentActionsAvailable = process.env.NODE_ENV !== "production";
 
   async function run(action: "invite" | "refresh_status") {
     setBusy(action === "invite" ? "invite" : "refresh");
@@ -251,7 +252,7 @@ export default function CareCheckDBSPanel({
             </div>
           ) : null}
 
-          {canManage ? (
+          {canManage && developmentActionsAvailable ? (
             <div
               style={{
                 display: "flex",
@@ -307,6 +308,21 @@ export default function CareCheckDBSPanel({
                     : "Refresh CareCheck status"}
                 </button>
               )}
+            </div>
+          ) : null}
+
+          {!developmentActionsAvailable ? (
+            <div
+              style={{
+                marginTop: "12px",
+                color: "#7B707F",
+                fontSize: "11px",
+                lineHeight: 1.5,
+              }}
+            >
+              Provider actions are currently restricted to development
+              while CareCheck production credentials and DBS-level codes
+              are being confirmed.
             </div>
           ) : null}
 

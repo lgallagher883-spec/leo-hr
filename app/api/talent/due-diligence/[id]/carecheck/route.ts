@@ -172,6 +172,20 @@ function providerWorkforceForCareCheck(
   return "other";
 }
 
+function careCheckStatusMeansSubmitted(providerStatus: unknown): boolean {
+  const status = text(providerStatus).toUpperCase();
+
+  if (!status) return false;
+  if (status.includes("INVITE")) return false;
+
+  return (
+    status.includes("SUBMIT") ||
+    status.includes("APPLICATION") ||
+    status.includes("APP_RECEIVED") ||
+    status.includes("RECEIVED")
+  );
+}
+
 function leoDbsStatusForCareCheck(providerStatus: unknown): string {
   const status = text(providerStatus).toUpperCase();
 
@@ -225,9 +239,14 @@ async function saveCareCheckState({
     workforce: existingWorkforce || providerWorkforce || "",
     applicationReference:
       text(careCheck.applicationReference) || text(existingPayload.applicationReference),
-    applicationSubmittedDate:
-      text(existingPayload.applicationSubmittedDate) ||
-      (text(careCheck.invitedAt) ? text(careCheck.invitedAt).slice(0, 10) : ""),
+    applicationSubmittedDate: careCheckStatusMeansSubmitted(
+      careCheck.statusCode,
+    )
+      ? text(existingPayload.applicationSubmittedDate) ||
+        (text(careCheck.lastCheckedAt)
+          ? text(careCheck.lastCheckedAt).slice(0, 10)
+          : "")
+      : "",
     applicationProvider: "CareCheck",
     careCheck,
   };

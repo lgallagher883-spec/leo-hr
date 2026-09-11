@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type RoleKey = "owner" | "senior" | "manager" | "employee";
 type ReminderModule = "compliance" | "sar" | "learn";
-type ReminderMilestone = "T-30" | "T-14" | "T-7" | "T-1" | "T0";
+type ReminderMilestone = `T-${number}` | "T0";
 
 type ReminderCandidate = {
   module: ReminderModule;
@@ -75,13 +75,32 @@ function daysUntil(dateValue: string): number | null {
   return Math.floor((dueDate.getTime() - today.getTime()) / DAY_MS);
 }
 
-function standardMilestone(dateValue: string): ReminderMilestone | null {
+function standardMilestone(
+  dateValue: string,
+  reminderDays: number[],
+): ReminderMilestone | null {
   const days = daysUntil(dateValue);
   if (days === null) return null;
   if (days <= 0) return "T0";
-  if (days <= 7) return "T-7";
-  if (days <= 30) return "T-30";
-  return null;
+
+  const thresholds = Array.from(
+    new Set(
+      reminderDays.filter(
+        (value) =>
+          Number.isInteger(value) &&
+          value >= 1 &&
+          value <= 90,
+      ),
+    ),
+  ).sort((a, b) => a - b);
+
+  const matchingThreshold = thresholds.find(
+    (threshold) => days <= threshold,
+  );
+
+  return matchingThreshold
+    ? (`T-${matchingThreshold}` as ReminderMilestone)
+    : null;
 }
 
 function sarMilestone(dateValue: string): ReminderMilestone | null {
@@ -92,6 +111,36 @@ function sarMilestone(dateValue: string): ReminderMilestone | null {
   if (days <= 7) return "T-7";
   if (days <= 14) return "T-14";
   return null;
+}
+
+async function loadStandardReminderDays(args: {
+  admin: ReturnType<typeof createAdminClient>;
+  organisationId: string;
+}) {
+  const result = await (args.admin as any)
+    .from("organisation_reminder_settings")
+    .select("standard_days_before")
+    .eq("organisation_id", args.organisationId)
+    .maybeSingle();
+
+  if (result.error || !Array.isArray(result.data?.standard_days_before)) {
+    return [30, 7];
+  }
+
+  const days = Array.from(
+    new Set(
+      result.data.standard_days_before
+        .map((value: unknown) => Number(value))
+        .filter(
+          (value: number) =>
+            Number.isInteger(value) &&
+            value >= 1 &&
+            value <= 90,
+        ),
+    ),
+  ).sort((a, b) => b - a);
+
+  return days.length > 0 ? days : [30, 7];
 }
 
 function statusBand(dateValue: string): "approaching" | "due" | "expired" {
@@ -298,8 +347,9 @@ async function buildComplianceCandidates(args: {
   admin: ReturnType<typeof createAdminClient>;
   employeeIds: number[];
   scopedEmployees: Map<number, { id: number; name: string | null }>;
+  standardReminderDays: number[];
 }) {
-  const { admin, employeeIds, scopedEmployees } = args;
+  const { admin, employeeIds, scopedEmployees, standardReminderDays } = args;
   if (employeeIds.length === 0) return [] as ReminderCandidate[];
 
   const [rtwResult, dbsResult, drivingResult, trainingResult] = await Promise.all([
@@ -374,7 +424,7 @@ async function buildComplianceCandidates(args: {
     title: string;
     actionUrl: string;
   }) => {
-    const milestone = standardMilestone(input.dueDate);
+    const milestone = standardMilestone(input.dueDate, standardReminderDays);
     if (!milestone) return;
 
     const employee = scopedEmployees.get(input.employeeId);
@@ -587,8 +637,9 @@ async function buildLearnCandidates(args: {
   admin: ReturnType<typeof createAdminClient>;
   employeeIds: number[];
   scopedEmployees: Map<number, { id: number; name: string | null }>;
+  standardReminderDays: number[];
 }) {
-  const { admin, employeeIds, scopedEmployees } = args;
+  const { admin, employeeIds, scopedEmployees, standardReminderDays } = args;
   if (employeeIds.length === 0) return [] as ReminderCandidate[];
 
   const [assignmentsResult, qualificationsResult] = await Promise.all([
@@ -616,7 +667,7 @@ async function buildLearnCandidates(args: {
     const dueDate = text(row.due_date);
     if (!dueDate) continue;
 
-    const milestone = standardMilestone(dueDate);
+    const milestone = standardMilestone(dueDate, standardReminderDays);
     if (!milestone) continue;
 
     const employeeId = Number(row.employee_id);
@@ -647,7 +698,7 @@ async function buildLearnCandidates(args: {
     const dueDate = text(row.expiry_date);
     if (!dueDate) continue;
 
-    const milestone = standardMilestone(dueDate);
+    const milestone = standardMilestone(dueDate, standardReminderDays);
     if (!milestone) continue;
 
     const employeeId = Number(row.employee_id);
@@ -719,6 +770,11 @@ async function generateAndPersist(args: {
     userEmployeeId,
   });
 
+  const standardReminderDays = await loadStandardReminderDays({
+    admin,
+    organisationId,
+  });
+
   const candidates: ReminderCandidate[] = [];
 
   if (canUseCompliance(roleKey, permissionKeys)) {
@@ -727,6 +783,7 @@ async function generateAndPersist(args: {
         admin,
         employeeIds,
         scopedEmployees: scopedEmployeeMap as any,
+        standardReminderDays,
       })),
     );
   }

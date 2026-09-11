@@ -34,7 +34,17 @@ export default function ForgotPasswordPage() {
 
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/reset-password`;
+      const configuredOrigin =
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+
+      const redirectOrigin =
+        configuredOrigin ||
+        (window.location.origin === "https://leohr.co.uk" ||
+        window.location.origin === "https://www.leohr.co.uk"
+          ? "https://app.leohr.co.uk"
+          : window.location.origin);
+
+      const redirectTo = `${redirectOrigin}/reset-password`;
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         normalisedEmail,
@@ -44,10 +54,9 @@ export default function ForgotPasswordPage() {
       if (resetError) throw resetError;
       setSent(true);
     } catch (caughtError: unknown) {
+      console.error("Password reset request failed:", caughtError);
       setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "We could not send the password reset email. Please try again.",
+        "We could not send the password reset email right now. Please try again in a few minutes.",
       );
     } finally {
       setLoading(false);

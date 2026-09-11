@@ -70,24 +70,22 @@ function ResetPasswordContent() {
       try {
         const code = searchParams.get("code");
 
-        if (code) {
-          const { error: exchangeError } =
-            await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError) {
-            throw exchangeError;
+        if (!code) {
+          if (mounted) {
+            setValidSession(false);
           }
+          return;
         }
 
-        const { data, error: sessionError } =
-          await supabase.auth.getSession();
+        const { data, error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
 
-        if (sessionError) {
-          throw sessionError;
+        if (exchangeError || !data.session) {
+          throw exchangeError || new Error("Recovery session could not be created.");
         }
 
         if (mounted) {
-          setValidSession(Boolean(data.session));
+          setValidSession(true);
         }
       } catch {
         if (mounted) {
@@ -108,7 +106,7 @@ function ResetPasswordContent() {
           return;
         }
 
-        if (event === "PASSWORD_RECOVERY" || session) {
+        if (event === "PASSWORD_RECOVERY" && session) {
           setValidSession(true);
           setChecking(false);
         }

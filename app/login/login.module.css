@@ -398,6 +398,17 @@
   opacity: 0.55;
 }
 
+.success-message {
+  margin-top: -4px;
+  padding: 12px 13px;
+  border: 1px solid #b9dfcf;
+  border-radius: 10px;
+  background: #f3fff9;
+  color: #27674d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .error-message {
   margin-top: -4px;
   padding: 12px 13px;

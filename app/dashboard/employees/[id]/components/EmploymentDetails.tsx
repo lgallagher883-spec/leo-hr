@@ -34,6 +34,7 @@ type EmploymentDetailsRecord = {
   employment_end_date?: string | null;
   reason_for_leaving?: string | null;
   annual_leave_allowance?: string | number | null;
+  continuous_service_date?: string | null;
   contracted_hours_per_week?: string | number | null;
   contracted_days_per_week?: string | number | null;
   working_days?: string[] | null;
@@ -454,6 +455,7 @@ export default function EmploymentDetails({
   const [employmentEndDate, setEmploymentEndDate] = useState("");
   const [reasonForLeaving, setReasonForLeaving] = useState("");
   const [annualLeaveAllowance, setAnnualLeaveAllowance] = useState("");
+  const [continuousServiceDate, setContinuousServiceDate] = useState("");
 
   const [contractedHoursPerWeek, setContractedHoursPerWeek] =
     useState("");
@@ -568,6 +570,7 @@ export default function EmploymentDetails({
         setAnnualLeaveAllowance(
           displayValue(details.annual_leave_allowance),
         );
+        setContinuousServiceDate(details.continuous_service_date || "");
         setContractedHoursPerWeek(
           displayValue(details.contracted_hours_per_week),
         );
@@ -729,6 +732,7 @@ export default function EmploymentDetails({
                 resolvedAnnualLeaveAllowance === null
                   ? ""
                   : String(resolvedAnnualLeaveAllowance),
+              continuous_service_date: continuousServiceDate,
               contracted_hours_per_week: contractedHoursPerWeek,
               contracted_days_per_week: contractedDaysPerWeek,
               working_days: workingDays,
@@ -774,6 +778,7 @@ export default function EmploymentDetails({
         setAnnualLeaveAllowance(
           displayValue(details.annual_leave_allowance),
         );
+        setContinuousServiceDate(details.continuous_service_date || "");
         setContractedHoursPerWeek(
           displayValue(details.contracted_hours_per_week),
         );
@@ -852,6 +857,14 @@ export default function EmploymentDetails({
         label="Start Date"
         value={startDate}
         onChange={setStartDate}
+        type="date"
+        small
+      />
+
+      <Field
+        label="Continuous Service Date"
+        value={continuousServiceDate}
+        onChange={setContinuousServiceDate}
         type="date"
         small
       />

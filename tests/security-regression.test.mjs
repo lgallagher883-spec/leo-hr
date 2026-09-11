@@ -50,3 +50,19 @@ test("standard reminder timing is organisation configurable while SAR timing sta
   assert.match(reminderSettings, /standardDaysBefore/);
   assert.match(reminderSettings, /sarDaysBefore:\s*\[14, 7, 1\]/);
 });
+
+
+const employeeImportPage = read("app/dashboard/employees/page.tsx");
+const employeeImportApi = read("app/api/employees/import/route.ts");
+
+test("employee import supports basic RTW, working pattern, emergency contact and continuous service data", () => {
+  assert.match(employeeImportPage, /Right to Work Check Date/);
+  assert.match(employeeImportPage, /Continuous Service Date/);
+  assert.match(employeeImportPage, /Emergency Contact Phone/);
+  assert.match(employeeImportPage, /Working Days/);
+  assert.doesNotMatch(employeeImportPage, /DBS Expiry Date/);
+  assert.doesNotMatch(employeeImportPage, /Driving Licence Expiry/);
+  assert.match(employeeImportApi, /employee_right_to_work/);
+  assert.match(employeeImportApi, /employee_emergency_contacts/);
+  assert.match(employeeImportApi, /continuous_service_date/);
+});

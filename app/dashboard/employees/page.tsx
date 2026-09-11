@@ -83,7 +83,18 @@ type ImportField =
   | "probation_end_date"
   | "employment_end_date"
   | "reason_for_leaving"
-  | "annual_leave_allowance";
+  | "annual_leave_allowance"
+  | "continuous_service_date"
+  | "contracted_hours_per_week"
+  | "contracted_days_per_week"
+  | "working_days"
+  | "right_to_work_nationality"
+  | "right_to_work_check_date"
+  | "right_to_work_expiry"
+  | "right_to_work_next_review_date"
+  | "emergency_contact_name"
+  | "emergency_contact_relationship"
+  | "emergency_contact_phone";
 
 type RawImportRow = Record<string, unknown>;
 
@@ -98,6 +109,17 @@ type MappedEmployeeRow = {
   employment_end_date: string;
   reason_for_leaving: string;
   annual_leave_allowance: string;
+  continuous_service_date: string;
+  contracted_hours_per_week: string;
+  contracted_days_per_week: string;
+  working_days: string;
+  right_to_work_nationality: string;
+  right_to_work_check_date: string;
+  right_to_work_expiry: string;
+  right_to_work_next_review_date: string;
+  emergency_contact_name: string;
+  emergency_contact_relationship: string;
+  emergency_contact_phone: string;
 };
 
 type ValidationStatus =
@@ -190,6 +212,17 @@ const importFieldOptions: Array<{
     value: "annual_leave_allowance",
     label: "Annual leave allowance",
   },
+  { value: "continuous_service_date", label: "Continuous service date" },
+  { value: "contracted_hours_per_week", label: "Contracted hours per week" },
+  { value: "contracted_days_per_week", label: "Contracted days per week" },
+  { value: "working_days", label: "Working days" },
+  { value: "right_to_work_nationality", label: "Right to Work nationality" },
+  { value: "right_to_work_check_date", label: "Right to Work check date" },
+  { value: "right_to_work_expiry", label: "Right to Work expiry date" },
+  { value: "right_to_work_next_review_date", label: "Right to Work next review date" },
+  { value: "emergency_contact_name", label: "Emergency contact name" },
+  { value: "emergency_contact_relationship", label: "Emergency contact relationship" },
+  { value: "emergency_contact_phone", label: "Emergency contact phone" },
 ];
 
 const employeeStatuses: EmployeeStatus[] = [
@@ -220,6 +253,17 @@ const leoTemplateHeaders = [
   "Employment End Date",
   "Reason for Leaving",
   "Annual Leave Allowance",
+  "Continuous Service Date",
+  "Contracted Hours Per Week",
+  "Contracted Days Per Week",
+  "Working Days",
+  "Right to Work Nationality",
+  "Right to Work Check Date",
+  "Right to Work Expiry Date",
+  "Right to Work Next Review Date",
+  "Emergency Contact Name",
+  "Emergency Contact Relationship",
+  "Emergency Contact Phone",
 ];
 
 const sampleRows = [
@@ -234,6 +278,17 @@ const sampleRows = [
     "Employment End Date": "",
     "Reason for Leaving": "",
     "Annual Leave Allowance": "28",
+    "Continuous Service Date": "01/08/2026",
+    "Contracted Hours Per Week": "37.5",
+    "Contracted Days Per Week": "5",
+    "Working Days": "Monday, Tuesday, Wednesday, Thursday, Friday",
+    "Right to Work Nationality": "British",
+    "Right to Work Check Date": "30/07/2026",
+    "Right to Work Expiry Date": "",
+    "Right to Work Next Review Date": "",
+    "Emergency Contact Name": "Sam Morgan",
+    "Emergency Contact Relationship": "Partner",
+    "Emergency Contact Phone": "07700 900123",
   },
   {
     "Employee Name": "Jordan Taylor",
@@ -246,6 +301,17 @@ const sampleRows = [
     "Employment End Date": "",
     "Reason for Leaving": "",
     "Annual Leave Allowance": "25",
+    "Continuous Service Date": "15/05/2024",
+    "Contracted Hours Per Week": "30",
+    "Contracted Days Per Week": "4",
+    "Working Days": "Monday, Tuesday, Wednesday, Thursday",
+    "Right to Work Nationality": "British",
+    "Right to Work Check Date": "10/05/2024",
+    "Right to Work Expiry Date": "",
+    "Right to Work Next Review Date": "",
+    "Emergency Contact Name": "Casey Taylor",
+    "Emergency Contact Relationship": "Parent",
+    "Emergency Contact Phone": "07700 900456",
   },
 ];
 
@@ -857,17 +923,26 @@ export default function EmployeesPage() {
   }
 
   function downloadLeoTemplate() {
-    downloadStaticFile(
-      "/templates/LEO-HR-Employee-Import-Template.xlsx",
-      "LEO-HR-Employee-Import-Template.xlsx"
+    const blankRow = Object.fromEntries(
+      leoTemplateHeaders.map((header) => [header, ""])
     );
+    const worksheet = XLSX.utils.json_to_sheet([blankRow], {
+      header: leoTemplateHeaders,
+    });
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "LEO-HR-Employee-Import-Template.xlsx");
   }
 
   function downloadSampleFile() {
-    downloadStaticFile(
-      "/templates/LEO-HR-Employee-Import-Sample.xlsx",
-      "LEO-HR-Employee-Import-Sample.xlsx"
-    );
+    const worksheet = XLSX.utils.json_to_sheet(sampleRows, {
+      header: leoTemplateHeaders,
+    });
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    XLSX.writeFile(workbook, "LEO-HR-Employee-Import-Sample.xlsx");
   }
 
   function exportCurrentEmployeeView() {
@@ -2244,6 +2319,28 @@ function suggestColumnMapping(headers: string[]): ColumnMapping {
       ].includes(normalised)
     ) {
       mapping[header] = "annual_leave_allowance";
+    } else if (["continuous service date", "continuous employment date"].includes(normalised)) {
+      mapping[header] = "continuous_service_date";
+    } else if (["contracted hours per week", "weekly hours", "contracted hours"].includes(normalised)) {
+      mapping[header] = "contracted_hours_per_week";
+    } else if (["contracted days per week", "weekly days", "contracted days"].includes(normalised)) {
+      mapping[header] = "contracted_days_per_week";
+    } else if (["working days", "normal working days"].includes(normalised)) {
+      mapping[header] = "working_days";
+    } else if (["right to work nationality", "rtw nationality", "nationality"].includes(normalised)) {
+      mapping[header] = "right_to_work_nationality";
+    } else if (["right to work check date", "rtw check date"].includes(normalised)) {
+      mapping[header] = "right_to_work_check_date";
+    } else if (["right to work expiry date", "rtw expiry date", "right to work expiry"].includes(normalised)) {
+      mapping[header] = "right_to_work_expiry";
+    } else if (["right to work next review date", "rtw next review date"].includes(normalised)) {
+      mapping[header] = "right_to_work_next_review_date";
+    } else if (["emergency contact name", "next of kin name"].includes(normalised)) {
+      mapping[header] = "emergency_contact_name";
+    } else if (["emergency contact relationship", "next of kin relationship"].includes(normalised)) {
+      mapping[header] = "emergency_contact_relationship";
+    } else if (["emergency contact phone", "emergency contact telephone", "next of kin phone"].includes(normalised)) {
+      mapping[header] = "emergency_contact_phone";
     } else {
       mapping[header] = "ignore";
     }
@@ -2288,6 +2385,17 @@ function mapImportRow(
     employment_end_date: "",
     reason_for_leaving: "",
     annual_leave_allowance: "",
+    continuous_service_date: "",
+    contracted_hours_per_week: "",
+    contracted_days_per_week: "",
+    working_days: "",
+    right_to_work_nationality: "",
+    right_to_work_check_date: "",
+    right_to_work_expiry: "",
+    right_to_work_next_review_date: "",
+    emergency_contact_name: "",
+    emergency_contact_relationship: "",
+    emergency_contact_phone: "",
   };
 
   for (const [sourceColumn, targetField] of Object.entries(columnMapping)) {
@@ -2299,7 +2407,11 @@ function mapImportRow(
     if (
       targetField === "start_date" ||
       targetField === "probation_end_date" ||
-      targetField === "employment_end_date"
+      targetField === "employment_end_date" ||
+      targetField === "continuous_service_date" ||
+      targetField === "right_to_work_check_date" ||
+      targetField === "right_to_work_expiry" ||
+      targetField === "right_to_work_next_review_date"
     ) {
       mapped[targetField] = normaliseImportedDate(stringValue);
     } else {
@@ -2376,6 +2488,53 @@ function validateImportRow({
     Number.isNaN(Number(mappedData.annual_leave_allowance))
   ) {
     errors.push("Annual leave allowance must be a number.");
+  }
+
+  for (const [label, dateValue] of [
+    ["Continuous service date", mappedData.continuous_service_date],
+    ["Right to Work check date", mappedData.right_to_work_check_date],
+    ["Right to Work expiry date", mappedData.right_to_work_expiry],
+    ["Right to Work next review date", mappedData.right_to_work_next_review_date],
+  ] as const) {
+    if (dateValue && !isValidDateOnly(dateValue)) {
+      errors.push(`${label} is not valid.`);
+    }
+  }
+
+  if (
+    mappedData.continuous_service_date &&
+    mappedData.start_date &&
+    mappedData.continuous_service_date > mappedData.start_date
+  ) {
+    errors.push("Continuous service date cannot be after the employee start date.");
+  }
+
+  for (const [label, numberValue, maximum] of [
+    ["Contracted hours per week", mappedData.contracted_hours_per_week, 168],
+    ["Contracted days per week", mappedData.contracted_days_per_week, 7],
+  ] as const) {
+    if (numberValue) {
+      const parsed = Number(numberValue);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > maximum) {
+        errors.push(`${label} must be a number between 0 and ${maximum}.`);
+      }
+    }
+  }
+
+  if (mappedData.working_days) {
+    const allowedDays = new Set([
+      "monday", "tuesday", "wednesday", "thursday",
+      "friday", "saturday", "sunday",
+    ]);
+    const invalidDay = mappedData.working_days
+      .split(/[,;]+/)
+      .map((day) => day.trim().toLowerCase())
+      .filter(Boolean)
+      .find((day) => !allowedDays.has(day));
+
+    if (invalidDay) {
+      errors.push(`Working days contains an invalid day: "${invalidDay}".`);
+    }
   }
 
   if (

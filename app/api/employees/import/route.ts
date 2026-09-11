@@ -19,6 +19,17 @@ type MappedEmployeeRow = {
   employment_end_date: string;
   reason_for_leaving: string;
   annual_leave_allowance: string;
+  continuous_service_date: string;
+  contracted_hours_per_week: string;
+  contracted_days_per_week: string;
+  working_days: string;
+  right_to_work_nationality: string;
+  right_to_work_check_date: string;
+  right_to_work_expiry: string;
+  right_to_work_next_review_date: string;
+  emergency_contact_name: string;
+  emergency_contact_relationship: string;
+  emergency_contact_phone: string;
 };
 
 type EmploymentDetails = {
@@ -27,6 +38,10 @@ type EmploymentDetails = {
   employment_end_date: string | null;
   reason_for_leaving: string | null;
   annual_leave_allowance: string | null;
+  continuous_service_date: string | null;
+  contracted_hours_per_week: number | string | null;
+  contracted_days_per_week: number | string | null;
+  working_days: string[] | null;
 };
 
 type MatchingEmployee = {
@@ -360,6 +375,12 @@ export async function POST(request: Request) {
             matchingEmployee.employmentDetails
           );
 
+          await upsertImportedBasics(
+            supabase,
+            employeeId,
+            mappedData
+          );
+
           await writeTimelineEvent(
             supabase,
             organisationId,
@@ -439,6 +460,12 @@ export async function POST(request: Request) {
             employeeId,
             mappedData,
             null
+          );
+
+          await upsertImportedBasics(
+            supabase,
+            employeeId,
+            mappedData
           );
 
           await writeTimelineEvent(
@@ -648,7 +675,7 @@ async function resolveMatchingEmployee(
         "employee_employment_details"
       )
       .select(
-        "manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance"
+        "manager,probation_end_date,employment_end_date,reason_for_leaving,annual_leave_allowance,continuous_service_date,contracted_hours_per_week,contracted_days_per_week,working_days"
       )
       .eq("employee_id", employee.id)
       .maybeSingle();
@@ -706,6 +733,22 @@ async function upsertEmploymentDetails(
           ) ??
           existingDetails?.annual_leave_allowance ??
           null,
+        continuous_service_date:
+          emptyToNull(mappedData.continuous_service_date) ??
+          existingDetails?.continuous_service_date ??
+          null,
+        contracted_hours_per_week:
+          optionalNumber(mappedData.contracted_hours_per_week) ??
+          existingDetails?.contracted_hours_per_week ??
+          null,
+        contracted_days_per_week:
+          optionalNumber(mappedData.contracted_days_per_week) ??
+          existingDetails?.contracted_days_per_week ??
+          null,
+        working_days:
+          parseWorkingDays(mappedData.working_days) ??
+          existingDetails?.working_days ??
+          null,
         updated_at:
           new Date().toISOString(),
       },
@@ -717,6 +760,104 @@ async function upsertEmploymentDetails(
   if (error) {
     throw error;
   }
+}
+
+async function upsertImportedBasics(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  employeeId: number,
+  mappedData: MappedEmployeeRow
+) {
+  const now = new Date().toISOString();
+
+  if (
+    mappedData.right_to_work_nationality ||
+    mappedData.right_to_work_check_date ||
+    mappedData.right_to_work_expiry ||
+    mappedData.right_to_work_next_review_date
+  ) {
+    const existing = await supabase
+      .from("employee_right_to_work")
+      .select("id")
+      .eq("employee_id", employeeId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing.error) throw existing.error;
+
+    const payload = {
+      employee_id: employeeId,
+      nationality: emptyToNull(mappedData.right_to_work_nationality) || "Not recorded",
+      check_completed_date: emptyToNull(mappedData.right_to_work_check_date),
+      right_to_work_expiry: emptyToNull(mappedData.right_to_work_expiry),
+      next_review_date: emptyToNull(mappedData.right_to_work_next_review_date),
+      updated_at: now,
+    };
+
+    const write = existing.data
+      ? await supabase
+          .from("employee_right_to_work")
+          .update(payload)
+          .eq("id", existing.data.id)
+      : await supabase.from("employee_right_to_work").insert(payload);
+
+    if (write.error) throw write.error;
+  }
+
+  if (mappedData.emergency_contact_name || mappedData.emergency_contact_phone) {
+    const contactPayload = {
+      employee_id: employeeId,
+      contact_number: 1,
+      full_name: emptyToNull(mappedData.emergency_contact_name),
+      relationship: emptyToNull(mappedData.emergency_contact_relationship),
+      phone: emptyToNull(mappedData.emergency_contact_phone),
+      updated_at: now,
+    };
+
+    const existingContact = await supabase
+      .from("employee_emergency_contacts")
+      .select("id")
+      .eq("employee_id", employeeId)
+      .eq("contact_number", 1)
+      .maybeSingle();
+
+    if (existingContact.error) throw existingContact.error;
+
+    const contactWrite = existingContact.data
+      ? await supabase
+          .from("employee_emergency_contacts")
+          .update(contactPayload)
+          .eq("id", existingContact.data.id)
+      : await supabase.from("employee_emergency_contacts").insert(contactPayload);
+
+    if (contactWrite.error) throw contactWrite.error;
+  }
+}
+
+function optionalNumber(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error("A contracted hours/days value is not a valid number.");
+  }
+  return parsed;
+}
+
+function parseWorkingDays(value: string): string[] | null {
+  if (!value.trim()) return null;
+  const canonical = new Map(
+    ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+      .map((day) => [day.toLowerCase(), day])
+  );
+  const days = Array.from(
+    new Set(
+      value
+        .split(/[,;]+/)
+        .map((day) => canonical.get(day.trim().toLowerCase()))
+        .filter((day): day is string => Boolean(day))
+    )
+  );
+  return days.length ? days : null;
 }
 
 async function saveImportRowResult(
@@ -976,6 +1117,17 @@ function normaliseMappedData(
         source.annual_leave_allowance,
         100
       ),
+    continuous_service_date: cleanText(source.continuous_service_date, 10),
+    contracted_hours_per_week: cleanText(source.contracted_hours_per_week, 20),
+    contracted_days_per_week: cleanText(source.contracted_days_per_week, 20),
+    working_days: cleanText(source.working_days, 200),
+    right_to_work_nationality: cleanText(source.right_to_work_nationality, 200),
+    right_to_work_check_date: cleanText(source.right_to_work_check_date, 10),
+    right_to_work_expiry: cleanText(source.right_to_work_expiry, 10),
+    right_to_work_next_review_date: cleanText(source.right_to_work_next_review_date, 10),
+    emergency_contact_name: cleanText(source.emergency_contact_name, 200),
+    emergency_contact_relationship: cleanText(source.emergency_contact_relationship, 100),
+    emergency_contact_phone: cleanText(source.emergency_contact_phone, 100),
   };
 }
 
@@ -1012,6 +1164,10 @@ function validateMappedEmployee(
       "employment end date",
       value.employment_end_date,
     ],
+    ["continuous service date", value.continuous_service_date],
+    ["Right to Work check date", value.right_to_work_check_date],
+    ["Right to Work expiry date", value.right_to_work_expiry],
+    ["Right to Work next review date", value.right_to_work_next_review_date],
   ] as const) {
     if (
       dateValue &&

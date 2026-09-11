@@ -895,7 +895,7 @@ export default function EmployeeProfilePage() {
             <SectionShell
               eyebrow="Emergency information"
               title="Emergency contacts"
-              description="Maintain the employee’s nominated emergency-contact information."
+              description="Review and maintain the employee’s emergency contact details."
             >
               <EmergencyContacts employeeId={employee.id} />
             </SectionShell>

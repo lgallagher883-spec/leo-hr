@@ -28,6 +28,7 @@ const topics = [
   "TUPE",
   "Investigations",
   "Ending employment",
+  "Whistleblowing",
 ];
 
 // Published LEO toolkit resources will be supplied here by the library API.

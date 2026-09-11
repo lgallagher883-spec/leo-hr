@@ -156,8 +156,8 @@ async function loadContext(
 function leoDbsStatusForCareCheck(providerStatus: unknown): string {
   const status = text(providerStatus).toUpperCase();
 
-  if (!status) return "application_submitted";
-  if (status.includes("INVITE")) return "application_submitted";
+  if (!status) return "not_started";
+  if (status.includes("INVITE")) return "candidate_invited";
   if (status.includes("SUBMIT") || status.includes("APPLICATION")) return "application_submitted";
   if (status.includes("CERTIFICATE") && (status.includes("AWAIT") || status.includes("PENDING"))) {
     return "awaiting_certificate";

@@ -715,29 +715,12 @@ export default function VacancyWorkspacePage() {
   }, [candidates, searchTerm]);
 
   const resolveVacancyUrl = useCallback(
-    async (preferLiveRoute = true) => {
+    async () => {
       if (!vacancyId) return "";
-
-      if (preferLiveRoute && vacancy?.status === "open") {
-        const result = await supabase
-          .from("leo_public_careers_vacancies")
-          .select("organisation_slug, vacancy_slug")
-          .eq("vacancy_id", vacancy.id)
-          .maybeSingle();
-
-        if (!result.error && result.data) {
-          const organisationSlug = result.data.organisation_slug ?? "";
-          const vacancySlug = result.data.vacancy_slug ?? "";
-
-          if (organisationSlug && vacancySlug) {
-            return `/careers/${encodeURIComponent(organisationSlug)}/${encodeURIComponent(vacancySlug)}`;
-          }
-        }
-      }
 
       return `/careers/${encodeURIComponent(vacancyId)}`;
     },
-    [vacancy, vacancyId],
+    [vacancyId],
   );
 
   const startEditVacancy = useCallback(() => {
@@ -872,7 +855,7 @@ export default function VacancyWorkspacePage() {
   const publicVacancyPath = vacancyId ? `/careers/${vacancyId}` : "";
 
   const openVacancyPreview = useCallback(async () => {
-    const path = await resolveVacancyUrl(true);
+    const path = await resolveVacancyUrl();
     if (!path) return;
 
     const url = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
@@ -880,7 +863,7 @@ export default function VacancyWorkspacePage() {
   }, [resolveVacancyUrl]);
 
   const copyVacancyUrl = useCallback(async () => {
-    const path = await resolveVacancyUrl(true);
+    const path = await resolveVacancyUrl();
     if (!path) {
       setErrorMessage("The vacancy URL could not be resolved.");
       return;

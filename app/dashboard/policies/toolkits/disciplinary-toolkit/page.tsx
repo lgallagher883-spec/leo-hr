@@ -341,7 +341,9 @@ export default function DisciplinaryToolkitPage() {
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -664,7 +666,7 @@ export default function DisciplinaryToolkitPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated July 2026</span>
+          <span className="updated-pill">Reviewed 11 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -934,14 +936,27 @@ export default function DisciplinaryToolkitPage() {
                 <p>Dear [Employee name],</p>
                 <p><strong>Outcome of disciplinary hearing</strong></p>
                 <p>
-                  Following the disciplinary hearing held on [date], I have
-                  decided that the allegation of [allegation] is [upheld /
-                  partially upheld].
+                  Following the disciplinary hearing held on [date], I considered
+                  the allegation that [set out allegation accurately].
                 </p>
                 <p>
-                  You will receive a [first / final] written warning. It will
-                  remain active for [period]. During this period you are required
-                  to [state the expected conduct or improvement].
+                  <strong>Finding:</strong> [upheld / partially upheld / not upheld].
+                  The evidence supporting this finding was [summarise the key evidence].
+                  I also considered your explanation that [summarise the employee&apos;s account].
+                </p>
+                <p>
+                  <strong>Reasoning:</strong> [explain why the evidence was accepted or
+                  rejected and why the finding is reasonable on the balance of probabilities].
+                </p>
+                <p>
+                  <strong>Mitigation considered:</strong> [length of service, previous record,
+                  personal circumstances, remorse, training, consistency with comparable cases,
+                  or other relevant factors].
+                </p>
+                <p>
+                  The outcome is a [first / final] written warning. The warning will
+                  remain active for [period]. During this period you are required to
+                  [state the conduct or improvement expected, support provided and review arrangements].
                 </p>
                 <p>
                   You may appeal in writing to [name / role] within [number] days,
@@ -957,15 +972,37 @@ export default function DisciplinaryToolkitPage() {
                 <p>Dear [Employee name],</p>
                 <p><strong>Outcome of disciplinary hearing</strong></p>
                 <p>
-                  Following the disciplinary hearing held on [date], I have
-                  decided that the allegation of [allegation] is upheld.
+                  Following the disciplinary hearing held on [date], I considered
+                  the allegation that [set out allegation accurately].
                 </p>
                 <p>
-                  The outcome is dismissal [with notice / without notice for
-                  gross misconduct]. Your employment will end on [date].
+                  <strong>Finding:</strong> the allegation is [upheld / partially upheld].
+                  The principal evidence relied upon was [summarise evidence]. Your
+                  explanation was [summarise response], which I considered alongside
+                  [identify any conflicting or supporting evidence].
                 </p>
                 <p>
-                  You may appeal in writing to [name / role] within [number] days.
+                  <strong>Reasoning:</strong> [explain clearly why the finding was reached,
+                  including credibility or evidential issues where relevant].
+                </p>
+                <p>
+                  <strong>Mitigation and alternatives:</strong> I considered [service,
+                  disciplinary record, apology, personal circumstances, consistency,
+                  training, demotion, redeployment, warning or other alternatives].
+                  [Explain why dismissal is proportionate and why lesser action is not appropriate.]
+                </p>
+                <p>
+                  The outcome is dismissal [with notice / without notice for gross
+                  misconduct]. Your employment will end on [date].
+                </p>
+                <p>
+                  Your final arrangements are: [notice / PILON], [final salary date],
+                  [accrued untaken holiday], [benefits / commission if applicable],
+                  and [return of company property / access arrangements].
+                </p>
+                <p>
+                  You may appeal in writing to [name / role] within [number] days,
+                  stating your grounds of appeal and any new evidence you wish to be considered.
                 </p>
               </div>
             </section>
@@ -992,13 +1029,26 @@ export default function DisciplinaryToolkitPage() {
                 <p>Dear [Employee name],</p>
                 <p><strong>Outcome of disciplinary appeal</strong></p>
                 <p>
-                  Following the appeal hearing held on [date], your appeal is
-                  [upheld / partially upheld / not upheld].
+                  Following the appeal hearing held on [date], I considered your
+                  grounds of appeal: [list each ground separately].
                 </p>
                 <p>
-                  The original outcome is therefore [confirmed / replaced with
-                  the following outcome]. This decision is final under the
-                  organisation&apos;s internal procedure.
+                  I considered [documents, hearing evidence, new evidence and any
+                  further enquiries]. Your explanation was [summary].
+                </p>
+                <p>
+                  <strong>Decision on each ground:</strong> [state whether each ground
+                  is upheld or not upheld and explain why].
+                </p>
+                <p>
+                  Your appeal is therefore [upheld / partially upheld / not upheld].
+                  The original outcome is [confirmed / revoked / replaced with
+                  the following outcome], because [give the reasons].
+                </p>
+                <p>
+                  Any practical changes resulting from the appeal are: [warning
+                  status, reinstatement, pay adjustment, records correction or other action].
+                  This decision is final under the organisation&apos;s internal procedure.
                 </p>
               </div>
             </section>
@@ -1032,7 +1082,7 @@ export default function DisciplinaryToolkitPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: July 2026
+                Last reviewed: 11 September 2026
               </p>
             </section>
 
@@ -1043,21 +1093,21 @@ export default function DisciplinaryToolkitPage() {
                   className="related-link"
                   href="/dashboard/policies/guides"
                 >
-                  Managing a probation period
+                  Managing a disciplinary process
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/checklists"
                 >
-                  New starter checklist
+                  Disciplinary investigation checklist
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  New starter forms
+                  Disciplinary hearing checklist
                 </Link>
               </div>
             </section>

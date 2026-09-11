@@ -145,7 +145,9 @@ export default function SicknessAbsencePage() {
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -468,7 +470,7 @@ export default function SicknessAbsencePage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 11 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -550,8 +552,8 @@ export default function SicknessAbsencePage() {
 <li>Document every significant decision.</li>
 </ul>
 
-<div className="notice"><strong>Legal position — January 2027</strong>
-<p>This factsheet reflects the law in England & Wales as at January 2027. Employers should manage sickness absence fairly, comply with disability discrimination obligations where applicable and follow a reasonable capability process before considering dismissal.</p></div>
+<div className="notice"><strong>Legal review — 11 September 2026</strong>
+<p>This factsheet reflects the law in England & Wales as at 11 September 2026. Employers should manage sickness absence fairly, comply with disability discrimination obligations where applicable and follow a reasonable capability process before considering dismissal.</p></div>
 </article>
 
           <aside className="side-panel">
@@ -561,13 +563,13 @@ export default function SicknessAbsencePage() {
                 Topic: Managing Sickness Absence<br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 11 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 11 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 

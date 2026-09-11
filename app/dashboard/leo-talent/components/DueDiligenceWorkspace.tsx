@@ -648,6 +648,14 @@ export default function DueDiligenceWorkspace() {
                     candidateEmail={selected.candidate?.email}
                     required={Boolean(selected.vacancy?.requires_dbs)}
                     dbsLevel={effectiveDbsLevel}
+                    workforce={
+                      typeof dbsValue.workforce === "string"
+                        ? dbsValue.workforce
+                        : null
+                    }
+                    barredListCheckRequired={Boolean(
+                      dbsValue.barredListCheckRequired,
+                    )}
                     careCheck={
                       dbsValue?.careCheck &&
                       typeof dbsValue.careCheck === "object"

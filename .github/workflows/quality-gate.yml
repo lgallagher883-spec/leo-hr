@@ -33,4 +33,11 @@ jobs:
         run: npm test
 
       - name: Build application
+        env:
+          OPENAI_API_KEY: test-ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-ci-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: test-ci-placeholder
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          NEXT_PUBLIC_APP_URL: https://app.leohr.co.uk
         run: npm run build

@@ -1,6 +1,3 @@
-import axios from "axios";
-import https from "https";
-
 import { careCheckConfig } from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
@@ -109,33 +106,23 @@ export async function sendCareCheckCandidateInvite(
   console.log("CARECHECK SOAP REQUEST");
   console.log(envelope);
 
-  const httpsAgent = new https.Agent({
-    keepAlive: true,
-  });
-
-  const response = await axios.post(
+  const response = await fetch(
     CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT,
-    envelope,
     {
-      httpsAgent,
+      method: "POST",
       headers: {
         "Accept-Encoding": "gzip,deflate",
         "Content-Type": "text/xml;charset=UTF-8",
         SOAPAction: '""',
-        "User-Agent": "Apache-HttpClient/4.5.5 (Java/17.0.12)",
-        Connection: "Keep-Alive",
+        "User-Agent": "LEO-HR-CareCheck/1.0",
       },
-      responseType: "text",
-      transformResponse: [(data) => data],
-      validateStatus: () => true,
-      timeout: 30000,
+      body: envelope,
+      cache: "no-store",
+      signal: AbortSignal.timeout(30000),
     },
   );
 
-  const rawResponse =
-    typeof response.data === "string"
-      ? response.data
-      : String(response.data ?? "");
+  const rawResponse = await response.text();
 
   console.log("CARECHECK HTTP STATUS", response.status);
   console.log("CARECHECK RESPONSE");

@@ -127,9 +127,9 @@ async function loadStandardReminderDays(args: {
     return [30, 7];
   }
 
-  const days = Array.from(
-    new Set(
-      result.data.standard_days_before
+  const days: number[] = Array.from(
+    new Set<number>(
+      (result.data.standard_days_before as unknown[])
         .map((value: unknown) => Number(value))
         .filter(
           (value: number) =>
@@ -138,7 +138,7 @@ async function loadStandardReminderDays(args: {
             value <= 90,
         ),
     ),
-  ).sort((a, b) => b - a);
+  ).sort((a: number, b: number) => b - a);
 
   return days.length > 0 ? days : [30, 7];
 }

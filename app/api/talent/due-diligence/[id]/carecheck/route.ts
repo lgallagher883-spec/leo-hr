@@ -17,6 +17,11 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function careCheckReference(value: unknown, fallback: string): string {
+  const normalised = text(value).replace(/[^A-Za-z0-9_]/g, "");
+  return normalised || fallback.replace(/[^A-Za-z0-9_]/g, "");
+}
+
 function normaliseRole(value: unknown): PlatformRole {
   const role = text(value).toLowerCase();
 
@@ -309,12 +314,14 @@ export async function POST(request: Request, routeContext: RouteContext) {
        * remains deliberately isolated until CareCheck confirms it.
        */
       const invite = await sendCareCheckCandidateInvite({
-        externalReference:
-          text(context.application?.application_reference) ||
-          String(context.profile.application_id),
-        candidateReference:
-          text(context.candidate.candidate_reference) ||
-          String(context.profile.candidate_id),
+        externalReference: careCheckReference(
+          context.application?.application_reference,
+          `APP${String(context.profile.application_id)}`,
+        ),
+        candidateReference: careCheckReference(
+          context.candidate.candidate_reference,
+          `CAN${String(context.profile.candidate_id)}`,
+        ),
         candidateEmailAddress: context.candidate.email,
         candidateFirstName: context.candidate.first_name,
         candidateSurname: context.candidate.last_name,

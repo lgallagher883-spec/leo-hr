@@ -12,6 +12,8 @@ type CareCheckState = {
   statusDescription?: string | null;
   isCurrentStatus?: boolean | null;
   vacancyDbsLevel?: string | null;
+  workingWithVulnerableAdults?: string | null;
+  workingWithChildren?: string | null;
 };
 
 type CareCheckDBSPanelProps = {
@@ -19,6 +21,8 @@ type CareCheckDBSPanelProps = {
   candidateEmail?: string | null;
   required: boolean;
   dbsLevel?: string | null;
+  workforce?: string | null;
+  barredListCheckRequired?: boolean;
   careCheck?: CareCheckState | null;
   canManage: boolean;
   onUpdated: () => Promise<void> | void;
@@ -44,6 +48,8 @@ export default function CareCheckDBSPanel({
   candidateEmail,
   required,
   dbsLevel,
+  workforce,
+  barredListCheckRequired = false,
   careCheck,
   canManage,
   onUpdated,
@@ -55,6 +61,31 @@ export default function CareCheckDBSPanel({
   const applicationReference = careCheck?.applicationReference?.trim() || "";
   const hasApplication = Boolean(applicationReference);
   const developmentActionsAvailable = process.env.NODE_ENV !== "production";
+
+  const workforceLabel =
+    workforce === "child"
+      ? "Child workforce"
+      : workforce === "adult"
+        ? "Adult workforce"
+        : workforce === "child_and_adult"
+          ? "Child and adult workforce"
+          : workforce === "other"
+            ? "Other workforce"
+            : "Not selected";
+
+  const providerChildren = careCheck?.workingWithChildren?.trim() || "";
+  const providerAdults = careCheck?.workingWithVulnerableAdults?.trim() || "";
+  const providerWorkforce =
+    !providerChildren && !providerAdults
+      ? "Not yet reported"
+      : providerChildren.toLowerCase() === "yes" &&
+          providerAdults.toLowerCase() === "yes"
+        ? "Child and adult workforce"
+        : providerChildren.toLowerCase() === "yes"
+          ? "Child workforce"
+          : providerAdults.toLowerCase() === "yes"
+            ? "Adult workforce"
+            : "Other / neither";
 
   async function run(action: "invite" | "refresh_status") {
     setBusy(action === "invite" ? "invite" : "refresh");
@@ -218,6 +249,36 @@ export default function CareCheckDBSPanel({
               label="Last checked"
               value={formatDateTime(careCheck?.lastCheckedAt)}
             />
+            <Info
+              label="Leo workforce"
+              value={workforceLabel}
+            />
+            <Info
+              label="Barred List"
+              value={barredListCheckRequired ? "Recorded as required" : "Not recorded as required"}
+            />
+            <Info
+              label="CareCheck workforce"
+              value={providerWorkforce}
+            />
+          </div>
+
+          <div
+            style={{
+              marginTop: "12px",
+              border: "1px solid #E4D9EA",
+              borderRadius: "10px",
+              background: "#FFFFFF",
+              color: "#746A79",
+              padding: "10px 12px",
+              fontSize: "11px",
+              lineHeight: 1.5,
+            }}
+          >
+            Workforce and Barred List eligibility remain employer-recorded decisions in Leo.
+            CareCheck&apos;s Candidate Invite service does not carry those fields; when CareCheck
+            later reports workforce indicators, Leo shows them here for comparison and does not
+            automatically infer Barred List eligibility.
           </div>
 
           {message ? (

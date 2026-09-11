@@ -108,7 +108,6 @@ export default function EmergencyContactsPage() {
     <main style={pageStyle}>
       <header style={headerStyle}>
         <div>
-          <p style={eyebrow}>Employee workspace</p>
           <h1 style={titleStyle}>Emergency Contacts</h1>
           <p style={introStyle}>Review and maintain the emergency contact details held for you.</p>
         </div>

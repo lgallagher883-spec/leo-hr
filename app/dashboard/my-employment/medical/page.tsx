@@ -115,7 +115,6 @@ export default function MedicalPage() {
   return (
     <main style={pageStyle}>
       <header style={{ marginBottom: 24 }}>
-        <p style={eyebrow}>Employee workspace</p>
         <h1 style={titleStyle}>Medical Information &amp; Fit Notes</h1>
         <p style={introStyle}>Review the health information held for you and securely upload fit notes for your organisation.</p>
       </header>

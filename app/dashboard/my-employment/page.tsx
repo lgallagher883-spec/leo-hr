@@ -46,9 +46,6 @@ export default function MyEmploymentPage() {
     <main className={styles.hubPage} style={pageStyle}>
       <header className={styles.hubHeader} style={headerStyle}>
         <div>
-          <p className={styles.employeeMobileHide} style={eyebrowStyle}>
-            Employee workspace
-          </p>
 
           <h1 style={titleStyle}>My Employment</h1>
 

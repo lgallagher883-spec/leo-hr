@@ -1735,7 +1735,7 @@ export async function POST(request: Request, context: RouteContext) {
   const format = readBundleFormat(body.format);
   const includeTranscript = readBoolean(body.includeTranscript);
 
-  const access = await requirePermission("matters.view");
+  const access = await requirePermission("matters.export");
 
   if (access.response) {
     return access.response;

@@ -1760,7 +1760,7 @@ export default function EmployeesPage() {
 
                   <Panel
                     title="Import complete"
-                    description="Review the final result for each source row."
+                    description="Review the final result, then open any employee record to complete Right to Work, driving, DBS or other compliance details that were not included in the import."
                   >
                     <div style={previewTableWrapperStyle}>
                       <table style={previewTableStyle}>
@@ -1780,7 +1780,23 @@ export default function EmployeesPage() {
                           {importResult.rowResults.map((row) => (
                             <tr key={`${row.rowNumber}-${row.name}`}>
                               <td style={tableCellStyle}>{row.rowNumber}</td>
-                              <td style={tableCellStyle}>{row.name}</td>
+                              <td style={tableCellStyle}>
+                                {row.employeeId ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      router.push(
+                                        `/dashboard/employees/${row.employeeId}`
+                                      )
+                                    }
+                                    style={tableLinkButtonStyle}
+                                  >
+                                    {row.name}
+                                  </button>
+                                ) : (
+                                  row.name
+                                )}
+                              </td>
                               <td style={tableCellStyle}>{row.result}</td>
                               <td style={tableCellStyle}>
                                 {row.employeeId || "Not created"}
@@ -3269,6 +3285,19 @@ const tableHeaderStyle: CSSProperties = {
   padding: "10px",
   borderBottom: "1px solid #E7E1EA",
   whiteSpace: "nowrap",
+};
+
+const tableLinkButtonStyle: CSSProperties = {
+  padding: 0,
+  border: 0,
+  background: "transparent",
+  color: "#6E5084",
+  font: "inherit",
+  fontWeight: 800,
+  textAlign: "left",
+  cursor: "pointer",
+  textDecoration: "underline",
+  textUnderlineOffset: "2px",
 };
 
 const tableCellStyle: CSSProperties = {

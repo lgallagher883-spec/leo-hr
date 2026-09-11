@@ -522,6 +522,11 @@ export default function DueDiligenceWorkspace() {
     return <Shell><Empty title="Loading due diligence" text="Leo is preparing the candidate register." /></Shell>;
   }
 
+  const dbsValue = valueFor("dbs");
+  const effectiveDbsLevel = selected?.vacancy?.requires_dbs
+    ? (selected.vacancy?.dbs_level ?? dbsValue.requirement ?? "enhanced")
+    : "not_required";
+
   return (
     <Shell>
       <header style={styles.pageHeader}>
@@ -602,11 +607,11 @@ export default function DueDiligenceWorkspace() {
                     profileId={selected.profile.id}
                     candidateEmail={selected.candidate?.email}
                     required={Boolean(selected.vacancy?.requires_dbs)}
-                    dbsLevel={selected.vacancy?.dbs_level}
+                    dbsLevel={effectiveDbsLevel}
                     careCheck={
-                      valueFor("dbs")?.careCheck &&
-                      typeof valueFor("dbs").careCheck === "object"
-                        ? valueFor("dbs").careCheck
+                      dbsValue?.careCheck &&
+                      typeof dbsValue.careCheck === "object"
+                        ? dbsValue.careCheck
                         : null
                     }
                     canManage={role !== "employee"}
@@ -615,11 +620,9 @@ export default function DueDiligenceWorkspace() {
                   <DBSDetails
                     {...sharedProps("dbs")}
                     value={{
-                      ...valueFor("dbs"),
+                      ...dbsValue,
                       roleRequiresDBS: Boolean(selected.vacancy?.requires_dbs),
-                      requirement: selected.vacancy?.requires_dbs
-                        ? (selected.vacancy?.dbs_level ?? "enhanced")
-                        : "not_required",
+                      requirement: effectiveDbsLevel,
                     }}
                   />
                 </>

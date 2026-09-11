@@ -2563,9 +2563,9 @@ const headerActionStyle: React.CSSProperties = {
 };
 
 const primaryActionButtonStyle: React.CSSProperties = {
-  border: "none",
+  border: "1px solid #6E5084",
   borderRadius: "10px",
-  background: "#1D4ED8",
+  background: "#6E5084",
   color: "#FFFFFF",
   padding: "10px 12px",
   fontSize: "12px",
@@ -2574,10 +2574,10 @@ const primaryActionButtonStyle: React.CSSProperties = {
 };
 
 const secondaryActionButtonStyle: React.CSSProperties = {
-  border: "1px solid #D1D5DB",
+  border: "1px solid #CDB2E2",
   borderRadius: "10px",
-  background: "#FFFFFF",
-  color: "#374151",
+  background: "#F7F1FC",
+  color: "#6E5084",
   padding: "10px 12px",
   fontSize: "12px",
   fontWeight: 700,

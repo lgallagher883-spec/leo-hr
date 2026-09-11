@@ -1,4 +1,4 @@
-import { careCheckConfig } from "./client";
+import { getCareCheckConfig } from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT =
@@ -44,10 +44,11 @@ function getTagValue(xml: string, tagName: string): string | null {
 
 function buildCandidateInviteEnvelope(
   input: CareCheckCandidateInviteInput,
+  config: ReturnType<typeof getCareCheckConfig>,
 ): string {
   const securityHeader = createCareCheckWsSecurityHeader({
-    username: careCheckConfig.username,
-    password: careCheckConfig.password,
+    username: config.username,
+    password: config.password,
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -65,7 +66,7 @@ function buildCandidateInviteEnvelope(
       <ebul:checkType>${escapeXml(input.checkType)}</ebul:checkType>
       <ebul:type>${escapeXml(input.type)}</ebul:type>
       <ebul:organisationReference>${escapeXml(
-        careCheckConfig.organisationReference,
+        config.organisationReference,
       )}</ebul:organisationReference>
     </ebul:EbulkCandidateInviteRequest>
   </soapenv:Body>
@@ -75,6 +76,8 @@ function buildCandidateInviteEnvelope(
 export async function sendCareCheckCandidateInvite(
   input: CareCheckCandidateInviteInput,
 ): Promise<CareCheckCandidateInviteResult> {
+  const careCheckConfig = getCareCheckConfig();
+
   if (careCheckConfig.environment !== "sandbox") {
     throw new Error(
       "Production CareCheck candidate invites are not configured yet.",
@@ -101,7 +104,7 @@ export async function sendCareCheckCandidateInvite(
     throw new Error("Candidate surname is required.");
   }
 
-  const envelope = buildCandidateInviteEnvelope(input);
+  const envelope = buildCandidateInviteEnvelope(input, careCheckConfig);
 
   console.log("CARECHECK SOAP REQUEST");
   console.log(envelope);

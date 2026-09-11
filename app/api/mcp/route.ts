@@ -505,7 +505,22 @@ export async function POST(request: Request) {
     return rpcError(body.id, -32003, authentication.message, 403);
   }
 
-  const toolName = String(body.params?.name || "");
+  const requestedToolName = String(body.params?.name || "");
+
+  // Backward-compatible aliases for ChatGPT development-app snapshots created
+  // before the privacy-safe MCP tool names were finalised. ChatGPT can retain
+  // an older action catalogue even while Leo serves the current tools/list.
+  // These aliases preserve read-only behaviour and route to the current,
+  // privacy-filtered handlers.
+  const legacyToolAliases: Record<string, string> = {
+    leo_get_employee: "leo_get_employee_overview",
+    leo_list_employees: "leo_search_employees",
+    leo_attention: "leo_get_attention_summary",
+  };
+
+  const toolName =
+    legacyToolAliases[requestedToolName] || requestedToolName;
+
   const rawArguments = body.params?.arguments;
   const args =
     rawArguments && typeof rawArguments === "object" && !Array.isArray(rawArguments)

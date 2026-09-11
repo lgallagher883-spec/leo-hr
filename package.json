@@ -7,7 +7,10 @@
     "build": "npm run validate:hr-resources && next build",
     "start": "next start",
     "lint": "eslint",
-    "validate:hr-resources": "node scripts/validate-hr-resources.mjs"
+    "validate:hr-resources": "node scripts/validate-hr-resources.mjs",
+    "test": "node --test tests/ask-leo-single-brain.test.mjs tests/auth-regression.test.mjs tests/security-regression.test.mjs",
+    "test:critical": "npm test",
+    "quality": "npm test && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

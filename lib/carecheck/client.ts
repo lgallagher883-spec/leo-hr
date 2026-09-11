@@ -7,14 +7,14 @@ type CareCheckConfig = {
 
 function getCareCheckConfig(): CareCheckConfig {
   const environment = process.env.CARECHECK_ENV;
-  const username = process.env.CARECHECK_USERNAME;
+  const username = process.env.CARECHECK_USERNAME?.trim();
   const password = process.env.CARECHECK_PASSWORD;
   const organisationReference =
-    process.env.CARECHECK_ORGANISATION_REFERENCE;
+    process.env.CARECHECK_ORGANISATION_REFERENCE?.trim();
 
   if (environment !== "sandbox" && environment !== "production") {
     throw new Error(
-      "CARECHECK_ENV must be either 'sandbox' or 'production'"
+      "CARECHECK_ENV must be either 'sandbox' or 'production'",
     );
   }
 
@@ -28,7 +28,7 @@ function getCareCheckConfig(): CareCheckConfig {
 
   if (!organisationReference) {
     throw new Error(
-      "CARECHECK_ORGANISATION_REFERENCE is not configured"
+      "CARECHECK_ORGANISATION_REFERENCE is not configured",
     );
   }
 

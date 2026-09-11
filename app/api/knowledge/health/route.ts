@@ -90,7 +90,8 @@ export async function GET() {
       .select("*", {
         count: "exact",
         head: true,
-      });
+      })
+      .eq("organisation_id", organisationId);
 
     if (error) {
       return NextResponse.json(

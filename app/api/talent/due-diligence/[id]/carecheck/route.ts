@@ -153,6 +153,24 @@ async function loadContext(
   };
 }
 
+function leoDbsStatusForCareCheck(providerStatus: unknown): string {
+  const status = text(providerStatus).toUpperCase();
+
+  if (!status) return "application_submitted";
+  if (status.includes("INVITE")) return "application_submitted";
+  if (status.includes("SUBMIT") || status.includes("APPLICATION")) return "application_submitted";
+  if (status.includes("CERTIFICATE") && (status.includes("AWAIT") || status.includes("PENDING"))) {
+    return "awaiting_certificate";
+  }
+  if (status.includes("VERIFY") || status.includes("VERIFICATION")) return "awaiting_verification";
+  if (status.includes("COMPLETE") || status.includes("COMPLETED") || status.includes("ISSUED")) {
+    return "awaiting_verification";
+  }
+  if (status.includes("REVIEW") || status.includes("DISCLOS")) return "further_review_required";
+
+  return "application_submitted";
+}
+
 async function saveCareCheckState({
   supabase,
   organisationId,
@@ -172,8 +190,20 @@ async function saveCareCheckState({
       ? (context.shared.payload as Record<string, unknown>)
       : {};
 
+  const leoStatus = leoDbsStatusForCareCheck(careCheck.statusCode);
   const nextPayload = {
     ...existingPayload,
+    roleRequiresDBS: Boolean(context.vacancy?.requires_dbs),
+    requirement: context.vacancy?.requires_dbs
+      ? (context.vacancy?.dbs_level ?? existingPayload.requirement ?? "enhanced")
+      : "not_required",
+    status: leoStatus,
+    applicationReference:
+      text(careCheck.applicationReference) || text(existingPayload.applicationReference),
+    applicationSubmittedDate:
+      text(existingPayload.applicationSubmittedDate) ||
+      (text(careCheck.invitedAt) ? text(careCheck.invitedAt).slice(0, 10) : ""),
+    applicationProvider: "CareCheck",
     careCheck,
   };
 
@@ -182,6 +212,7 @@ async function saveCareCheckState({
       .from("leo_talent_candidate_shared_records")
       .update({
         payload: nextPayload,
+        status: leoStatus,
         updated_at: now,
       })
       .eq("id", context.shared.id)
@@ -203,7 +234,7 @@ async function saveCareCheckState({
       safer_recruitment_profile_id: context.profile.id,
       component_key: "dbs",
       payload: nextPayload,
-      status: "pending",
+      status: leoStatus,
       completed_at: null,
       updated_at: now,
     })

@@ -324,6 +324,7 @@ function isDueDiligenceCheckComplete(
 
   return [
     "verified",
+    "time_limited",
     "complete",
     "satisfactory",
     "active",

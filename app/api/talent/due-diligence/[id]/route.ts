@@ -132,6 +132,7 @@ function isComplete(key: SharedKey, payload: any, vacancy: any) {
 
   return [
     "verified",
+    "time_limited",
     "complete",
     "satisfactory",
     "active",

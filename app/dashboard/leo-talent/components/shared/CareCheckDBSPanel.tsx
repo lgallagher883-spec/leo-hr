@@ -275,10 +275,8 @@ export default function CareCheckDBSPanel({
               lineHeight: 1.5,
             }}
           >
-            Workforce and Barred List eligibility remain employer-recorded decisions in Leo.
-            CareCheck&apos;s Candidate Invite service does not carry those fields; when CareCheck
-            later reports workforce indicators, Leo shows them here for comparison and does not
-            automatically infer Barred List eligibility.
+            Workforce and Barred List requirements are recorded by the employer.
+            Leo does not assume eligibility from the DBS level alone.
           </div>
 
           {message ? (

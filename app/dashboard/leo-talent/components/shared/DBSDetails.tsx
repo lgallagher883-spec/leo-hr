@@ -46,6 +46,7 @@ export type DBSRequirement =
 export type DBSStatus =
   | "not_started"
   | "application_required"
+  | "candidate_invited"
   | "application_submitted"
   | "awaiting_certificate"
   | "awaiting_verification"
@@ -318,6 +319,10 @@ const STATUS_OPTIONS: Array<{
   {
     value: "application_required",
     label: "Application required",
+  },
+  {
+    value: "candidate_invited",
+    label: "Candidate invited",
   },
   {
     value: "application_submitted",

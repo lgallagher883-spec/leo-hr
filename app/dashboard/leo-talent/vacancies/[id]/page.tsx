@@ -855,7 +855,7 @@ export default function VacancyWorkspacePage() {
   const publicVacancyPath = vacancyId ? `/careers/${vacancyId}` : "";
 
   const openVacancyPreview = useCallback(async () => {
-    const path = await resolveVacancyUrl(true);
+    const path = await resolveVacancyUrl();
     if (!path) return;
 
     const url = typeof window === "undefined" ? path : `${window.location.origin}${path}`;
@@ -863,7 +863,7 @@ export default function VacancyWorkspacePage() {
   }, [resolveVacancyUrl]);
 
   const copyVacancyUrl = useCallback(async () => {
-    const path = await resolveVacancyUrl(true);
+    const path = await resolveVacancyUrl();
     if (!path) {
       setErrorMessage("The vacancy URL could not be resolved.");
       return;

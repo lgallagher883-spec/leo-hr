@@ -184,6 +184,44 @@ function statusTone(status: string) {
   return { background: "#F7F1FC", border: "#DDCDEB", colour: "#6E5084" };
 }
 
+function careCheckDbsStatus(payload: Record<string, unknown> | undefined): string | null {
+  const careCheck =
+    payload?.careCheck && typeof payload.careCheck === "object"
+      ? (payload.careCheck as Record<string, unknown>)
+      : null;
+  const providerStatus =
+    typeof careCheck?.statusCode === "string"
+      ? careCheck.statusCode.toUpperCase()
+      : "";
+
+  if (!providerStatus) return null;
+  if (providerStatus.includes("INVITE")) return "candidate_invited";
+  if (providerStatus.includes("SUBMIT") || providerStatus.includes("APPLICATION")) {
+    return "application_submitted";
+  }
+  if (
+    providerStatus.includes("CERTIFICATE") &&
+    (providerStatus.includes("AWAIT") || providerStatus.includes("PENDING"))
+  ) {
+    return "awaiting_certificate";
+  }
+  if (providerStatus.includes("VERIFY") || providerStatus.includes("VERIFICATION")) {
+    return "awaiting_verification";
+  }
+  if (
+    providerStatus.includes("COMPLETE") ||
+    providerStatus.includes("COMPLETED") ||
+    providerStatus.includes("ISSUED")
+  ) {
+    return "awaiting_verification";
+  }
+  if (providerStatus.includes("REVIEW") || providerStatus.includes("DISCLOS")) {
+    return "further_review_required";
+  }
+
+  return null;
+}
+
 function extractStatus(key: SharedKey, value: any): string | null {
   switch (key) {
     case "identity_verification":
@@ -523,6 +561,8 @@ export default function DueDiligenceWorkspace() {
   }
 
   const dbsValue = valueFor("dbs");
+  const effectiveDbsStatus =
+    careCheckDbsStatus(dbsValue) ?? dbsValue.status ?? "not_started";
   const effectiveDbsLevel = selected?.vacancy?.requires_dbs
     ? (selected.vacancy?.dbs_level ?? dbsValue.requirement ?? "enhanced")
     : "not_required";
@@ -621,6 +661,7 @@ export default function DueDiligenceWorkspace() {
                     {...sharedProps("dbs")}
                     value={{
                       ...dbsValue,
+                      status: effectiveDbsStatus,
                       roleRequiresDBS: Boolean(selected.vacancy?.requires_dbs),
                       requirement: effectiveDbsLevel,
                     }}
@@ -666,7 +707,13 @@ function Overview({
       <h3 style={styles.cardTitle}>Role-specific check position</h3>
       <div style={styles.requirementList}>
         {requirements.map((item) => {
-          const status = shared[item.key]?.status ?? (item.required ? "not_started" : "not_required");
+          const storedStatus =
+            shared[item.key]?.status ??
+            (item.required ? "not_started" : "not_required");
+          const status =
+            item.key === "dbs"
+              ? careCheckDbsStatus(shared.dbs?.payload) ?? storedStatus
+              : storedStatus;
           return <div key={item.key} style={styles.requirementRow}><div><strong>{item.label}</strong><small>{item.required ? "Required for this appointment" : "Not required by the vacancy"}</small></div><Status status={status} /></div>;
         })}
       </div>

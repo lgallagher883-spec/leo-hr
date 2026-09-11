@@ -206,8 +206,11 @@ return sectionFacts
         <FoundationCard
           title="Notifications"
           description="Choose how Leo keeps you informed."
-          detail="Weekly digests, compliance reminders and employee-facing notifications."
+          detail="Set standard compliance and learning reminder timings. SAR deadline reminders remain protected."
           buttonLabel="Configure"
+          onClick={() =>
+            router.push("/dashboard/foundations/notifications")
+          }
         />
 
         <FoundationCard

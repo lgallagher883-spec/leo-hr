@@ -668,7 +668,7 @@ export default function LettersPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -689,7 +689,7 @@ export default function LettersPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -700,7 +700,7 @@ export default function LettersPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>

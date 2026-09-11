@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -74,6 +74,19 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("password-reset") === "success") {
+      setSuccessMessage(
+        "Your password has been updated. Sign in with your new password.",
+      );
+
+      window.history.replaceState({}, "", "/login");
+    }
+  }, []);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -230,7 +243,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error ? (
+            {successMessage ? (
+                <div className={styles["success-message"]} role="status">
+                  {successMessage}
+                </div>
+              ) : null}
+
+              {error ? (
               <div className={styles["error-message"]} role="alert">
                 {error}
               </div>

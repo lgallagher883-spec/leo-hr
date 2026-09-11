@@ -240,6 +240,7 @@ function DashboardPageContent() {
   const [leoPrompt, setLeoPrompt] = useState("");
   const [employeeCount, setEmployeeCount] = useState<number | null>(null);
   const [foundationFacts, setFoundationFacts] = useState<FoundationFact[]>([]);
+  const [setupDataLoaded, setSetupDataLoaded] = useState(false);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [insightPayload, setInsightPayload] =
     useState<InsightPayload | null>(null);
@@ -401,10 +402,11 @@ function DashboardPageContent() {
           employeeResult.error,
         );
         setEmployeeCount(null);
-        return;
+      } else {
+        setEmployeeCount(employeeResult.count ?? 0);
       }
 
-      setEmployeeCount(employeeResult.count ?? 0);
+      setSetupDataLoaded(true);
     }
 
     void loadDashboardDetails();
@@ -647,7 +649,7 @@ function DashboardPageContent() {
         </button>
       </header>
 
-      {!setupComplete ? (
+      {setupDataLoaded && !setupComplete ? (
         <section style={setupCardStyle} aria-labelledby="getting-started-heading">
           <div style={setupHeaderStyle}>
             <div>

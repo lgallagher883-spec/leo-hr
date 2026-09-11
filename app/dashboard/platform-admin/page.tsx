@@ -83,7 +83,7 @@ const adminAreas: AdminArea[] = [
       "Review service availability and important platform checks.",
     href: "/dashboard/platform-admin/system-health",
     icon: HeartPulse,
-    available: false,
+    available: true,
   },
 ];
 

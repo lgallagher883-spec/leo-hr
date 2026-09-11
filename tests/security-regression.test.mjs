@@ -36,3 +36,17 @@ test("secure HR resource uploads require manage while reads require view", () =>
   assert.match(secureResources, /authorisedContext\("hr_resources\.manage"\)/);
   assert.match(secureResources, /authorisedContext\("hr_resources\.view"\)/);
 });
+
+
+const reminderEngine = read("app/api/reminders/_engine.ts");
+const reminderSettings = read("app/api/reminders/settings/route.ts");
+
+test("standard reminder timing is organisation configurable while SAR timing stays fixed", () => {
+  assert.match(reminderEngine, /organisation_reminder_settings/);
+  assert.match(reminderEngine, /standardReminderDays/);
+  assert.match(reminderEngine, /if \(days <= 1\) return "T-1"/);
+  assert.match(reminderEngine, /if \(days <= 14\) return "T-14"/);
+  assert.match(reminderSettings, /notifications\.manage/);
+  assert.match(reminderSettings, /standardDaysBefore/);
+  assert.match(reminderSettings, /sarDaysBefore:\s*\[14, 7, 1\]/);
+});

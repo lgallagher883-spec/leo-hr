@@ -551,7 +551,7 @@ export default function FlexibleWorkingOutcomePage() {
 
 <div className="notice">
 <strong>Template guidance</strong>
-<p>Reflects good HR practice in England &amp; Wales as at January 2027. Employers should consult meaningfully, consider each request individually, document their reasoning and avoid discriminatory decision-making.</p>
+<p>Reviewed against current flexible-working law and good HR practice in England &amp; Wales on 12 September 2026. Employers should consult meaningfully, consider each request individually, document their reasoning and avoid discriminatory decision-making.</p>
 </div>
 </article>
 
@@ -559,11 +559,11 @@ export default function FlexibleWorkingOutcomePage() {
             <section className="side-card">
               <h2>About this resource</h2>
               <p>
-                Topic: Probation
+                Topic: Flexible working
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
@@ -578,23 +578,23 @@ export default function FlexibleWorkingOutcomePage() {
               <div className="related-list">
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/factsheets/probation-periods"
+                  href="/dashboard/policies/factsheets/flexible-working"
                 >
-                  Probation Periods &amp; Reviews Factsheet
+                  Flexible Working Factsheet
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/guides"
                 >
-                  Managing Probation Guide
+                  Managing Flexible Working Requests Guide
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  Probation Review Form
+                  Flexible Working Forms
                 </Link>
 
                 <Link

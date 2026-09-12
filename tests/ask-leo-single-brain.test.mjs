@@ -123,6 +123,18 @@ test("prompt keeps sparse live questions calm and proportionate", () => {
   assert.match(builder, /do not describe later stages before they become relevant/i);
 });
 
+test("Ask Leo applies a strict output contract to sparse live situations", () => {
+  assert.match(route, /coreResult\\.requiresMatter/);
+  assert.match(route, /message\\.split\\(\\/\\\\s\\+\\//);
+  assert.match(route, /\\? "sparse_live"/);
+  assert.match(builder, /SHORT, FACT-LIGHT LIVE SITUATION/);
+  assert.match(builder, /takes priority over general formatting preferences/i);
+  assert.match(builder, /Do not use a numbered list/i);
+  assert.match(builder, /headed exactly "Next steps" containing two or three concise bullet points/i);
+  assert.match(builder, /Do not repeat those actions elsewhere/i);
+  assert.match(builder, /End there\\. Do not add a generic concluding paragraph/i);
+});
+
 test("prompt remains subject-neutral without topic-specific decision trees", () => {
   assert.match(builder, /Do not use topic-specific decision trees/);
   assert.match(builder, /they are only possible labels/i);

@@ -707,7 +707,7 @@ export default function RecruitingTheRightEmployeePage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Legal review — 12 September 2026</strong>
               <p>
                 Recruitment decisions must comply with equality, immigration,
                 data-protection and sector-specific safeguarding requirements.

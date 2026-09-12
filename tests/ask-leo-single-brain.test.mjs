@@ -219,6 +219,10 @@ test("timing instrumentation remains diagnostic-only and gated", () => {
   assert.equal(timingLogMatches.length, 1);
   assert.doesNotMatch(route, /askLeoTimingEnabled[^\n]*\?[^\n]*model/);
   assert.match(route, /professionalModelStartMs: Math\.round/);
+  assert.match(route, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(route, /"X-Leo-Version"/);
+  assert.match(route, /leoModel/);
+  assert.match(route, /responseMode:/);
   assert.match(route, /authorityTotalMs: Math\.round\(authorityTotalMs\)/);
   assert.match(route, /storedAuthorityMs:/);
   assert.match(route, /liveAuthorityMs:/);

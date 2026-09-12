@@ -618,6 +618,9 @@ export async function POST(req: Request) {
     }
 
     const encoder = new TextEncoder();
+    const leoVersion =
+      process.env.VERCEL_GIT_COMMIT_SHA || "local";
+    const leoModel = "gpt-4o";
 
     const responseStream = new ReadableStream({
       async start(controller) {
@@ -633,6 +636,16 @@ export async function POST(req: Request) {
           sendEvent({
             type: "meta",
             conversationId: persistedConversationId,
+            leoVersion,
+            leoModel,
+            responseMode:
+              coreResult.requiresMatter &&
+              !activeMatterId &&
+              !contextSummary &&
+              message.split(/\s+/).filter(Boolean).length <= 60
+                ? "sparse_live"
+                : "standard",
+            authorityOrigin,
           });
 
           for await (const chunk of completionStream) {
@@ -754,6 +767,9 @@ export async function POST(req: Request) {
           "no-cache, no-transform",
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",
+        "X-Leo-Version": leoVersion,
+        "X-Leo-Model": leoModel,
+        "X-Leo-Authority-Origin": authorityOrigin,
       },
     });
   } catch (error) {

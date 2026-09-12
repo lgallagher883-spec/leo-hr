@@ -401,8 +401,6 @@ export default function WelcomeBriefPage() {
       const nextStage = getNextStage(stage);
 
       if (nextStage === "complete") {
-        setStage("complete");
-
         const completedMessages: Message[] = [
           ...messagesWithAnswer,
           {
@@ -411,19 +409,20 @@ export default function WelcomeBriefPage() {
               "That's everything I need for the initial Welcome Brief.\n\nI've recorded the key information you've shared and will use it to provide more organisation-specific guidance.\n\nYou can review and update these details from Foundations whenever something changes. I'll also continue learning through future conversations, uploaded documents and completed Matters.",
           },
         ];
-        setMessages(completedMessages);
         await saveProgress("complete", completedMessages);
+        setStage("complete");
+        setMessages(completedMessages);
         return;
       }
-
-      setStage(nextStage);
 
       const nextMessages: Message[] = [
         ...messagesWithAnswer,
         { role: "leo", content: stageQuestions[nextStage] },
       ];
-      setMessages(nextMessages);
+
       await saveProgress(nextStage, nextMessages);
+      setStage(nextStage);
+      setMessages(nextMessages);
     } catch (error) {
       console.error("Welcome Brief error:", error);
 

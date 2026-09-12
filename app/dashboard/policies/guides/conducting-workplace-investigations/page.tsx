@@ -679,16 +679,18 @@ export default function ConductingWorkplaceInvestigationsPage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and 1 January 2027 change</strong>
               <p>
                 Workplace investigations should be fair, proportionate and
                 completed without unreasonable delay. Where disciplinary or
                 grievance action may follow, employers should act consistently
-                with the ACAS Code of Practice. Ordinary unfair dismissal
-                protection generally applies after six months&apos; continuous
-                employment from 1 January 2027, while discrimination,
-                whistleblowing and automatically unfair dismissal protections
-                may apply earlier.
+                with the ACAS Code of Practice. As at 12 September 2026, the
+                existing ordinary unfair-dismissal qualifying period remains in
+                force. From 1 January 2027, it reduces to six months, including
+                immediate protection on that date for employees who already have
+                at least six months&apos; continuous service. Discrimination,
+                whistleblowing and other automatically unfair dismissal protections
+                can apply regardless of service.
               </p>
             </div>
           </article>

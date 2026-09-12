@@ -144,7 +144,9 @@ export default function PerformanceImprovementMeetingPage() {
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -467,7 +469,7 @@ export default function PerformanceImprovementMeetingPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -559,9 +561,9 @@ export default function PerformanceImprovementMeetingPage() {
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 

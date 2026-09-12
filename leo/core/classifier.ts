@@ -31,7 +31,10 @@ export function classify(
     };
   }
 
-  if (risk.overall === "critical" || risk.legal === "critical") {
+  if (
+    risk.overall === "critical" ||
+    risk.legal === "critical"
+  ) {
     return {
       intent,
       risk,
@@ -41,35 +44,40 @@ export function classify(
     };
   }
 
-  if (
-    intent === "disciplinary" ||
-    intent === "grievance" ||
-    intent === "employee_issue" ||
-    intent === "termination" ||
-    text.includes("letter") ||
-    text.includes("write")
-  ) {
+  const explicitlyRequestsDocument =
+    text.includes("write me") ||
+    text.includes("draft") ||
+    text.includes("prepare a letter") ||
+    text.includes("write a letter") ||
+    text.includes("write an email") ||
+    text.includes("draft an email") ||
+    text.includes("template");
+
+  if (explicitlyRequestsDocument) {
     return {
       intent,
       risk,
       category: "document_needed",
-      shouldCreateMatter: true,
-      confidence: "medium",
+      shouldCreateMatter: false,
+      confidence: "high",
     };
   }
 
-  if (
+  const looksLikePolicyGuidance =
     intent === "policy_question" ||
-    intent === "contract" ||
-    intent === "pay" ||
-    intent === "absence" ||
-    intent === "flexible_working"
-  ) {
+    text.startsWith("what is ") ||
+    text.startsWith("what are ") ||
+    text.startsWith("how does ") ||
+    text.includes("what does the law say") ||
+    text.includes("what is the law") ||
+    text.includes("guidance on");
+
+  if (looksLikePolicyGuidance) {
     return {
       intent,
       risk,
       category: "policy_guidance",
-      shouldCreateMatter: true,
+      shouldCreateMatter: false,
       confidence: "high",
     };
   }
@@ -79,6 +87,6 @@ export function classify(
     risk,
     category: "advice",
     shouldCreateMatter: false,
-    confidence: "medium",
+    confidence: "high",
   };
 }

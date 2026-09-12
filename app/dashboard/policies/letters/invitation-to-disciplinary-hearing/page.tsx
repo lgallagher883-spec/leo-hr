@@ -622,7 +622,7 @@ export default function InvitationToDisciplinaryHearingPage() {
               <div className="related-list">
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-a-disciplinary-process"
                 >
                   Managing a Disciplinary Process
                 </Link>

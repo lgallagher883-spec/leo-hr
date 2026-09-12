@@ -145,7 +145,9 @@ export default function ProbationPeriodsPage() {
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -622,13 +624,18 @@ export default function ProbationPeriodsPage() {
             </ul>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and 1 January 2027 change</strong>
               <p>
-                This factsheet reflects the six-month qualifying period for
-                ordinary unfair-dismissal protection introduced by the
-                Employment Rights Act 2025 from 1 January 2027. Probation
-                remains contractual, and other statutory protections may apply
-                from the beginning of employment.
+                As at 12 September 2026, the existing qualifying period for
+                ordinary unfair-dismissal protection remains in force. From
+                1 January 2027, the qualifying period reduces to six months.
+                Employees who already have at least six months&apos; continuous
+                service on 1 January 2027 gain ordinary unfair-dismissal
+                protection immediately on that date, including employees who
+                started on or before 1 July 2026. Probation remains contractual,
+                and day-one protections such as discrimination, whistleblowing,
+                health and safety and other automatically unfair reasons continue
+                to apply regardless of service.
               </p>
             </div>
           </article>

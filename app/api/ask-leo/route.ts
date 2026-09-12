@@ -563,8 +563,8 @@ export async function POST(req: Request) {
     const completionStream =
       await client.chat.completions.create(
         {
-          model: "gpt-4o",
-          temperature: 0.4,
+          model: "gpt-5.4-2026-03-05",
+          reasoning_effort: "low",
           stream: true,
           messages: [
             {
@@ -614,7 +614,7 @@ export async function POST(req: Request) {
     const encoder = new TextEncoder();
     const leoVersion =
       process.env.VERCEL_GIT_COMMIT_SHA || "local";
-    const leoModel = "gpt-4o";
+    const leoModel = "gpt-5.4-2026-03-05";
 
     const responseStream = new ReadableStream({
       async start(controller) {

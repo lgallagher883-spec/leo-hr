@@ -31,7 +31,9 @@ test("Ask Leo does not contain removed issue discovery or private assessment lay
 test("ordinary Ask Leo path has one streamed employer-facing OpenAI model invocation", () => {
   const modelCalls = route.match(/client\.chat\.completions\.create/g) || [];
   assert.equal(modelCalls.length, 1);
-  assert.match(route, /model: "gpt-4o"/);
+  assert.match(route, /model: "gpt-5\.4-2026-03-05"/);
+  assert.match(route, /reasoning_effort: "low"/);
+  assert.doesNotMatch(route, /temperature:/);
   assert.match(route, /stream: true/);
   assert.match(route, /messages: \[/);
   assert.match(route, /role: "system"/);

@@ -703,14 +703,16 @@ export default function PerformanceManagementPage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and 1 January 2027 change</strong>
               <p>
-                Employers should follow a fair capability process, consider
-                reasonable adjustments and avoid discrimination. Ordinary unfair
-                dismissal protection generally applies after six months&apos;
-                continuous employment from 1 January 2027, while discrimination,
-                whistleblowing and automatically unfair dismissal protections may
-                apply earlier.
+                As at 12 September 2026, the existing ordinary unfair-dismissal
+                qualifying period remains in force. Employers should follow a fair
+                capability process, consider reasonable adjustments and avoid
+                discrimination. From 1 January 2027, the qualifying period reduces
+                to six months. Employees who already have at least six months&apos;
+                continuous service on that date gain protection immediately.
+                Discrimination, whistleblowing and other automatically unfair
+                dismissal protections can apply regardless of service.
               </p>
             </div>
           </article>

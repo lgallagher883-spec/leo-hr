@@ -7,7 +7,7 @@ import { useState } from "react";
 const resourceTitle = "Performance Management";
 const resourceId = "performance-management";
 const resourceSummary =
-  "A practical guide to managing employee performance fairly, consistently and lawfully from January 2027.";
+  "A practical guide to managing employee performance fairly, consistently and lawfully.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO factsheet "${resourceTitle}".`,
@@ -468,7 +468,7 @@ export default function PerformanceManagementPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -562,13 +562,13 @@ export default function PerformanceManagementPage() {
                 Topic: Performance Management<br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 

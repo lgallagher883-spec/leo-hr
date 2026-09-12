@@ -15,7 +15,7 @@
 | Up to 1,000 employees | £2,000 | £24,000 |
 | More than 1,000 employees | Priced for the stated requirement | Published quotation / call-off |
 
-These are recommended working prices for G-Cloud and other public-sector procurement. They require commercial approval before publication. The normal SME website prices remain separate and are not the proposed public-sector tariff.
+These are the approved working prices for G-Cloud and other public-sector procurement. The normal SME website prices remain separate and are not the public-sector tariff.
 
 ## Included service
 
@@ -39,7 +39,6 @@ The subscription provides access to the Leo HR platform up to the stated active-
 
 ## Items to confirm before publication
 
-- approval of the proposed public-sector prices above;
 - charges for bespoke migration, additional training, premium support or requested development;
 - the pricing formula and ceiling for organisations above 250 employees;
 - any volume, education, charity or public-sector discount;

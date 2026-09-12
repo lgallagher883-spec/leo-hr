@@ -25,16 +25,15 @@ G-Cloud 14 runs until 28 October 2026 and is due to be replaced by G-Cloud 15. L
 | Data Processing Agreement | Working draft ready | `LEO_DATA_PROCESSING_AGREEMENT_DRAFT.md`; complete schedules and obtain legal review |
 | Subprocessor register | Draft ready | `LEO_SUBPROCESSOR_REGISTER_DRAFT.md`; verify provider terms and locations |
 | Accessibility statement | Assessment plan ready | `LEO_ACCESSIBILITY_READINESS.md`; test before making a conformance claim |
-| Service levels | Decision required | Do not publish uptime, RTO or RPO promises until evidenced and commercially approved |
-| Support model | Decision required | Confirm support hours, channels, response targets and out-of-hours position |
-| Onboarding and offboarding | Drafted in service definition | Confirm target times and export/deletion procedure |
+| Service levels and support | Recommended position drafted | `LEO_PUBLIC_SECTOR_SUPPORT_DRAFT.md`; no unverified uptime promise |
+| Onboarding and offboarding | Recommended position drafted | `LEO_CUSTOMER_EXIT_AND_DATA_RETURN_DRAFT.md`; full-export procedure requires technical validation |
 | Cyber Essentials | Gap / recommended | Obtain certification before relying on it in any submission |
 | Independent penetration test | Gap / recommended | Commission and retain remediation evidence |
 | Insurance evidence | Decision/evidence required | Confirm current professional indemnity, cyber and public liability cover against framework requirements |
 | Financial standing | Evidence required | Prepare filed accounts or other documents requested for a newly incorporated supplier |
-| Social value | Draft required | Prepare proportionate SME commitments with measurable outcomes |
-| Carbon reduction / environmental | Check final requirement | Prepare a short environmental policy and emissions position if required |
-| Modern slavery | Check threshold and buyer requirements | Prepare a proportionate supplier statement; do not imply statutory threshold applies if it does not |
+| Social value | Working position ready | `LEO_SOCIAL_VALUE_AND_RESPONSIBLE_BUSINESS.md`; set measurable targets per call-off |
+| Carbon reduction / environmental | Working position ready | `LEO_ENVIRONMENTAL_POSITION.md`; no unverified net-zero claim |
+| Modern slavery | Voluntary position ready | `LEO_MODERN_SLAVERY_POSITION.md`; recheck threshold and buyer requirements |
 
 ## Claims policy
 
@@ -42,13 +41,12 @@ Leo will answer procurement questions from deployed or documentary evidence. The
 
 ## Commercial decisions to make before submission
 
-1. Approve or amend the recommended public-sector tariff (£3,000 to £24,000 annually across the published bands).
-2. Any implementation, migration, training or premium-support charges.
-3. Support hours and response targets by severity.
-4. Contract exit, export format and deletion timetable.
-5. Any public-sector discount structure.
+1. Any implementation, migration, training or premium-support charges.
+2. Approve or amend the proposed support acknowledgement targets.
+3. Approve or amend the proposed exit, export and deletion timetable after technical validation.
+4. Any public-sector discount structure.
 
-Confirmed commercial position: public-sector customers will be invoiced separately against purchase orders rather than paying through Stripe. LEO HR LTD is not currently VAT-registered and will not charge VAT unless that status changes.
+Confirmed commercial position: the proposed public-sector tariff is approved. Public-sector customers will be invoiced separately against purchase orders rather than paying through Stripe. LEO HR LTD is not currently VAT-registered and will not charge VAT unless that status changes.
 
 ## Recommended order
 

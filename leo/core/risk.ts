@@ -53,6 +53,13 @@ export function assessRisk(
     business = "medium";
   }
 
+  if (intent === "employee_issue") {
+    legal = "medium";
+    employee = "medium";
+    business = "medium";
+    relationship = "medium";
+  }
+
   if (intent === "flexible_working") {
     legal = "medium";
     employee = "medium";
@@ -81,13 +88,19 @@ export function assessRisk(
   if (
     text.includes("tribunal") ||
     text.includes("lawyer") ||
-    text.includes("claim")
+    text.includes("claim") ||
+    text.includes("injunction")
   ) {
     legal = "critical";
     business = "high";
   }
 
-  const overall = highestRisk([legal, employee, business, relationship]);
+  const overall = highestRisk([
+    legal,
+    employee,
+    business,
+    relationship,
+  ]);
 
   return {
     legal,

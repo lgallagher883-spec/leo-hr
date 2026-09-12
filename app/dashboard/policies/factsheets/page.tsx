@@ -661,7 +661,7 @@ export default function FactsheetsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -682,7 +682,7 @@ export default function FactsheetsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
 
             <input
               className="search-input"
@@ -694,7 +694,7 @@ export default function FactsheetsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -750,7 +750,7 @@ export default function FactsheetsPage() {
 
                       {factsheet.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {factsheet.lastUpdated}
+                          Reviewed {factsheet.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -814,7 +814,7 @@ export default function FactsheetsPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
 
           <div>
             <strong>Professionally maintained</strong>

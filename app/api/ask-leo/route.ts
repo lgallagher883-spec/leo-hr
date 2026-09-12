@@ -1756,8 +1756,8 @@ async function ensureAskLeoConversation(input: {
 
   const nowIso = new Date().toISOString();
 
-  const { data, error } =
-    await input.supabase
+  const createConversation = async () =>
+    input.supabase
       .from("ask_leo_conversations")
       .insert({
         organisation_id:
@@ -1777,6 +1777,25 @@ async function ensureAskLeoConversation(input: {
         "id,title,converted_to_matter_id,converted_to_matter_at"
       )
       .single();
+
+  let { data, error } =
+    await createConversation();
+
+  if (
+    error &&
+    typeof error.message === "string" &&
+    error.message.toLowerCase().includes("gateway timeout")
+  ) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, 300)
+    );
+
+    const retry =
+      await createConversation();
+
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error || !data) {
     console.error(

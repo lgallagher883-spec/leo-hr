@@ -704,14 +704,15 @@ export default function ManagingFlexibleWorkingRequestsPage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and forthcoming 2027 change</strong>
               <p>
-                Employees have a day-one right to request flexible working.
-                Employers must handle requests reasonably, consult unless accepting
-                the request in full, and normally complete the process within two
-                months. From January 2027, a refusal must rely on a genuine
-                statutory business reason and the employer must explain why the
-                refusal is reasonable.
+                Employees currently have a day-one right to request flexible working.
+                Employers must handle requests reasonably, consult before refusing
+                and normally complete the process within two months. A further
+                Employment Rights Act 2025 change is expected during 2027, but no
+                specific commencement date has yet been announced. Once in force,
+                an employer refusing a request will need to rely on a statutory
+                business reason and explain why the refusal is reasonable.
               </p>
             </div>
           </article>

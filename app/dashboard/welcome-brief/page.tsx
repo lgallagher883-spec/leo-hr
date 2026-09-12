@@ -252,7 +252,7 @@ export default function WelcomeBriefPage() {
 
     async function restoreProgress() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from("welcome_brief_progress")
           .select("stage,messages,started,completed")
           .maybeSingle();
@@ -293,7 +293,7 @@ export default function WelcomeBriefPage() {
       throw new Error("Your active organisation could not be resolved.");
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("welcome_brief_progress")
       .upsert(
         {

@@ -121,7 +121,7 @@ export default function ToolkitsPage() {
               process fairly, consistently and proportionately.
             </p>
             <p><strong>Jurisdiction:</strong> England and Wales</p>
-            <p><strong>Last reviewed:</strong> July 2026</p>
+            <p><strong>Last reviewed:</strong> 12 September 2026</p>
           </div>
 
           <h2>How to use this toolkit</h2>

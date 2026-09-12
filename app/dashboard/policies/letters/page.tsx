@@ -749,7 +749,7 @@ export default function LettersPage() {
                       <span className="resource-pill">{letter.topic}</span>
                       {letter.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {letter.lastUpdated}
+                          Reviewed {letter.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -811,7 +811,7 @@ export default function LettersPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

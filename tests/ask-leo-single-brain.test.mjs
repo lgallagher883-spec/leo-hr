@@ -92,6 +92,9 @@ test("prompt does not default to numbered lists and uses Next steps selectively"
   assert.match(builder, /aim for about 150-250 words/i);
   assert.match(builder, /300 words as a ceiling/i);
   assert.match(builder, /Prefer one precise example over a long list of possibilities/i);
+  assert.match(builder, /simple factual or yes\/no question/i);
+  assert.match(builder, /about 60-120 words/i);
+  assert.match(builder, /offer an extra draft unless the employer asks for one/i);
 });
 
 test("prompt professionally frames live situations without implying wrongdoing", () => {

@@ -1082,7 +1082,7 @@ export default function DisciplinaryToolkitPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: 11 September 2026
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

@@ -7,7 +7,7 @@ import { useState } from "react";
 const resourceTitle = "Flexible Working";
 const resourceId = "flexible-working";
 const resourceSummary =
-  "A practical guide to handling flexible working requests fairly and lawfully from January 2027.";
+  "A practical guide to handling flexible working requests fairly and lawfully.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO factsheet "${resourceTitle}".`,

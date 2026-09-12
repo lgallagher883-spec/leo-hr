@@ -274,7 +274,9 @@ export default function RedundancyConsultationChecklistPage() {
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -597,7 +599,7 @@ export default function RedundancyConsultationChecklistPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -874,7 +876,7 @@ export default function RedundancyConsultationChecklistPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

@@ -586,7 +586,7 @@ export default function PerformanceImprovementMeetingPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/forms"
+                  href="/dashboard/policies/toolkits/performance-improvement-pack"
                 >
                   Performance Improvement Pack
                 </Link>

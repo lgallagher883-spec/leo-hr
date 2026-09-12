@@ -115,51 +115,50 @@ test("prompt professionally frames live situations without implying wrongdoing",
   assert.match(builder, /simple factual question/i);
 });
 
-test("prompt keeps sparse live questions calm and proportionate", () => {
-  assert.match(builder, /short, general description of a live situation/i);
-  assert.match(builder, /do not recite the full procedure/i);
-  assert.match(builder, /"Next steps" section containing two or three immediate actions/i);
-  assert.match(builder, /focused questions that could materially change/i);
-  assert.match(builder, /do not use a numbered procedure/i);
-  assert.match(builder, /merely duplicate the final "Next steps" section/i);
-  assert.match(builder, /do not describe later stages before they become relevant/i);
+test("professional prompt diagnoses before prescribing", () => {
+  assert.match(builder, /Diagnose before prescribing/i);
+  assert.match(builder, /meaningful change/i);
+  assert.match(builder, /Do not manufacture standard stages/i);
+  assert.match(builder, /not a default step/i);
+  assert.match(builder, /ANTI-GENERIC REASONING CHECK/i);
+  assert.match(builder, /distinctive facts/i);
 });
 
-test("Ask Leo applies a strict output contract to sparse live situations", () => {
-  assert.match(route, /coreResult\.requiresMatter/);
-  assert.match(route, /message\.split\(\/\\s\+\//);
-  assert.match(route, /length <= 60/);
-  assert.match(route, /\? "sparse_live"/);
-  assert.match(builder, /SHORT, FACT-LIGHT LIVE SITUATION/);
-  assert.match(builder, /takes priority over general formatting preferences/i);
-  assert.match(builder, /receiving it does not establish wrongdoing/i);
-  assert.match(builder, /State what the immediate priority is/i);
-  assert.match(builder, /Do not introduce a legal classification merely because it is conceivable/i);
-  assert.match(builder, /mental-health concern may amount to a disability from diagnosis or duration alone/i);
-  assert.match(builder, /Do not use a numbered list/i);
-  assert.match(builder, /headed exactly "Next steps" containing two or three concise bullet points/i);
-  assert.match(builder, /Do not repeat those actions elsewhere/i);
-  assert.match(builder, /Every bullet must change what the employer should do now/i);
-  assert.match(builder, /generic policy review, record-keeping reminder or vague offer of support/i);
-  assert.match(builder, /ask a broad invitation for more detail/i);
-  assert.match(builder, /Do not add a separate "Questions" heading/i);
-  assert.match(builder, /End there\. Do not add a generic concluding paragraph/i);
+test("Ask Leo response depth is not predetermined by message length or Matter routing", () => {
+  assert.match(route, /responseMode: "standard"/);
+  assert.doesNotMatch(route, /message\.split\(\/\\s\+\//);
+  assert.doesNotMatch(route, /length <= 60/);
+  assert.doesNotMatch(route, /\? "sparse_live"/);
 });
 
-test("performance and capability questions route as live employee matters", () => {
+test("performance and capability are context labels rather than forced process routes", () => {
   assert.match(intent, /text\.includes\("performance"\)/);
   assert.match(intent, /text\.includes\("capability"\)/);
   assert.match(intent, /return "employee_issue"/);
-  assert.match(classifier, /intent === "employee_issue"/);
+  assert.doesNotMatch(classifier, /intent === "employee_issue"/);
+  assert.match(classifier, /explicitlyRequestsDocument/);
+});
+
+test("classifier only marks a document when the employer actually requests one", () => {
+  assert.match(classifier, /text\.includes\("write me"\)/);
+  assert.match(classifier, /text\.includes\("draft"\)/);
+  assert.match(classifier, /category: "document_needed"/);
+  assert.match(classifier, /shouldCreateMatter: false/);
+});
+
+test("Matter recommendation requires active case-management signals", () => {
+  assert.match(route, /const activeCaseSignals = \[/);
+  assert.match(route, /const substantiveCaseSignals = \[/);
+  assert.match(route, /hasActiveCaseSignal/);
+  assert.match(route, /hasSubstantiveCaseSignal/);
+  assert.doesNotMatch(route, /highSuitabilityIntent/);
+  assert.doesNotMatch(route, /caseSignalCount >= 2/);
 });
 
 test("prompt remains subject-neutral without topic-specific decision trees", () => {
   assert.match(builder, /Do not use topic-specific decision trees/);
-  assert.match(builder, /they are only possible labels/i);
   assert.doesNotMatch(builder, /grievance\s*[-=]>|sickness\s*[-=]>|redundancy\s*[-=]>/i);
   assert.doesNotMatch(builder, /switch\s*\([^)]*(grievance|sickness|redundancy)/i);
-  assert.doesNotMatch(builder, /if\s+.*\b(grievance|sickness|performance|disability|disciplinary|redundancy|tupe|whistleblowing)\b.*\bthen\b/i);
-  assert.doesNotMatch(builder, /\b(grievance|sickness|performance|disability|disciplinary|redundancy|tupe|whistleblowing)\b\s*:/i);
 });
 
 test("authority is evidence context rather than the professional decision-maker", () => {

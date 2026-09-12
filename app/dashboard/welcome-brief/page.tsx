@@ -268,6 +268,29 @@ export default function WelcomeBriefPage() {
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           setMessages(data.messages as Message[]);
         }
+
+        const factsResult = await (supabase as any)
+          .from("organisation_foundations")
+          .select("section,key,value")
+          .eq("source", "Welcome Brief")
+          .order("created_at", { ascending: true });
+
+        if (!factsResult.error && Array.isArray(factsResult.data)) {
+          setFacts(
+            factsResult.data
+              .filter(
+                (fact: any) =>
+                  typeof fact?.section === "string" &&
+                  typeof fact?.key === "string" &&
+                  typeof fact?.value === "string",
+              )
+              .map((fact: any) => ({
+                section: fact.section,
+                key: fact.key,
+                value: fact.value,
+              })),
+          );
+        }
       } catch (error) {
         console.error("Welcome Brief progress could not be restored:", error);
       } finally {

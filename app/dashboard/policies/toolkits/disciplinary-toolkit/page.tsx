@@ -666,7 +666,7 @@ export default function DisciplinaryToolkitPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Reviewed 11 September 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">

@@ -1019,21 +1019,25 @@ export default function ToolkitsPage() {
                         Preview
                       </Link>
 
-                      <button
-                        className="resource-action"
-                        type="button"
-                        onClick={() => downloadWord(toolkit)}
-                      >
-                        Word
-                      </button>
+                      {toolkit.id === "disciplinary-toolkit" ? (
+                        <>
+                          <button
+                            className="resource-action"
+                            type="button"
+                            onClick={() => downloadWord(toolkit)}
+                          >
+                            Word
+                          </button>
 
-                      <button
-                        className="resource-action"
-                        type="button"
-                        onClick={() => openPdf(toolkit)}
-                      >
-                        PDF
-                      </button>
+                          <button
+                            className="resource-action"
+                            type="button"
+                            onClick={() => openPdf(toolkit)}
+                          >
+                            PDF
+                          </button>
+                        </>
+                      ) : null}
 
                       <Link
                         className="resource-action"

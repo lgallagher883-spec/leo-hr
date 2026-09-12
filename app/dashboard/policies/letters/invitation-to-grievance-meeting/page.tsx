@@ -627,7 +627,7 @@ export default function InvitationToGrievanceMeetingPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-a-grievance"
                 >
                   Managing Grievances Guide
                 </Link>

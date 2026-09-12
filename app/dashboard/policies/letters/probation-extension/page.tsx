@@ -631,7 +631,7 @@ export default function ProbationExtensionPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-probation-successfully"
                 >
                   Managing Probation Guide
                 </Link>

@@ -169,10 +169,10 @@ export default function ManagingADisciplinaryProcessPage() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-  }
-
-  function addToOrganisationResources() {
-    setAdded(true);
+  }  function addToOrganisationResources() {
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (

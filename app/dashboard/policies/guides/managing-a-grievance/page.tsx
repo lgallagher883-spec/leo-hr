@@ -696,7 +696,7 @@ export default function ManagingAGrievancePage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Legal review — 12 September 2026</strong>
               <p>
                 Employers should follow the ACAS Code of Practice on disciplinary
                 and grievance procedures, act without unreasonable delay, allow

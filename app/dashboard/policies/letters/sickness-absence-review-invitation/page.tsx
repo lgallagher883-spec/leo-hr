@@ -572,23 +572,23 @@ export default function SicknessAbsenceReviewInvitationPage() {
               <div className="related-list">
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/factsheets/probation-periods"
+                  href="/dashboard/policies/factsheets/sickness-absence"
                 >
-                  Probation Periods &amp; Reviews Factsheet
+                  Managing Sickness Absence Factsheet
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/guides"
                 >
-                  Managing Probation Guide
+                  Managing Sickness Absence Guide
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  Probation Review Form
+                  Return to Work Form
                 </Link>
 
                 <Link

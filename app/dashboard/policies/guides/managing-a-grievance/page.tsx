@@ -495,7 +495,7 @@ export default function ManagingAGrievancePage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -713,7 +713,7 @@ export default function ManagingAGrievancePage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

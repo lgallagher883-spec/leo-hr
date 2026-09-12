@@ -22,9 +22,9 @@ G-Cloud 14 runs until 28 October 2026 and is due to be replaced by G-Cloud 15. L
 | Standard questionnaire answers | Working library ready | `LEO_PROCUREMENT_RESPONSE_LIBRARY.md` |
 | Business continuity / rollback | Partially evidenced | `LEO_DISASTER_RECOVERY_RUNBOOK.md`; full database restore test remains pending |
 | Privacy notice | Available | `public/legal/privacy-policy.pdf` |
-| Data Processing Agreement | Gap | Prepare customer-controller / Leo-processor DPA |
+| Data Processing Agreement | Working draft ready | `LEO_DATA_PROCESSING_AGREEMENT_DRAFT.md`; complete schedules and obtain legal review |
 | Subprocessor register | Draft ready | `LEO_SUBPROCESSOR_REGISTER_DRAFT.md`; verify provider terms and locations |
-| Accessibility statement | Gap | Perform accessibility review and publish a product-specific statement |
+| Accessibility statement | Assessment plan ready | `LEO_ACCESSIBILITY_READINESS.md`; test before making a conformance claim |
 | Service levels | Decision required | Do not publish uptime, RTO or RPO promises until evidenced and commercially approved |
 | Support model | Decision required | Confirm support hours, channels, response targets and out-of-hours position |
 | Onboarding and offboarding | Drafted in service definition | Confirm target times and export/deletion procedure |
@@ -59,4 +59,3 @@ Leo will answer procurement questions from deployed or documentary evidence. The
 5. Commission a penetration test and close material findings.
 6. Carry out a non-production database recovery exercise and set evidence-based recovery targets.
 7. Transfer the prepared wording into the live G-Cloud 15 application when the final questions and timetable are available.
-

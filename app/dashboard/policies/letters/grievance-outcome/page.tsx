@@ -469,7 +469,7 @@ export default function GrievanceOutcomePage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Reviewed 11 September 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -548,7 +548,7 @@ export default function GrievanceOutcomePage() {
 
 <div className="notice">
 <strong>Template guidance</strong>
-<p>This template reflects good HR practice for England &amp; Wales as at 11 September 2026. Follow the organisation's grievance procedure and the ACAS Code of Practice. Explain the reasoning clearly and avoid disclosing confidential information about other employees.</p>
+<p>This template reflects good HR practice for England &amp; Wales as at 12 September 2026. Follow the organisation's grievance procedure and the ACAS Code of Practice. Explain the reasoning clearly and avoid disclosing confidential information about other employees.</p>
 </div>
 </article>
 
@@ -560,11 +560,11 @@ export default function GrievanceOutcomePage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current 11 September 2026
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: 11 September 2026
+                Last reviewed: 12 September 2026
                 <br />
                 Next review: March 2027 or earlier if the law changes
               </p>

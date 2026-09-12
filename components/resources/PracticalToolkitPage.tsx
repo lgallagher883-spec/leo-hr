@@ -82,7 +82,7 @@ p,li{font-size:11pt}.cover{padding:22px;border:1px solid #eadff0;background:#fbf
 </style></head><body>
 <div class="cover"><p>LEO HR PRACTICAL TOOLKIT</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p></div>
 ${sectionHtml}
-<div class="notice"><strong>Legal review — 11 September 2026</strong><p>General HR guidance for employers in England and Wales. Adapt documents to the facts, contract and organisation policy, and check current official guidance before taking action.${effectiveNote ? " " + escapeHtml(effectiveNote) : ""}</p></div>
+<div class="notice"><strong>Legal review — 12 September 2026</strong><p>General HR guidance for employers in England and Wales. Adapt documents to the facts, contract and organisation policy, and check current official guidance before taking action.${effectiveNote ? " " + escapeHtml(effectiveNote) : ""}</p></div>
 </body></html>`;
   }
 
@@ -130,7 +130,7 @@ ${sectionHtml}
         <Link className="back-link" href="/dashboard/policies/toolkits">← Back to Toolkits</Link>
         <header className="page-header">
           <div><p className="eyebrow">Practical toolkit</p><h1>{title}</h1><p className="header-copy">{summary}</p></div>
-          <span className="updated-pill">Reviewed 11 September 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -149,11 +149,11 @@ ${sectionHtml}
                 {section.fields?.length ? <div className="fields">{section.fields.map((f) => <div className="field" key={f}><strong>{f}</strong><div className="write-line" /><div className="write-line" /></div>)}</div> : null}
               </section>
             ))}
-            <div className="notice"><strong>Legal review — 11 September 2026</strong><br />General HR guidance for employers in England and Wales. Adapt the pack to the facts, contractual terms and your organisation&apos;s policies. {effectiveNote}</div>
+            <div className="notice"><strong>Legal review — 12 September 2026</strong><br />General HR guidance for employers in England and Wales. Adapt the pack to the facts, contractual terms and your organisation&apos;s policies. {effectiveNote}</div>
           </article>
 
           <aside className="side-panel">
-            <section className="side-card"><h2>About this resource</h2><p>Topic: {topic}<br />Resource ID: {resourceId}<br />Version: 1.0<br />Last reviewed: 11 September 2026<br />Next review: March 2027 or earlier if the law changes</p></section>
+            <section className="side-card"><h2>About this resource</h2><p>Topic: {topic}<br />Resource ID: {resourceId}<br />Version: 1.0<br />Last reviewed: 12 September 2026<br />Next review: March 2027 or earlier if the law changes</p></section>
             {related.length ? <section className="side-card"><h2>Related resources</h2><div className="related-list">{related.map((item) => <Link className="related-link" href={item.href} key={item.label}>{item.label}</Link>)}</div></section> : null}
           </aside>
         </div>

@@ -619,7 +619,7 @@ export default function DisciplinaryProcedurePage() {
             </ul>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Legal review — 12 September 2026</strong>
               <p>
                 This factsheet reflects the law in England &amp; Wales as at
                 January 2027. The ACAS Code of Practice sets the minimum

@@ -545,7 +545,7 @@ export default function PerformanceImprovementMeetingPage() {
 
 <div className="notice">
 <strong>Template guidance</strong>
-<p>This template reflects good HR practice in England &amp; Wales as at January 2027. Performance concerns should normally be addressed early, supported with appropriate training and regular reviews. Consider disability, health issues and reasonable adjustments before progressing to formal capability action.</p>
+<p>This template reflects good HR practice in England &amp; Wales, reviewed 12 September 2026. Performance concerns should normally be addressed early, supported with appropriate training and regular reviews. Consider disability, health issues and reasonable adjustments before progressing to formal capability action.</p>
 </div>
 </article>
 
@@ -553,11 +553,11 @@ export default function PerformanceImprovementMeetingPage() {
             <section className="side-card">
               <h2>About this resource</h2>
               <p>
-                Topic: Probation
+                Topic: Performance
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
@@ -572,23 +572,23 @@ export default function PerformanceImprovementMeetingPage() {
               <div className="related-list">
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/factsheets/probation-periods"
+                  href="/dashboard/policies/factsheets/performance-management"
                 >
-                  Probation Periods &amp; Reviews Factsheet
+                  Performance Management Factsheet
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/guides"
                 >
-                  Managing Probation Guide
+                  Performance Management Guide
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  Probation Review Form
+                  Performance Improvement Pack
                 </Link>
 
                 <Link

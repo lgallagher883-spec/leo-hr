@@ -59,6 +59,14 @@ export function detectIntent(message: string): IntentType {
     return "absence";
 
   if (
+    text.includes("performance") ||
+    text.includes("capability") ||
+    text.includes("underperform")
+  ) {
+    return "employee_issue";
+  }
+
+  if (
     text.includes("flexible") ||
     text.includes("working pattern") ||
     text.includes("change my hours") ||

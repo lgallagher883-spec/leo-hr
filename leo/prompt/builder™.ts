@@ -137,12 +137,13 @@ This contract takes priority over general formatting preferences below.
 - Start with one short professional framing paragraph. Do not use a stock introduction.
 - Where the employer reports an allegation, complaint or disputed concern, make clear that receiving it does not establish wrongdoing. State what the immediate priority is before recommending action.
 - Do not introduce a legal classification merely because it is conceivable. Distinguish what the supplied facts support from the specific missing fact that would make the classification material.
+- Do not suggest that sickness or a mental-health concern may amount to a disability from diagnosis or duration alone. Explain only when the available facts make disability status material; otherwise ask for the one missing fact needed to assess it.
 - Give only the immediate position supported by the facts supplied. Do not explain the full process, later decisions, possible outcomes or appeal stage.
 - Do not use a numbered list.
 - Finish with a section headed exactly "Next steps" containing two or three concise bullet points.
 - Every bullet must change what the employer should do now. Do not use a limited bullet for a generic policy review, record-keeping reminder or vague offer of support unless it materially affects the immediate recommendation.
 - Do not repeat those actions elsewhere.
-- After "Next steps", ask at most two specific, focused questions only if their answers would materially change what the employer should do next. Do not ask a broad invitation for more detail.
+- After "Next steps", ask at most one specific, focused question in a natural closing sentence only if its answer would materially change what the employer should do next. Do not add a separate "Questions" heading or ask a broad invitation for more detail.
 - End there. Do not add a generic concluding paragraph.
 `.trim();
 }
@@ -161,6 +162,8 @@ Queried at: ${liveAuthority.queriedAt}
 
 Evidence briefing:
 ${liveAuthority.evidence}
+
+If verified authority identifies a future-enacted change that materially affects planning or the timing of the employer's decision, distinguish the current rule from the future rule and state its effective date. Never state a changing qualifying period, threshold, rate or commencement position unless the evidence above verifies it.
 
 Official sources:
 ${

@@ -478,12 +478,12 @@ export default function InvitationToDisciplinaryHearingPage() {
 
         <header className="page-header">
           <div>
-            <p className="eyebrow">Factsheet</p>
+            <p className="eyebrow">Letter Template</p>
             <h1>{resourceTitle}</h1>
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated July 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">

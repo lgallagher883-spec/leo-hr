@@ -572,7 +572,7 @@ export default function AnnualLeavePage() {
 </ul>
 
 <div className="notice">
-<strong>Legal review — 11 September 2026</strong>
+<strong>Legal review — 12 September 2026</strong>
 <p>Reviewed against current GOV.UK holiday entitlement and holiday pay guidance for England and Wales. The 12.07% accrual method applies to qualifying irregular-hours and part-year workers for leave years beginning on or after 1 April 2024. Check current official guidance where sickness, family leave, variable pay or unusual working patterns make the calculation more complex.</p>
 </div>
 </article>
@@ -584,11 +584,11 @@ export default function AnnualLeavePage() {
                 Topic: Annual Leave & Holiday Entitlement<br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current 11 September 2026
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.1
                 <br />
-                Last reviewed: 11 September 2026
+                Last reviewed: 12 September 2026
                 <br />
                 Next review: March 2027 or earlier if the law changes
               </p>

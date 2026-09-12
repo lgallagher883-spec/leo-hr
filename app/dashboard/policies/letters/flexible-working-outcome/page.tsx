@@ -11,7 +11,7 @@ const resourceSummary = "A professionally drafted letter confirming the outcome 
 const askLeoPrompt = [
   `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
-  "Please use this factsheet as the context for my question.",
+  "Please use this letter as the context for my question.",
 ].join("\n\n");
 
 const askLeoHref =
@@ -585,7 +585,7 @@ export default function FlexibleWorkingOutcomePage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-flexible-working-requests"
                 >
                   Managing Flexible Working Requests Guide
                 </Link>

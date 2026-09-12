@@ -7,7 +7,7 @@ import { useState } from "react";
 const resourceTitle = "Managing Sickness Absence";
 const resourceId = "sickness-absence";
 const resourceSummary =
-  "A practical guide to managing short and long-term sickness absence fairly, consistently and lawfully from January 2027.";
+  "A practical guide to managing short and long-term sickness absence fairly, consistently and lawfully.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO factsheet "${resourceTitle}".`,

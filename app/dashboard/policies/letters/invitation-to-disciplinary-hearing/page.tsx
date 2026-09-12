@@ -609,11 +609,11 @@ export default function InvitationToDisciplinaryHearingPage() {
             <section className="side-card">
               <h2>About this resource</h2>
               <p>
-                Topic: Employment rights
+                Topic: Disciplinary
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: July 2026
+                Last reviewed: 12 September 2026
               </p>
             </section>
 
@@ -624,21 +624,21 @@ export default function InvitationToDisciplinaryHearingPage() {
                   className="related-link"
                   href="/dashboard/policies/guides"
                 >
-                  Managing a probation period
+                  Managing a Disciplinary Process
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/checklists"
                 >
-                  New starter checklist
+                  Disciplinary Investigation Checklist
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  New starter forms
+                  Disciplinary Hearing Checklist
                 </Link>
               </div>
             </section>

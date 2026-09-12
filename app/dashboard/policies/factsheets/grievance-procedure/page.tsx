@@ -7,7 +7,7 @@ import { useState } from "react";
 const resourceTitle = "Grievance Procedure";
 const resourceId = "grievance-procedure";
 const resourceSummary =
-  "A practical guide to handling employee grievances fairly, consistently and in line with the ACAS Code from January 2027.";
+  "A practical guide to handling employee grievances fairly, consistently and in line with the ACAS Code.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO factsheet "${resourceTitle}".`,

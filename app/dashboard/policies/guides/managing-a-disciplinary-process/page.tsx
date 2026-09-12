@@ -495,7 +495,7 @@ export default function ManagingADisciplinaryProcessPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated July 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -757,7 +757,7 @@ export default function ManagingADisciplinaryProcessPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: July 2026
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

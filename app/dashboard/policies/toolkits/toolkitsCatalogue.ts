@@ -58,7 +58,7 @@
     title: "Whistleblowing Response Pack",
     summary:
       "A manager pack for recognising protected disclosures, routing them correctly, investigating appropriately and preventing detriment.",
-    topic: "Grievance",
+    topic: "Whistleblowing",
     lastUpdated: "September 2026",
     tags: ["whistleblowing", "protected disclosure", "investigation", "confidentiality", "detriment"],
   },

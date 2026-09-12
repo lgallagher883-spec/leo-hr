@@ -108,7 +108,24 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
       }
 
       const role = String(membership?.role || "").trim().toLowerCase();
-      const allowed = role === "owner" || role === "senior";
+      let allowed = role === "owner" || role === "senior";
+
+      if (!allowed) {
+        const [ownerRole, seniorRole] = await Promise.all([
+          supabase.rpc("leo_has_role", {
+            target_organisation_id: organisationId,
+            target_role_key: "owner",
+            target_user_id: user.id,
+          }),
+          supabase.rpc("leo_has_role", {
+            target_organisation_id: organisationId,
+            target_role_key: "senior",
+            target_user_id: user.id,
+          }),
+        ]);
+
+        allowed = Boolean(ownerRole.data || seniorRole.data);
+      }
 
       if (!active) return;
 

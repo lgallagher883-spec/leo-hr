@@ -16,7 +16,7 @@ G-Cloud 14 runs until 28 October 2026 and is due to be replaced by G-Cloud 15. L
 | --- | --- | --- |
 | Supplier identity | Ready | LEO HR LTD; company number 17324775; England and Wales |
 | Service definition | Draft ready | `LEO_G_CLOUD_SERVICE_DEFINITION_DRAFT.md` |
-| Pricing document | Draft ready, commercial decisions open | `LEO_G_CLOUD_PRICING_DRAFT.md` |
+| Pricing document | Recommended tariff drafted; approval required | `LEO_G_CLOUD_PRICING_DRAFT.md` |
 | Terms and conditions | Existing customer terms available | `public/legal/terms-and-conditions.pdf`; review against framework terms before submission |
 | Security evidence | Working evidence ready | `LEO_PROCUREMENT_SECURITY_EVIDENCE_PACK.md` |
 | Standard questionnaire answers | Working library ready | `LEO_PROCUREMENT_RESPONSE_LIBRARY.md` |
@@ -42,20 +42,20 @@ Leo will answer procurement questions from deployed or documentary evidence. The
 
 ## Commercial decisions to make before submission
 
-1. Whether public-sector pricing will match the standard £75 / £125 / £175 monthly tiers.
-2. Whether prices are stated inclusive or exclusive of VAT.
-3. Minimum call-off term and billing frequency.
-4. Any implementation, migration, training or premium-support charges.
-5. Support hours and response targets by severity.
-6. Contract exit, export format and deletion timetable.
-7. Any public-sector discount structure.
+1. Approve or amend the recommended public-sector tariff (£3,000 to £24,000 annually across the published bands).
+2. Any implementation, migration, training or premium-support charges.
+3. Support hours and response targets by severity.
+4. Contract exit, export format and deletion timetable.
+5. Any public-sector discount structure.
+
+Confirmed commercial position: public-sector customers will be invoiced separately against purchase orders rather than paying through Stripe. LEO HR LTD is not currently VAT-registered and will not charge VAT unless that status changes.
 
 ## Recommended order
 
 1. Confirm insurance and begin Cyber Essentials.
 2. Complete the DPA and verified subprocessor register.
 3. Run an accessibility review and publish the statement.
-4. Agree the seven commercial decisions above.
+4. Agree the remaining commercial decisions above.
 5. Commission a penetration test and close material findings.
 6. Carry out a non-production database recovery exercise and set evidence-based recovery targets.
 7. Transfer the prepared wording into the live G-Cloud 15 application when the final questions and timetable are available.

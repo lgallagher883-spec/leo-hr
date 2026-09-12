@@ -76,7 +76,7 @@ Leo will provide a proportionate exit process covering customer-data export, acc
 
 ## Ordering and invoicing
 
-The public service price will be set out in the G-Cloud pricing document and call-off order. The final submission must confirm VAT treatment, billing frequency, minimum term, payment method, included onboarding and any optional charges.
+The public service price will be set out in the G-Cloud pricing document and call-off order. Public-sector customers will be invoiced separately against purchase orders and will pay by bank transfer rather than through Stripe. LEO HR LTD is not currently VAT-registered, so VAT is not currently charged; VAT will be applied if and when legally required. The recommended commercial basis is a 12-month subscription invoiced annually in advance, with quarterly invoicing available where agreed.
 
 ## Technical requirements and constraints
 
@@ -89,4 +89,3 @@ The public service price will be set out in the G-Cloud pricing document and cal
 ## Trial and demonstration
 
 Leo currently supports a seven-day free trial for standard commercial access. The availability and conditions of any public-sector trial, sandbox or demonstration must be confirmed in the G-Cloud listing.
-

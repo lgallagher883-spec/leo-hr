@@ -548,6 +548,13 @@ export async function POST(req: Request) {
      */
 
     const leoPrompt = buildAskLeoProfessionalPrompt({
+      responseMode:
+        coreResult.requiresMatter &&
+        !activeMatterId &&
+        !contextSummary &&
+        message.split(/\s+/).filter(Boolean).length <= 30
+          ? "sparse_live"
+          : "standard",
       promptContext,
       routing: coreResult,
       authority: authorityResult,

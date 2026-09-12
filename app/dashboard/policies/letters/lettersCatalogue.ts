@@ -5,7 +5,7 @@
     summary:
       "Invite an employee to a disciplinary hearing, explaining the allegations, evidence, right to be accompanied and possible outcomes.",
     topic: "Disciplinary",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["disciplinary", "misconduct", "hearing"],
   },
   {
@@ -14,7 +14,7 @@
     summary:
       "A professionally drafted outcome letter confirming a disciplinary decision and written warning.",
     topic: "Disciplinary",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["disciplinary", "outcome", "written warning"],
   },
   {
@@ -23,7 +23,7 @@
     summary:
       "A professionally drafted invitation letter for a formal grievance meeting.",
     topic: "Grievance",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["grievance", "invitation", "meeting"],
   },
   {
@@ -32,7 +32,7 @@
     summary:
       "A professionally drafted outcome letter confirming the decision following a formal grievance process.",
     topic: "Grievance",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["grievance", "outcome", "decision"],
   },
   {
@@ -41,7 +41,7 @@
     summary:
       "A professionally drafted letter confirming successful completion of probation and continuation of employment.",
     topic: "Probation",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["probation", "confirmation", "employment"],
   },
   {
@@ -50,7 +50,7 @@
     summary:
       "A professionally drafted letter confirming an extension to probation and the expected next steps.",
     topic: "Probation",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["probation", "extension", "review"],
   },
   {
@@ -59,7 +59,7 @@
     summary:
       "A professionally drafted letter confirming termination during or at the end of probation.",
     topic: "Probation",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["probation", "termination", "notice"],
   },
   {
@@ -68,7 +68,7 @@
     summary:
       "A professionally drafted invitation to a formal sickness absence review meeting.",
     topic: "Sickness & absence",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["sickness", "absence", "review", "meeting"],
   },
   {
@@ -77,7 +77,7 @@
     summary:
       "A professionally drafted letter confirming the outcome of a flexible working request.",
     topic: "Flexible working",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["flexible working", "request", "outcome"],
   },
   {
@@ -86,7 +86,7 @@
     summary:
       "A professionally drafted invitation to a formal performance improvement meeting.",
     topic: "Performance",
-    lastUpdated: "July 2026",
+    lastUpdated: "September 2026",
     tags: ["performance", "improvement", "meeting", "capability"],
   },
 ]

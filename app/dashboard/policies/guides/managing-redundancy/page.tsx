@@ -658,8 +658,14 @@ export default function ManagingRedundancyPage() {
               <h2>Step 7 – Reach and confirm the decision</h2>
               <p>
                 Only decide after consultation is complete and all representations
-                have been considered. Confirm the outcome in writing and explain:
+                have been considered. Before issuing any redundancy outcome letter,
+                check the organisation&apos;s redundancy or organisational-change policy,
+                employment contract, equality and reasonable-adjustment policies,
+                family-leave protections, any collective agreement or recognised trade
+                union arrangements, the selection criteria and scoring record, and the
+                vacancy / alternative-employment record relied upon in the decision.
               </p>
+              <p>Confirm the outcome in writing and explain:</p>
               <ul>
                 <li>the reason for redundancy;</li>
                 <li>the consultation and selection outcome;</li>
@@ -695,14 +701,17 @@ export default function ManagingRedundancyPage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and 1 January 2027 change</strong>
               <p>
-                Redundancy dismissals must be genuine and procedurally fair.
-                Employers should consult meaningfully, select fairly and consider
-                suitable alternative employment. Ordinary unfair dismissal
-                protection generally applies after six months&apos; continuous
-                employment from 1 January 2027, while discrimination and
-                automatically unfair dismissal protections may apply earlier.
+                As at 12 September 2026, redundancy dismissals must be genuine
+                and procedurally fair. Employers should consult meaningfully,
+                select fairly and consider suitable alternative employment.
+                From 1 January 2027, ordinary unfair-dismissal protection applies
+                after six months&apos; continuous service. Employees who already
+                have at least six months&apos; service on 1 January 2027 gain that
+                protection immediately on that date. Discrimination and other
+                automatically unfair dismissal protections can apply regardless
+                of length of service.
               </p>
             </div>
           </article>

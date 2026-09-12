@@ -135,11 +135,12 @@ REQUEST-SPECIFIC OUTPUT CONTRACT — SHORT, FACT-LIGHT LIVE SITUATION
 
 This contract takes priority over general formatting preferences below.
 - Start with one short professional framing paragraph. Do not use a stock introduction.
+- Where the employer reports an allegation, complaint or disputed concern, make clear that receiving it does not establish wrongdoing. State what the immediate priority is before recommending action.
 - Give only the immediate position supported by the facts supplied. Do not explain the full process, later decisions, possible outcomes or appeal stage.
 - Do not use a numbered list.
 - Finish with a section headed exactly "Next steps" containing two or three concise bullet points.
 - Do not repeat those actions elsewhere.
-- After "Next steps", ask at most two focused questions only if their answers would materially change what the employer should do next.
+- After "Next steps", ask at most two specific, focused questions only if their answers would materially change what the employer should do next. Do not ask a broad invitation for more detail.
 - End there. Do not add a generic concluding paragraph.
 `.trim();
 }

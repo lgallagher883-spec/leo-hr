@@ -585,28 +585,6 @@ export async function PATCH(
       );
     }
 
-    const employeeResult = await admin
-      .from("employees")
-      .update({
-        name,
-        email: readOptionalString(updates.email),
-        role: readOptionalString(updates.role),
-        status,
-        start_date: readOptionalString(updates.start_date),
-        updated_at: now,
-      })
-      .eq("id", employeeId)
-      .eq("organisation_id", accessResult.access.organisationId)
-      .select("id,name,email,role,status,start_date")
-      .single();
-
-    if (employeeResult.error || !employeeResult.data) {
-      throw new Error(
-        employeeResult.error?.message ||
-          "The employee record could not be updated.",
-      );
-    }
-
     const employmentPayload = {
       employee_id: employeeId,
       manager: readOptionalString(updates.manager),
@@ -713,6 +691,29 @@ export async function PATCH(
           "The employment details could not be saved.",
       );
     }
+
+    const employeeResult = await admin
+      .from("employees")
+      .update({
+        name,
+        email: readOptionalString(updates.email),
+        role: readOptionalString(updates.role),
+        status,
+        start_date: readOptionalString(updates.start_date),
+        updated_at: now,
+      })
+      .eq("id", employeeId)
+      .eq("organisation_id", accessResult.access.organisationId)
+      .select("id,name,email,role,status,start_date")
+      .single();
+
+    if (employeeResult.error || !employeeResult.data) {
+      throw new Error(
+        employeeResult.error?.message ||
+          "The employee record could not be updated.",
+      );
+    }
+
 
     const fullName =
       typeof user.user_metadata?.full_name === "string"

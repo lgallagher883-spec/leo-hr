@@ -562,8 +562,8 @@ export default function GrievanceProcedurePage() {
 <li>Offer a genuine right of appeal.</li>
 </ul>
 
-<div className="notice"><strong>Legal position — January 2027</strong>
-<p>This factsheet reflects the law in England &amp; Wales as at January 2027. Employers should follow the ACAS Code of Practice where applicable and handle grievances fairly, consistently and without unreasonable delay. Concerns involving discrimination, whistleblowing or other statutory rights require particular care regardless of length of service.</p>
+<div className="notice"><strong>Legal review — 12 September 2026</strong>
+<p>This factsheet reflects the law in England &amp; Wales as at 12 September 2026. Employers should follow the ACAS Code of Practice where applicable and handle grievances fairly, consistently and without unreasonable delay. Concerns involving discrimination, whistleblowing or other statutory rights require particular care regardless of length of service.</p>
 </div>
 </article>
 

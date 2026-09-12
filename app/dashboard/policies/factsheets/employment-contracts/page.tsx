@@ -555,8 +555,8 @@ export default function EmploymentContractsPage() {
 <li>Retain signed copies securely.</li>
 </ul>
 
-<div className="notice"><strong>Legal position — January 2027</strong>
-<p>This factsheet reflects employment legislation in force in England & Wales as at January 2027, including the Employment Rights Act 2025 reforms then in effect. Contracts should always be read alongside current legislation and relevant workplace policies.</p></div>
+<div className="notice"><strong>Legal review — 12 September 2026</strong>
+<p>This factsheet reflects employment legislation in force in England & Wales as at 12 September 2026. Future Employment Rights Act 2025 changes should be identified by their commencement date rather than treated as already in force. Contracts should always be read alongside current legislation and relevant workplace policies.</p></div>
 </article>
 
           <aside className="side-panel">

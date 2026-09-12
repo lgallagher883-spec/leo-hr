@@ -662,6 +662,28 @@ export async function PATCH(
       updated_at: now,
     };
 
+    const employeeResult = await admin
+      .from("employees")
+      .update({
+        name,
+        email: readOptionalString(updates.email),
+        role: readOptionalString(updates.role),
+        status,
+        start_date: readOptionalString(updates.start_date),
+        updated_at: now,
+      })
+      .eq("id", employeeId)
+      .eq("organisation_id", accessResult.access.organisationId)
+      .select("id,name,email,role,status,start_date")
+      .single();
+
+    if (employeeResult.error || !employeeResult.data) {
+      throw new Error(
+        employeeResult.error?.message ||
+          "The employee record could not be updated.",
+      );
+    }
+
     const existingDetails = await admin
       .from("employee_employment_details")
       .select("id")
@@ -689,28 +711,6 @@ export async function PATCH(
       throw new Error(
         detailsResult.error?.message ||
           "The employment details could not be saved.",
-      );
-    }
-
-    const employeeResult = await admin
-      .from("employees")
-      .update({
-        name,
-        email: readOptionalString(updates.email),
-        role: readOptionalString(updates.role),
-        status,
-        start_date: readOptionalString(updates.start_date),
-        updated_at: now,
-      })
-      .eq("id", employeeId)
-      .eq("organisation_id", accessResult.access.organisationId)
-      .select("id,name,email,role,status,start_date")
-      .single();
-
-    if (employeeResult.error || !employeeResult.data) {
-      throw new Error(
-        employeeResult.error?.message ||
-          "The employee record could not be updated.",
       );
     }
 

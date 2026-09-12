@@ -252,9 +252,17 @@ export default function WelcomeBriefPage() {
 
     async function restoreProgress() {
       try {
+        const { data: organisationId, error: organisationError } =
+          await supabase.rpc("leo_current_organisation_id");
+
+        if (organisationError || !organisationId) {
+          throw new Error("Your active organisation could not be resolved.");
+        }
+
         const { data, error } = await (supabase as any)
           .from("welcome_brief_progress")
           .select("stage,messages,started,completed")
+          .eq("organisation_id", organisationId)
           .maybeSingle();
 
         if (error) throw error;
@@ -272,6 +280,7 @@ export default function WelcomeBriefPage() {
         const factsResult = await (supabase as any)
           .from("organisation_foundations")
           .select("section,key,value")
+          .eq("organisation_id", organisationId)
           .eq("source", "Welcome Brief")
           .order("created_at", { ascending: true });
 

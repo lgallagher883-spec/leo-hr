@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Stage =
@@ -238,7 +238,7 @@ export default function WelcomeBriefPage() {
   const [facts, setFacts] = useState<FoundationFact[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -279,7 +279,7 @@ export default function WelcomeBriefPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [supabase]);
 
   async function saveProgress(
     nextStage: Stage,

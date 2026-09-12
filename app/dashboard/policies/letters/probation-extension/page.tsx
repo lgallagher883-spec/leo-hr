@@ -10,7 +10,7 @@ const resourceSummary =
   "A professionally drafted letter confirming a justified extension to an employee's probation period, including expectations, support and review arrangements."; 
 
 const askLeoPrompt = [
-  `I am reviewing the LEO factsheet "${resourceTitle}".`,
+  `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
   "Please use this factsheet as the context for my question.",
 ].join("\n\n");
@@ -18,9 +18,9 @@ const askLeoPrompt = [
 const askLeoHref =
   `/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}` +
   `&resourceTitle=${encodeURIComponent(resourceTitle)}` +
-  `&resourceType=${encodeURIComponent("Factsheet")}` +
+  `&resourceType=${encodeURIComponent("Letter")}` +
   `&returnUrl=${encodeURIComponent(
-    `/dashboard/policies/factsheets/${resourceId}`
+    `/dashboard/policies/letters/${resourceId}`
   )}`;
 
 export default function ProbationExtensionPage() {

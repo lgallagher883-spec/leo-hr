@@ -45,7 +45,7 @@ export default function PracticalToolkitPage({
         `I am reviewing the LEO toolkit "${title}".`,
         summary,
         sections.map((section) => [section.title, ...(section.paragraphs || []), ...(section.bullets || [])].join("\\n")).join("\\n\\n").slice(0, 6000),
-        "Please use the toolkit content above as the context for my question.",
+        "Please use the toolkit content excerpt above as the context for my question.",
       ].join("\n\n"),
     )}` +
     `&resourceTitle=${encodeURIComponent(title)}` +

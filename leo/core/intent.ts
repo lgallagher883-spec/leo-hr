@@ -34,8 +34,14 @@ export function detectIntent(message: string): IntentType {
 
   if (text.includes("grievance")) return "grievance";
 
-  if (text.includes("dismiss") || text.includes("fired"))
+  if (
+    text.includes("dismiss") ||
+    text.includes("fired") ||
+    text.includes("terminate employment") ||
+    text.includes("termination")
+  ) {
     return "termination";
+  }
 
   if (
     text.includes("disciplin") ||
@@ -45,18 +51,22 @@ export function detectIntent(message: string): IntentType {
     text.includes("stole") ||
     text.includes("cctv") ||
     text.includes("shoplifting")
-  )
+  ) {
     return "disciplinary";
+  }
 
-  if (text.includes("redund"))
+  if (text.includes("redund")) {
     return "redundancy";
+  }
 
   if (
     text.includes("absence") ||
     text.includes("sick") ||
+    text.includes("sickness") ||
     text.includes("bereavement")
-  )
+  ) {
     return "absence";
+  }
 
   if (
     text.includes("performance") ||
@@ -80,7 +90,30 @@ export function detectIntent(message: string): IntentType {
 
   if (text.includes("contract")) return "contract";
 
-  if (text.includes("pay") || text.includes("salary")) return "pay";
+  if (
+    text.includes("pay") ||
+    text.includes("salary") ||
+    text.includes("wage")
+  ) {
+    return "pay";
+  }
+
+  if (
+    text.includes("policy") ||
+    text.includes("procedure") ||
+    text.includes("handbook")
+  ) {
+    return "policy_question";
+  }
+
+  if (
+    text.includes("workplace") ||
+    text.includes("manager") ||
+    text.includes("employee") ||
+    text.includes("employer")
+  ) {
+    return "general_workplace";
+  }
 
   return "hr_query";
 }

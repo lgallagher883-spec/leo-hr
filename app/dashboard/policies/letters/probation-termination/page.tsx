@@ -12,7 +12,7 @@ const resourceSummary =
 const askLeoPrompt = [
   `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
-  "Please use this factsheet as the context for my question.",
+  "Please use this letter as the context for my question.",
 ].join("\n\n");
 
 const askLeoHref =
@@ -624,7 +624,7 @@ export default function ProbationTerminationPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-probation-successfully"
                 >
                   Managing Probation Guide
                 </Link>

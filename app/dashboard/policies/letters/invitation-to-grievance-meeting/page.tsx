@@ -605,7 +605,7 @@ export default function InvitationToGrievanceMeetingPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />

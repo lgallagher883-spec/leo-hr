@@ -1175,9 +1175,6 @@ export default function PoliciesPage() {
   if (activeWorkspace === "library") {
     return (
       <ResourcesHome
-        organisationResourceCount={totalResourceCount}
-        readyForLeoCount={readyResourceCount}
-        reviewSuggestedCount={reviewSuggestedCount}
         onOpenCategory={(slug) =>
           router.push(
             `/dashboard/policies/${slug}`
@@ -1686,15 +1683,9 @@ export default function PoliciesPage() {
 }
 
 function ResourcesHome({
-  organisationResourceCount,
-  readyForLeoCount,
-  reviewSuggestedCount,
   onOpenCategory,
   onOpenOrganisationResources,
 }: {
-  organisationResourceCount: number;
-  readyForLeoCount: number;
-  reviewSuggestedCount: number;
   onOpenCategory: (slug: string) => void;
   onOpenOrganisationResources: () => void;
 }) {
@@ -1785,39 +1776,6 @@ function ResourcesHome({
               aria-label="Search HR Resources"
             />
           </div>
-        </div>
-
-        <div style={resourcesHeroPanelStyle}>
-          <div style={resourcesHeroPanelLabelStyle}>
-            Your organisation
-          </div>
-
-          <div style={resourcesHeroMetricStyle}>
-            {organisationResourceCount}
-          </div>
-
-          <div style={resourcesHeroMetricLabelStyle}>
-            organisation resources
-          </div>
-
-          {(readyForLeoCount > 0 || reviewSuggestedCount > 0) && (
-            <div style={resourcesHeroSmallStatsStyle}>
-              {readyForLeoCount > 0 && (
-                <span>{readyForLeoCount} ready for Leo</span>
-              )}
-              {reviewSuggestedCount > 0 && (
-                <span>{reviewSuggestedCount} reviews suggested</span>
-              )}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={onOpenOrganisationResources}
-            style={resourcesHeroButtonStyle}
-          >
-            Open organisation resources
-          </button>
         </div>
       </section>
 
@@ -3292,9 +3250,6 @@ const resourcesHomeStyle: React.CSSProperties = {
 };
 
 const resourcesHeroStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
-  gap: "20px",
   marginBottom: "22px",
 };
 

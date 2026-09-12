@@ -586,7 +586,7 @@ export default function DayOneEmploymentRightsPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: July 2026
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

@@ -558,8 +558,8 @@ export default function FlexibleWorkingPage() {
 <li>Remember that flexible working and reasonable adjustments are separate legal duties.</li>
 </ul>
 
-<div className="notice"><strong>Legal position — January 2027</strong>
-<p>This factsheet reflects the law in England &amp; Wales as at January 2027. Employees have statutory rights relating to flexible working requests, but employers may refuse a request where a lawful business reason applies and a fair process has been followed.</p></div>
+<div className="notice"><strong>Legal review — 12 September 2026</strong>
+<p>This factsheet reflects the law in England &amp; Wales as at 12 September 2026. Employees have statutory rights relating to flexible working requests, but employers may refuse a request where a lawful business reason applies and a fair process has been followed.</p></div>
 </article>
 
           <aside className="side-panel">

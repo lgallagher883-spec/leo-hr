@@ -470,7 +470,7 @@ export default function SicknessAbsencePage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Reviewed 11 September 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -552,8 +552,8 @@ export default function SicknessAbsencePage() {
 <li>Document every significant decision.</li>
 </ul>
 
-<div className="notice"><strong>Legal review — 11 September 2026</strong>
-<p>This factsheet reflects the law in England & Wales as at 11 September 2026. Employers should manage sickness absence fairly, comply with disability discrimination obligations where applicable and follow a reasonable capability process before considering dismissal.</p></div>
+<div className="notice"><strong>Legal review — 12 September 2026</strong>
+<p>This factsheet reflects the law in England & Wales as at 12 September 2026. Employers should manage sickness absence fairly, comply with disability discrimination obligations where applicable and follow a reasonable capability process before considering dismissal.</p></div>
 </article>
 
           <aside className="side-panel">
@@ -563,11 +563,11 @@ export default function SicknessAbsencePage() {
                 Topic: Managing Sickness Absence<br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current 11 September 2026
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: 11 September 2026
+                Last reviewed: 12 September 2026
                 <br />
                 Next review: March 2027 or earlier if the law changes
               </p>

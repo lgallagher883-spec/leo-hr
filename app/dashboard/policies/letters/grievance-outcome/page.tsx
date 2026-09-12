@@ -11,7 +11,7 @@ const resourceSummary = "A professionally drafted outcome letter confirming the 
 const askLeoPrompt = [
   `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
-  "Please use this factsheet as the context for my question.",
+  "Please use this letter as the context for my question.",
 ].join("\n\n");
 
 const askLeoHref =
@@ -582,7 +582,7 @@ export default function GrievanceOutcomePage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-a-grievance"
                 >
                   Managing Grievances Guide
                 </Link>

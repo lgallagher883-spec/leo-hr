@@ -579,7 +579,7 @@ export default function SicknessAbsenceReviewInvitationPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-sickness-absence"
                 >
                   Managing Sickness Absence Guide
                 </Link>

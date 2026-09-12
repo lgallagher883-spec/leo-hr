@@ -12,7 +12,7 @@ const resourceSummary =
 const askLeoPrompt = [
   `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
-  "Please use this factsheet as the context for my question.",
+  "Please use this letter as the context for my question.",
 ].join("\n\n");
 
 const askLeoHref =

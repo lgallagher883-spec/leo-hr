@@ -629,14 +629,14 @@ export default function InvitationToDisciplinaryHearingPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/checklists"
+                  href="/dashboard/policies/checklists/disciplinary-investigation-checklist"
                 >
                   Disciplinary Investigation Checklist
                 </Link>
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/forms"
+                  href="/dashboard/policies/checklists/disciplinary-hearing-checklist"
                 >
                   Disciplinary Hearing Checklist
                 </Link>

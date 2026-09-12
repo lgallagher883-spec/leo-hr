@@ -723,7 +723,7 @@ export default function ChecklistsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -743,7 +743,7 @@ export default function ChecklistsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -754,7 +754,7 @@ export default function ChecklistsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -803,7 +803,7 @@ export default function ChecklistsPage() {
                       <span className="resource-pill">{checklist.topic}</span>
                       {checklist.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {checklist.lastUpdated}
+                          Reviewed {checklist.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -865,7 +865,7 @@ export default function ChecklistsPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

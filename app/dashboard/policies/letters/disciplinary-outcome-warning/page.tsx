@@ -117,7 +117,7 @@ export default function LettersPage() {
 <p>[Manager Name]<br/>[Job Title]</p>
 
 <div class="notice">
-This template reflects good HR practice for England &amp; Wales as at January 2027 and should be adapted to the circumstances of each case, following the ACAS Code of Practice and your disciplinary procedure.
+This template reflects good HR practice for England &amp; Wales, reviewed 12 September 2026 and should be adapted to the circumstances of each case, following the ACAS Code of Practice and your disciplinary procedure.
 </div>
 </body>
       </html>

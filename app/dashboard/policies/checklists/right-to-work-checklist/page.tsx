@@ -837,7 +837,7 @@ export default function RightToWorkChecklistPage() {
 
             <div className="notice">
               This checklist reflects Home Office Right to Work requirements for
-              England and Wales as at January 2027. Always use the current Home
+              England and Wales as at 12 September 2026. Always use the current Home
               Office employer guidance and acceptable-document lists. A
               compliant check may establish a statutory excuse against a civil
               penalty, but it does not protect an employer who knows or has

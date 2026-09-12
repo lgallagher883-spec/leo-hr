@@ -701,14 +701,16 @@ export default function EndingEmploymentFairlyPage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and 1 January 2027 change</strong>
               <p>
-                Ordinary unfair dismissal protection generally applies after six
-                months&apos; continuous employment from 1 January 2027. Employers
-                should still follow a fair process and consider discrimination,
-                whistleblowing, family leave, health and safety and other
-                automatically unfair dismissal protections, which may apply from
-                the start of employment.
+                As at 12 September 2026, the existing qualifying period for
+                ordinary unfair dismissal remains in force. From 1 January 2027,
+                the qualifying period reduces to six months. Employees who already
+                have at least six months&apos; continuous service on 1 January 2027
+                gain ordinary unfair-dismissal protection immediately on that date.
+                Employers should still consider discrimination, whistleblowing,
+                family leave, health and safety and other automatically unfair
+                dismissal protections, which can apply regardless of service.
               </p>
             </div>
           </article>

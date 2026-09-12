@@ -586,7 +586,7 @@ export default function SicknessAbsenceReviewInvitationPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/forms"
+                  href="/dashboard/policies/forms/return-to-work-form"
                 >
                   Return to Work Form
                 </Link>

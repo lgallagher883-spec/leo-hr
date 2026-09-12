@@ -1004,7 +1004,7 @@ export default function ToolkitsPage() {
                       <span className="resource-pill">{toolkit.topic}</span>
                       {toolkit.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {toolkit.lastUpdated}
+                          Reviewed {toolkit.lastUpdated}
                         </span>
                       ) : null}
                     </div>

@@ -104,6 +104,15 @@ test("prompt does not default to numbered lists and uses Next steps selectively"
   assert.match(builder, /do not use this section for simple factual questions/i);
 });
 
+test("prompt professionally frames live situations without implying wrongdoing", () => {
+  assert.match(builder, /frame what the situation is really about/i);
+  assert.match(builder, /immediate decision/i);
+  assert.match(builder, /underlying concern behind the employer's wording/i);
+  assert.match(builder, /reduce unnecessary anxiety where appropriate/i);
+  assert.match(builder, /without implying that an allegation, grievance or concern proves wrongdoing/i);
+  assert.match(builder, /simple factual question/i);
+});
+
 test("prompt remains subject-neutral without topic-specific decision trees", () => {
   assert.match(builder, /Do not use topic-specific decision trees/);
   assert.match(builder, /they are only possible labels/i);

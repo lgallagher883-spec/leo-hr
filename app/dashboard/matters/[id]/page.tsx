@@ -179,8 +179,6 @@ function MatterDetailPageContent() {
 
     const previousStatus = matter.status;
 
-    setMatters(matters.map((m) => (m.id === id ? { ...m, status } : m)));
-
     const response = await fetch(`/api/matters/${matter.id}`, {
       method: "PATCH",
       credentials: "include",
@@ -202,8 +200,15 @@ function MatterDetailPageContent() {
         "Error updating matter status:",
         result?.error || "The matter status could not be updated.",
       );
+      setStatus(previousStatus);
       return;
     }
+
+    setMatters((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, status } : item,
+      ),
+    );
 
     if (previousStatus !== status) {
       await loadTimeline();
@@ -261,8 +266,8 @@ function MatterDetailPageContent() {
       console.error("Matter conversation error:", error);
       setConversationError(
         error instanceof Error
-          ? `${error.message} Your message remains saved in this Matter.`
-          : "Leo could not complete the response. Your message remains saved in this Matter.",
+          ? `${error.message}`
+          : "Leo could not complete the response.",
       );
     }
   }
@@ -292,8 +297,8 @@ function MatterDetailPageContent() {
       console.error("Matter conversation error:", error);
       setConversationError(
         error instanceof Error
-          ? `${error.message} Your message remains saved in this Matter.`
-          : "Leo could not complete the response. Your message remains saved in this Matter.",
+          ? `${error.message}`
+          : "Leo could not complete the response.",
       );
     } finally {
       setSendingMessage(false);

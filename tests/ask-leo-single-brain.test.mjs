@@ -88,6 +88,10 @@ test("prompt does not default to numbered lists and uses Next steps selectively"
   assert.match(builder, /Use concise paragraphs/i);
   assert.match(builder, /Do not default to numbered procedures or generic checklists/i);
   assert.match(builder, /Use a short "Next steps" section only where several immediate actions are genuinely useful/i);
+  assert.match(builder, /never repeat advice already explained in the main answer/i);
+  assert.match(builder, /aim for about 150-250 words/i);
+  assert.match(builder, /300 words as a ceiling/i);
+  assert.match(builder, /Prefer one precise example over a long list of possibilities/i);
 });
 
 test("prompt professionally frames live situations without implying wrongdoing", () => {

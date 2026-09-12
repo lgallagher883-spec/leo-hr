@@ -126,14 +126,18 @@ test("prompt keeps sparse live questions calm and proportionate", () => {
 test("Ask Leo applies a strict output contract to sparse live situations", () => {
   assert.match(route, /coreResult\.requiresMatter/);
   assert.match(route, /message\.split\(\/\\s\+\//);
+  assert.match(route, /length <= 60/);
   assert.match(route, /\? "sparse_live"/);
   assert.match(builder, /SHORT, FACT-LIGHT LIVE SITUATION/);
   assert.match(builder, /takes priority over general formatting preferences/i);
   assert.match(builder, /receiving it does not establish wrongdoing/i);
   assert.match(builder, /State what the immediate priority is/i);
+  assert.match(builder, /Do not introduce a legal classification merely because it is conceivable/i);
   assert.match(builder, /Do not use a numbered list/i);
   assert.match(builder, /headed exactly "Next steps" containing two or three concise bullet points/i);
   assert.match(builder, /Do not repeat those actions elsewhere/i);
+  assert.match(builder, /Every bullet must change what the employer should do now/i);
+  assert.match(builder, /generic policy review, record-keeping reminder or vague offer of support/i);
   assert.match(builder, /Do not ask a broad invitation for more detail/i);
   assert.match(builder, /End there\. Do not add a generic concluding paragraph/i);
 });
@@ -165,6 +169,9 @@ test("stored and live authority protections remain wired into Ask Leo", () => {
   assert.match(liveAuthority, /APPROVED_AUTHORITY_DOMAINS/);
   assert.match(liveAuthority, /upsertAuthorityRecords/);
   assert.match(liveAuthority, /effort: "low"/);
+  assert.match(liveAuthority, /LIVE_LEGAL_CHANGE_TOPICS/);
+  assert.match(liveAuthority, /"dismiss"/);
+  assert.match(liveAuthority, /"probation"/);
 });
 
 test("legacy reasoning modules remain absent from Ask Leo", () => {

@@ -125,6 +125,20 @@ const LIVE_EXPLICIT_LEGAL_STATUS_SIGNALS = [
   "acas code",
 ];
 
+// These topics are currently subject to phased statutory reform or depend on
+// commencement and transitional provisions. Employer wording does not always
+// include words such as "current" or "legally", so verify them explicitly.
+const LIVE_LEGAL_CHANGE_TOPICS = [
+  "dismiss",
+  "termination",
+  "probation",
+  "unfair dismissal",
+  "fire and rehire",
+  "zero hours",
+  "guaranteed hours",
+  "statutory sick pay",
+];
+
 function shouldResearchLiveAuthority(
   message: string
 ): boolean {
@@ -198,6 +212,10 @@ function requiresLiveExternalVerification(
     containsAny(
       employerQuestion,
       LIVE_EXPLICIT_LEGAL_STATUS_SIGNALS
+    ) ||
+    containsAny(
+      employerQuestion,
+      LIVE_LEGAL_CHANGE_TOPICS
     )
   );
 }

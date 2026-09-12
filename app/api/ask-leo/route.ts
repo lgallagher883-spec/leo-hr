@@ -552,7 +552,7 @@ export async function POST(req: Request) {
         coreResult.requiresMatter &&
         !activeMatterId &&
         !contextSummary &&
-        message.split(/\s+/).filter(Boolean).length <= 30
+        message.split(/\s+/).filter(Boolean).length <= 60
           ? "sparse_live"
           : "standard",
       promptContext,

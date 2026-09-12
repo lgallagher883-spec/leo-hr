@@ -4,7 +4,7 @@
 **Product:** Leo HR  
 **Supplier:** LEO HR LTD  
 **Jurisdiction:** England & Wales  
-**Last reviewed:** 11 September 2026
+**Last reviewed:** 12 September 2026
 
 ## Purpose
 
@@ -138,7 +138,7 @@ A customer-specific controller/processor position, retention schedule and Data P
 
 ## Availability, continuity and recovery
 
-Leo is deployed using managed cloud infrastructure (Vercel and Supabase). A detailed operational disaster-recovery/backup/rollback runbook and tested recovery evidence are maintained as a separate roadmap control and should be supplied once formally tested.
+Leo is deployed using managed cloud infrastructure (Vercel and Supabase). A detailed operational disaster-recovery/backup/rollback runbook is maintained separately. The application rollback path has been rehearsed non-destructively; a full isolated database restore test remains pending.
 
 Until that test is completed, Leo should not state a contractual RTO/RPO that has not been verified.
 
@@ -160,7 +160,10 @@ Evidence that can be supplied during due diligence includes:
 - integration architecture;
 - AI architecture;
 - security remediation history;
-- business continuity/DR runbook once completed.
+- business continuity/DR runbook and current rehearsal status;
+- draft G-Cloud service definition and pricing documents;
+- G-Cloud readiness tracker and evidence gaps;
+- draft subprocessor register pending provider verification.
 
 ## Claims that require separate evidence before use
 

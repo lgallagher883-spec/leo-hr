@@ -1,6 +1,6 @@
 # Leo HR — Procurement Response Library
 
-**Last reviewed:** 11 September 2026
+**Last reviewed:** 12 September 2026
 
 Use these answers as reusable starting points for supplier questionnaires. Adapt the wording to the buyer's exact question and do not upgrade a qualified answer into an absolute claim.
 
@@ -73,7 +73,7 @@ Optional integrations implemented or under active product support include servic
 ## Security incidents
 
 **Do you have an incident response process?**  
-Security architecture documentation includes incident-response and business-continuity principles. The formal operational runbook and recovery test evidence are being completed as a separate control.
+Yes. Leo maintains an operational disaster-recovery, backup and rollback runbook with incident priorities, severity classification, evidence requirements and recovery validation steps. The application rollback path has been rehearsed non-destructively; a full isolated database restore test remains pending.
 
 ## Backups and disaster recovery
 

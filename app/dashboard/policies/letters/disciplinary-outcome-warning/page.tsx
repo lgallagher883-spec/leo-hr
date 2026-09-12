@@ -636,7 +636,7 @@ export default function DisciplinaryOutcomeWarningPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/checklists/disciplinary-hearing-checklist"
+                  href="/dashboard/policies/toolkits/disciplinary-toolkit"
                 >
                   Disciplinary Toolkit
                 </Link>

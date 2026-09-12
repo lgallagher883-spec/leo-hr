@@ -470,7 +470,7 @@ export default function ProbationPassedPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Reviewed 11 September 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -582,11 +582,11 @@ export default function ProbationPassedPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current 11 September 2026
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: 11 September 2026
+                Last reviewed: 12 September 2026
                 <br />
                 Next review: March 2027 or earlier if the law changes
               </p>

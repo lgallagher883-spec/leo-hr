@@ -264,6 +264,7 @@ function MatterDetailPageContent() {
       void loadAssessment();
     } catch (error) {
       console.error("Matter conversation error:", error);
+      await loadConversation();
       setConversationError(
         error instanceof Error
           ? `${error.message}`

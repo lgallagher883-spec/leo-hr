@@ -705,7 +705,7 @@ export default function EmployeeExitChecklistPage() {
 
 <section><h2>Additional notes</h2><div className="notes-box" /></section>
 
-<div className="notice">This checklist reflects good HR practice in England and Wales as at January 2027. Ensure personal data is retained and deleted in accordance with UK GDPR and your retention schedule, and only retain information that remains necessary after employment ends.</div>
+<div className="notice">This checklist reflects good HR practice in England and Wales, reviewed 12 September 2026. Ensure personal data is retained and deleted in accordance with UK GDPR and your retention schedule, and only retain information that remains necessary after employment ends.</div>
 </article>
 
           <aside className="side-panel">

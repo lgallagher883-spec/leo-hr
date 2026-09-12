@@ -1,4 +1,4 @@
-
+import type { AuthorityEngineOutput } from "../authority/types";
 import type { LiveAuthorityResult } from "../authority/liveAuthority";
 import type { LeoRoutingOutput } from "../core/router";
 import type { KnowledgeSearchResult } from "../knowledge";

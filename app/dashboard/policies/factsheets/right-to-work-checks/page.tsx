@@ -7,7 +7,7 @@ import { useState } from "react";
 const resourceTitle = "Right to Work Checks";
 const resourceId = "right-to-work-checks";
 const resourceSummary =
-  "A practical guide to carrying out compliant right to work checks, preventing illegal working and maintaining statutory excuse records from January 2027.";
+  "A practical guide to carrying out compliant right to work checks, preventing illegal working and maintaining statutory excuse records.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO factsheet "${resourceTitle}".`,
@@ -468,7 +468,7 @@ export default function RightToWorkChecksPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -547,7 +547,7 @@ export default function RightToWorkChecksPage() {
 <li>Treat every applicant consistently.</li>
 </ul>
 
-<div className="notice"><strong>Legal position — January 2027</strong>
+<div className="notice"><strong>Legal review — 12 September 2026</strong>
 <p>This factsheet reflects UK right to work requirements in force in January 2027. Employers should always follow the latest Home Office guidance on acceptable documents and online checking services.</p></div>
 </article>
 
@@ -558,13 +558,13 @@ export default function RightToWorkChecksPage() {
                 Topic: Right to Work Checks<br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 

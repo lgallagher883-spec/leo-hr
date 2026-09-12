@@ -579,7 +579,7 @@ export default function PerformanceImprovementMeetingPage() {
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/performance-management"
                 >
                   Performance Management Guide
                 </Link>

@@ -7,6 +7,10 @@ export type AskLeoStreamEvent = {
   matterRecommendationReason?: string;
   documentKnowledge?: unknown;
   error?: string;
+  leoVersion?: string;
+  leoModel?: string;
+  responseMode?: "standard" | "sparse_live";
+  authorityOrigin?: "stored_authority" | "live_research" | "none";
 };
 
 export async function readAskLeoStream(

@@ -43,84 +43,61 @@ test("ordinary Ask Leo path has one streamed employer-facing OpenAI model invoca
   assert.doesNotMatch(route, /client\.responses\.create/);
 });
 
-test("single professional prompt uses IDEA without a fifth stage", () => {
-  assert.match(builder, /IDENTIFY/);
-  assert.match(builder, /DEFINE/);
-  assert.match(builder, /EXPLAIN/);
-  assert.match(builder, /APPLY/);
-  assert.match(builder, /IDEA has no fifth stage/);
-  assert.doesNotMatch(builder, /^ADVISE$/m);
+test("single professional prompt uses a concise reasoning standard", () => {
+  assert.match(builder, /REASONING/);
+  assert.match(builder, /Start from the employer's actual facts/);
+  assert.match(builder, /Reach a clear professional view/);
   assert.doesNotMatch(builder, /IDEAA/);
 });
 
-test("IDEA requires interaction analysis and clear professional judgement", () => {
-  assert.match(builder, /what does this combination of facts mean for the decision/i);
-  assert.match(builder, /conflicting interests, roles, evidence or processes/i);
-  assert.match(
-    builder,
-    /Distinguish fact, allegation, assumption, inference, missing evidence/i
-  );
-  assert.match(builder, /challenge the first obvious answer/i);
-  assert.match(builder, /most plausible viable alternative/i);
-  assert.match(builder, /reach a clear professional judgement/i);
-  assert.match(builder, /material relationship between the issues/i);
+test("reasoning standard requires analysis and clear professional judgement", () => {
+  assert.match(builder, /distinctive facts, what has materially changed/i);
+  assert.match(builder, /Separate fact, allegation, assumption and inference/i);
+  assert.match(builder, /Test the employer's proposed course/i);
+  assert.match(builder, /Reach a clear professional view/i);
 });
 
 test("professional judgement doctrine reasons from facts before action", () => {
-  assert.match(builder, /what the known facts establish/i);
-  assert.match(builder, /what is alleged or missing/i);
-  assert.match(builder, /strongest reason that conclusion may be wrong or premature/i);
-  assert.match(builder, /most defensible and proportionate course/i);
-  assert.match(builder, /one fact most likely to change the recommendation/i);
-  assert.match(builder, /Do not expose this as a questionnaire/i);
+  assert.match(builder, /Diagnose before prescribing/i);
+  assert.match(builder, /what has materially changed/i);
+  assert.match(builder, /recommend only proportionate next steps/i);
+  assert.match(builder, /questions that could materially change the recommendation/i);
 });
 
-test("APPLY distinguishes required action from professional recommendation", () => {
-  assert.match(builder, /Distinguish what must happen from what Leo professionally recommends/i);
-  assert.match(builder, /what can proceed, what should change/i);
-  assert.match(builder, /without unnecessary delay/i);
-  assert.match(builder, /who should decide or conduct a step where independence matters/i);
-  assert.match(builder, /avoid absolute advice/i);
+test("prompt distinguishes legal requirements from professional recommendation", () => {
+  assert.match(builder, /Distinguish legal requirements, contractual obligations/i);
+  assert.match(builder, /good practice and professional recommendation/i);
+  assert.match(builder, /recommend only proportionate next steps/i);
 });
 
 test("prompt discourages generic checklist and filler advice", () => {
-  assert.match(builder, /Avoid turning the answer into a generic policy checklist/i);
-  assert.match(builder, /Do not give filler advice/i);
-  assert.match(builder, /unless the specific point changes what the employer should do/i);
-  assert.match(builder, /Do not jump from issue recognition straight to generic action/i);
+  assert.match(builder, /Do not default to numbered procedures or generic checklists/i);
+  assert.match(builder, /If the answer would be substantially the same without the distinctive facts/i);
+  assert.match(builder, /unless it materially affects what the employer should do now/i);
 });
 
 test("prompt avoids default safe-harbour actions", () => {
-  assert.match(builder, /Do not default to the course that merely appears most cautious/i);
-  assert.match(builder, /Pausing everything, investigating everything, waiting until everything is resolved/i);
-  assert.match(builder, /may be appropriate only where the facts make that action material/i);
-  assert.match(builder, /Keep judgement concise and proportionate/i);
+  assert.match(builder, /Do not recommend a PIP, investigation, suspension/i);
+  assert.match(builder, /simply because it is commonly associated with the topic/i);
+  assert.match(builder, /only proportionate next steps that are relevant now/i);
 });
 
 test("prompt does not default to numbered lists and uses Next steps selectively", () => {
-  assert.match(builder, /Do not default to numbered lists/i);
-  assert.match(builder, /prefer cohesive professional prose in short paragraphs/i);
-  assert.match(builder, /finish with a short section headed "Next steps"/i);
-  assert.match(builder, /around 2 to 5 concise bullet points/i);
-  assert.match(builder, /do not introduce new advice/i);
-  assert.match(builder, /do not use this section for simple factual questions/i);
+  assert.match(builder, /Use concise paragraphs/i);
+  assert.match(builder, /Do not default to numbered procedures or generic checklists/i);
+  assert.match(builder, /Use a short "Next steps" section only where several immediate actions are genuinely useful/i);
 });
 
 test("prompt professionally frames live situations without implying wrongdoing", () => {
-  assert.match(builder, /frame what the situation is really about/i);
-  assert.match(builder, /immediate decision/i);
-  assert.match(builder, /underlying concern behind the employer's wording/i);
-  assert.match(builder, /reduce unnecessary anxiety where appropriate/i);
-  assert.match(builder, /without implying that an allegation, grievance or concern proves wrongdoing/i);
-  assert.match(builder, /simple factual question/i);
+  assert.match(builder, /Separate fact, allegation, assumption and inference/i);
+  assert.match(builder, /Lead with the professional position, not a stock introduction/i);
+  assert.match(builder, /Test the employer's proposed course rather than simply agreeing/i);
 });
 
 test("professional prompt diagnoses before prescribing", () => {
   assert.match(builder, /Diagnose before prescribing/i);
-  assert.match(builder, /meaningful change/i);
-  assert.match(builder, /Do not manufacture standard stages/i);
-  assert.match(builder, /not a default step/i);
-  assert.match(builder, /ANTI-GENERIC REASONING CHECK/i);
+  assert.match(builder, /materially changed/i);
+  assert.match(builder, /Do not recite later procedural stages/i);
   assert.match(builder, /distinctive facts/i);
 });
 
@@ -156,15 +133,15 @@ test("Matter recommendation requires active case-management signals", () => {
 });
 
 test("prompt remains subject-neutral without topic-specific decision trees", () => {
-  assert.match(builder, /Do not use topic-specific decision trees/);
+  assert.match(builder, /Start from the employer's actual facts, not the nearest HR label/i);
   assert.doesNotMatch(builder, /grievance\s*[-=]>|sickness\s*[-=]>|redundancy\s*[-=]>/i);
   assert.doesNotMatch(builder, /switch\s*\([^)]*(grievance|sickness|redundancy)/i);
 });
 
 test("authority is evidence context rather than the professional decision-maker", () => {
-  assert.match(builder, /Authority is an evidence service, not the professional decision-maker/);
-  assert.match(builder, /Static authority references are unverified retrieval hints/);
-  assert.match(builder, /Verified stored or live authority is evidence\/context/);
+  assert.match(builder, /AUTHORITY EVIDENCE/);
+  assert.match(builder, /These are retrieval hints only/i);
+  assert.match(builder, /Apply only the legal, contractual, policy and professional principles/i);
   assert.doesNotMatch(authorityRouter, /AuthorityRecommendation/);
   assert.doesNotMatch(authorityRouter, /groundedRecommendations/);
 });
@@ -218,6 +195,10 @@ test("timing instrumentation remains diagnostic-only and gated", () => {
   assert.equal(timingLogMatches.length, 1);
   assert.doesNotMatch(route, /askLeoTimingEnabled[^\n]*\?[^\n]*model/);
   assert.match(route, /professionalModelStartMs: Math\.round/);
+  assert.match(route, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(route, /"X-Leo-Version"/);
+  assert.match(route, /leoModel/);
+  assert.match(route, /responseMode:/);
   assert.match(route, /authorityTotalMs: Math\.round\(authorityTotalMs\)/);
   assert.match(route, /storedAuthorityMs:/);
   assert.match(route, /liveAuthorityMs:/);

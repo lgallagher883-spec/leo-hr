@@ -545,7 +545,7 @@ export default function SicknessAbsenceReviewInvitationPage() {
 
 <div className="notice">
 <strong>Template guidance</strong>
-<p>This template reflects good HR practice in England &amp; Wales as at January 2027. Employers should distinguish ordinary sickness absence from disability-related absence and comply with Equality Act duties, including consideration of reasonable adjustments before making capability decisions.</p>
+<p>This template reflects good HR practice in England &amp; Wales, reviewed 12 September 2026. Employers should distinguish ordinary sickness absence from disability-related absence and comply with Equality Act duties, including consideration of reasonable adjustments before making capability decisions.</p>
 </div>
 </article>
 
@@ -553,11 +553,11 @@ export default function SicknessAbsenceReviewInvitationPage() {
             <section className="side-card">
               <h2>About this resource</h2>
               <p>
-                Topic: Probation
+                Topic: Sickness & absence
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />

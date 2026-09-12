@@ -553,8 +553,8 @@ export default function PerformanceManagementPage() {
 <li>Document important discussions and decisions.</li>
 </ul>
 
-<div className="notice"><strong>Legal position — January 2027</strong>
-<p>This factsheet reflects the law in England &amp; Wales as at January 2027. Capability decisions should be reasonable, evidence-based and procedurally fair. Employers should consider discrimination, reasonable adjustments and other statutory protections before taking formal action or dismissal.</p></div>
+<div className="notice"><strong>Legal review — 12 September 2026</strong>
+<p>This factsheet reflects the law in England &amp; Wales as at 12 September 2026. Capability decisions should be reasonable, evidence-based and procedurally fair. Employers should consider discrimination, reasonable adjustments and other statutory protections before taking formal action or dismissal.</p></div>
 </article>
 
           <aside className="side-panel">

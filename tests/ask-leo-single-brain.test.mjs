@@ -116,10 +116,10 @@ test("prompt professionally frames live situations without implying wrongdoing",
 test("prompt keeps sparse live questions calm and proportionate", () => {
   assert.match(builder, /short, general description of a live situation/i);
   assert.match(builder, /do not recite the full procedure/i);
-  assert.match(builder, /no more than three immediate actions/i);
+  assert.match(builder, /"Next steps" section containing two or three immediate actions/i);
   assert.match(builder, /focused questions that could materially change/i);
   assert.match(builder, /do not use a numbered procedure/i);
-  assert.match(builder, /do not repeat the same actions in a second summary/i);
+  assert.match(builder, /merely duplicate the final "Next steps" section/i);
   assert.match(builder, /do not describe later stages before they become relevant/i);
 });
 

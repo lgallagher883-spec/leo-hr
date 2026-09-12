@@ -548,13 +548,7 @@ export async function POST(req: Request) {
      */
 
     const leoPrompt = buildAskLeoProfessionalPrompt({
-      responseMode:
-        coreResult.requiresMatter &&
-        !activeMatterId &&
-        !contextSummary &&
-        message.split(/\s+/).filter(Boolean).length <= 60
-          ? "sparse_live"
-          : "standard",
+      responseMode: "standard",
       promptContext,
       routing: coreResult,
       authority: authorityResult,
@@ -1522,50 +1516,43 @@ function evaluateMatterRecommendation(input: {
       "general",
     ];
 
-    const caseManagementSignals = [
-      "employee relations",
+    const activeCaseSignals = [
+      "formal",
       "investigation",
+      "hearing",
+      "appeal",
+      "written warning",
+      "final warning",
+      "witness",
+      "statement",
+      "chronology",
+      "timeline",
+      "consultation",
+      "already raised",
+      "ongoing",
+      "escalating",
+    ];
+
+    const substantiveCaseSignals = [
       "disciplinary",
       "grievance",
       "capability",
       "absence",
-      "long-term absence",
-      "long term absence",
       "safeguarding",
-      "compliance risk",
-      "evidence",
-      "hearing",
-      "appeal",
       "dismiss",
       "terminate",
-      "tribunal",
       "redundancy",
       "whistleblowing",
       "harassment",
       "discrimination",
-    ];
-
-    const continuitySignals = [
-      "ongoing",
-      "escalating",
-      "formal",
-      "written warning",
-      "final warning",
-      "chronology",
-      "timeline",
-      "record",
-      "witness",
-      "meeting",
-      "appeal",
-      "already raised",
-      "again",
+      "performance",
     ];
 
     const looksInformational =
       informationalSignals.some((term) =>
         text.includes(term)
       ) &&
-      !caseManagementSignals.some((term) =>
+      !activeCaseSignals.some((term) =>
         text.includes(term)
       ) &&
       input.overallRisk === "low";
@@ -1578,48 +1565,35 @@ function evaluateMatterRecommendation(input: {
       };
     }
 
-    const caseSignalCount =
-      caseManagementSignals.filter((term) =>
+    const hasActiveCaseSignal =
+      activeCaseSignals.some((term) =>
         text.includes(term)
-      ).length;
+      );
 
-    const continuitySignalCount =
-      continuitySignals.filter((term) =>
+    const hasSubstantiveCaseSignal =
+      substantiveCaseSignals.some((term) =>
         text.includes(term)
-      ).length;
+      );
 
-    const highSuitabilityIntent = [
-      "disciplinary",
-      "grievance",
-      "termination",
-      "redundancy",
-    ].includes(input.intent);
-
-    const likelyERCase =
-      input.overallRisk === "critical" ||
+    const riskSupportsMatter =
       input.overallRisk === "high" ||
-      input.coreRequiresMatter ||
-      highSuitabilityIntent ||
-      caseSignalCount >= 2;
-
-    const likelyOngoingCaseManagement =
-      continuitySignalCount >= 1 ||
-      input.overallRisk !== "low";
+      input.overallRisk === "critical";
 
     const shouldRecommend =
-      likelyERCase &&
-      likelyOngoingCaseManagement;
+      hasActiveCaseSignal &&
+      (hasSubstantiveCaseSignal ||
+        riskSupportsMatter);
 
     return shouldRecommend
       ? {
           shouldRecommend: true,
           reason:
-            "A structured Matter record would support ongoing risk management, chronology and formal process continuity.",
+            "The situation appears to have moved into active case management, where a structured Matter record would support chronology, evidence and continuity.",
         }
       : {
           shouldRecommend: false,
           reason:
-            "Conversation can continue as general Ask Leo guidance at this stage.",
+            "Ask Leo can continue to advise on the situation without a Matter at this stage.",
         };
 }
 

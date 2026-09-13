@@ -1663,6 +1663,93 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
   });
 }
 
+
+async function buildTranscriptDocx(payload: BundlePayload): Promise<Buffer> {
+  const matterName = toText(payload.matter.title) || toText(payload.matter.subject) || FALLBACK_TEXT;
+  const rule = "B7B7B7";
+  const children: Paragraph[] = [
+    new Paragraph({ text: "STRICTLY PRIVATE AND CONFIDENTIAL", alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
+    new Paragraph({ text: "COMPANY USE ONLY", alignment: AlignmentType.CENTER, spacing: { after: 160 } }),
+    new Paragraph({ children: [new TextRun({ text: "ASK LEO CONVERSATION RECORD", bold: true, size: 30 })], alignment: AlignmentType.CENTER, spacing: { after: 220 } }),
+    new Paragraph({ text: `Matter: ${matterName}`, spacing: { after: 70 } }),
+    new Paragraph({ text: `Matter ID: ${payload.matter.id}`, spacing: { after: 70 } }),
+    new Paragraph({ text: `Exported: ${payload.generatedAtDisplay}`, spacing: { after: 180 } }),
+    new Paragraph({ children: [new TextRun({ text: "NOT TO BE INCLUDED WITH A MATTER BUNDLE", bold: true, color: "8B0000", size: 22 })], alignment: AlignmentType.CENTER, spacing: { before: 120, after: 100 }, border: { top: { color: rule, size: 8, style: "single", space: 8 }, bottom: { color: rule, size: 8, style: "single", space: 8 } } }),
+    new Paragraph({ text: "This is a separate internal conversation export. It may contain questions, preliminary views, working assumptions and information supplied while seeking guidance. Review it before sharing with any third party.", alignment: AlignmentType.CENTER, spacing: { after: 160 } }),
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({ children: [new TextRun({ text: "CONVERSATION", bold: true, size: 26 })], spacing: { after: 140 }, border: { bottom: { color: rule, size: 6, style: "single", space: 6 } } }),
+  ];
+
+  if (payload.messages.length === 0) {
+    children.push(new Paragraph({ text: "No conversation entries are recorded." }));
+  } else {
+    for (const message of payload.messages) {
+      const rawRole = toText(message.role).toLowerCase();
+      const role = rawRole === "leo" || rawRole === "assistant" ? "Ask Leo" : rawRole === "user" ? "Employer" : toText(message.role) || "Unknown";
+      children.push(
+        new Paragraph({ children: [new TextRun({ text: `${formatDateTime(message.created_at)} — ${role}`, bold: true, color: "555555", size: 20 })], spacing: { before: 120, after: 60 } }),
+        new Paragraph({ text: toText(message.content) || FALLBACK_TEXT, spacing: { after: 160, line: 320 } }),
+      );
+    }
+  }
+
+  const footer = new Footer({ children: [new Paragraph({
+    children: [new TextRun("PRIVATE & CONFIDENTIAL | NOT PART OF THE MATTER BUNDLE | Page "), new TextRun({ children: [PageNumber.CURRENT] })],
+    alignment: AlignmentType.CENTER,
+  })] });
+
+  const document = new Document({
+    styles: { default: { document: { run: { font: "Arial", size: 22, color: "333333" }, paragraph: { spacing: { line: 320 } } } } },
+    sections: [{ properties: {}, footers: { default: footer }, children }],
+  });
+  return Packer.toBuffer(document);
+}
+
+async function buildTranscriptPdf(payload: BundlePayload): Promise<Buffer> {
+  const matterName = toText(payload.matter.title) || toText(payload.matter.subject) || FALLBACK_TEXT;
+  const pdf = new PDFDocument({ margin: 54, size: "A4", autoFirstPage: true, bufferPages: true });
+  const chunks: Buffer[] = [];
+  pdf.on("data", (chunk) => chunks.push(chunk as Buffer));
+
+  pdf.fillColor("#555555").font("Helvetica-Bold").fontSize(10).text("STRICTLY PRIVATE AND CONFIDENTIAL", { align: "center" });
+  pdf.fontSize(9).text("COMPANY USE ONLY", { align: "center" });
+  pdf.moveDown(1.4);
+  pdf.fillColor("#000000").fontSize(16).text("ASK LEO CONVERSATION RECORD", { align: "center" });
+  pdf.moveDown(1.3);
+  pdf.fontSize(11).text(`Matter: ${matterName}`);
+  pdf.font("Helvetica").text(`Matter ID: ${payload.matter.id}`);
+  pdf.text(`Exported: ${payload.generatedAtDisplay}`);
+  pdf.moveDown(1);
+  pdf.fillColor("#8B0000").font("Helvetica-Bold").fontSize(10).text("NOT TO BE INCLUDED WITH A MATTER BUNDLE", { align: "center" });
+  pdf.moveDown(0.6);
+  pdf.fillColor("#555555").font("Helvetica").fontSize(9).text("This is a separate internal conversation export. It may contain questions, preliminary views, working assumptions and information supplied while seeking guidance. Review it before sharing with any third party.", { align: "center" });
+
+  pdf.addPage();
+  pdf.fillColor("#000000").font("Helvetica-Bold").fontSize(13).text("CONVERSATION");
+  pdf.moveDown(0.8);
+  if (payload.messages.length === 0) {
+    pdf.font("Helvetica").fontSize(11).text("No conversation entries are recorded.");
+  } else {
+    for (const message of payload.messages) {
+      const rawRole = toText(message.role).toLowerCase();
+      const role = rawRole === "leo" || rawRole === "assistant" ? "Ask Leo" : rawRole === "user" ? "Employer" : toText(message.role) || "Unknown";
+      pdf.fillColor("#555555").font("Helvetica-Bold").fontSize(9.5).text(`${formatDateTime(message.created_at)} — ${role}`);
+      pdf.fillColor("#333333").font("Helvetica").fontSize(11).text(toText(message.content) || FALLBACK_TEXT, { paragraphGap: 12, lineGap: 2 });
+    }
+  }
+
+  const range = pdf.bufferedPageRange();
+  for (let n = 1; n <= range.count; n += 1) {
+    pdf.switchToPage(range.start + n - 1);
+    pdf.fillColor("#555555").font("Helvetica").fontSize(7).text(`PRIVATE & CONFIDENTIAL | NOT PART OF THE MATTER BUNDLE | Page ${n} of ${range.count}`, 54, pdf.page.height - 30, { align: "center", width: pdf.page.width - 108 });
+  }
+  pdf.end();
+  return new Promise((resolve, reject) => {
+    pdf.on("end", () => resolve(Buffer.concat(chunks)));
+    pdf.on("error", reject);
+  });
+}
+
 async function writeBundleAuditEvent(args: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   organisationId: string;

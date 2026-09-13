@@ -156,16 +156,41 @@ export async function downloadBrandedWordFromHtml(
   fileName?: string,
   extraCss?: string,
 ) {
-  const html = await buildOrganisationDocumentHtml(title, bodyHtml, extraCss);
-  const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+  const response = await fetch("/api/document-export/word", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+    body: JSON.stringify({
+      title,
+      bodyHtml,
+      extraCss: extraCss || "",
+    }),
+  });
+
+  if (!response.ok) {
+    let message = "Word export failed.";
+    try {
+      const payload = await response.json();
+      if (payload?.error) message = payload.error;
+    } catch {}
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = fileName || `${safeFileName(title) || "LEO-Document"}.doc`;
+  anchor.download =
+    fileName?.replace(/\.doc$/i, ".docx") ||
+    `${safeFileName(title) || "LEO-Document"}.docx`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export async function openBrandedPdfFromHtml(

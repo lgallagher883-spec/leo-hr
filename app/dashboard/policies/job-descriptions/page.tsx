@@ -4,11 +4,17 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { jobDescriptionsCatalogue } from "./jobDescriptionsCatalogue";
 
-type JobDescription = {
-  id: string; title: string; summary: string; topic: string; lastUpdated?: string; tags: string[];
+type JobDescriptionResource = {
+  id: string;
+  title: string;
+  summary: string;
+  topic: string;
+  lastUpdated?: string;
+  tags: string[];
 };
 
 const topics = ["All", "Administration", "Sales"];
+const publishedResources: JobDescriptionResource[] = jobDescriptionsCatalogue;
 
 export default function JobDescriptionsPage() {
   const [search, setSearch] = useState("");
@@ -16,43 +22,113 @@ export default function JobDescriptionsPage() {
 
   const visibleResources = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return jobDescriptionsCatalogue.filter((resource) =>
-      (activeTopic === "All" || resource.topic === activeTopic) &&
-      (!query || `${resource.title} ${resource.summary} ${resource.tags.join(" ")}`.toLowerCase().includes(query))
-    );
+    return publishedResources.filter((resource) => {
+      const matchesTopic = activeTopic === "All" || resource.topic === activeTopic;
+      const matchesSearch =
+        !query ||
+        `${resource.title} ${resource.summary} ${resource.topic} ${resource.tags.join(" ")}`
+          .toLowerCase()
+          .includes(query);
+      return matchesTopic && matchesSearch;
+    });
   }, [activeTopic, search]);
 
+  const askLeoHref =
+    `/dashboard/ask-leo?prompt=${encodeURIComponent(
+      "I am reviewing the LEO Job Descriptions library. Help me choose or adapt a job description for the role I need."
+    )}&resourceType=${encodeURIComponent("Job Description")}&returnUrl=${encodeURIComponent(
+      "/dashboard/policies/job-descriptions"
+    )}`;
+
   return (
-    <main className="page">
+    <main className="library-page">
       <style jsx>{`
-        .page{min-height:100%;padding:32px;background:linear-gradient(180deg,#fbf8fd 0%,#fff 42%);color:#334155}
-        .shell{max-width:1220px;margin:0 auto}.back{display:inline-flex;margin-bottom:24px;color:#6e5084;font-size:14px;font-weight:600;text-decoration:none}
-        .hero{padding:34px;border:1px solid #eadff0;border-radius:24px;background:rgba(255,255,255,.92);box-shadow:0 16px 45px rgba(91,66,106,.07)}
+        .library-page{min-height:100%;padding:32px;background:linear-gradient(180deg,#fbf8fd 0%,#fff 42%);color:#334155}
+        .page-shell{max-width:1220px;margin:0 auto}
+        .hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:end;padding:34px;border:1px solid #eadff0;border-radius:24px;background:rgba(255,255,255,.92);box-shadow:0 16px 45px rgba(91,66,106,.07)}
         .eyebrow{margin:0 0 8px;color:#8a6a9e;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-        h1{margin:0;color:#2f2635;font-size:36px}.intro{max-width:760px;margin:12px 0 0;color:#64748b;line-height:1.65}
-        .controls{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0}.search{flex:1;min-width:260px;padding:13px 16px;border:1px solid #ded3e4;border-radius:12px;background:#fff;font:inherit}
-        .topic{padding:10px 14px;border:1px solid #e4d9e9;border-radius:999px;background:#fff;color:#6e5084;font-weight:600;cursor:pointer}.active{background:#f7f1fc;border-color:#cdb2e2}
-        .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{display:flex;flex-direction:column;padding:24px;border:1px solid #eadff0;border-radius:18px;background:#fff;box-shadow:0 10px 28px rgba(91,66,106,.05)}
-        .meta{color:#8a6a9e;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.card h2{margin:10px 0 8px;color:#33283a;font-size:20px}.card p{margin:0 0 18px;color:#64748b;line-height:1.6}.open{margin-top:auto;color:#6e5084;font-weight:700;text-decoration:none}.open:hover{text-decoration:underline}
-        @media(max-width:760px){.page{padding:20px}.grid{grid-template-columns:1fr}h1{font-size:30px}}
+        h1{margin:0;color:#6e5084;font-size:clamp(34px,5vw,52px);font-weight:500;letter-spacing:-.035em}
+        .hero-copy{max-width:760px;margin:14px 0 0;color:#64748b;font-size:17px;line-height:1.7}
+        .hero-badge{min-width:150px;padding:18px 20px;border-radius:18px;background:#f7f1fc;text-align:center}
+        .hero-count{display:block;color:#6e5084;font-size:32px;font-weight:600}.hero-count-label{color:#80678f;font-size:13px}
+        .toolbar{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:16px;margin-top:26px}
+        .search-wrap{position:relative}.search-icon{position:absolute;left:17px;top:50%;transform:translateY(-50%);color:#90759f}
+        .search-input{width:100%;height:52px;box-sizing:border-box;padding:0 18px 0 46px;border:1px solid #dfd4e5;border-radius:14px;background:#fff;color:#334155;font:inherit;outline:none}
+        .search-input:focus{border-color:#b995ce;box-shadow:0 0 0 4px rgba(185,149,206,.15)}
+        :global(.ask-link){display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 22px;border:1px solid #6e5084;border-radius:14px;background:#6e5084;color:#fff;font-size:14px;font-weight:600;text-decoration:none;box-shadow:0 8px 20px rgba(110,80,132,.16)}
+        .content-grid{display:grid;grid-template-columns:250px minmax(0,1fr);gap:26px;margin-top:26px}
+        .filters,.library-panel{border:1px solid #eadff0;border-radius:20px;background:#fff}.filters{align-self:start;padding:20px;position:sticky;top:24px}
+        .filters-title,.library-title{margin:0;color:#6e5084;font-weight:500}.filters-title{font-size:18px}.library-title{font-size:24px}
+        .topic-list{display:grid;gap:5px;margin-top:15px}.topic-button{width:100%;padding:10px 12px;border:0;border-radius:10px;background:transparent;color:#526174;font:inherit;font-size:14px;text-align:left;cursor:pointer}
+        .topic-button:hover{background:#faf6fc;color:#6e5084}.topic-button.active{background:#f2e9f8;color:#6e5084;font-weight:600}
+        .library-panel{min-height:470px;padding:26px}.library-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:20px;border-bottom:1px solid #eee7f1}.result-count{color:#8b7896;font-size:13px}
+        .resource-grid{display:grid;gap:14px;margin-top:20px}.resource-card{padding:22px;border:1px solid #e8dfeb;border-radius:16px;background:#fff;transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease}
+        .resource-card:hover{transform:translateY(-2px);border-color:#d8c8e1;box-shadow:0 12px 30px rgba(91,66,106,.08)}
+        .resource-heading{display:flex;align-items:flex-start;gap:12px}.resource-icon{display:grid;flex:0 0 auto;width:38px;height:38px;place-items:center;border-radius:11px;background:#f4edf8;color:#6e5084;font-size:17px;font-weight:700}
+        .resource-card h3{margin:1px 0 0;color:#6e5084;font-size:18px;font-weight:600}.resource-card p{margin:10px 0 0 50px;color:#64748b;line-height:1.65}
+        .resource-meta{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0 50px}.pill{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:999px;background:#f7f1fc;color:#6e5084;font-size:12px;font-weight:600}
+        .divider{height:1px;margin:18px 0;background:#eee7f1}.actions{display:flex;flex-wrap:wrap;gap:10px}
+        :global(.resource-action){display:inline-flex;min-height:42px;align-items:center;justify-content:center;padding:0 16px;border:1px solid #dfd4e5;border-radius:12px;background:#fff;color:#6e5084;font-size:13px;font-weight:600;text-decoration:none}
+        :global(.resource-action.primary){border-color:#6e5084;background:#6e5084;color:#fff}
+        @media(max-width:850px){.library-page{padding:20px}.hero,.content-grid{grid-template-columns:1fr}.filters{position:static}}
+        @media(max-width:540px){.library-page{padding:14px}.hero,.library-panel{padding:22px}}
       `}</style>
-      <div className="shell">
-        <Link className="back" href="/dashboard/policies">← HR Resources</Link>
+
+      <div className="page-shell">
+        <Link className="back-link" href="/dashboard/policies">← Back to HR Resources</Link>
+
         <section className="hero">
-          <p className="eyebrow">LEO HR Resources</p>
-          <h1>Job Descriptions</h1>
-          <p className="intro">Ready-to-use job description examples that employers can adapt to suit the role, organisation and level of responsibility.</p>
+          <div>
+            <p className="eyebrow">HR Resources</p>
+            <h1>Job Descriptions</h1>
+            <p className="hero-copy">
+              Ready-to-use role profiles with clear responsibilities, requirements and layouts that employers can adapt to suit their organisation.
+            </p>
+          </div>
+          <div className="hero-badge">
+            <span className="hero-count">{publishedResources.length}</span>
+            <span className="hero-count-label">published resources</span>
+          </div>
         </section>
-        <div className="controls">
-          <input className="search" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search job descriptions..." />
-          {topics.map((topic)=><button key={topic} className={`topic ${activeTopic===topic?"active":""}`} onClick={()=>setActiveTopic(topic)}>{topic}</button>)}
+
+        <div className="toolbar">
+          <div className="search-wrap">
+            <span className="search-icon">⌕</span>
+            <input className="search-input" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search job descriptions by title, topic or keyword..." />
+          </div>
+          <Link className="ask-link" href={askLeoHref}><span aria-hidden="true">✦</span>Ask Leo</Link>
         </div>
-        <div className="grid">
-          {visibleResources.map((resource)=><article className="card" key={resource.id}>
-            <div className="meta">{resource.topic} · {resource.lastUpdated}</div>
-            <h2>{resource.title}</h2><p>{resource.summary}</p>
-            <Link className="open" href={`/dashboard/policies/job-descriptions/${resource.id}`}>Open resource →</Link>
-          </article>)}
+
+        <div className="content-grid">
+          <aside className="filters">
+            <h2 className="filters-title">Browse by topic</h2>
+            <div className="topic-list">
+              {topics.map((topic)=>(
+                <button key={topic} type="button" className={`topic-button ${activeTopic===topic?"active":""}`} onClick={()=>setActiveTopic(topic)}>{topic}</button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="library-panel">
+            <div className="library-header">
+              <h2 className="library-title">{activeTopic === "All" ? "All job descriptions" : activeTopic}</h2>
+              <span className="result-count">{visibleResources.length} resources</span>
+            </div>
+
+            <div className="resource-grid">
+              {visibleResources.map((resource)=>(
+                <article className="resource-card" key={resource.id}>
+                  <div className="resource-heading"><span className="resource-icon">J</span><h3>{resource.title}</h3></div>
+                  <p>{resource.summary}</p>
+                  <div className="resource-meta"><span className="pill">{resource.topic}</span><span className="pill">Reviewed {resource.lastUpdated}</span></div>
+                  <div className="divider" />
+                  <div className="actions">
+                    <Link className="resource-action primary" href={`/dashboard/policies/job-descriptions/${resource.id}`}>Open resource</Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </main>

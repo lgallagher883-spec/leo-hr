@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ResourcePreview from "@/components/resources/ResourcePreview";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 const resourceTitle = "Sales Executive Job Description";
 const resourceId = "sales-executive";
 const resourceSummary =
@@ -39,28 +40,12 @@ p,li{font-size:11pt}.role-grid,.outcome-grid{display:grid;grid-template-columns:
 </style></head><body><h1>${resourceTitle}</h1>${article.innerHTML}</body></html>`;
   }
 
-  function downloadWord() {
-    const html = getExportDocument();
-    if (!html) return;
-    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Sales-Executive-Job-Description.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  async function downloadWord() {
+    await downloadBrandedWordFromElement(resourceTitle);
   }
 
-  function openPdf() {
-    const html = getExportDocument();
-    if (!html) return;
-    const pdfWindow = window.open("", "_blank");
-    if (!pdfWindow) return;
-    pdfWindow.document.open();
-    pdfWindow.document.write(html);
-    pdfWindow.document.close();
+  async function openPdf() {
+    await openBrandedPdfFromElement(resourceTitle);
   }
 
   function addToOrganisationResources() {

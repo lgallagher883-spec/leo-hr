@@ -243,8 +243,7 @@ export default function EmergencyContacts({
           marginTop: 0,
         }}
       >
-        Store up to two emergency contacts for genuine emergencies and welfare
-        events.
+        Add or update up to two emergency contacts. These details can be maintained at any time, including after an employee import.
       </p>
 
       <div style={cardsStyle}>

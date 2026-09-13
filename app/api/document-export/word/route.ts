@@ -264,7 +264,7 @@ export async function POST(request: Request) {
         new Paragraph({
           children: [
             new TextRun({ text: "Page ", color: "64748B", size: 16 }),
-            PageNumber.CURRENT,
+            new TextRun({ children: [PageNumber.CURRENT], color: "64748B", size: 16 }),
           ],
           alignment: AlignmentType.CENTER,
         }),

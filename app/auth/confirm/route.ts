@@ -116,7 +116,21 @@ export async function GET(request: Request) {
   }
 
   if (registrationIntent.kind === "free_trial") {
-    await ensureFreeTrialProvisioning(organisationId);
+    const firstName =
+      typeof data.user.user_metadata?.first_name === "string"
+        ? data.user.user_metadata.first_name.trim()
+        : "";
+    const lastName =
+      typeof data.user.user_metadata?.last_name === "string"
+        ? data.user.user_metadata.last_name.trim()
+        : "";
+    const registrantName = [firstName, lastName].filter(Boolean).join(" ");
+
+    await ensureFreeTrialProvisioning(organisationId, {
+      userId: data.user.id,
+      email: data.user.email ?? null,
+      name: registrantName || null,
+    });
   }
 
   const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {

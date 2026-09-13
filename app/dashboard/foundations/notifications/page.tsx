@@ -81,6 +81,12 @@ export default function NotificationSettingsPage() {
     };
   }, []);
 
+  function choosePreset(days: number[]) {
+    setDaysInput(days.join(", "));
+    setMessage("");
+    setError("");
+  }
+
   async function save() {
     setMessage("");
     setError("");
@@ -118,7 +124,7 @@ export default function NotificationSettingsPage() {
       setDaysInput(
         result.settings.standardDaysBefore.join(", "),
       );
-      setMessage("Reminder timings saved.");
+      setMessage("Reminder timings saved for this organisation.");
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -162,13 +168,33 @@ export default function NotificationSettingsPage() {
       <section style={cardStyle}>
         <h2 style={cardTitleStyle}>Standard reminder timings</h2>
         <p style={copyStyle}>
-          These timings apply to standard compliance dates and Leo
-          Learn due or expiry dates. Enter up to four points between
-          1 and 90 days before the due date.
+          These reminder points are fully editable for this organisation. Choose a common preset or enter your own timings below.
         </p>
 
+        <div style={presetGridStyle}>
+          {reminderPresets.map((preset) => {
+            const active =
+              preset.value.join(",") === parsedDays.join(",");
+
+            return (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => choosePreset(preset.value)}
+                disabled={loading || saving}
+                style={{
+                  ...presetButtonStyle,
+                  ...(active ? activePresetButtonStyle : {}),
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+
         <label style={labelStyle}>
-          Days before due date
+          Custom reminder days
           <input
             type="text"
             value={daysInput}
@@ -177,11 +203,15 @@ export default function NotificationSettingsPage() {
               setMessage("");
               setError("");
             }}
-            placeholder="30, 14, 7"
+            placeholder="For example: 45, 21, 7, 1"
             disabled={loading || saving}
             style={inputStyle}
           />
         </label>
+
+        <div style={helperStyle}>
+          Enter between 1 and 4 reminder points, each from 1 to 90 days before the due date. Separate them with commas.
+        </div>
 
         <div style={previewStyle}>
           {parsedDays.length > 0
@@ -285,6 +315,32 @@ const copyStyle = {
   lineHeight: 1.6,
 };
 
+const presetGridStyle = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: "8px",
+  marginBottom: "18px",
+};
+
+const presetButtonStyle = {
+  minHeight: "38px",
+  padding: "8px 12px",
+  border: "1px solid #d9cce2",
+  borderRadius: "999px",
+  background: "#fff",
+  color: "#5d4370",
+  font: "inherit",
+  fontSize: "13px",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const activePresetButtonStyle = {
+  background: "#f7f1fc",
+  borderColor: "#9c7db4",
+  boxShadow: "0 0 0 2px rgba(110,80,132,.08)",
+};
+
 const labelStyle = {
   display: "grid",
   gap: "8px",
@@ -302,6 +358,13 @@ const inputStyle = {
   background: "#fff",
   color: "#2f2635",
   font: "inherit",
+};
+
+const helperStyle = {
+  marginTop: "8px",
+  color: "#756a79",
+  fontSize: "12px",
+  lineHeight: 1.5,
 };
 
 const previewStyle = {

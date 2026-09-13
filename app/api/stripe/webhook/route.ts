@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { sendNewAccessAdminAlert } from "@/lib/notifications/newAccessAdminAlert";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 
@@ -179,7 +180,7 @@ async function synchroniseSubscription(
 
   const { data: existing } = await admin
     .from("leo_organisation_subscriptions")
-    .select("id, status, employee_count, metadata")
+    .select("id, status, employee_count, metadata, created_by")
     .eq("organisation_id", organisationId)
     .maybeSingle();
 
@@ -273,6 +274,53 @@ async function synchroniseSubscription(
       ignoreDuplicates: true,
     },
   );
+
+  const becameActive =
+    status === "active" && existing?.status !== "active";
+  const alertAlreadySent = Boolean(
+    (existingMetadata as Record<string, unknown>).admin_access_alert_sent_at,
+  );
+
+  if (becameActive && !alertAlreadySent) {
+    try {
+      const alertResult = await sendNewAccessAdminAlert({
+        organisationId,
+        accessKind: "paid_subscription",
+        userId: existing?.created_by ?? null,
+        planKey,
+        employeeCapacity: capacity ?? existing?.employee_count ?? null,
+        activatedAt: unixToIso(item?.current_period_start) ?? new Date().toISOString(),
+        providerReference: subscription.id,
+      });
+
+      if (alertResult.sent) {
+        const sentAt = new Date().toISOString();
+        const nextMetadata = {
+          ...existingMetadata,
+          stripe_price_id: priceId,
+          stripe_plan_key: planKey,
+          stripe_cancel_at_period_end: subscription.cancel_at_period_end,
+          stripe_latest_event_reference: providerEventReference,
+          admin_access_alert_sent_at: sentAt,
+          admin_access_alert_kind: "paid_subscription",
+        };
+
+        const { error: markerError } = await admin
+          .from("leo_organisation_subscriptions")
+          .update({ metadata: nextMetadata })
+          .eq("id", savedSubscription.id);
+
+        if (markerError) {
+          console.warn(
+            "Paid-subscription admin alert sent but metadata marker could not be saved:",
+            markerError,
+          );
+        }
+      }
+    } catch (alertError) {
+      console.error("Paid-subscription admin alert failed:", alertError);
+    }
+  }
 }
 
 async function synchroniseInvoice(

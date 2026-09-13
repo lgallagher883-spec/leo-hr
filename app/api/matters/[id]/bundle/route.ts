@@ -1375,7 +1375,7 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
     new Paragraph({
       children: [
         new TextRun({
-          text: "Matter Bundle",
+          text: "MATTER BUNDLE",
           bold: true,
           size: 42,
           color: titleColour,
@@ -1424,6 +1424,24 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
       }),
     );
   }
+
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: brand.confidentialityStatement, italics: true, size: 18, color: "555555" })],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 180, after: 120 },
+    }),
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({
+      children: [new TextRun({ text: "CONTENTS", bold: true, size: 32, color: titleColour })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 220 },
+    }),
+  );
+
+  payload.sections.forEach((section, index) => {
+    children.push(new Paragraph({ text: `${index + 1}. ${section.title}`, spacing: { after: 100 } }));
+  });
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
 

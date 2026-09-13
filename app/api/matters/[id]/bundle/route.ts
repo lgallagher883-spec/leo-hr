@@ -1688,6 +1688,91 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
   });
 }
 
+async function buildTranscriptDocx(payload: BundlePayload): Promise<Buffer> {
+  const warning = "This document does not form part of the Matter Bundle and should not be included or appended to a Matter Bundle.";
+  const children: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: "STRICTLY PRIVATE AND CONFIDENTIAL", bold: true, size: 24 })], alignment: AlignmentType.CENTER, spacing: { after: 140 } }),
+    new Paragraph({ children: [new TextRun({ text: "INTERNAL COMPANY USE ONLY", bold: true, size: 22 })], alignment: AlignmentType.CENTER, spacing: { after: 260 } }),
+    new Paragraph({ children: [new TextRun({ text: "ASK LEO CONVERSATION RECORD", bold: true, size: 38, color: payload.brand.primaryColour })], alignment: AlignmentType.CENTER, spacing: { after: 260 } }),
+    new Paragraph({ text: `Organisation: ${payload.organisationName}`, alignment: AlignmentType.CENTER }),
+    new Paragraph({ text: `Matter: ${toText(payload.matter.subject) || toText(payload.matter.title) || FALLBACK_TEXT}`, alignment: AlignmentType.CENTER }),
+    new Paragraph({ text: `Matter reference: ${payload.bundleReference}`, alignment: AlignmentType.CENTER }),
+    new Paragraph({ text: `Exported: ${payload.generatedAtDisplay}`, alignment: AlignmentType.CENTER, spacing: { after: 260 } }),
+    new Paragraph({ children: [new TextRun({ text: warning, bold: true, color: "8B0000" })], alignment: AlignmentType.CENTER, spacing: { after: 220 } }),
+    new Paragraph({ text: "This export may contain questions, preliminary views, working assumptions and information provided while seeking guidance. Review it before sharing with any third party. Decisions about disclosure in legal proceedings should be taken separately and, where appropriate, with legal advice.", alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({ children: [new TextRun({ text: "CONVERSATION", bold: true, size: 30, color: payload.brand.primaryColour })], spacing: { after: 220 } }),
+  ];
+
+  for (const line of fullTranscriptLines(payload.messages)) {
+    children.push(new Paragraph({ text: line, spacing: { after: 140 } }));
+  }
+
+  const footer = new Footer({
+    children: [new Paragraph({
+      children: [
+        new TextRun("STRICTLY PRIVATE AND CONFIDENTIAL | INTERNAL COMPANY USE ONLY | NOT PART OF THE MATTER BUNDLE | Page "),
+        new TextRun({ children: [PageNumber.CURRENT] }),
+        new TextRun(" of "),
+        new TextRun({ children: [PageNumber.TOTAL_PAGES] }),
+      ],
+      alignment: AlignmentType.CENTER,
+    })],
+  });
+
+  const document = new Document({ sections: [{ properties: {}, footers: { default: footer }, children }] });
+  return Packer.toBuffer(document);
+}
+
+async function buildTranscriptPdf(payload: BundlePayload): Promise<Buffer> {
+  const pdf = new PDFDocument({ margin: 50, size: "A4", autoFirstPage: true, bufferPages: true });
+  const chunks: Buffer[] = [];
+  pdf.on("data", (chunk) => chunks.push(chunk as Buffer));
+  const primary = `#${payload.brand.documentMode === "plain" ? "000000" : payload.brand.primaryColour}`;
+
+  pdf.fillColor("#555555").fontSize(11).text("STRICTLY PRIVATE AND CONFIDENTIAL", { align: "center" });
+  pdf.moveDown(0.4);
+  pdf.fontSize(10).text("INTERNAL COMPANY USE ONLY", { align: "center" });
+  pdf.moveDown(1.4);
+  pdf.fillColor(primary).fontSize(22).text("ASK LEO CONVERSATION RECORD", { align: "center" });
+  pdf.moveDown(1);
+  pdf.fillColor("#333333").fontSize(10.5).text(`Organisation: ${payload.organisationName}`, { align: "center" });
+  pdf.text(`Matter: ${toText(payload.matter.subject) || toText(payload.matter.title) || FALLBACK_TEXT}`, { align: "center" });
+  pdf.text(`Matter reference: ${payload.bundleReference}`, { align: "center" });
+  pdf.text(`Exported: ${payload.generatedAtDisplay}`, { align: "center" });
+  pdf.moveDown(1.4);
+  pdf.fillColor("#8B0000").fontSize(10).text("This document does not form part of the Matter Bundle and should not be included or appended to a Matter Bundle.", { align: "center" });
+  pdf.moveDown(1);
+  pdf.fillColor("#555555").fontSize(9).text("This export may contain questions, preliminary views, working assumptions and information provided while seeking guidance. Review it before sharing with any third party. Decisions about disclosure in legal proceedings should be taken separately and, where appropriate, with legal advice.", { align: "center" });
+
+  pdf.addPage();
+  pdf.fillColor(primary).fontSize(16).text("CONVERSATION");
+  pdf.moveDown(0.7);
+  for (const line of fullTranscriptLines(payload.messages)) {
+    pdf.fillColor("#333333").fontSize(9.5).text(line, { paragraphGap: 8 });
+  }
+
+  const range = pdf.bufferedPageRange();
+  const total = range.count;
+  for (let pageNumber = 1; pageNumber <= total; pageNumber += 1) {
+    pdf.switchToPage(range.start + pageNumber - 1);
+    pdf.save();
+    pdf.fillColor("#555555").fontSize(6.5).text(
+      `STRICTLY PRIVATE AND CONFIDENTIAL | INTERNAL COMPANY USE ONLY | NOT PART OF THE MATTER BUNDLE | Page ${pageNumber} of ${total}`,
+      40,
+      pdf.page.height - 28,
+      { align: "center", width: pdf.page.width - 80 },
+    );
+    pdf.restore();
+  }
+
+  pdf.end();
+  return new Promise((resolve, reject) => {
+    pdf.on("end", () => resolve(Buffer.concat(chunks)));
+    pdf.on("error", reject);
+  });
+}
+
 async function writeBundleAuditEvent(args: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   organisationId: string;

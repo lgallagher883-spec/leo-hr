@@ -9,6 +9,13 @@ type ReminderSettings = {
   dueDayAlwaysEnabled: boolean;
 };
 
+const reminderPresets = [
+  { label: "30 and 7 days", value: [30, 7] },
+  { label: "30, 14 and 7 days", value: [30, 14, 7] },
+  { label: "14, 7 and 1 day", value: [14, 7, 1] },
+  { label: "60, 30, 14 and 7 days", value: [60, 30, 14, 7] },
+];
+
 function normaliseInput(value: string) {
   return Array.from(
     new Set(

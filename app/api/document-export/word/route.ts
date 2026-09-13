@@ -67,7 +67,12 @@ function extractBlocks(html: string) {
 
   const cleaned = html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "");
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, "")
+    .replace(
+      /<div\b[^>]*class=["'][^"']*(?:role-card|outcome-card|field-card)[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi,
+      "<p>$1</p>",
+    );
 
   const tokenRegex =
     /<(h[1-4]|p|li|table)\b[^>]*>([\s\S]*?)<\/\1>/gi;
@@ -256,14 +261,14 @@ export async function POST(request: Request) {
 
       if (brand.pageNumbers) {
         footerChildren.push(
-          new Paragraph({
-            children: [
-              new TextRun({ text: "Page ", color: "64748B", size: 16 }),
-              new TextRun({ children: [PageNumber.CURRENT], color: "64748B", size: 16 }),
-            ],
-            alignment: AlignmentType.CENTER,
-          }),
-        );
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Page ", color: "64748B", size: 16 }),
+            PageNumber.CURRENT,
+          ],
+          alignment: AlignmentType.CENTER,
+        }),
+      );
       }
     }
 
@@ -377,7 +382,7 @@ export async function POST(request: Request) {
 
     const buffer = await Packer.toBuffer(doc);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type":

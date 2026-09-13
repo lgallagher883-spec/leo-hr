@@ -1427,12 +1427,12 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
 
-  for (const section of payload.sections) {
+  for (const [sectionIndex, section] of payload.sections.entries()) {
     children.push(
       new Paragraph({
         children: [
           new TextRun({
-            text: section.title,
+            text: `${sectionIndex + 1}. ${section.title}`,
             bold: true,
             size: 28,
             color: titleColour,
@@ -1524,8 +1524,8 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
     if (brand.pageNumbers) {
       footerChildren.push(
         new Paragraph({
-          children: [new TextRun("Page "), new TextRun({ children: [PageNumber.CURRENT] })],
-          alignment: AlignmentType.CENTER,
+          children: [new TextRun(`${payload.bundleReference} | Page `), new TextRun({ children: [PageNumber.CURRENT] })],
+          alignment: AlignmentType.RIGHT,
         }),
       );
     }

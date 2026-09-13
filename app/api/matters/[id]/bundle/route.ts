@@ -1691,7 +1691,7 @@ async function writeBundleAuditEvent(args: {
     entity_type: "Matter",
     entity_id: String(payload.matter.id),
     entity_name: toText(payload.matter.subject) || toText(payload.matter.title) || `Matter ${payload.matter.id}`,
-    description: `Matter bundle generated in ${format.toUpperCase()} format${includeTranscript ? " with" : " without"} transcript appendix.`,
+    description: `Matter bundle generated in ${format.toUpperCase()} format.`,
     metadata: {
       bundle_reference: payload.bundleReference,
       generated_at: payload.generatedAt,
@@ -1736,7 +1736,8 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const format = readBundleFormat(body.format);
-  const includeTranscript = readBoolean(body.includeTranscript);
+  const exportType = toText(body.exportType) === "transcript" ? "transcript" : "bundle";
+  const includeTranscript = false;
 
   const access = await requirePermission("matters.export");
 
@@ -1765,24 +1766,24 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const now = new Date();
-    const fileStem = `matter-${payload.matter.id}-bundle-${fileSafeDate(now)}`;
+    const fileStem = exportType === "transcript" ? `matter-${payload.matter.id}-ask-leo-conversation-${fileSafeDate(now)}` : `matter-${payload.matter.id}-bundle-${fileSafeDate(now)}`;
 
     let bytes: Buffer;
     let contentType: string;
     let extension: "docx" | "pdf";
 
     if (format === "pdf") {
-      bytes = await buildPdf(payload);
+      bytes = exportType === "transcript" ? await buildTranscriptPdf(payload) : await buildPdf(payload);
       contentType = "application/pdf";
       extension = "pdf";
     } else {
-      bytes = await buildDocx(payload);
+      bytes = exportType === "transcript" ? await buildTranscriptDocx(payload) : await buildDocx(payload);
       contentType =
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       extension = "docx";
     }
 
-    await writeBundleAuditEvent({
+    if (exportType === "bundle") await writeBundleAuditEvent({
       supabase,
       organisationId,
       user,

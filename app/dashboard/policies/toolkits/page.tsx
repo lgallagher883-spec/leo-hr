@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toolkitsCatalogue } from "./toolkitsCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type ToolkitResource = {
   id: string;
   title: string;
@@ -397,43 +398,16 @@ export default function ToolkitsPage() {
     `;
   }
 
-  function downloadWord(toolkit: ToolkitResource) {
+  async function downloadWord(toolkit: ToolkitResource) {
     const documentHtml = getToolkitDocument(toolkit);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Disciplinary-Toolkit.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(toolkit.title, documentHtml);
   }
 
-  function openPdf(toolkit: ToolkitResource) {
+  async function openPdf(toolkit: ToolkitResource) {
     const documentHtml = getToolkitDocument(toolkit);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(toolkit.title, documentHtml);
   }
 
   function getAskLeoHref(toolkit: ToolkitResource) {

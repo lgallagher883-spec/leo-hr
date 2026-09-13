@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { checklistsCatalogue } from "./checklistsCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type ChecklistResource = {
   id: string;
   title: string;
@@ -196,43 +197,16 @@ export default function ChecklistsPage() {
     `;
   }
 
-  function downloadWord(checklist: ChecklistResource) {
+  async function downloadWord(checklist: ChecklistResource) {
     const documentHtml = getChecklistDocument(checklist);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-New-Starter-Checklist.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(checklist.title, documentHtml);
   }
 
-  function openPdf(checklist: ChecklistResource) {
+  async function openPdf(checklist: ChecklistResource) {
     const documentHtml = getChecklistDocument(checklist);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(checklist.title, documentHtml);
   }
 
   function getAskLeoHref(checklist: ChecklistResource) {

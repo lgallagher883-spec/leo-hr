@@ -1,3 +1,4 @@
+import { sendNewAccessAdminAlert } from "@/lib/notifications/newAccessAdminAlert";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type TrialProvisioningResult = {
@@ -11,6 +12,7 @@ type TrialRow = {
   status: string;
   starts_at: string | null;
   ends_at: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 function sevenDaysAfter(value: string) {
@@ -59,7 +61,7 @@ async function getTrial(
 ) {
   const { data, error } = await admin
     .from("leo_organisation_trials")
-    .select("id, status, starts_at, ends_at")
+    .select("id, status, starts_at, ends_at, metadata")
     .eq("organisation_id", organisationId)
     .maybeSingle();
 
@@ -93,7 +95,7 @@ export async function ensureFreeTrialProvisioning(
           trial_type: "free_trial_7_day",
         },
       })
-      .select("id, status, starts_at, ends_at")
+      .select("id, status, starts_at, ends_at, metadata")
       .single();
 
     if (createError) {
@@ -189,6 +191,49 @@ export async function ensureFreeTrialProvisioning(
   }
 
   const entitlementId = await synchroniseEntitlement(admin, organisationId);
+
+  const currentMetadata =
+    trial.metadata &&
+    typeof trial.metadata === "object" &&
+    !Array.isArray(trial.metadata)
+      ? trial.metadata
+      : {};
+
+  if (!currentMetadata.admin_access_alert_sent_at) {
+    try {
+      const alertResult = await sendNewAccessAdminAlert({
+        organisationId,
+        accessKind: "free_trial",
+        activatedAt: trial.starts_at,
+        providerReference: trial.id,
+      });
+
+      if (alertResult.sent) {
+        const sentAt = new Date().toISOString();
+        const nextMetadata = {
+          ...currentMetadata,
+          admin_access_alert_sent_at: sentAt,
+          admin_access_alert_kind: "free_trial",
+        };
+
+        const { error: metadataError } = await admin
+          .from("leo_organisation_trials")
+          .update({ metadata: nextMetadata })
+          .eq("id", trial.id);
+
+        if (metadataError) {
+          console.warn(
+            "Free-trial admin alert sent but metadata marker could not be saved:",
+            metadataError,
+          );
+        } else {
+          trial = { ...trial, metadata: nextMetadata };
+        }
+      }
+    } catch (alertError) {
+      console.error("Free-trial admin alert failed:", alertError);
+    }
+  }
 
   return {
     activated: true,

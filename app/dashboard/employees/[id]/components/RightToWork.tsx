@@ -142,8 +142,7 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   return (
     <ProfileSection title="Right to Work">
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
-        Record right to work checks and review dates. If nationality is marked as
-        Other, visa or permit details should be completed.
+        Record or complete right to work checks and review dates here at any time, including after an employee import. If nationality is marked as Other, visa or permit details should be completed.
       </p>
 
       <SelectField

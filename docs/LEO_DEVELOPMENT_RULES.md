@@ -271,3 +271,15 @@ These rules are mandatory for all reminder and expiry work.
 - Advanced escalation chains
 - Universal reminder ledger
 - Cross-channel orchestration and adaptive reminder intelligence
+
+
+## Organisation document branding
+
+All LEO-generated documents and exports must use the shared organisation document-branding pipeline.
+
+- HR Resources Word/PDF exports must use `lib/documents/browserExport.ts`.
+- Shared resource preview pages inherit branding through `components/resources/ResourcePreview.tsx`.
+- Server-generated documents must read the same saved organisation brand/document settings defined by `lib/documents/brandSettings.ts`.
+- Matter bundles, future company-document generators, letters, forms, reports and any new downloadable document type must respect the organisation's selected branded/plain layout, logo, primary/secondary colours, header/footer preferences, confidentiality settings and organisation details.
+- Uploaded organisation-owned source documents must remain unchanged when downloaded; LEO must not silently overwrite a customer's existing document formatting. Branding applies when LEO generates or re-generates a document.
+- New document features must not introduce their own hard-coded brand colours or separate branding schema.

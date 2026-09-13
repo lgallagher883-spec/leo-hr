@@ -4,10 +4,10 @@ import { useState } from "react";
 import ResourcePreview from "@/components/resources/ResourcePreview";
 
 import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
-const resourceTitle = "Sales Executive Job Description";
+const resourceTitle = "Example 2";
 const resourceId = "sales-executive";
 const resourceSummary =
-  "A commercially focused job description for a Sales Executive, with outcomes, responsibilities, skills and adaptable success measures.";
+  "Sales Executive example with salary information, outcomes, responsibilities, skills and adaptable success measures.";
 
 const askLeoPrompt = [
   `I am reviewing the LEO job description "${resourceTitle}".`,
@@ -72,13 +72,14 @@ p,li{font-size:11pt}.role-grid,.outcome-grid{display:grid;grid-template-columns:
       addedToOrganisationResources={added}
       askLeoHref={askLeoHref}
       relatedResources={[
-        { title: "Office Manager Job Description", href: "/dashboard/policies/job-descriptions/office-manager" },
+        { title: "Example 1", href: "/dashboard/policies/job-descriptions/office-manager" },
       ]}
     >
       <div className="role-grid">
         <div className="role-card"><strong>Reports to</strong>Sales Manager</div>
         <div className="role-card"><strong>Location</strong>[Insert location]</div>
         <div className="role-card"><strong>Working hours</strong>[Insert hours]</div>
+        <div className="role-card"><strong>Salary / pay range</strong>[Insert salary or range]</div>
       </div>
 
       <h2>Role purpose</h2>

@@ -271,8 +271,7 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
   return (
     <ProfileSection title="Driving">
       <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
-        Record whether this employee drives for work or on company business,
-        including licence checks, insurance and authorisation.
+        Record or complete driving information here at any time, including after an employee import. Include licence checks, insurance and authorisation where relevant.
       </p>
 
       <SelectField

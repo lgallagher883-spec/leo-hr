@@ -42,7 +42,7 @@ function buildHeader(brand: DocumentBrandSettings, primary: string) {
 
   const logo =
     brand.documentLayout === "branded" && brand.logoUrl
-      ? `<img class="org-logo" src="${escapeHtml(brand.logoUrl)}" alt="" />`
+      ? `<img class="org-logo" src="${escapeHtml(brand.logoUrl)}" alt="" width="140" style="width:140px;max-width:140px;height:auto;max-height:64px;object-fit:contain;" />`
       : "";
 
   if (brand.headerStyle === "minimal") {
@@ -55,16 +55,20 @@ function buildHeader(brand: DocumentBrandSettings, primary: string) {
       : "";
 
   return `
-    <header class="doc-header">
-      <div class="brand-row">
-        ${logo}
-        <div class="brand-copy">
+    <table class="doc-header-table" role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td class="logo-cell" valign="middle">${logo}</td>
+        <td class="brand-copy" valign="middle" align="right">
           <div class="org-name">${escapeHtml(brand.organisationName)}</div>
           ${registered}
-        </div>
-      </div>
-      <div class="brand-rule" style="background:${primary}"></div>
-    </header>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding-top:12px;">
+          <div class="brand-rule" style="background:${primary};height:4px;line-height:4px;font-size:1px;">&nbsp;</div>
+        </td>
+      </tr>
+    </table>
   `;
 }
 
@@ -118,13 +122,18 @@ export async function buildOrganisationDocumentHtml(
 :root{--brand-primary:${primary};--brand-secondary:${secondary}}
 *{box-sizing:border-box}
 body{max-width:820px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#334155;line-height:1.65;background:#fff}
-.doc-header{margin-bottom:26px}.doc-header.minimal{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid #e5e7eb}
-.brand-row{display:flex;align-items:center;justify-content:space-between;gap:20px}.org-logo{display:block;max-width:180px;max-height:72px;object-fit:contain}
-.brand-copy{margin-left:auto;text-align:right}.org-name{color:var(--brand-primary);font-size:18px;font-weight:700}.org-registered{margin-top:3px;color:#64748b;font-size:10pt}
-.brand-rule{height:4px;margin-top:14px;border-radius:999px}.document-title{margin:0 0 26px;color:var(--brand-primary);font-size:30px;line-height:1.2}
+.doc-header{margin-bottom:22px}.doc-header.minimal{padding-bottom:12px;border-bottom:1px solid #e5e7eb}
+.doc-header-table{width:100%;border-collapse:collapse;margin:0 0 22px}.doc-header-table td{border:0;padding:0}.logo-cell{width:180px}
+.org-logo{display:block;width:140px;max-width:140px;height:auto;max-height:64px;object-fit:contain}
+.brand-copy{text-align:right}.org-name{color:var(--brand-primary);font-size:18px;font-weight:700}.org-registered{margin-top:3px;color:#64748b;font-size:10pt}
+.brand-rule{height:4px;margin-top:0;border-radius:2px}.document-title{margin:0 0 24px;color:var(--brand-primary);font-size:27px;line-height:1.2}
 h1,h2,h3,h4{color:var(--brand-primary)!important}h2{margin-top:28px;font-size:20px}h3{margin-top:22px;font-size:16px}
 p,li,td,th{font-size:11pt}a{color:var(--brand-primary)}
-.notice,.tip{border-color:var(--brand-primary)!important}.role-card,.outcome-card{background:var(--brand-secondary)!important}
+.notice,.tip{border-color:var(--brand-primary)!important}
+.role-grid,.outcome-grid,.form-grid{display:block!important;margin:12px 0 20px!important}
+.role-card,.outcome-card,.field-card{display:block!important;width:auto!important;margin:0 0 8px!important;padding:10px 12px!important;border:1px solid #e1e5ea!important;border-radius:0!important;background:var(--brand-secondary)!important}
+.role-card strong,.outcome-card strong,.field-card strong{display:inline-block!important;min-width:130px!important;margin-right:8px!important;color:var(--brand-primary)!important}
+table{page-break-inside:avoid}h1,h2,h3{page-break-after:avoid}li{page-break-inside:avoid}
 .doc-footer{margin-top:36px;padding-top:14px;border-top:1px solid #d8dee6;color:#64748b;font-size:9pt;line-height:1.5}.doc-footer.compact{text-align:center}.confidentiality{margin-bottom:6px;font-weight:600}
 .watermark{position:fixed;inset:38% 0 auto;z-index:-1;text-align:center;color:rgba(100,116,139,.09);font-size:54pt;font-weight:700;transform:rotate(-28deg)}
 ${plain ? ".org-logo{display:none}.brand-rule{background:#111827!important}.role-card,.outcome-card{background:#fff!important}" : ""}

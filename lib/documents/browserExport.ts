@@ -91,6 +91,13 @@ function buildFooter(brand: DocumentBrandSettings) {
   `;
 }
 
+function normaliseBodyHtml(value: string) {
+  const bodyMatch = value.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  let body = bodyMatch ? bodyMatch[1] : value;
+  body = body.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/i, "");
+  return body;
+}
+
 export async function buildOrganisationDocumentHtml(
   title: string,
   bodyHtml: string,
@@ -128,7 +135,7 @@ ${extraCss}
 ${brand?.confidentialWatermark ? '<div class="watermark">CONFIDENTIAL</div>' : ""}
 ${brand ? buildHeader(brand, primary) : ""}
 <h1 class="document-title">${escapeHtml(title)}</h1>
-<main class="document-body">${bodyHtml}</main>
+<main class="document-body">${normaliseBodyHtml(bodyHtml)}</main>
 ${brand ? buildFooter(brand) : ""}
 </body>
 </html>`;

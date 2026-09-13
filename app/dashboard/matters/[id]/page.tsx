@@ -315,7 +315,7 @@ function MatterDetailPageContent() {
         credentials: "include",
         body: JSON.stringify({
           format: bundleFormat,
-          includeTranscript,
+          includeTranscript: false,
         }),
       });
 
@@ -580,19 +580,6 @@ function MatterDetailPageContent() {
                     <option value="docx">Word (.docx)</option>
                     <option value="pdf">PDF</option>
                   </select>
-
-                  <label style={checkboxRowStyle}>
-                    <input
-                      type="checkbox"
-                      checked={includeTranscript}
-                      onChange={(event) =>
-                        setIncludeTranscript(event.target.checked)
-                      }
-                    />
-                    <span style={{ marginLeft: "8px" }}>
-                      Include complete LEO transcript as appendix
-                    </span>
-                  </label>
 
                   <button
                     onClick={generateMatterBundle}

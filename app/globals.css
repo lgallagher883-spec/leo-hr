@@ -41,3 +41,49 @@ body {
     overscroll-behavior-y: none;
   }
 }
+
+
+/* HR Resources navigation buttons */
+.back-link {
+  display: inline-flex !important;
+  min-height: 40px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  margin-bottom: 22px !important;
+  padding: 0 14px !important;
+  border: 1px solid #dfd4e5 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  color: #6e5084 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+  box-shadow: 0 6px 16px rgba(91, 66, 106, 0.06) !important;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease !important;
+}
+
+.back-link:hover {
+  transform: translateY(-1px) !important;
+  border-color: #cdb2e2 !important;
+  background: #faf6fc !important;
+  text-decoration: none !important;
+  box-shadow: 0 8px 20px rgba(91, 66, 106, 0.09) !important;
+}
+
+.back-link:focus-visible {
+  outline: 3px solid rgba(185, 149, 206, 0.3) !important;
+  outline-offset: 2px !important;
+}
+
+@media print {
+  .back-link {
+    display: none !important;
+  }
+}

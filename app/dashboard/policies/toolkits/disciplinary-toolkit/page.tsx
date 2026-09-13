@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 const resourceTitle = "Disciplinary Toolkit";
 const resourceId = "disciplinary-toolkit";
 const resourceSummary =
@@ -27,321 +28,18 @@ export default function DisciplinaryToolkitPage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  function openPdf() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const pdfDocument = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 18mm;
-            }
-
-            body {
-              max-width: 820px;
-              margin: 40px auto;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #334155;
-              line-height: 1.65;
-            }
-
-            h1,
-            h2 {
-              color: #6e5084;
-            }
-
-            h1 {
-              margin-bottom: 24px;
-              font-size: 30px;
-            }
-
-            h2 {
-              margin-top: 28px;
-              margin-bottom: 10px;
-              font-size: 20px;
-            }
-
-            p,
-            li {
-              font-size: 11pt;
-            }
-
-            li + li {
-              margin-top: 6px;
-            }
-
-            .toolkit-cover {
-          padding: 24px;
-          border: 1px solid #eadff0;
-          border-radius: 18px;
-          background: linear-gradient(135deg, #fbf8fd 0%, #f5fff9 100%);
-        }
-
-        .toolkit-cover h2 {
-          margin-top: 4px;
-          border: 0;
-          font-size: 28px;
-        }
-
-        .toolkit-label {
-          margin: 0;
-          color: #8a6a9e;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
-        .resource-pack-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          margin-top: 16px;
-        }
-
-        .pack-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-height: 58px;
-          padding: 12px 14px;
-          border: 1px solid #e8dfeb;
-          border-radius: 12px;
-          background: #ffffff;
-        }
-
-        .pack-item span {
-          display: grid;
-          flex: 0 0 auto;
-          width: 30px;
-          height: 30px;
-          place-items: center;
-          border-radius: 9px;
-          background: #f4edf8;
-          color: #6e5084;
-          font-size: 12px;
-          font-weight: 700;
-        }
-
-        .toolkit-table {
-          overflow: hidden;
-          margin-top: 14px;
-          border: 1px solid #e1e5ea;
-          border-radius: 14px;
-        }
-
-        .toolkit-table-header,
-        .toolkit-table-row {
-          display: grid;
-          grid-template-columns: 64px minmax(0, 1fr) 130px 105px;
-        }
-
-        .toolkit-table-header {
-          background: #f7f1fc;
-          color: #6e5084;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .toolkit-table-header span,
-        .toolkit-table-row span {
-          min-height: 44px;
-          padding: 11px 12px;
-          border-right: 1px solid #e1e5ea;
-        }
-
-        .toolkit-table-header span:last-child,
-        .toolkit-table-row span:last-child {
-          border-right: 0;
-        }
-
-        .toolkit-table-row + .toolkit-table-row {
-          border-top: 1px solid #e1e5ea;
-        }
-
-        .toolkit-check {
-          display: grid;
-          place-items: center;
-          color: #6e5084;
-          font-size: 20px;
-        }
-
-        .form-card,
-        .template-card {
-          margin-top: 14px;
-          padding: 18px;
-          border: 1px solid #e1e5ea;
-          border-radius: 14px;
-          background: #ffffff;
-        }
-
-        .form-field + .form-field {
-          margin-top: 16px;
-        }
-
-        .form-field strong {
-          display: block;
-          margin-bottom: 18px;
-          color: #6e5084;
-          font-size: 13px;
-        }
-
-        .form-field span {
-          display: block;
-          border-bottom: 1px solid #cbd5e1;
-        }
-
-        .template-card p:last-child {
-          margin-bottom: 0;
-        }
-
-        .simple-checklist {
-          display: grid;
-          gap: 8px;
-          margin-top: 14px;
-        }
-
-        .simple-checklist div {
-          display: grid;
-          grid-template-columns: 34px minmax(0, 1fr);
-          gap: 10px;
-          align-items: start;
-          padding: 11px 12px;
-          border: 1px solid #e8dfeb;
-          border-radius: 11px;
-          background: #ffffff;
-        }
-
-        .simple-checklist span {
-          color: #6e5084;
-          font-size: 20px;
-        }
-
-        .simple-checklist p {
-          margin: 1px 0 0;
-        }
-
-        @media (max-width: 720px) {
-          .resource-pack-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .toolkit-table-header,
-          .toolkit-table-row {
-            grid-template-columns: 52px minmax(0, 1fr);
-          }
-
-          .toolkit-table-header span:nth-child(3),
-          .toolkit-table-header span:nth-child(4),
-          .toolkit-table-row span:nth-child(3),
-          .toolkit-table-row span:nth-child(4) {
-            display: none;
-          }
-        }
-
-        .document h3 {
-          margin: 22px 0 8px;
-          color: #6e5084;
-          font-size: 17px;
-          font-weight: 600;
-        }
-
-        .document section + section {
-          margin-top: 30px;
-        }
-
-        .tip {
-          margin-top: 28px;
-          padding: 16px 18px;
-          border-left: 4px solid #6e5084;
-          border-radius: 0 12px 12px 0;
-          background: #f7f1fc;
-        }
-
-        .tip strong {
-          color: #6e5084;
-        }
-
-        .tip p {
-          margin-bottom: 0;
-        }
-
-        .notice {
-              margin-top: 28px;
-              padding: 14px;
-              border: 1px solid #dcece4;
-              background: #f5fff9;
-            }
-          </style>
-        </head>
-
-        <body>
-          <h1>${resourceTitle}</h1>
-          ${article.innerHTML}
-        </body>
-      </html>
-    `;
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(pdfDocument);
-    pdfWindow.document.close();
+  async function openPdf() {
+    await openBrandedPdfFromElement(resourceTitle);
   }
 
-  function downloadWord() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const wordDocument = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #334155; line-height: 1.65; }
-            h1, h2 { color: #6e5084; }
-            h1 { font-size: 30px; }
-            h2 { margin-top: 28px; font-size: 20px; }
-            .notice { padding: 14px; background: #f5fff9; border: 1px solid #dcece4; }
-          </style>
-        </head>
-        <body>${article.innerHTML}</body>
-      </html>
-    `;
-
-    const blob = new Blob(["\ufeff", wordDocument], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Disciplinary-Toolkit.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  async function downloadWord() {
+    await downloadBrandedWordFromElement(resourceTitle);
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -664,7 +362,7 @@ export default function DisciplinaryToolkitPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated July 2026</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -934,14 +632,27 @@ export default function DisciplinaryToolkitPage() {
                 <p>Dear [Employee name],</p>
                 <p><strong>Outcome of disciplinary hearing</strong></p>
                 <p>
-                  Following the disciplinary hearing held on [date], I have
-                  decided that the allegation of [allegation] is [upheld /
-                  partially upheld].
+                  Following the disciplinary hearing held on [date], I considered
+                  the allegation that [set out allegation accurately].
                 </p>
                 <p>
-                  You will receive a [first / final] written warning. It will
-                  remain active for [period]. During this period you are required
-                  to [state the expected conduct or improvement].
+                  <strong>Finding:</strong> [upheld / partially upheld / not upheld].
+                  The evidence supporting this finding was [summarise the key evidence].
+                  I also considered your explanation that [summarise the employee&apos;s account].
+                </p>
+                <p>
+                  <strong>Reasoning:</strong> [explain why the evidence was accepted or
+                  rejected and why the finding is reasonable on the balance of probabilities].
+                </p>
+                <p>
+                  <strong>Mitigation considered:</strong> [length of service, previous record,
+                  personal circumstances, remorse, training, consistency with comparable cases,
+                  or other relevant factors].
+                </p>
+                <p>
+                  The outcome is a [first / final] written warning. The warning will
+                  remain active for [period]. During this period you are required to
+                  [state the conduct or improvement expected, support provided and review arrangements].
                 </p>
                 <p>
                   You may appeal in writing to [name / role] within [number] days,
@@ -957,15 +668,37 @@ export default function DisciplinaryToolkitPage() {
                 <p>Dear [Employee name],</p>
                 <p><strong>Outcome of disciplinary hearing</strong></p>
                 <p>
-                  Following the disciplinary hearing held on [date], I have
-                  decided that the allegation of [allegation] is upheld.
+                  Following the disciplinary hearing held on [date], I considered
+                  the allegation that [set out allegation accurately].
                 </p>
                 <p>
-                  The outcome is dismissal [with notice / without notice for
-                  gross misconduct]. Your employment will end on [date].
+                  <strong>Finding:</strong> the allegation is [upheld / partially upheld].
+                  The principal evidence relied upon was [summarise evidence]. Your
+                  explanation was [summarise response], which I considered alongside
+                  [identify any conflicting or supporting evidence].
                 </p>
                 <p>
-                  You may appeal in writing to [name / role] within [number] days.
+                  <strong>Reasoning:</strong> [explain clearly why the finding was reached,
+                  including credibility or evidential issues where relevant].
+                </p>
+                <p>
+                  <strong>Mitigation and alternatives:</strong> I considered [service,
+                  disciplinary record, apology, personal circumstances, consistency,
+                  training, demotion, redeployment, warning or other alternatives].
+                  [Explain why dismissal is proportionate and why lesser action is not appropriate.]
+                </p>
+                <p>
+                  The outcome is dismissal [with notice / without notice for gross
+                  misconduct]. Your employment will end on [date].
+                </p>
+                <p>
+                  Your final arrangements are: [notice / PILON], [final salary date],
+                  [accrued untaken holiday], [benefits / commission if applicable],
+                  and [return of company property / access arrangements].
+                </p>
+                <p>
+                  You may appeal in writing to [name / role] within [number] days,
+                  stating your grounds of appeal and any new evidence you wish to be considered.
                 </p>
               </div>
             </section>
@@ -992,13 +725,26 @@ export default function DisciplinaryToolkitPage() {
                 <p>Dear [Employee name],</p>
                 <p><strong>Outcome of disciplinary appeal</strong></p>
                 <p>
-                  Following the appeal hearing held on [date], your appeal is
-                  [upheld / partially upheld / not upheld].
+                  Following the appeal hearing held on [date], I considered your
+                  grounds of appeal: [list each ground separately].
                 </p>
                 <p>
-                  The original outcome is therefore [confirmed / replaced with
-                  the following outcome]. This decision is final under the
-                  organisation&apos;s internal procedure.
+                  I considered [documents, hearing evidence, new evidence and any
+                  further enquiries]. Your explanation was [summary].
+                </p>
+                <p>
+                  <strong>Decision on each ground:</strong> [state whether each ground
+                  is upheld or not upheld and explain why].
+                </p>
+                <p>
+                  Your appeal is therefore [upheld / partially upheld / not upheld].
+                  The original outcome is [confirmed / revoked / replaced with
+                  the following outcome], because [give the reasons].
+                </p>
+                <p>
+                  Any practical changes resulting from the appeal are: [warning
+                  status, reinstatement, pay adjustment, records correction or other action].
+                  This decision is final under the organisation&apos;s internal procedure.
                 </p>
               </div>
             </section>
@@ -1032,7 +778,7 @@ export default function DisciplinaryToolkitPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: July 2026
+                Last reviewed: 12 September 2026
               </p>
             </section>
 
@@ -1043,21 +789,21 @@ export default function DisciplinaryToolkitPage() {
                   className="related-link"
                   href="/dashboard/policies/guides"
                 >
-                  Managing a probation period
+                  Managing a disciplinary process
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/checklists"
                 >
-                  New starter checklist
+                  Disciplinary investigation checklist
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  New starter forms
+                  Disciplinary hearing checklist
                 </Link>
               </div>
             </section>

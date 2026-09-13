@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { checklistsCatalogue } from "./checklistsCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type ChecklistResource = {
   id: string;
   title: string;
@@ -196,43 +197,16 @@ export default function ChecklistsPage() {
     `;
   }
 
-  function downloadWord(checklist: ChecklistResource) {
+  async function downloadWord(checklist: ChecklistResource) {
     const documentHtml = getChecklistDocument(checklist);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-New-Starter-Checklist.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(checklist.title, documentHtml);
   }
 
-  function openPdf(checklist: ChecklistResource) {
+  async function openPdf(checklist: ChecklistResource) {
     const documentHtml = getChecklistDocument(checklist);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(checklist.title, documentHtml);
   }
 
   function getAskLeoHref(checklist: ChecklistResource) {
@@ -723,7 +697,7 @@ export default function ChecklistsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -743,7 +717,7 @@ export default function ChecklistsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -754,7 +728,7 @@ export default function ChecklistsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -803,7 +777,7 @@ export default function ChecklistsPage() {
                       <span className="resource-pill">{checklist.topic}</span>
                       {checklist.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {checklist.lastUpdated}
+                          Reviewed {checklist.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -865,7 +839,7 @@ export default function ChecklistsPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

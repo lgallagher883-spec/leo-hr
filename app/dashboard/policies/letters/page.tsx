@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { lettersCatalogue } from "./lettersCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type LetterResource = {
   id: string;
   title: string;
@@ -129,43 +130,16 @@ export default function LettersPage() {
     `;
   }
 
-  function downloadWord(letter: LetterResource) {
+  async function downloadWord(letter: LetterResource) {
     const documentHtml = getLetterDocument(letter);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Invitation-to-Disciplinary-Hearing.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(letter.title, documentHtml);
   }
 
-  function openPdf(letter: LetterResource) {
+  async function openPdf(letter: LetterResource) {
     const documentHtml = getLetterDocument(letter);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(letter.title, documentHtml);
   }
 
   function getAskLeoHref(letter: LetterResource) {
@@ -668,7 +642,7 @@ export default function LettersPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -689,7 +663,7 @@ export default function LettersPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -700,7 +674,7 @@ export default function LettersPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -749,7 +723,7 @@ export default function LettersPage() {
                       <span className="resource-pill">{letter.topic}</span>
                       {letter.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {letter.lastUpdated}
+                          Reviewed {letter.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -811,7 +785,7 @@ export default function LettersPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

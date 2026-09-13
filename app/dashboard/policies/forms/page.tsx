@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formsCatalogue } from "./formsCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type FormResource = {
   id: string;
   title: string;
@@ -184,43 +185,16 @@ export default function FormsPage() {
     `;
   }
 
-  function downloadWord(form: FormResource) {
+  async function downloadWord(form: FormResource) {
     const documentHtml = getFormDocument(form);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Return-to-Work-Form.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(form.title, documentHtml);
   }
 
-  function openPdf(form: FormResource) {
+  async function openPdf(form: FormResource) {
     const documentHtml = getFormDocument(form);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(form.title, documentHtml);
   }
 
   function getAskLeoHref(form: FormResource) {
@@ -711,7 +685,7 @@ export default function FormsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -731,7 +705,7 @@ export default function FormsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -742,7 +716,7 @@ export default function FormsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -791,7 +765,7 @@ export default function FormsPage() {
                       <span className="resource-pill">{form.topic}</span>
                       {form.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {form.lastUpdated}
+                          Reviewed {form.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -853,7 +827,7 @@ export default function FormsPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

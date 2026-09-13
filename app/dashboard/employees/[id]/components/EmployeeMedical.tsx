@@ -39,6 +39,7 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
   const [editAdditionalNotes, setEditAdditionalNotes] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [restricted, setRestricted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -62,7 +63,86 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
   }
 
   useEffect(() => {
-    loadMedicalRecords();
+    let active = true;
+
+    async function initialiseMedicalAccess() {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (active) {
+          setRestricted(true);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const { data: organisationId, error: organisationError } =
+        await supabase.rpc("leo_current_organisation_id");
+
+      if (organisationError || !organisationId) {
+        if (active) {
+          setRestricted(true);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("organisation_memberships")
+        .select("role")
+        .eq("organisation_id", organisationId)
+        .eq("user_id", user.id)
+        .eq("membership_status", "active")
+        .maybeSingle();
+
+      if (membershipError) {
+        console.error("Medical access check failed:", membershipError);
+        if (active) {
+          setRestricted(true);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const role = String(membership?.role || "").trim().toLowerCase();
+      let allowed = role === "owner" || role === "senior";
+
+      if (!allowed) {
+        const [ownerRole, seniorRole] = await Promise.all([
+          supabase.rpc("leo_has_role", {
+            target_organisation_id: organisationId,
+            target_role_key: "owner",
+            target_user_id: user.id,
+          }),
+          supabase.rpc("leo_has_role", {
+            target_organisation_id: organisationId,
+            target_role_key: "senior",
+            target_user_id: user.id,
+          }),
+        ]);
+
+        allowed = Boolean(ownerRole.data || seniorRole.data);
+      }
+
+      if (!active) return;
+
+      setRestricted(!allowed);
+
+      if (allowed) {
+        await loadMedicalRecords();
+      } else {
+        setLoading(false);
+      }
+    }
+
+    void initialiseMedicalAccess();
+
+    return () => {
+      active = false;
+    };
   }, [employeeId]);
 
   async function saveMedical() {
@@ -149,6 +229,28 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
     setMessage("Medical record updated.");
     setSaving(false);
     loadMedicalRecords();
+  }
+
+  if (restricted) {
+    return (
+      <ProfileSection title="Medical">
+        <div
+          style={{
+            border: "1px solid #E5E7EB",
+            borderRadius: "12px",
+            padding: "14px",
+            background: "#F9FAFB",
+            color: "#6B7280",
+            fontSize: "14px",
+            lineHeight: 1.5,
+          }}
+        >
+          Medical information is restricted to authorised Owner and Senior users.
+          Employee self-service health information remains available to the employee
+          through My Employment.
+        </div>
+      </ProfileSection>
+    );
   }
 
   return (

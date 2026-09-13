@@ -1175,9 +1175,6 @@ export default function PoliciesPage() {
   if (activeWorkspace === "library") {
     return (
       <ResourcesHome
-        organisationResourceCount={totalResourceCount}
-        readyForLeoCount={readyResourceCount}
-        reviewSuggestedCount={reviewSuggestedCount}
         onOpenCategory={(slug) =>
           router.push(
             `/dashboard/policies/${slug}`
@@ -1686,15 +1683,9 @@ export default function PoliciesPage() {
 }
 
 function ResourcesHome({
-  organisationResourceCount,
-  readyForLeoCount,
-  reviewSuggestedCount,
   onOpenCategory,
   onOpenOrganisationResources,
 }: {
-  organisationResourceCount: number;
-  readyForLeoCount: number;
-  reviewSuggestedCount: number;
   onOpenCategory: (slug: string) => void;
   onOpenOrganisationResources: () => void;
 }) {
@@ -1746,7 +1737,8 @@ function ResourcesHome({
     },
     {
       title: "Job Descriptions",
-      description: "Ready-to-use role profiles with responsibilities, requirements and adaptable layouts.",
+      description:
+        "Ready-to-use role profiles with responsibilities, requirements and adaptable layouts.",
       marker: "J",
       slug: "job-descriptions",
     },
@@ -1791,39 +1783,6 @@ function ResourcesHome({
               aria-label="Search HR Resources"
             />
           </div>
-        </div>
-
-        <div style={resourcesHeroPanelStyle}>
-          <div style={resourcesHeroPanelLabelStyle}>
-            Your organisation
-          </div>
-
-          <div style={resourcesHeroMetricStyle}>
-            {organisationResourceCount}
-          </div>
-
-          <div style={resourcesHeroMetricLabelStyle}>
-            organisation resources
-          </div>
-
-          {(readyForLeoCount > 0 || reviewSuggestedCount > 0) && (
-            <div style={resourcesHeroSmallStatsStyle}>
-              {readyForLeoCount > 0 && (
-                <span>{readyForLeoCount} ready for Leo</span>
-              )}
-              {reviewSuggestedCount > 0 && (
-                <span>{reviewSuggestedCount} reviews suggested</span>
-              )}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={onOpenOrganisationResources}
-            style={resourcesHeroButtonStyle}
-          >
-            Open organisation resources
-          </button>
         </div>
       </section>
 
@@ -3298,9 +3257,6 @@ const resourcesHomeStyle: React.CSSProperties = {
 };
 
 const resourcesHeroStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
-  gap: "20px",
   marginBottom: "22px",
 };
 
@@ -3353,58 +3309,6 @@ const resourcesSearchStyle: React.CSSProperties = {
   color: "#2F2635",
   fontSize: "15px",
   boxShadow: "0 8px 24px rgba(70, 51, 79, 0.05)",
-};
-
-const resourcesHeroPanelStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  borderRadius: "22px",
-  padding: "28px",
-  background: "#6E5084",
-  color: "#FFFFFF",
-};
-
-const resourcesHeroPanelLabelStyle: React.CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 800,
-  letterSpacing: "0.07em",
-  textTransform: "uppercase",
-  opacity: 0.8,
-};
-
-const resourcesHeroMetricStyle: React.CSSProperties = {
-  marginTop: "14px",
-  fontSize: "52px",
-  lineHeight: 1,
-  fontWeight: 850,
-};
-
-const resourcesHeroMetricLabelStyle: React.CSSProperties = {
-  marginTop: "6px",
-  fontSize: "14px",
-  fontWeight: 700,
-};
-
-const resourcesHeroSmallStatsStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "7px",
-  marginTop: "18px",
-  paddingTop: "18px",
-  borderTop: "1px solid rgba(255,255,255,0.22)",
-  fontSize: "13px",
-  opacity: 0.9,
-};
-
-const resourcesHeroButtonStyle: React.CSSProperties = {
-  minHeight: "44px",
-  marginTop: "22px",
-  border: "1px solid rgba(255,255,255,0.35)",
-  borderRadius: "12px",
-  background: "#FFFFFF",
-  color: "#6E5084",
-  fontWeight: 800,
-  cursor: "pointer",
 };
 
 const resourcesSectionStyle: React.CSSProperties = {

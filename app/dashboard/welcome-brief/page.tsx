@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type Stage =
   | "business_overview"
@@ -236,6 +237,8 @@ export default function WelcomeBriefPage() {
   const [input, setInput] = useState("");
   const [facts, setFacts] = useState<FoundationFact[]>([]);
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(true);
+  const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -243,6 +246,101 @@ export default function WelcomeBriefPage() {
       content: stageQuestions.business_overview,
     },
   ]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function restoreProgress() {
+      try {
+        const { data: organisationId, error: organisationError } =
+          await supabase.rpc("leo_current_organisation_id");
+
+        if (organisationError || !organisationId) {
+          throw new Error("Your active organisation could not be resolved.");
+        }
+
+        const { data, error } = await (supabase as any)
+          .from("welcome_brief_progress")
+          .select("stage,messages,started,completed")
+          .eq("organisation_id", organisationId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!active || !data) return;
+
+        const restoredStage =
+          data.completed ? "complete" : (data.stage as Stage);
+
+        setStage(restoredStage || "business_overview");
+        setStarted(Boolean(data.started));
+        if (Array.isArray(data.messages) && data.messages.length > 0) {
+          setMessages(data.messages as Message[]);
+        }
+
+        const factsResult = await (supabase as any)
+          .from("organisation_foundations")
+          .select("section,key,value")
+          .eq("organisation_id", organisationId)
+          .eq("source", "Welcome Brief")
+          .order("created_at", { ascending: true });
+
+        if (!factsResult.error && Array.isArray(factsResult.data)) {
+          setFacts(
+            factsResult.data
+              .filter(
+                (fact: any) =>
+                  typeof fact?.section === "string" &&
+                  typeof fact?.key === "string" &&
+                  typeof fact?.value === "string",
+              )
+              .map((fact: any) => ({
+                section: fact.section,
+                key: fact.key,
+                value: fact.value,
+              })),
+          );
+        }
+      } catch (error) {
+        console.error("Welcome Brief progress could not be restored:", error);
+      } finally {
+        if (active) setRestoring(false);
+      }
+    }
+
+    void restoreProgress();
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
+
+  async function saveProgress(
+    nextStage: Stage,
+    nextMessages: Message[],
+    nextStarted = true,
+  ) {
+    const { data: organisationId, error: organisationError } =
+      await supabase.rpc("leo_current_organisation_id");
+
+    if (organisationError || !organisationId) {
+      throw new Error("Your active organisation could not be resolved.");
+    }
+
+    const { error } = await (supabase as any)
+      .from("welcome_brief_progress")
+      .upsert(
+        {
+          organisation_id: organisationId,
+          stage: nextStage,
+          messages: nextMessages,
+          started: nextStarted,
+          completed: nextStage === "complete",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "organisation_id" },
+      );
+
+    if (error) throw error;
+  }
 
   function getNextStage(currentStage: Stage): Stage {
     const currentIndex = stageOrder.indexOf(currentStage);
@@ -254,13 +352,11 @@ export default function WelcomeBriefPage() {
 
     const userAnswer = input.trim();
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "user",
-        content: userAnswer,
-      },
-    ]);
+    const messagesWithAnswer: Message[] = [
+      ...messages,
+      { role: "user", content: userAnswer },
+    ];
+    setMessages(messagesWithAnswer);
 
     setInput("");
     setLoading(true);
@@ -305,29 +401,28 @@ export default function WelcomeBriefPage() {
       const nextStage = getNextStage(stage);
 
       if (nextStage === "complete") {
-        setStage("complete");
-
-        setMessages((prev) => [
-          ...prev,
+        const completedMessages: Message[] = [
+          ...messagesWithAnswer,
           {
             role: "leo",
             content:
               "That's everything I need for the initial Welcome Brief.\n\nI've recorded the key information you've shared and will use it to provide more organisation-specific guidance.\n\nYou can review and update these details from Foundations whenever something changes. I'll also continue learning through future conversations, uploaded documents and completed Matters.",
           },
-        ]);
-
+        ];
+        await saveProgress("complete", completedMessages);
+        setStage("complete");
+        setMessages(completedMessages);
         return;
       }
 
-      setStage(nextStage);
+      const nextMessages: Message[] = [
+        ...messagesWithAnswer,
+        { role: "leo", content: stageQuestions[nextStage] },
+      ];
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "leo",
-          content: stageQuestions[nextStage],
-        },
-      ]);
+      await saveProgress(nextStage, nextMessages);
+      setStage(nextStage);
+      setMessages(nextMessages);
     } catch (error) {
       console.error("Welcome Brief error:", error);
 
@@ -345,6 +440,14 @@ export default function WelcomeBriefPage() {
       setLoading(false);
     }
   }
+  if (restoring) {
+    return (
+      <div style={pageWrapStyle}>
+        <div style={introCardStyle}>Restoring your Welcome Brief...</div>
+      </div>
+    );
+  }
+
   if (!started) {
     return (
       <div style={pageWrapStyle}>
@@ -380,7 +483,14 @@ export default function WelcomeBriefPage() {
           </div>
 
           <button
-            onClick={() => setStarted(true)}
+            onClick={async () => {
+              setStarted(true);
+              try {
+                await saveProgress(stage, messages, true);
+              } catch (error) {
+                console.error("Welcome Brief progress could not be started:", error);
+              }
+            }}
             style={primaryButtonStyle}
           >
             Begin Welcome Brief

@@ -4,147 +4,41 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 const resourceTitle = "Flexible Working Request Outcome";
 const resourceId = "flexible-working-outcome";
 const resourceSummary = "A professionally drafted letter confirming the outcome of a flexible working request.";   
 
 const askLeoPrompt = [
-  `I am reviewing the LEO factsheet "${resourceTitle}".`,
+  `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
-  "Please use this factsheet as the context for my question.",
+  "Please use this letter as the context for my question.",
 ].join("\n\n");
 
 const askLeoHref =
   `/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}` +
   `&resourceTitle=${encodeURIComponent(resourceTitle)}` +
-  `&resourceType=${encodeURIComponent("Factsheet")}` +
+  `&resourceType=${encodeURIComponent("Letter")}` +
   `&returnUrl=${encodeURIComponent(
-    `/dashboard/policies/factsheets/${resourceId}`
+    `/dashboard/policies/letters/${resourceId}`
   )}`;
 
 export default function FlexibleWorkingOutcomePage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  function openPdf() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const pdfDocument = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 18mm;
-            }
-
-            body {
-              max-width: 820px;
-              margin: 40px auto;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #334155;
-              line-height: 1.65;
-            }
-
-            h1,
-            h2 {
-              color: #6e5084;
-            }
-
-            h1 {
-              margin-bottom: 24px;
-              font-size: 30px;
-            }
-
-            h2 {
-              margin-top: 28px;
-              margin-bottom: 10px;
-              font-size: 20px;
-            }
-
-            p,
-            li {
-              font-size: 11pt;
-            }
-
-            li + li {
-              margin-top: 6px;
-            }
-
-            .notice {
-              margin-top: 28px;
-              padding: 14px;
-              border: 1px solid #dcece4;
-              background: #f5fff9;
-            }
-          </style>
-        </head>
-
-        <body>
-          <h1>${resourceTitle}</h1>
-          ${article.innerHTML}
-        </body>
-      </html>
-    `;
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(pdfDocument);
-    pdfWindow.document.close();
+  async function openPdf() {
+    await openBrandedPdfFromElement(resourceTitle);
   }
 
-  function downloadWord() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const wordDocument = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #334155; line-height: 1.65; }
-            h1, h2 { color: #6e5084; }
-            h1 { font-size: 30px; }
-            h2 { margin-top: 28px; font-size: 20px; }
-            .notice { padding: 14px; background: #f5fff9; border: 1px solid #dcece4; }
-          </style>
-        </head>
-        <body>${article.innerHTML}</body>
-      </html>
-    `;
-
-    const blob = new Blob(["\ufeff", wordDocument], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Flexible-Working-Outcome.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  async function downloadWord() {
+    await downloadBrandedWordFromElement(resourceTitle);
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -467,7 +361,7 @@ export default function FlexibleWorkingOutcomePage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -549,7 +443,7 @@ export default function FlexibleWorkingOutcomePage() {
 
 <div className="notice">
 <strong>Template guidance</strong>
-<p>Reflects good HR practice in England &amp; Wales as at January 2027. Employers should consult meaningfully, consider each request individually, document their reasoning and avoid discriminatory decision-making.</p>
+<p>Reviewed against current flexible-working law and good HR practice in England &amp; Wales on 12 September 2026. Employers should consult meaningfully, consider each request individually, document their reasoning and avoid discriminatory decision-making.</p>
 </div>
 </article>
 
@@ -557,17 +451,17 @@ export default function FlexibleWorkingOutcomePage() {
             <section className="side-card">
               <h2>About this resource</h2>
               <p>
-                Topic: Probation
+                Topic: Flexible working
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 
@@ -576,23 +470,23 @@ export default function FlexibleWorkingOutcomePage() {
               <div className="related-list">
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/factsheets/probation-periods"
+                  href="/dashboard/policies/factsheets/flexible-working"
                 >
-                  Probation Periods &amp; Reviews Factsheet
+                  Flexible Working Factsheet
                 </Link>
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-flexible-working-requests"
                 >
-                  Managing Probation Guide
+                  Managing Flexible Working Requests Guide
                 </Link>
 
                 <Link
                   className="related-link"
                   href="/dashboard/policies/forms"
                 >
-                  Probation Review Form
+                  Flexible Working Forms
                 </Link>
 
                 <Link

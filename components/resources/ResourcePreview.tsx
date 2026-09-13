@@ -7,6 +7,7 @@ import ResourceActions from "./ResourceActions";
 import RelatedResources from "./RelatedResources";
 import type { RelatedResource } from "./RelatedResources";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 type ResourcePreviewProps = {
   title: string;
   category: string;
@@ -302,8 +303,12 @@ export default function ResourcePreview({
         </header>
 
         <ResourceActions
-          onWord={onWord}
-          onPdf={onPdf}
+          onWord={() => {
+            void downloadBrandedWordFromElement(title);
+          }}
+          onPdf={() => {
+            void openBrandedPdfFromElement(title);
+          }}
           onPrint={onPrint}
           onAddToOrganisationResources={onAddToOrganisationResources}
           addedToOrganisationResources={addedToOrganisationResources}

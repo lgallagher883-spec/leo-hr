@@ -871,6 +871,13 @@ export default function AskLeoPage() {
             transform: translateX(0);
           }
         }
+
+        @media (min-width: 900px) {
+          .ask-leo-composer {
+            box-sizing: border-box;
+            padding-right: 92px;
+          }
+        }
       `}</style>
       <div style={headerStyle}>
         <div>
@@ -1176,7 +1183,7 @@ export default function AskLeoPage() {
           </div>
         )}
 
-        <div style={composerStyle}>
+        <div className="ask-leo-composer" style={composerStyle}>
           <textarea
             ref={composerRef}
             value={input}

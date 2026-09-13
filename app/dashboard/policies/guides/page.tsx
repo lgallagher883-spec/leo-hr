@@ -536,7 +536,7 @@ export default function GuidesPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -556,7 +556,7 @@ export default function GuidesPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -567,7 +567,7 @@ export default function GuidesPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -616,7 +616,7 @@ export default function GuidesPage() {
                       <span className="resource-pill">{guide.topic}</span>
                       {guide.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {guide.lastUpdated}
+                          Reviewed {guide.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -678,7 +678,7 @@ export default function GuidesPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

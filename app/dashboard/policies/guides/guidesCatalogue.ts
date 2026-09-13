@@ -5,7 +5,7 @@
     summary:
       "A practical guide to planning and carrying out a fair disciplinary process, from investigation through to the hearing, decision and follow-up.",
     topic: "Disciplinary",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: ["disciplinary", "investigation", "hearing", "fair process"],
   },
   {
@@ -14,7 +14,7 @@
     summary:
       "A concise employer guide to planning, reviewing and concluding probation fairly and effectively.",
     topic: "Probation",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "probation",
       "probation review",
@@ -30,7 +30,7 @@
     summary:
       "A practical guide to handling sickness absence consistently, supportively and in line with fair process expectations.",
     topic: "Sickness & absence",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "sickness",
       "absence",
@@ -47,7 +47,7 @@
     summary:
       "A concise employer guide to planning and conducting fair, impartial and evidence-led workplace investigations.",
     topic: "Disciplinary",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "investigation",
       "evidence",
@@ -63,7 +63,7 @@
     summary:
       "A concise employer guide to receiving, investigating and resolving workplace grievances fairly and without unreasonable delay.",
     topic: "Grievance",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "grievance",
       "complaint",
@@ -79,7 +79,7 @@
     summary:
       "A concise employer guide to setting expectations, addressing performance concerns and supporting fair, evidence-based improvement.",
     topic: "Managing performance",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "performance",
       "capability",
@@ -95,7 +95,7 @@
     summary:
       "A concise employer guide to consulting on flexible working requests, assessing business impact and reaching fair, lawful decisions.",
     topic: "Flexible working",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "flexible working",
       "consultation",
@@ -111,7 +111,7 @@
     summary:
       "A concise employer guide to planning consultation, selecting fairly, exploring alternatives and managing redundancy decisions lawfully.",
     topic: "Redundancy",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "redundancy",
       "consultation",
@@ -127,7 +127,7 @@
     summary:
       "A concise employer guide to planning recruitment, assessing candidates fairly and making safe, evidence-based hiring decisions.",
     topic: "Recruitment",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "recruitment",
       "advertising",
@@ -144,7 +144,7 @@
     summary:
       "A concise employer guide to handling resignation, dismissal, fixed-term expiry and other departures fairly, lawfully and consistently.",
     topic: "Ending employment",
-    lastUpdated: "January 2027",
+    lastUpdated: "September 2026",
     tags: [
       "ending employment",
       "dismissal",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 const resourceTitle = "Right to Work Checklist";
 const resourceId = "right-to-work-checklist";
 const resourceSummary =
@@ -27,254 +28,18 @@ export default function RightToWorkChecklistPage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  function openPdf() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const pdfDocument = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 18mm;
-            }
-
-            body {
-              max-width: 820px;
-              margin: 40px auto;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #334155;
-              line-height: 1.65;
-            }
-
-            h1,
-            h2 {
-              color: #6e5084;
-            }
-
-            h1 {
-              margin-bottom: 24px;
-              font-size: 30px;
-            }
-
-            h2 {
-              margin-top: 28px;
-              margin-bottom: 10px;
-              font-size: 20px;
-            }
-
-            p,
-            li {
-              font-size: 11pt;
-            }
-
-            li + li {
-              margin-top: 6px;
-            }
-
-            .details-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          margin-top: 16px;
-        }
-
-        .details-grid div {
-          min-height: 66px;
-          padding: 12px 14px;
-          border: 1px solid #e8dfeb;
-          border-radius: 12px;
-          background: #ffffff;
-        }
-
-        .details-grid strong {
-          display: block;
-          margin-bottom: 18px;
-          color: #6e5084;
-          font-size: 13px;
-        }
-
-        .details-grid span {
-          display: block;
-          border-bottom: 1px solid #cbd5e1;
-        }
-
-        .checklist-table {
-          overflow: hidden;
-          margin-top: 14px;
-          border: 1px solid #e1e5ea;
-          border-radius: 14px;
-        }
-
-        .checklist-header,
-        .checklist-row {
-          display: grid;
-          grid-template-columns: 64px minmax(0, 1fr) 130px 105px;
-        }
-
-        .checklist-header {
-          background: #f7f1fc;
-          color: #6e5084;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .checklist-header span,
-        .checklist-row span {
-          min-height: 44px;
-          padding: 11px 12px;
-          border-right: 1px solid #e1e5ea;
-        }
-
-        .checklist-header span:last-child,
-        .checklist-row span:last-child {
-          border-right: 0;
-        }
-
-        .checklist-row + .checklist-row {
-          border-top: 1px solid #e1e5ea;
-        }
-
-        .check-box {
-          display: grid;
-          place-items: center;
-          color: #6e5084;
-          font-size: 21px;
-        }
-
-        .notes-box {
-          min-height: 150px;
-          margin-top: 14px;
-          border: 1px solid #e1e5ea;
-          border-radius: 14px;
-          background:
-            repeating-linear-gradient(
-              to bottom,
-              #ffffff 0,
-              #ffffff 31px,
-              #e7ebef 32px
-            );
-        }
-
-        @media (max-width: 720px) {
-          .details-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .checklist-header,
-          .checklist-row {
-            grid-template-columns: 52px minmax(0, 1fr);
-          }
-
-          .checklist-header span:nth-child(3),
-          .checklist-header span:nth-child(4),
-          .checklist-row span:nth-child(3),
-          .checklist-row span:nth-child(4) {
-            display: none;
-          }
-        }
-
-        .document h3 {
-          margin: 22px 0 8px;
-          color: #6e5084;
-          font-size: 17px;
-          font-weight: 600;
-        }
-
-        .document section + section {
-          margin-top: 30px;
-        }
-
-        .tip {
-          margin-top: 28px;
-          padding: 16px 18px;
-          border-left: 4px solid #6e5084;
-          border-radius: 0 12px 12px 0;
-          background: #f7f1fc;
-        }
-
-        .tip strong {
-          color: #6e5084;
-        }
-
-        .tip p {
-          margin-bottom: 0;
-        }
-
-        .notice {
-              margin-top: 28px;
-              padding: 14px;
-              border: 1px solid #dcece4;
-              background: #f5fff9;
-            }
-          </style>
-        </head>
-
-        <body>
-          <h1>${resourceTitle}</h1>
-          ${article.innerHTML}
-        </body>
-      </html>
-    `;
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(pdfDocument);
-    pdfWindow.document.close();
+  async function openPdf() {
+    await openBrandedPdfFromElement(resourceTitle);
   }
 
-  function downloadWord() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const wordDocument = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #334155; line-height: 1.65; }
-            h1, h2 { color: #6e5084; }
-            h1 { font-size: 30px; }
-            h2 { margin-top: 28px; font-size: 20px; }
-            .notice { padding: 14px; background: #f5fff9; border: 1px solid #dcece4; }
-          </style>
-        </head>
-        <body>${article.innerHTML}</body>
-      </html>
-    `;
-
-    const blob = new Blob(["\ufeff", wordDocument], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Right-to-Work-Checklist.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  async function downloadWord() {
+    await downloadBrandedWordFromElement(resourceTitle);
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -597,7 +362,7 @@ export default function RightToWorkChecklistPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -835,7 +600,7 @@ export default function RightToWorkChecklistPage() {
 
             <div className="notice">
               This checklist reflects Home Office Right to Work requirements for
-              England and Wales as at January 2027. Always use the current Home
+              England and Wales as at 12 September 2026. Always use the current Home
               Office employer guidance and acceptable-document lists. A
               compliant check may establish a statutory excuse against a civil
               penalty, but it does not protect an employer who knows or has
@@ -851,7 +616,7 @@ export default function RightToWorkChecklistPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

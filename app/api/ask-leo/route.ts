@@ -548,6 +548,13 @@ export async function POST(req: Request) {
      */
 
     const leoPrompt = buildAskLeoProfessionalPrompt({
+      responseMode:
+        coreResult.requiresMatter &&
+        !activeMatterId &&
+        !contextSummary &&
+        message.split(/\s+/).filter(Boolean).length <= 60
+          ? "sparse_live"
+          : "standard",
       promptContext,
       routing: coreResult,
       authority: authorityResult,
@@ -611,6 +618,9 @@ export async function POST(req: Request) {
     }
 
     const encoder = new TextEncoder();
+    const leoVersion =
+      process.env.VERCEL_GIT_COMMIT_SHA || "local";
+    const leoModel = "gpt-4o";
 
     const responseStream = new ReadableStream({
       async start(controller) {
@@ -626,6 +636,16 @@ export async function POST(req: Request) {
           sendEvent({
             type: "meta",
             conversationId: persistedConversationId,
+            leoVersion,
+            leoModel,
+            responseMode:
+              coreResult.requiresMatter &&
+              !activeMatterId &&
+              !contextSummary &&
+              message.split(/\s+/).filter(Boolean).length <= 60
+                ? "sparse_live"
+                : "standard",
+            authorityOrigin,
           });
 
           for await (const chunk of completionStream) {
@@ -747,6 +767,9 @@ export async function POST(req: Request) {
           "no-cache, no-transform",
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",
+        "X-Leo-Version": leoVersion,
+        "X-Leo-Model": leoModel,
+        "X-Leo-Authority-Origin": authorityOrigin,
       },
     });
   } catch (error) {
@@ -1749,8 +1772,8 @@ async function ensureAskLeoConversation(input: {
 
   const nowIso = new Date().toISOString();
 
-  const { data, error } =
-    await input.supabase
+  const createConversation = async () =>
+    input.supabase
       .from("ask_leo_conversations")
       .insert({
         organisation_id:
@@ -1770,6 +1793,25 @@ async function ensureAskLeoConversation(input: {
         "id,title,converted_to_matter_id,converted_to_matter_at"
       )
       .single();
+
+  let { data, error } =
+    await createConversation();
+
+  if (
+    error &&
+    typeof error.message === "string" &&
+    error.message.toLowerCase().includes("gateway timeout")
+  ) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, 300)
+    );
+
+    const retry =
+      await createConversation();
+
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error || !data) {
     console.error(

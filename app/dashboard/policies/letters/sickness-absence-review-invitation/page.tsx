@@ -4,147 +4,41 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 const resourceTitle = "Invitation to Sickness Absence Review Meeting";
 const resourceId = "sickness-absence-review-invitation";
 const resourceSummary = "A professionally drafted invitation to a formal sickness absence review meeting.";  
 
 const askLeoPrompt = [
-  `I am reviewing the LEO factsheet "${resourceTitle}".`,
+  `I am reviewing the LEO letter "${resourceTitle}".`,
   resourceSummary,
-  "Please use this factsheet as the context for my question.",
+  "Please use this letter as the context for my question.",
 ].join("\n\n");
 
 const askLeoHref =
   `/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}` +
   `&resourceTitle=${encodeURIComponent(resourceTitle)}` +
-  `&resourceType=${encodeURIComponent("Factsheet")}` +
+  `&resourceType=${encodeURIComponent("Letter")}` +
   `&returnUrl=${encodeURIComponent(
-    `/dashboard/policies/factsheets/${resourceId}`
+    `/dashboard/policies/letters/${resourceId}`
   )}`;
 
 export default function SicknessAbsenceReviewInvitationPage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  function openPdf() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const pdfDocument = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 18mm;
-            }
-
-            body {
-              max-width: 820px;
-              margin: 40px auto;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #334155;
-              line-height: 1.65;
-            }
-
-            h1,
-            h2 {
-              color: #6e5084;
-            }
-
-            h1 {
-              margin-bottom: 24px;
-              font-size: 30px;
-            }
-
-            h2 {
-              margin-top: 28px;
-              margin-bottom: 10px;
-              font-size: 20px;
-            }
-
-            p,
-            li {
-              font-size: 11pt;
-            }
-
-            li + li {
-              margin-top: 6px;
-            }
-
-            .notice {
-              margin-top: 28px;
-              padding: 14px;
-              border: 1px solid #dcece4;
-              background: #f5fff9;
-            }
-          </style>
-        </head>
-
-        <body>
-          <h1>${resourceTitle}</h1>
-          ${article.innerHTML}
-        </body>
-      </html>
-    `;
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(pdfDocument);
-    pdfWindow.document.close();
+  async function openPdf() {
+    await openBrandedPdfFromElement(resourceTitle);
   }
 
-  function downloadWord() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const wordDocument = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #334155; line-height: 1.65; }
-            h1, h2 { color: #6e5084; }
-            h1 { font-size: 30px; }
-            h2 { margin-top: 28px; font-size: 20px; }
-            .notice { padding: 14px; background: #f5fff9; border: 1px solid #dcece4; }
-          </style>
-        </head>
-        <body>${article.innerHTML}</body>
-      </html>
-    `;
-
-    const blob = new Blob(["\ufeff", wordDocument], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Sickness-Absence-Review-Invitation.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  async function downloadWord() {
+    await downloadBrandedWordFromElement(resourceTitle);
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -467,7 +361,7 @@ export default function SicknessAbsenceReviewInvitationPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -543,7 +437,7 @@ export default function SicknessAbsenceReviewInvitationPage() {
 
 <div className="notice">
 <strong>Template guidance</strong>
-<p>This template reflects good HR practice in England &amp; Wales as at January 2027. Employers should distinguish ordinary sickness absence from disability-related absence and comply with Equality Act duties, including consideration of reasonable adjustments before making capability decisions.</p>
+<p>This template reflects good HR practice in England &amp; Wales, reviewed 12 September 2026. Employers should distinguish ordinary sickness absence from disability-related absence and comply with Equality Act duties, including consideration of reasonable adjustments before making capability decisions.</p>
 </div>
 </article>
 
@@ -551,17 +445,17 @@ export default function SicknessAbsenceReviewInvitationPage() {
             <section className="side-card">
               <h2>About this resource</h2>
               <p>
-                Topic: Probation
+                Topic: Sickness & absence
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Legal status: Current January 2027
+                Legal status: Current 12 September 2026
                 <br />
                 Version: 1.0
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
                 <br />
-                Next review: January 2028 or earlier if the law changes
+                Next review: March 2027 or earlier if the law changes
               </p>
             </section>
 
@@ -570,23 +464,23 @@ export default function SicknessAbsenceReviewInvitationPage() {
               <div className="related-list">
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/factsheets/probation-periods"
+                  href="/dashboard/policies/factsheets/sickness-absence"
                 >
-                  Probation Periods &amp; Reviews Factsheet
+                  Managing Sickness Absence Factsheet
                 </Link>
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/guides"
+                  href="/dashboard/policies/guides/managing-sickness-absence"
                 >
-                  Managing Probation Guide
+                  Managing Sickness Absence Guide
                 </Link>
 
                 <Link
                   className="related-link"
-                  href="/dashboard/policies/forms"
+                  href="/dashboard/policies/forms/return-to-work-form"
                 >
-                  Probation Review Form
+                  Return to Work Form
                 </Link>
 
                 <Link

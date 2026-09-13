@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toolkitsCatalogue } from "./toolkitsCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type ToolkitResource = {
   id: string;
   title: string;
@@ -28,6 +29,7 @@ const topics = [
   "TUPE",
   "Investigations",
   "Ending employment",
+  "Whistleblowing",
 ];
 
 // Published LEO toolkit resources will be supplied here by the library API.
@@ -120,7 +122,7 @@ export default function ToolkitsPage() {
               process fairly, consistently and proportionately.
             </p>
             <p><strong>Jurisdiction:</strong> England and Wales</p>
-            <p><strong>Last reviewed:</strong> July 2026</p>
+            <p><strong>Last reviewed:</strong> 12 September 2026</p>
           </div>
 
           <h2>How to use this toolkit</h2>
@@ -396,43 +398,16 @@ export default function ToolkitsPage() {
     `;
   }
 
-  function downloadWord(toolkit: ToolkitResource) {
+  async function downloadWord(toolkit: ToolkitResource) {
     const documentHtml = getToolkitDocument(toolkit);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Disciplinary-Toolkit.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(toolkit.title, documentHtml);
   }
 
-  function openPdf(toolkit: ToolkitResource) {
+  async function openPdf(toolkit: ToolkitResource) {
     const documentHtml = getToolkitDocument(toolkit);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(toolkit.title, documentHtml);
   }
 
   function getAskLeoHref(toolkit: ToolkitResource) {
@@ -923,7 +898,7 @@ export default function ToolkitsPage() {
 
       <div className="page-shell">
         <Link className="back-link" href="/dashboard/policies">
-          â† Back to HR Resources
+          ← Back to HR Resources
         </Link>
 
         <section className="hero">
@@ -943,7 +918,7 @@ export default function ToolkitsPage() {
 
         <div className="toolbar">
           <div className="search-wrap">
-            <span className="search-icon">âŒ•</span>
+            <span className="search-icon">⌕</span>
             <input
               className="search-input"
               value={search}
@@ -954,7 +929,7 @@ export default function ToolkitsPage() {
           </div>
 
           <Link className="ask-link" href="/dashboard/ask-leo">
-            <span aria-hidden="true">âœ¦</span>
+            <span aria-hidden="true">✦</span>
             Ask Leo
           </Link>
         </div>
@@ -1003,7 +978,7 @@ export default function ToolkitsPage() {
                       <span className="resource-pill">{toolkit.topic}</span>
                       {toolkit.lastUpdated ? (
                         <span className="resource-pill">
-                          Updated {toolkit.lastUpdated}
+                          Reviewed {toolkit.lastUpdated}
                         </span>
                       ) : null}
                     </div>
@@ -1018,21 +993,25 @@ export default function ToolkitsPage() {
                         Preview
                       </Link>
 
-                      <button
-                        className="resource-action"
-                        type="button"
-                        onClick={() => downloadWord(toolkit)}
-                      >
-                        Word
-                      </button>
+                      {toolkit.id === "disciplinary-toolkit" ? (
+                        <>
+                          <button
+                            className="resource-action"
+                            type="button"
+                            onClick={() => downloadWord(toolkit)}
+                          >
+                            Word
+                          </button>
 
-                      <button
-                        className="resource-action"
-                        type="button"
-                        onClick={() => openPdf(toolkit)}
-                      >
-                        PDF
-                      </button>
+                          <button
+                            className="resource-action"
+                            type="button"
+                            onClick={() => openPdf(toolkit)}
+                          >
+                            PDF
+                          </button>
+                        </>
+                      ) : null}
 
                       <Link
                         className="resource-action"
@@ -1065,7 +1044,7 @@ export default function ToolkitsPage() {
         </div>
 
         <section className="current-note">
-          <span>â†»</span>
+          <span>↻</span>
           <div>
             <strong>Professionally maintained</strong>
             <p>

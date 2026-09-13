@@ -125,6 +125,20 @@ const LIVE_EXPLICIT_LEGAL_STATUS_SIGNALS = [
   "acas code",
 ];
 
+// These topics are currently subject to phased statutory reform or depend on
+// commencement and transitional provisions. Employer wording does not always
+// include words such as "current" or "legally", so verify them explicitly.
+const LIVE_LEGAL_CHANGE_TOPICS = [
+  "dismiss",
+  "termination",
+  "probation",
+  "unfair dismissal",
+  "fire and rehire",
+  "zero hours",
+  "guaranteed hours",
+  "statutory sick pay",
+];
+
 function shouldResearchLiveAuthority(
   message: string
 ): boolean {
@@ -198,6 +212,10 @@ function requiresLiveExternalVerification(
     containsAny(
       employerQuestion,
       LIVE_EXPLICIT_LEGAL_STATUS_SIGNALS
+    ) ||
+    containsAny(
+      employerQuestion,
+      LIVE_LEGAL_CHANGE_TOPICS
     )
   );
 }
@@ -535,6 +553,28 @@ export async function researchLiveAuthority(
     };
   }
 
+  const forceLiveAuthority =
+    process.env.NODE_ENV === "development" &&
+    process.env.ASK_LEO_FORCE_LIVE_AUTHORITY === "true";
+
+  const needsCurrentVerification =
+    requiresLiveExternalVerification(input.message);
+
+  // Stable professional questions do not need an authority-store network
+  // round trip. They remain governed by the prompt's prohibition on stating
+  // changing legal facts without verification.
+  if (!forceLiveAuthority && !needsCurrentVerification) {
+    return {
+      required: false,
+      searched: false,
+      verifiedCurrent: false,
+      queriedAt,
+      evidence:
+        "No live external-authority lookup was required for this request. Apply stable professional HR and employment-law principles, the supplied facts, relevant organisation context and proportionate professional judgement. Do not present changing rates, thresholds, dates, commencement positions, recent case developments or regulator powers as verified current facts unless independently verified.",
+      sources: [],
+    };
+  }
+
   // FAST PATH 1:
   // Use Leo's independently refreshed authority store when it contains
   // relevant records verified within the freshness window.
@@ -542,10 +582,6 @@ export async function researchLiveAuthority(
     await findStoredAuthority(
       input.storedAuthorityQuery || input.message
     );
-
-  const forceLiveAuthority =
-    process.env.NODE_ENV === "development" &&
-    process.env.ASK_LEO_FORCE_LIVE_AUTHORITY === "true";
 
   if (
     !forceLiveAuthority &&
@@ -574,35 +610,6 @@ export async function researchLiveAuthority(
             record.title,
         })
       ),
-    };
-  }
-
-  // FAST PATH 2:
-  // Do not treat every substantive HR question as a mandatory live web
-  // research job. If the employer's question does not materially depend on
-  // a changing/current external proposition, continue to Leo's professional
-  // assessment using stable principles, organisation context and static
-  // retrieval hints. The assessment remains prohibited from inventing any
-  // changing legal fact that has not been independently verified.
-  if (
-    !forceLiveAuthority &&
-    !requiresLiveExternalVerification(
-      input.message
-    )
-  ) {
-    return {
-      required: false,
-      searched: false,
-      verifiedCurrent: false,
-      queriedAt,
-      evidence:
-        "No live external-authority lookup was required for this request. Apply stable professional HR and employment-law principles, the supplied facts, relevant organisation context and proportionate professional judgement. Do not present changing rates, thresholds, dates, commencement positions, recent case developments or regulator powers as verified current facts unless independently verified.",
-      sources: [],
-      error:
-        stored.error &&
-        !stored.available
-          ? stored.error
-          : undefined,
     };
   }
 

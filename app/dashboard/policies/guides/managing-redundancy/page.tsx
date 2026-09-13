@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
 const resourceTitle = "Managing Redundancy";
 const resourceId = "managing-redundancy";
 const resourceSummary =
@@ -27,152 +28,18 @@ export default function ManagingRedundancyPage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  function openPdf() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const pdfDocument = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 18mm;
-            }
-
-            body {
-              max-width: 820px;
-              margin: 40px auto;
-              font-family: Arial, Helvetica, sans-serif;
-              color: #334155;
-              line-height: 1.65;
-            }
-
-            h1,
-            h2 {
-              color: #6e5084;
-            }
-
-            h1 {
-              margin-bottom: 24px;
-              font-size: 30px;
-            }
-
-            h2 {
-              margin-top: 28px;
-              margin-bottom: 10px;
-              font-size: 20px;
-            }
-
-            p,
-            li {
-              font-size: 11pt;
-            }
-
-            li + li {
-              margin-top: 6px;
-            }
-
-            .document h3 {
-          margin: 22px 0 8px;
-          color: #6e5084;
-          font-size: 17px;
-          font-weight: 600;
-        }
-
-        .document section + section {
-          margin-top: 30px;
-        }
-
-        .tip {
-          margin-top: 28px;
-          padding: 16px 18px;
-          border-left: 4px solid #6e5084;
-          border-radius: 0 12px 12px 0;
-          background: #f7f1fc;
-        }
-
-        .tip strong {
-          color: #6e5084;
-        }
-
-        .tip p {
-          margin-bottom: 0;
-        }
-
-        .notice {
-              margin-top: 28px;
-              padding: 14px;
-              border: 1px solid #dcece4;
-              background: #f5fff9;
-            }
-          </style>
-        </head>
-
-        <body>
-          <h1>${resourceTitle}</h1>
-          ${article.innerHTML}
-        </body>
-      </html>
-    `;
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(pdfDocument);
-    pdfWindow.document.close();
+  async function openPdf() {
+    await openBrandedPdfFromElement(resourceTitle);
   }
 
-  function downloadWord() {
-    const article = document.getElementById("resource-content");
-
-    if (!article) {
-      return;
-    }
-
-    const wordDocument = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${resourceTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #334155; line-height: 1.65; }
-            h1, h2 { color: #6e5084; }
-            h1 { font-size: 30px; }
-            h2 { margin-top: 28px; font-size: 20px; }
-            .notice { padding: 14px; background: #f5fff9; border: 1px solid #dcece4; }
-          </style>
-        </head>
-        <body>${article.innerHTML}</body>
-      </html>
-    `;
-
-    const blob = new Blob(["\ufeff", wordDocument], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Managing-Redundancy.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  async function downloadWord() {
+    await downloadBrandedWordFromElement(resourceTitle);
   }
 
   function addToOrganisationResources() {
-    setAdded(true);
+    window.alert(
+      "Direct saving from the LEO library is not yet persistent. Download the Word version and upload it from HR Resources if you want an organisation-owned copy.",
+    );
   }
 
   return (
@@ -495,7 +362,7 @@ export default function ManagingRedundancyPage() {
             <p className="header-copy">{resourceSummary}</p>
           </div>
 
-          <span className="updated-pill">Updated January 2027</span>
+          <span className="updated-pill">Reviewed 12 September 2026</span>
         </header>
 
         <div className="action-bar">
@@ -656,8 +523,14 @@ export default function ManagingRedundancyPage() {
               <h2>Step 7 – Reach and confirm the decision</h2>
               <p>
                 Only decide after consultation is complete and all representations
-                have been considered. Confirm the outcome in writing and explain:
+                have been considered. Before issuing any redundancy outcome letter,
+                check the organisation&apos;s redundancy or organisational-change policy,
+                employment contract, equality and reasonable-adjustment policies,
+                family-leave protections, any collective agreement or recognised trade
+                union arrangements, the selection criteria and scoring record, and the
+                vacancy / alternative-employment record relied upon in the decision.
               </p>
+              <p>Confirm the outcome in writing and explain:</p>
               <ul>
                 <li>the reason for redundancy;</li>
                 <li>the consultation and selection outcome;</li>
@@ -693,14 +566,17 @@ export default function ManagingRedundancyPage() {
             </div>
 
             <div className="notice">
-              <strong>Legal position — January 2027</strong>
+              <strong>Current law and 1 January 2027 change</strong>
               <p>
-                Redundancy dismissals must be genuine and procedurally fair.
-                Employers should consult meaningfully, select fairly and consider
-                suitable alternative employment. Ordinary unfair dismissal
-                protection generally applies after six months&apos; continuous
-                employment from 1 January 2027, while discrimination and
-                automatically unfair dismissal protections may apply earlier.
+                As at 12 September 2026, redundancy dismissals must be genuine
+                and procedurally fair. Employers should consult meaningfully,
+                select fairly and consider suitable alternative employment.
+                From 1 January 2027, ordinary unfair-dismissal protection applies
+                after six months&apos; continuous service. Employees who already
+                have at least six months&apos; service on 1 January 2027 gain that
+                protection immediately on that date. Discrimination and other
+                automatically unfair dismissal protections can apply regardless
+                of length of service.
               </p>
             </div>
           </article>
@@ -713,7 +589,7 @@ export default function ManagingRedundancyPage() {
                 <br />
                 Resource ID: {resourceId}
                 <br />
-                Last reviewed: January 2027
+                Last reviewed: 12 September 2026
               </p>
             </section>
 

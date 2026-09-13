@@ -44,6 +44,7 @@ export function classify(
   if (
     intent === "disciplinary" ||
     intent === "grievance" ||
+    intent === "employee_issue" ||
     intent === "termination" ||
     text.includes("letter") ||
     text.includes("write")

@@ -8,6 +8,8 @@ const route = read("app/api/ask-leo/route.ts");
 const builder = read("leo/prompt/builder™.ts");
 const authorityRouter = read("leo/authority/router.ts");
 const liveAuthority = read("leo/authority/liveAuthority.ts");
+const intent = read("leo/core/intent.ts");
+const classifier = read("leo/core/classifier.ts");
 
 test("Ask Leo does not import conversation or response planning layers", () => {
   assert.doesNotMatch(route, /buildConversationPlan/);
@@ -104,6 +106,53 @@ test("prompt does not default to numbered lists and uses Next steps selectively"
   assert.match(builder, /do not use this section for simple factual questions/i);
 });
 
+test("prompt professionally frames live situations without implying wrongdoing", () => {
+  assert.match(builder, /frame what the situation is really about/i);
+  assert.match(builder, /immediate decision/i);
+  assert.match(builder, /underlying concern behind the employer's wording/i);
+  assert.match(builder, /reduce unnecessary anxiety where appropriate/i);
+  assert.match(builder, /without implying that an allegation, grievance or concern proves wrongdoing/i);
+  assert.match(builder, /simple factual question/i);
+});
+
+test("prompt keeps sparse live questions calm and proportionate", () => {
+  assert.match(builder, /short, general description of a live situation/i);
+  assert.match(builder, /do not recite the full procedure/i);
+  assert.match(builder, /"Next steps" section containing two or three immediate actions/i);
+  assert.match(builder, /focused questions that could materially change/i);
+  assert.match(builder, /do not use a numbered procedure/i);
+  assert.match(builder, /merely duplicate the final "Next steps" section/i);
+  assert.match(builder, /do not describe later stages before they become relevant/i);
+});
+
+test("Ask Leo applies a strict output contract to sparse live situations", () => {
+  assert.match(route, /coreResult\.requiresMatter/);
+  assert.match(route, /message\.split\(\/\\s\+\//);
+  assert.match(route, /length <= 60/);
+  assert.match(route, /\? "sparse_live"/);
+  assert.match(builder, /SHORT, FACT-LIGHT LIVE SITUATION/);
+  assert.match(builder, /takes priority over general formatting preferences/i);
+  assert.match(builder, /receiving it does not establish wrongdoing/i);
+  assert.match(builder, /State what the immediate priority is/i);
+  assert.match(builder, /Do not introduce a legal classification merely because it is conceivable/i);
+  assert.match(builder, /mental-health concern may amount to a disability from diagnosis or duration alone/i);
+  assert.match(builder, /Do not use a numbered list/i);
+  assert.match(builder, /headed exactly "Next steps" containing two or three concise bullet points/i);
+  assert.match(builder, /Do not repeat those actions elsewhere/i);
+  assert.match(builder, /Every bullet must change what the employer should do now/i);
+  assert.match(builder, /generic policy review, record-keeping reminder or vague offer of support/i);
+  assert.match(builder, /ask a broad invitation for more detail/i);
+  assert.match(builder, /Do not add a separate "Questions" heading/i);
+  assert.match(builder, /End there\. Do not add a generic concluding paragraph/i);
+});
+
+test("performance and capability questions route as live employee matters", () => {
+  assert.match(intent, /text\.includes\("performance"\)/);
+  assert.match(intent, /text\.includes\("capability"\)/);
+  assert.match(intent, /return "employee_issue"/);
+  assert.match(classifier, /intent === "employee_issue"/);
+});
+
 test("prompt remains subject-neutral without topic-specific decision trees", () => {
   assert.match(builder, /Do not use topic-specific decision trees/);
   assert.match(builder, /they are only possible labels/i);
@@ -131,6 +180,13 @@ test("stored and live authority protections remain wired into Ask Leo", () => {
   assert.match(liveAuthority, /APPROVED_AUTHORITY_DOMAINS/);
   assert.match(liveAuthority, /upsertAuthorityRecords/);
   assert.match(liveAuthority, /effort: "low"/);
+  assert.match(liveAuthority, /LIVE_LEGAL_CHANGE_TOPICS/);
+  assert.match(liveAuthority, /"dismiss"/);
+  assert.match(liveAuthority, /"probation"/);
+  assert.match(liveAuthority, /needsCurrentVerification/);
+  assert.match(liveAuthority, /Stable professional questions do not need an authority-store network/);
+  assert.match(builder, /future-enacted change that materially affects planning/i);
+  assert.match(builder, /Never state a changing qualifying period, threshold, rate or commencement position/i);
 });
 
 test("legacy reasoning modules remain absent from Ask Leo", () => {
@@ -163,6 +219,10 @@ test("timing instrumentation remains diagnostic-only and gated", () => {
   assert.equal(timingLogMatches.length, 1);
   assert.doesNotMatch(route, /askLeoTimingEnabled[^\n]*\?[^\n]*model/);
   assert.match(route, /professionalModelStartMs: Math\.round/);
+  assert.match(route, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(route, /"X-Leo-Version"/);
+  assert.match(route, /leoModel/);
+  assert.match(route, /responseMode:/);
   assert.match(route, /authorityTotalMs: Math\.round\(authorityTotalMs\)/);
   assert.match(route, /storedAuthorityMs:/);
   assert.match(route, /liveAuthorityMs:/);

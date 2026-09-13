@@ -221,7 +221,9 @@ function parseBrandSettings(
 
   const headerStyle = readMetadataString(settings, "header_style");
   const footerStyle = readMetadataString(settings, "footer_style");
-  const documentMode = readMetadataString(settings, "document_mode");
+  const documentMode =
+    readMetadataString(settings, "document_layout") ||
+    readMetadataString(settings, "document_mode");
   const defaultOutput = readMetadataString(settings, "default_output");
 
   return {

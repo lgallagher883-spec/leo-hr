@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { factsheetsCatalogue } from "./factsheetsCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type FactsheetResource = {
   id: string;
   title: string;
@@ -139,45 +140,16 @@ export default function FactsheetsPage() {
     `;
   }
 
-  function downloadWord(factsheet: FactsheetResource) {
+  async function downloadWord(factsheet: FactsheetResource) {
     const documentHtml = getFactsheetDocument(factsheet);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-
-    anchor.href = url;
-    anchor.download = "LEO-Day-One-Employment-Rights.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(factsheet.title, documentHtml);
   }
 
-  function openPdf(factsheet: FactsheetResource) {
+  async function openPdf(factsheet: FactsheetResource) {
     const documentHtml = getFactsheetDocument(factsheet);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(factsheet.title, documentHtml);
   }
 
   function getAskLeoHref(factsheet: FactsheetResource) {

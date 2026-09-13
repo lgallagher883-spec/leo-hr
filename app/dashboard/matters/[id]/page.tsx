@@ -61,7 +61,6 @@ function MatterDetailPageContent() {
   const [assessment, setAssessment] = useState<MatterAssessment | null>(null);
   const [loadingAssessment, setLoadingAssessment] = useState(false);
   const [bundleFormat, setBundleFormat] = useState<"docx" | "pdf">("docx");
-  const [includeTranscript, setIncludeTranscript] = useState(false);
   const [generatingBundle, setGeneratingBundle] = useState(false);
   const [bundleMessage, setBundleMessage] = useState("");
   const [openWorkspace, setOpenWorkspace] = useState<
@@ -356,6 +355,44 @@ function MatterDetailPageContent() {
     }
   }
 
+  async function exportAskLeoConversation() {
+    if (!matter) return;
+
+    setGeneratingBundle(true);
+    setBundleMessage("");
+
+    try {
+      const response = await fetch(`/api/matters/${matter.id}/bundle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ format: bundleFormat, exportType: "transcript" }),
+      });
+
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(result?.error || "Ask Leo conversation export failed.");
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") || "";
+      const match = /filename=\"([^\"]+)\"/i.exec(disposition);
+      const filename = match?.[1] || `matter-${matter.id}-ask-leo-conversation.${bundleFormat === "pdf" ? "pdf" : "docx"}`;
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Ask Leo conversation could not be exported.");
+    } finally {
+      setGeneratingBundle(false);
+    }
+  }
+
   if (!matter) {
     return (
       <div style={{ padding: "20px" }}>
@@ -411,6 +448,14 @@ function MatterDetailPageContent() {
           <div style={sectionSubtitleStyle}>
             Work through this Matter with Leo.
           </div>
+          <button
+            type="button"
+            onClick={exportAskLeoConversation}
+            style={secondaryButtonStyle}
+            disabled={generatingBundle}
+          >
+            {generatingBundle ? "Preparing export..." : "Export Ask Leo Conversation"}
+          </button>
         </div>
 
         <div style={conversationBodyStyle}>

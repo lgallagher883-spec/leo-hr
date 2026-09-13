@@ -216,6 +216,7 @@ export async function POST(request: Request) {
         headerRuns.push(
           new TextRun({
             text: logo ? "    " + brand.organisationName : brand.organisationName,
+            font: "Aptos",
             bold: true,
             color: primary,
             size: 22,
@@ -249,6 +250,7 @@ export async function POST(request: Request) {
           children: [
             new TextRun({
               text: footerParts.join(" · "),
+              font: "Aptos",
               color: "64748B",
               size: 16,
             }),
@@ -263,8 +265,8 @@ export async function POST(request: Request) {
         footerChildren.push(
         new Paragraph({
           children: [
-            new TextRun({ text: "Page ", color: "64748B", size: 16 }),
-            new TextRun({ children: [PageNumber.CURRENT], color: "64748B", size: 16 }),
+            new TextRun({ text: "Page ", font: "Aptos", color: "64748B", size: 16 }),
+            new TextRun({ children: [PageNumber.CURRENT], font: "Aptos", color: "64748B", size: 16 }),
           ],
           alignment: AlignmentType.CENTER,
         }),
@@ -274,7 +276,7 @@ export async function POST(request: Request) {
 
     const children: Array<Paragraph | Table> = [
       new Paragraph({
-        children: [new TextRun({ text: title, bold: true, color: primary, size: 34 })],
+        children: [new TextRun({ text: title, font: "Aptos Display", bold: true, color: primary, size: 34 })],
         spacing: { after: 220 },
       }),
     ];
@@ -286,6 +288,7 @@ export async function POST(request: Request) {
             children: [
               new TextRun({
                 text: block.text,
+                font: "Aptos Display",
                 bold: true,
                 color: primary,
                 size: block.level <= 2 ? 26 : 22,
@@ -301,7 +304,7 @@ export async function POST(request: Request) {
       if (block.kind === "paragraph") {
         children.push(
           new Paragraph({
-            children: [new TextRun({ text: block.text, size: 22, color: "334155" })],
+            children: [new TextRun({ text: block.text, font: "Aptos", size: 22, color: "334155" })],
             spacing: { after: 120 },
           }),
         );
@@ -311,7 +314,7 @@ export async function POST(request: Request) {
       if (block.kind === "bullet") {
         children.push(
           new Paragraph({
-            children: [new TextRun({ text: block.text, size: 22, color: "334155" })],
+            children: [new TextRun({ text: block.text, font: "Aptos", size: 22, color: "334155" })],
             bullet: { level: 0 },
             spacing: { after: 70 },
           }),
@@ -337,6 +340,7 @@ export async function POST(request: Request) {
                           children: [
                             new TextRun({
                               text: row[index] || "",
+                              font: "Aptos",
                               bold: index === 0,
                               color: index === 0 ? primary : "334155",
                               size: 20,

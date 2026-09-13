@@ -1562,12 +1562,12 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
 async function buildPdf(payload: BundlePayload): Promise<Buffer> {
   const { brand } = payload;
   const logo = await loadBrandImage(brand.logoUrl);
-  const pdf = new PDFDocument({ margin: 50, size: "A4", autoFirstPage: true });
+  const pdf = new PDFDocument({ margin: 54, size: "A4", autoFirstPage: true, bufferPages: true });
   const chunks: Buffer[] = [];
 
   pdf.on("data", (chunk) => chunks.push(chunk as Buffer));
 
-  const primary = `#${brand.documentMode === "plain" ? "000000" : brand.primaryColour}`;
+  const primary = "#000000";
   const secondary = `#${brand.secondaryColour}`;
 
   const drawHeaderAndFooter = () => {
@@ -1628,7 +1628,11 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
     }
   }
 
-  pdf.fillColor(primary).fontSize(22).text("Matter Bundle", { align: "center" });
+  pdf.fillColor("#555555").font("Helvetica-Bold").fontSize(10).text("STRICTLY PRIVATE AND CONFIDENTIAL", { align: "center" });
+  pdf.moveDown(0.8);
+  pdf.strokeColor("#B7B7B7").lineWidth(0.7).moveTo(54, pdf.y).lineTo(pdf.page.width - 54, pdf.y).stroke();
+  pdf.moveDown(1.5);
+  pdf.fillColor(primary).font("Helvetica-Bold").fontSize(20).text("MATTER BUNDLE", { align: "center" });
   pdf.moveDown(0.5);
   pdf.fontSize(12).text(payload.organisationName, { align: "center" });
   pdf.moveDown(0.4);
@@ -1641,13 +1645,20 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
     pdf.fillColor(secondary).fontSize(18).text("CONFIDENTIAL", { align: "center" });
   }
 
-  for (const section of payload.sections) {
+  pdf.addPage();
+  pdf.fillColor(primary).font("Helvetica-Bold").fontSize(14).text("CONTENTS", { align: "center" });
+  pdf.moveDown(0.8);
+  payload.sections.forEach((section, index) => pdf.fillColor("#333333").font("Helvetica").fontSize(11).text(`${index + 1}. ${section.title}`, { paragraphGap: 6 }));
+
+  for (const [sectionIndex, section] of payload.sections.entries()) {
     pdf.addPage();
-    pdf.fillColor(primary).fontSize(16).text(section.title);
+    pdf.fillColor(primary).font("Helvetica-Bold").fontSize(13).text(`${sectionIndex + 1}. ${section.title.toUpperCase()}`);
+    pdf.moveDown(0.3);
+    pdf.strokeColor("#B7B7B7").lineWidth(0.6).moveTo(54, pdf.y).lineTo(pdf.page.width - 54, pdf.y).stroke();
     pdf.moveDown(0.6);
 
     for (const line of section.lines) {
-      pdf.fillColor("#000000").fontSize(10.5).text(
+      pdf.fillColor("#333333").font("Helvetica").fontSize(11).text(
         line.startsWith("- ") ? `- ${line.slice(2)}` : line,
         line.startsWith("- ") ? { indent: 18, paragraphGap: 5 } : { paragraphGap: 5 },
       );

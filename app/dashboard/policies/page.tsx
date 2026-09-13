@@ -1744,6 +1744,12 @@ function ResourcesHome({
       marker: "F",
       slug: "factsheets",
     },
+    {
+      title: "Job Descriptions",
+      description: "Ready-to-use role profiles with responsibilities, requirements and adaptable layouts.",
+      marker: "J",
+      slug: "job-descriptions",
+    },
   ];
 
   const normalisedSearch = librarySearch

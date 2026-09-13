@@ -1354,7 +1354,7 @@ async function loadBrandImage(url: string): Promise<{ data: Buffer; type: "png" 
 async function buildDocx(payload: BundlePayload): Promise<Buffer> {
   const { brand } = payload;
   const logo = await loadBrandImage(brand.logoUrl);
-  const titleColour = brand.documentMode === "plain" ? "000000" : brand.primaryColour;
+  const titleColour = "000000";
 
   const children: Paragraph[] = [];
 
@@ -1374,18 +1374,20 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
     );
   }
 
+  children.push(new Paragraph({ children: [new TextRun({ text: "STRICTLY PRIVATE AND CONFIDENTIAL", bold: true, size: 20, color: "555555" })], alignment: AlignmentType.CENTER, spacing: { after: 160 }, border: { bottom: { color: "B7B7B7", size: 8, style: "single", space: 8 } } }));
+
   children.push(
     new Paragraph({
       children: [
         new TextRun({
-          text: "Matter Bundle",
+          text: "MATTER BUNDLE",
           bold: true,
-          size: 42,
+          size: 34,
           color: titleColour,
         }),
       ],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 240 },
+      spacing: { after: 150 },
     }),
     new Paragraph({
       children: [
@@ -1429,19 +1431,23 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
   }
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
+  children.push(new Paragraph({ children: [new TextRun({ text: "CONTENTS", bold: true, size: 28 })], alignment: AlignmentType.CENTER, spacing: { after: 180 }, border: { bottom: { color: "B7B7B7", size: 6, style: "single", space: 6 } } }));
+  payload.sections.forEach((section, index) => children.push(new Paragraph({ text: `${index + 1}. ${section.title}`, spacing: { after: 90 } })));
+  children.push(new Paragraph({ children: [new PageBreak()] }));
 
-  for (const section of payload.sections) {
+  for (const [sectionIndex, section] of payload.sections.entries()) {
     children.push(
       new Paragraph({
         children: [
           new TextRun({
-            text: section.title,
+            text: `${sectionIndex + 1}. ${section.title.toUpperCase()}`,
             bold: true,
-            size: 28,
+            size: 25,
             color: titleColour,
           }),
         ],
         spacing: { before: 200, after: 120 },
+        border: { bottom: { color: "B7B7B7", size: 6, style: "single", space: 6 } },
       }),
     );
 
@@ -1535,6 +1541,7 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
   }
 
   const document = new Document({
+    styles: { default: { document: { run: { font: "Arial", size: 24, color: "333333" }, paragraph: { spacing: { line: 320 } } } } },
     sections: [
       {
         properties: {},

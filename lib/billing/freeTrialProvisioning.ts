@@ -74,6 +74,11 @@ async function getTrial(
 
 export async function ensureFreeTrialProvisioning(
   organisationId: string,
+  registrant?: {
+    userId?: string | null;
+    email?: string | null;
+    name?: string | null;
+  },
 ): Promise<TrialProvisioningResult> {
   const admin = createAdminClient();
   let trial = await getTrial(admin, organisationId);
@@ -204,6 +209,9 @@ export async function ensureFreeTrialProvisioning(
       const alertResult = await sendNewAccessAdminAlert({
         organisationId,
         accessKind: "free_trial",
+        userId: registrant?.userId ?? null,
+        userEmail: registrant?.email ?? null,
+        userName: registrant?.name ?? null,
         activatedAt: trial.starts_at,
         providerReference: trial.id,
       });

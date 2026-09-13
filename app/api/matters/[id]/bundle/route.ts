@@ -28,6 +28,7 @@ type RouteContext = {
 type BundleRequestBody = {
   format?: unknown;
   includeTranscript?: unknown;
+  exportType?: unknown;
 };
 
 type BundleFormat = "docx" | "pdf";
@@ -185,6 +186,7 @@ type BundlePayload = {
   matter: MatterRecord;
   employee: EmployeeRecord | null;
   sections: BundleSection[];
+  messages: MatterMessage[];
 };
 
 const FALLBACK_TEXT = "Not recorded.";
@@ -1311,6 +1313,7 @@ async function buildBundlePayload(args: {
     matter,
     employee: (employeeResult.data as EmployeeRecord | null) ?? null,
     sections,
+    messages,
   };
 }
 

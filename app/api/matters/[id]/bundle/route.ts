@@ -1570,7 +1570,7 @@ async function buildDocx(payload: BundlePayload): Promise<Buffer> {
 async function buildPdf(payload: BundlePayload): Promise<Buffer> {
   const { brand } = payload;
   const logo = await loadBrandImage(brand.logoUrl);
-  const pdf = new PDFDocument({ margin: 50, size: "A4", autoFirstPage: true });
+  const pdf = new PDFDocument({ margin: 50, size: "A4", autoFirstPage: true, bufferPages: true });
   const chunks: Buffer[] = [];
 
   pdf.on("data", (chunk) => chunks.push(chunk as Buffer));
@@ -1578,7 +1578,7 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
   const primary = `#${brand.documentMode === "plain" ? "000000" : brand.primaryColour}`;
   const secondary = `#${brand.secondaryColour}`;
 
-  const drawHeaderAndFooter = () => {
+  const drawHeaderAndFooter = (pageNumber: number, totalPages: number) => {
     const pageBottom = pdf.page.height - 35;
 
     if (brand.headerStyle !== "none") {
@@ -1586,7 +1586,7 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
       pdf.fillColor(primary).fontSize(8).text(
         brand.headerStyle === "minimal"
           ? payload.organisationName
-          : `${payload.organisationName} | Matter Bundle`,
+          : `${payload.organisationName} | Matter Bundle | ${payload.bundleReference}`,
         50,
         24,
         { align: "right", width: pdf.page.width - 100 },
@@ -1609,23 +1609,14 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
         width: pdf.page.width - 100,
       });
       if (brand.pageNumbers) {
-        pdf.text(`Page ${pageIndex}`, 50, pageBottom + 2, {
-          align: "center",
+        pdf.text(`${payload.bundleReference} | Page ${pageNumber} of ${totalPages}`, 50, pageBottom + 2, {
+          align: "right",
           width: pdf.page.width - 100,
         });
       }
       pdf.restore();
     }
   };
-
-  let pageIndex = 1;
-
-  pdf.on("pageAdded", () => {
-    pageIndex += 1;
-    drawHeaderAndFooter();
-  });
-
-  drawHeaderAndFooter();
 
   if (logo) {
     try {
@@ -1636,7 +1627,9 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
     }
   }
 
-  pdf.fillColor(primary).fontSize(22).text("Matter Bundle", { align: "center" });
+  pdf.fillColor("#555555").fontSize(10).text("STRICTLY PRIVATE AND CONFIDENTIAL", { align: "center" });
+  pdf.moveDown(0.8);
+  pdf.fillColor(primary).fontSize(22).text("MATTER BUNDLE", { align: "center" });
   pdf.moveDown(0.5);
   pdf.fontSize(12).text(payload.organisationName, { align: "center" });
   pdf.moveDown(0.4);
@@ -1649,9 +1642,16 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
     pdf.fillColor(secondary).fontSize(18).text("CONFIDENTIAL", { align: "center" });
   }
 
-  for (const section of payload.sections) {
+  pdf.addPage();
+  pdf.fillColor(primary).fontSize(18).text("CONTENTS", { align: "center" });
+  pdf.moveDown(1);
+  payload.sections.forEach((section, index) => {
+    pdf.fillColor("#333333").fontSize(10.5).text(`${index + 1}. ${section.title}`, { paragraphGap: 5 });
+  });
+
+  for (const [sectionIndex, section] of payload.sections.entries()) {
     pdf.addPage();
-    pdf.fillColor(primary).fontSize(16).text(section.title);
+    pdf.fillColor(primary).fontSize(16).text(`${sectionIndex + 1}. ${section.title}`);
     pdf.moveDown(0.6);
 
     for (const line of section.lines) {
@@ -1668,6 +1668,13 @@ async function buildPdf(payload: BundlePayload): Promise<Buffer> {
     pdf.fillColor("#000000").fontSize(10.5).text(brand.signatureBlock || brand.defaultSignatoryName);
     if (brand.defaultSignatoryName && brand.signatureBlock) pdf.text(brand.defaultSignatoryName);
     if (brand.defaultSignatoryJobTitle) pdf.text(brand.defaultSignatoryJobTitle);
+  }
+
+  const pageRange = pdf.bufferedPageRange();
+  const totalPages = pageRange.count;
+  for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+    pdf.switchToPage(pageRange.start + pageNumber - 1);
+    drawHeaderAndFooter(pageNumber, totalPages);
   }
 
   pdf.end();

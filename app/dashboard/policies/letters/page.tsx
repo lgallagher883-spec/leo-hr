@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { lettersCatalogue } from "./lettersCatalogue";
 
+import { downloadBrandedWordFromHtml, openBrandedPdfFromHtml } from "@/lib/documents/browserExport";
 type LetterResource = {
   id: string;
   title: string;
@@ -129,43 +130,16 @@ export default function LettersPage() {
     `;
   }
 
-  function downloadWord(letter: LetterResource) {
+  async function downloadWord(letter: LetterResource) {
     const documentHtml = getLetterDocument(letter);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const blob = new Blob(["\ufeff", documentHtml], {
-      type: "application/msword",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "LEO-Invitation-to-Disciplinary-Hearing.doc";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!documentHtml) return;
+    await downloadBrandedWordFromHtml(letter.title, documentHtml);
   }
 
-  function openPdf(letter: LetterResource) {
+  async function openPdf(letter: LetterResource) {
     const documentHtml = getLetterDocument(letter);
-
-    if (!documentHtml) {
-      return;
-    }
-
-    const pdfWindow = window.open("", "_blank");
-
-    if (!pdfWindow) {
-      return;
-    }
-
-    pdfWindow.document.open();
-    pdfWindow.document.write(documentHtml);
-    pdfWindow.document.close();
+    if (!documentHtml) return;
+    await openBrandedPdfFromHtml(letter.title, documentHtml);
   }
 
   function getAskLeoHref(letter: LetterResource) {

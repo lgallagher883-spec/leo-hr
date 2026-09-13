@@ -28,11 +28,11 @@ export default function RightToWorkChecksPage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  async function openPdf() {
+  async async function openPdf() {
     await openBrandedPdfFromElement(resourceTitle);
   }
 
-  async function downloadWord() {
+  async async function downloadWord() {
     await downloadBrandedWordFromElement(resourceTitle);
   }
 

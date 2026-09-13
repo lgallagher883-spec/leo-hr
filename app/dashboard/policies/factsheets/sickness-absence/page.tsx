@@ -28,11 +28,11 @@ export default function SicknessAbsencePage() {
   const router = useRouter();
   const [added, setAdded] = useState(false);
 
-  async async function openPdf() {
+  async function openPdf() {
     await openBrandedPdfFromElement(resourceTitle);
   }
 
-  async async function downloadWord() {
+  async function downloadWord() {
     await downloadBrandedWordFromElement(resourceTitle);
   }
 

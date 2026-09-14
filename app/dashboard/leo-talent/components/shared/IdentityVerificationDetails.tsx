@@ -468,7 +468,7 @@ export default function IdentityVerificationDetails({
               <h2 style={styles.title}>Identity verification</h2>
               <span style={styles.badge}>{labelForStatus(draft.status)}</span>
             </div>
-            <p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}{recordId !== undefined ? ` · Record ${String(recordId)}` : ""}</p>
+            <p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}</p>
           </div>
         </div>
         <div style={styles.actions}>

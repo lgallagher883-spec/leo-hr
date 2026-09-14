@@ -76,3 +76,101 @@ test("ChatGPT MCP accepts legacy read-only tool names", () => {
   assert.match(mcpRoute, /leo_attention:\s*"leo_get_attention_summary"/);
   assert.match(mcpRoute, /legacyToolAliases\[requestedToolName\] \|\| requestedToolName/);
 });
+
+
+const onboardingTemplates = read("lib/onboarding/templates.ts");
+const talentOnboarding = read("app/api/talent/onboarding/route.ts");
+const newStarterReadiness = read("lib/onboarding/newStarterReadiness.ts");
+const newStarterReadinessApi = read("app/api/employees/[id]/new-starter-readiness/route.ts");
+
+test("Talent and direct employee readiness share one onboarding template source", () => {
+  assert.match(talentOnboarding, /@\/lib\/onboarding\/templates/);
+  assert.match(talentOnboarding, /getOnboardingTemplates/);
+  assert.match(onboardingTemplates, /right_to_work/);
+  assert.match(onboardingTemplates, /contract_issue/);
+  assert.match(onboardingTemplates, /mandatory_learning/);
+});
+
+test("new starter readiness is deterministic and organisation scoped", () => {
+  assert.match(newStarterReadiness, /\.eq\("organisation_id", organisationId\)/);
+  assert.match(newStarterReadiness, /employee_right_to_work/);
+  assert.match(newStarterReadiness, /employee_dbs_checks/);
+  assert.match(newStarterReadiness, /employee_probations/);
+  assert.match(newStarterReadiness, /organisation_invitations/);
+  assert.doesNotMatch(newStarterReadiness, /OpenAI|chat\.completions|responses\.create/);
+});
+
+test("new starter readiness API requires workforce view permission and blocks employee accounts", () => {
+  assert.match(newStarterReadinessApi, /employees\.view/);
+  assert.match(newStarterReadinessApi, /role === "employee"/);
+  assert.match(newStarterReadinessApi, /leo_current_organisation_id/);
+});
+
+const newStarterPlan = read("lib/onboarding/newStarterPlan.ts");
+const newStarterAgent = read("lib/onboarding/newStarterAgent.ts");
+const promptBuilder = read("leo/prompt/builder™.ts");
+
+test("new starter action planning stays deterministic and keeps consequential actions gated", () => {
+  assert.doesNotMatch(newStarterPlan, /OpenAI|chat\.completions|responses\.create/);
+  assert.match(newStarterPlan, /kind: "approval_required"/);
+  assert.match(newStarterPlan, /Prepare probation schedule/);
+  assert.match(newStarterPlan, /employee portal invitation/);
+  assert.match(newStarterPlan, /must not infer whether DBS is required/);
+});
+
+const employeeProfilePage = read("app/dashboard/employees/[id]/page.tsx");
+const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
+const dashboardPage = read("app/dashboard/page.tsx");
+
+test("new starter readiness is surfaced consistently without bypassing the server readiness API", () => {
+  assert.match(employeeProfilePage, /new-starter-readiness/);
+  assert.match(employeeProfilePage, /Ask Leo to get/);
+  assert.match(askLeoPage, /new-starter-readiness/);
+  assert.match(askLeoPage, /New starter actions/);
+  assert.match(dashboardPage, /new-starter-readiness/);
+  assert.match(dashboardPage, /Leo Needs Your Help/);
+  assert.match(dashboardPage, /Review actions/);
+});
+
+
+test("future-dated active employees are treated as upcoming starters", () => {
+  assert.match(employeeProfilePage, /isUpcomingStarter/);
+  assert.match(employeeProfilePage, /start_date/);
+  assert.match(dashboardPage, /employee\.start_date/);
+  assert.match(dashboardPage, /former employee/);
+  assert.match(dashboardPage, /archived/);
+});
+
+
+test("new starter workflow starts deterministically and avoids an unnecessary model call", () => {
+  assert.doesNotMatch(newStarterAgent, /OpenAI|chat\.completions|responses\.create/);
+  assert.match(newStarterAgent, /When you have that information, let me know so I can continue getting/);
+  assert.match(askLeo, /contextType === "new_starter"/);
+  assert.match(askLeo, /newStarterWorkflowStart/);
+  assert.match(askLeo, /buildNewStarterWorkflowStartReply/);
+});
+
+test("new starter AI follow-up is constrained to the readiness workflow", () => {
+  assert.match(promptBuilder, /AGENTIC NEW STARTER WORKFLOW/);
+  assert.match(promptBuilder, /Do not invent a separate onboarding checklist/);
+  assert.match(promptBuilder, /Always end the response/);
+  assert.match(askLeoPage, /contextType: sarContext/);
+  assert.match(askLeoPage, /"new_starter"/);
+});
+
+test("completed starter work disappears and generic lifecycle AI panels are removed", () => {
+  assert.match(employeeProfilePage, /newStarterReadiness\.overallStatus !== "ready"/);
+  assert.match(dashboardPage, /starter\.missing \+ starter\.needsReview > 0/);
+  const employeeLifecycleFiles = [
+    "app/dashboard/employees/[id]/components/EmploymentDetails.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeDocuments.tsx",
+    "app/dashboard/employees/[id]/components/LeaveAbsence.tsx",
+    "app/dashboard/employees/[id]/components/ComplianceSummary.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeMatters.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeNotes.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeWarnings.tsx",
+  ];
+  for (const file of employeeLifecycleFiles) {
+    assert.doesNotMatch(read(file), /EmployeeLifecycleIntelligence/);
+  }
+});

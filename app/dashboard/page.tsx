@@ -904,7 +904,7 @@ function LeoNeedsHelpCard({
     <button
       type="button"
       onClick={() => {
-        if (starters.length === 1) {
+        if (starters.length > 0) {
           onOpenStarter(starters[0].id);
           return;
         }

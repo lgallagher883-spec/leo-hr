@@ -187,24 +187,6 @@ export default function CareCheckRTWPanel({
         />
       </div>
 
-      <div
-        style={{
-          marginTop: "12px",
-          border: "1px solid #E4D9EA",
-          borderRadius: "10px",
-          background: "#FFFFFF",
-          color: "#746A79",
-          padding: "10px 12px",
-          fontSize: "11px",
-          lineHeight: 1.5,
-        }}
-      >
-        Leo keeps the CareCheck provider result separate from the employer&apos;s
-        final Right to Work verification record. A provider completion will not
-        automatically mark the person as verified until the result has been
-        reviewed.
-      </div>
-
       {message ? (
         <div
           style={{

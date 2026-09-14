@@ -38,7 +38,7 @@ function lower(value: unknown): string {
   return text(value).toLowerCase();
 }
 
-function latest<T>(rows: T[] | null | undefined): T | null {
+function latest<T extends Record<string, unknown>>(rows: T[] | null | undefined): T | null {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
@@ -148,9 +148,9 @@ export async function assessNewStarterReadiness(args: {
   }
 
   const startDate = employee.start_date ?? null;
-  const rtw = latest(rtwResult.data);
-  const dbs = latest(dbsResult.data);
-  const invitation = latest(invitationResult.data);
+  const rtw = latest<Record<string, unknown>>(rtwResult.data);
+  const dbs = latest<Record<string, unknown>>(dbsResult.data);
+  const invitation = latest<Record<string, unknown>>(invitationResult.data);
   const hasContract = (documentsResult.data ?? []).some((document: any) =>
     isContractDocument(document.document_type, document.title),
   );

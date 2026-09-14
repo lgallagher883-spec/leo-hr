@@ -122,7 +122,7 @@ const dashboardPage = read("app/dashboard/page.tsx");
 
 test("new starter readiness is surfaced consistently without bypassing the server readiness API", () => {
   assert.match(employeeProfilePage, /new-starter-readiness/);
-  assert.match(employeeProfilePage, /Ask Leo to prepare/);
+  assert.match(employeeProfilePage, /Ask Leo to get/);
   assert.match(askLeoPage, /new-starter-readiness/);
   assert.match(askLeoPage, /New starter readiness/);
   assert.match(dashboardPage, /new-starter-readiness/);

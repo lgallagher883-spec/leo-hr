@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { assessNewStarterReadiness } from "@/lib/onboarding/newStarterReadiness";
+import { prepareNewStarterPlan } from "@/lib/onboarding/newStarterPlan";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -180,11 +181,13 @@ export async function GET(
       organisationId: access.access.organisationId,
       employeeId,
     });
+    const plan = prepareNewStarterPlan(readiness);
 
     return NextResponse.json(
       {
         success: true,
         readiness,
+        plan,
       },
       {
         status: 200,

@@ -104,6 +104,11 @@ function extractEmergencyContacts(message: string): Array<{
     }));
   }
 
+  const sharedEmail = message.match(/\b(?:they|both|either|them)\b[^.]{0,80}\b(?:contact(?:ed)?|email(?:ed)?)\b[^.]{0,80}\b(?:on|at)\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i)?.[1] ?? null;
+  if (sharedEmail && contacts.length > 1) {
+    for (const contact of contacts) contact.email = contact.email || sharedEmail;
+  }
+
   // A second email may follow "and Dave can be contacted..." without repeating "dad".
   if (contacts.length === 1 && emails.length > 1) {
     contacts.push({
@@ -116,30 +121,34 @@ function extractEmergencyContacts(message: string): Array<{
   return contacts.slice(0, 2);
 }
 
-function extractVerifiedBritishPassport(message: string): { verified: boolean; passportExpiry: string | null } {
+function extractVerifiedPassportRtw(message: string): { verified: boolean; isBritishPassport: boolean; passportExpiry: string | null } {
   const verified =
     /\b(?:right to work|rtw)\b[^.]{0,80}\b(?:verified|checked|complete(?:d)?)\b/i.test(message) ||
     /\b(?:verified|checked|complete(?:d)?)\b[^.]{0,80}\b(?:right to work|rtw)\b/i.test(message);
 
-  if (!verified || !/\bbritish passport\b/i.test(message)) {
-    return { verified: false, passportExpiry: null };
+  const hasPassport = /\bpassport\b/i.test(message);
+  const isBritishPassport = /\bbritish passport\b/i.test(message);
+
+  if (!verified || !hasPassport) {
+    return { verified: false, isBritishPassport: false, passportExpiry: null };
   }
 
   const expiryMatch = message.match(
     /passport[^.]{0,100}expir(?:es|y|ed)?\s+(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\s+(\d{4})/i,
   );
 
-  if (!expiryMatch) return { verified: true, passportExpiry: null };
+  if (!expiryMatch) return { verified: true, isBritishPassport, passportExpiry: null };
 
   const months: Record<string, string> = {
     january: "01", february: "02", march: "03", april: "04", may: "05", june: "06",
     july: "07", august: "08", september: "09", october: "10", november: "11", december: "12",
   };
   const month = months[expiryMatch[2].toLowerCase()];
-  if (!month) return { verified: true, passportExpiry: null };
+  if (!month) return { verified: true, isBritishPassport, passportExpiry: null };
 
   return {
     verified: true,
+    isBritishPassport,
     passportExpiry: `${expiryMatch[3]}-${month}-${expiryMatch[1].padStart(2, "0")}`,
   };
 }
@@ -413,17 +422,21 @@ export async function applyNewStarterEmployerMessage(args: {
     });
   }
 
-  const britishPassport = extractVerifiedBritishPassport(message);
-  if (britishPassport.verified) {
+  const passportRtw = extractVerifiedPassportRtw(message);
+  if (passportRtw.verified) {
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
-    const notes = britishPassport.passportExpiry
-      ? `Employer confirmed through Agentic Leo that a British passport was used to verify right to work. Passport expiry: ${britishPassport.passportExpiry}. Passport expiry is recorded as document information only and is not treated as an expiry of British right to work.`
-      : "Employer confirmed through Agentic Leo that a British passport was used to verify right to work.";
+    const notes = passportRtw.passportExpiry
+      ? passportRtw.isBritishPassport
+        ? `Employer confirmed through Agentic Leo that a British passport was used to verify right to work. Passport expiry: ${passportRtw.passportExpiry}. Passport expiry is recorded as document information only and is not treated as an expiry of British right to work.`
+        : `Employer confirmed through Agentic Leo that a passport was used to verify right to work. Passport expiry: ${passportRtw.passportExpiry}.`
+      : passportRtw.isBritishPassport
+        ? "Employer confirmed through Agentic Leo that a British passport was used to verify right to work."
+        : "Employer confirmed through Agentic Leo that a passport was used to verify right to work.";
 
     const rtwInsert = await admin.from("employee_right_to_work").insert({
       employee_id: employeeId,
-      nationality: "British",
+      nationality: passportRtw.isBritishPassport ? "British" : null,
       immigration_status: null,
       visa_or_permit_type: null,
       share_code: null,
@@ -439,9 +452,13 @@ export async function applyNewStarterEmployerMessage(args: {
 
     applied.push({
       key: "right_to_work",
-      summary: britishPassport.passportExpiry
-        ? `Right to work is recorded as verified using a British passport. I noted the passport expiry as ${britishPassport.passportExpiry}, but I have not treated that as an expiry of the right to work.`
-        : "Right to work is recorded as verified using a British passport.",
+      summary: passportRtw.passportExpiry
+        ? passportRtw.isBritishPassport
+          ? `Right to work is recorded as verified using a British passport. I noted the passport expiry as ${passportRtw.passportExpiry}, but I have not treated that as an expiry of the right to work.`
+          : `Right to work is recorded as verified using a passport. Passport expiry: ${passportRtw.passportExpiry}.`
+        : passportRtw.isBritishPassport
+          ? "Right to work is recorded as verified using a British passport."
+          : "Right to work is recorded as verified using a passport.",
     });
 
     await writeAudit({
@@ -452,11 +469,11 @@ export async function applyNewStarterEmployerMessage(args: {
       userId,
       userEmail,
       action: "Right to work verified",
-      description: `The employer confirmed that ${employee.name}'s right to work was verified using a British passport.`,
+      description: `The employer confirmed that ${employee.name}'s right to work was verified using a ${passportRtw.isBritishPassport ? "British passport" : "passport"}.`,
       newValues: {
-        nationality: "British",
+        nationality: passportRtw.isBritishPassport ? "British" : null,
         check_completed_date: today,
-        passport_expiry: britishPassport.passportExpiry,
+        passport_expiry: passportRtw.passportExpiry,
         right_to_work_expiry: null,
       },
     });
@@ -548,7 +565,7 @@ export async function applyNewStarterEmployerMessage(args: {
       confirmsNoDbs(message) ||
       confirmsNoTraining(message) ||
       selectsDraftContract(message) ||
-      britishPassport.verified ||
+      passportRtw.verified ||
       emergencyContacts.length > 0,
     applied,
     pending,

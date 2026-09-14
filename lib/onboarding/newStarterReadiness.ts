@@ -80,10 +80,8 @@ export async function assessNewStarterReadiness(args: {
     dbsResult,
     documentsResult,
     emergencyResult,
-    trainingResult,
     probationResult,
     invitationResult,
-    agentDecisionResult,
   ] = await Promise.all([
     supabase
       .from("employee_employment_details")
@@ -114,11 +112,6 @@ export async function assessNewStarterReadiness(args: {
       .eq("employee_id", employeeId)
       .limit(1),
     supabase
-      .from("employee_training_logs")
-      .select("id,training_name,date_completed,refresh_or_expiry_date")
-      .eq("employee_id", employeeId)
-      .limit(100),
-    supabase
       .from("employee_probations")
       .select("id,status,probation_start_date,standard_end_date")
       .eq("employee_id", employeeId)
@@ -131,14 +124,6 @@ export async function assessNewStarterReadiness(args: {
       .eq("employee_id", employeeId)
       .order("created_at", { ascending: false })
       .limit(1),
-    supabase
-      .from("employee_timeline")
-      .select("id,metadata,created_at")
-      .eq("organisation_id", organisationId)
-      .eq("employee_id", employeeId)
-      .eq("source_module", "Agentic Leo")
-      .order("created_at", { ascending: false })
-      .limit(50),
   ]);
 
   const errors = [
@@ -146,11 +131,9 @@ export async function assessNewStarterReadiness(args: {
     rtwResult.error,
     dbsResult.error,
     documentsResult.error,
-    emergencyResult.error,
-    trainingResult.error,
+    emergencyResult.error.error,
     probationResult.error,
-    invitationResult.error,
-    agentDecisionResult.error,
+    invitationResult.error.error,
   ].filter(Boolean);
 
   if (errors.length > 0) {
@@ -169,15 +152,6 @@ export async function assessNewStarterReadiness(args: {
       Boolean(text(contact.full_name)) &&
       Boolean(text(contact.relationship)) &&
       (Boolean(text(contact.phone)) || Boolean(text(contact.email))),
-  );
-  const hasTraining = (trainingResult.data ?? []).length > 0;
-  const agentDecisions = (agentDecisionResult.data ?? []) as Array<{
-    metadata?: Record<string, unknown> | null;
-  }>;
-  const mandatoryLearningNotRequired = agentDecisions.some(
-    (row) =>
-      row.metadata?.decision_key === "mandatory_learning" &&
-      row.metadata?.decision_value === "not_required",
   );
   const manager = text(employmentResult.data?.manager);
   const dbsRequiredRaw = dbs?.dbs_required;
@@ -200,7 +174,7 @@ export async function assessNewStarterReadiness(args: {
     getOnboardingTemplates({
       includeDbs: dbsRequired,
       includeEquipment: true,
-      includeLearning: true,
+      includeLearning: false,
     }).map((template) => [template.key, template.dueOffsetDays]),
   );
 
@@ -261,22 +235,6 @@ export async function assessNewStarterReadiness(args: {
       blocking: false,
       dueDate: startDate,
       detail: hasEmergencyContact ? "An emergency contact is recorded." : "Ask the starter to provide an emergency contact.",
-    },
-    {
-      key: "mandatory_learning",
-      label: "Mandatory learning",
-      status: mandatoryLearningNotRequired
-        ? "not_required"
-        : hasTraining
-          ? "complete"
-          : "needs_review",
-      blocking: false,
-      dueDate: dueDate("mandatory_learning"),
-      detail: mandatoryLearningNotRequired
-        ? "The employer confirmed that no additional mandatory learning is required for this starter."
-        : hasTraining
-          ? "Training records already exist for this employee."
-          : "Confirm and assign required organisation-wide and role-specific learning.",
     },
     {
       key: "probation",

@@ -111,7 +111,7 @@ function requiresEmployerAttention(item: {
 
   if (status === "complete" || status === "not_required") return false;
 
-  if (["starter_details", "manager", "right_to_work", "dbs", "emergency_contact", "future_start_date"].includes(key)) {
+  if (["starter_details", "manager", "right_to_work", "dbs", "future_start_date"].includes(key)) {
     return true;
   }
 

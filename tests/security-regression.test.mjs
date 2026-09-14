@@ -125,6 +125,7 @@ const employeeDashboardPage = read("app/dashboard/employee/page.tsx");
 const employeeDocumentsRoute = read("app/api/employees/[id]/documents/route.ts");
 const agenticDocumentWorkflow = read("lib/agentic/documentWorkflow.ts");
 const agenticDocumentText = read("lib/agentic/documentText.ts");
+const agenticDocumentFacts = read("lib/agentic/documentFacts.ts");
 const agenticEmployeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 const employmentRoute = read("app/api/employees/[id]/employment/route.ts");
 const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
@@ -292,4 +293,22 @@ test("approved employee changes prepare downstream administration silently", () 
   assert.match(employmentRoute, /Agentic Employee Change/);
   assert.match(employmentRoute, /ask_leo_involved: false/);
   assert.doesNotMatch(agenticEmployeeChangeWorkflow, /OpenAI|chat\.completions|responses\.create/);
+});
+
+
+test("labelled document facts remain non-destructive", () => {
+  assert.match(agenticDocumentFacts, /extractDocumentFacts/);
+  assert.match(agenticDocumentFacts, /certificate_issue_date/);
+  assert.match(agenticDocumentFacts, /document_expiry/);
+  assert.match(employeeDocumentsRoute, /agentic_extracted_facts/);
+  assert.doesNotMatch(agenticDocumentFacts, /\.from\(|insert\(|update\(/);
+});
+
+test("change-it-once prepares reusable downstream packs without external submission", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /buildEmployeeChangePacks/);
+  assert.match(employmentRoute, /Contract Variation Prepared/);
+  assert.match(employmentRoute, /Payroll Change Pack Prepared/);
+  assert.match(employmentRoute, /submission_status: "not_submitted"/);
+  assert.match(employmentRoute, /issue_status: "not_issued"/);
+  assert.match(employmentRoute, /employer_reentry_required: false/);
 });

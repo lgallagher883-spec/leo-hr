@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { assessNewStarterReadiness } from "@/lib/onboarding/newStarterReadiness";
 import { prepareNewStarterPlan } from "@/lib/onboarding/newStarterPlan";
+import { runNewStarterAutomaticActions } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -206,6 +207,96 @@ export async function GET(
           error instanceof Error
             ? error.message
             : "Leo could not complete the new starter readiness check.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+
+export async function POST(
+  _request: Request,
+  context: RouteContext,
+) {
+  try {
+    const { id } = await context.params;
+    const employeeId = readEmployeeId(id);
+
+    if (!employeeId) {
+      return NextResponse.json(
+        { success: false, error: "The employee reference is not valid." },
+        { status: 400 },
+      );
+    }
+
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { success: false, error: "You are not signed in." },
+        { status: 401 },
+      );
+    }
+
+    const access = await requireAccess(supabase, user.id);
+    if (!access.ok) return access.response;
+
+    const canManageEmployees =
+      access.access.role === "owner" ||
+      access.access.permissionKeys.has("employees.manage");
+
+    if (!canManageEmployees) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You do not have permission to run automatic new starter preparation.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const automaticActions = await runNewStarterAutomaticActions({
+      organisationId: access.access.organisationId,
+      employeeId,
+      userId: user.id,
+    });
+
+    const readiness = await assessNewStarterReadiness({
+      supabase,
+      organisationId: access.access.organisationId,
+      employeeId,
+    });
+    const plan = prepareNewStarterPlan(readiness);
+
+    return NextResponse.json(
+      {
+        success: true,
+        readiness,
+        plan,
+        automaticActions,
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Automatic new starter preparation failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Leo could not complete automatic new starter preparation.",
       },
       { status: 500 },
     );

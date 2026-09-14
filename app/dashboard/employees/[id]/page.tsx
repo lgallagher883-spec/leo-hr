@@ -236,6 +236,20 @@ const quickActions: QuickAction[] = [
 
 const defaultPlatformRole: PlatformRole = "Employee";
 
+function isUpcomingStarter(employee: Pick<Employee, "status" | "start_date">): boolean {
+  const status = normaliseEmployeeStatus(employee.status);
+  if (status === "Archived" || status === "Former Employee") return false;
+  if (status === "New Starter") return true;
+  if (!employee.start_date) return false;
+
+  const start = new Date(`${employee.start_date}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return false;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  return start.getTime() >= today.getTime();
+}
+
 export default function EmployeeProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -332,7 +346,7 @@ export default function EmployeeProfilePage() {
 
   useEffect(() => {
     if (!employeeId || !employee) return;
-    if (normaliseEmployeeStatus(employee.status) !== "New Starter") {
+    if (!isUpcomingStarter(employee)) {
       setNewStarterReadiness(null);
       setNewStarterPlan(null);
       return;
@@ -572,7 +586,7 @@ export default function EmployeeProfilePage() {
 
   const employeeStatus = normaliseEmployeeStatus(employee.status);
   const isArchived = employeeStatus === "Archived";
-  const isNewStarter = employeeStatus === "New Starter";
+  const isNewStarter = isUpcomingStarter(employee);
   const startDateLabel = formatDate(employee.start_date);
 
   return (

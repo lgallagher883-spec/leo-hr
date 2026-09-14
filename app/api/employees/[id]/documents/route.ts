@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { classifyEmployeeDocument, documentWorkflowLabel } from "@/lib/agentic/documentWorkflow";
+import { extractEmployeeDocumentText } from "@/lib/agentic/documentText";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -477,11 +478,18 @@ export async function POST(
       readOptionalString(formData.get("documentType")) ||
       "Other";
     const notes = readOptionalString(formData.get("notes"));
+    const fileBytes = new Uint8Array(await fileValue.arrayBuffer());
+    const extracted = await extractEmployeeDocumentText({
+      fileName: fileValue.name,
+      contentType: fileValue.type || "application/octet-stream",
+      bytes: fileBytes,
+    });
     const classification = classifyEmployeeDocument({
       title,
       documentType,
       fileName: fileValue.name,
       notes,
+      contentText: extracted.text,
     });
     const canonicalDocumentType =
       (documentType === "Other" || documentType === "Document") &&
@@ -494,7 +502,6 @@ export async function POST(
     )}`;
 
     const admin = getAdminClient();
-    const fileBytes = new Uint8Array(await fileValue.arrayBuffer());
 
     const uploadResult = await admin.storage
       .from("employee-documents")
@@ -555,6 +562,8 @@ export async function POST(
           agentic_classification_confidence: classification.confidence,
           agentic_requires_human_verification: classification.requiresHumanVerification,
           agentic_can_advance_workflow: classification.canAdvanceWorkflow,
+          agentic_text_extraction_method: extracted.method,
+          agentic_text_extracted: Boolean(extracted.text),
         },
         event_date: now,
         created_by: user.id,
@@ -587,6 +596,8 @@ export async function POST(
           sensitive: classification.sensitive,
           requires_human_verification: classification.requiresHumanVerification,
           can_advance_workflow: classification.canAdvanceWorkflow,
+          text_extraction_method: extracted.method,
+          text_extracted: Boolean(extracted.text),
           reason: classification.reason,
         },
         event_date: now,
@@ -664,6 +675,7 @@ export async function POST(
           agentic_document_classification: classification.category,
           agentic_classification_confidence: classification.confidence,
           agentic_requires_human_verification: classification.requiresHumanVerification,
+          agentic_text_extraction_method: extracted.method,
         },
         metadata: {
           source_module: "Employees",
@@ -696,6 +708,7 @@ export async function POST(
           filedAs: documentWorkflowLabel(classification),
           requiresHumanVerification: classification.requiresHumanVerification,
           canAdvanceWorkflow: classification.canAdvanceWorkflow,
+          textExtractionMethod: extracted.method,
         },
       },
       { status: 201 },

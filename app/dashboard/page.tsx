@@ -63,6 +63,15 @@ type FoundationsResponse = {
   facts?: FoundationFact[];
 };
 
+type NewStarterAttention = {
+  id: number;
+  name: string;
+  start_date: string | null;
+  overallStatus: string;
+  missing: number;
+  needsReview: number;
+};
+
 type DashboardPriority = {
   summary: string;
   actionLabel: string;
@@ -249,6 +258,7 @@ function DashboardPageContent() {
     useState<ComplianceIntelligence | null>(null);
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [newStarterAttention, setNewStarterAttention] = useState<NewStarterAttention[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [reminderActionInProgress, setReminderActionInProgress] = useState<string | null>(null);
 
@@ -414,6 +424,56 @@ function DashboardPageContent() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadNewStarterAttention() {
+      try {
+        const response = await fetch("/api/employees", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+        const payload = await response.json().catch(() => null);
+        const employees = Array.isArray(payload?.employees) ? payload.employees : [];
+        const starters = employees
+          .filter((employee: any) => {
+            const status = String(employee.status || "").trim().toLowerCase();
+            return status === "new starter" || status === "new_starter";
+          })
+          .slice(0, 5);
+
+        const checks = await Promise.all(
+          starters.map(async (employee: any) => {
+            const check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
+              method: "GET",
+              cache: "no-store",
+              credentials: "include",
+            });
+            const result = await check.json().catch(() => null);
+            if (!check.ok || !result?.success) return null;
+            return {
+              id: employee.id,
+              name: employee.name,
+              start_date: employee.start_date ?? null,
+              overallStatus: result.readiness.overallStatus,
+              missing: result.readiness.counts.missing,
+              needsReview: result.readiness.counts.needsReview,
+            } as NewStarterAttention;
+          })
+        );
+
+        if (active) setNewStarterAttention(checks.filter(Boolean) as NewStarterAttention[]);
+      } catch (error) {
+        console.error("New starter attention could not be loaded:", error);
+        if (active) setNewStarterAttention([]);
+      }
+    }
+
+    void loadNewStarterAttention();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -685,6 +745,43 @@ function DashboardPageContent() {
                   {step.complete ? "✓" : "→"}
                 </span>
                 <span>{step.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {newStarterAttention.length > 0 ? (
+        <section style={setupCardStyle} aria-labelledby="new-starter-attention-heading">
+          <div style={setupHeaderStyle}>
+            <div>
+              <div style={setupEyebrowStyle}>Leo needs your attention</div>
+              <h2 id="new-starter-attention-heading" style={setupTitleStyle}>
+                New starter readiness
+              </h2>
+              <p style={setupTextStyle}>
+                Leo has checked upcoming starters and highlighted anything that needs preparing or employer input.
+              </p>
+            </div>
+          </div>
+          <div style={setupListStyle}>
+            {newStarterAttention.map((starter) => (
+              <button
+                key={starter.id}
+                type="button"
+                onClick={() => router.push(`/dashboard/employees/${starter.id}`)}
+                style={setupStepStyle}
+              >
+                <span style={setupCheckStyle} aria-hidden="true">
+                  {starter.overallStatus === "ready" ? "✓" : "→"}
+                </span>
+                <span>
+                  {starter.name}
+                  {starter.start_date ? ` · starts ${starter.start_date}` : ""}
+                  {starter.missing + starter.needsReview > 0
+                    ? ` · ${starter.missing + starter.needsReview} item(s) need attention`
+                    : " · ready"}
+                </span>
               </button>
             ))}
           </div>

@@ -441,7 +441,15 @@ function DashboardPageContent() {
         const starters = employees
           .filter((employee: any) => {
             const status = String(employee.status || "").trim().toLowerCase();
-            return status === "new starter" || status === "new_starter";
+            if (status === "archived" || status === "former employee") return false;
+            if (status === "new starter" || status === "new_starter") return true;
+            if (!employee.start_date) return false;
+
+            const start = new Date(`${employee.start_date}T12:00:00`);
+            if (Number.isNaN(start.getTime())) return false;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+            return start.getTime() >= today.getTime();
           })
           .slice(0, 5);
 

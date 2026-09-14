@@ -615,6 +615,13 @@ export default function AskLeoPage() {
       return;
     }
 
+    const isNewStarterWorkflowStart = Boolean(
+      newStarterEmployeeId &&
+      messageOverride &&
+      promptParam.trim() &&
+      messageText === promptParam.trim()
+    );
+
     const requestId =
       typeof crypto !== "undefined" &&
       typeof crypto.randomUUID === "function"
@@ -681,9 +688,13 @@ export default function AskLeoPage() {
             latestMessage: messageText,
             conversationId,
             requestId,
-            contextType: sarContext || newStarterContext?.readiness
+            contextType: sarContext
               ? "contextual"
-              : "general",
+              : newStarterContext?.readiness
+                ? "new_starter"
+                : "general",
+            newStarterEmployeeId,
+            newStarterWorkflowStart: isNewStarterWorkflowStart,
             conversation:
               conversationBeforeReply,
             contextSummary,

@@ -126,9 +126,8 @@ const dashboardPage = read("app/dashboard/page.tsx");
 
 test("new starter readiness is surfaced consistently without bypassing the server readiness API", () => {
   assert.match(employeeProfilePage, /new-starter-readiness/);
-  assert.match(employeeProfilePage, /Ask Leo to get/);
-  assert.match(askLeoPage, /new-starter-readiness/);
-  assert.match(askLeoPage, /New starter actions/);
+  assert.doesNotMatch(employeeProfilePage, /Ask Leo to get/);
+  assert.match(employeeProfilePage, /Leo needs your help/);
   assert.match(dashboardPage, /new-starter-readiness/);
   assert.match(dashboardPage, /Leo Needs Your Help/);
   assert.match(dashboardPage, /Review actions/);
@@ -161,8 +160,8 @@ test("new starter AI follow-up is constrained to the readiness workflow", () => 
 });
 
 test("completed starter work disappears and generic lifecycle AI panels are removed", () => {
-  assert.match(employeeProfilePage, /newStarterReadiness\.overallStatus !== "ready"/);
-  assert.match(dashboardPage, /starter\.missing \+ starter\.needsReview > 0/);
+  assert.match(employeeProfilePage, /requiresEmployerAttention/);
+  assert.match(dashboardPage, /starter\.attentionCount > 0/);
   const employeeLifecycleFiles = [
     "app/dashboard/employees/[id]/components/EmploymentDetails.tsx",
     "app/dashboard/employees/[id]/components/EmployeeDocuments.tsx",
@@ -192,6 +191,7 @@ test("Leo automatically handles probation, employee invitation and contract prep
   assert.match(newStarterAutoActions, /organisation_foundations/);
   assert.match(newStarterAutoActions, /Contract Preparation/);
   assert.match(askLeo, /runNewStarterAutomaticActions/);
+  assert.match(newStarterAutoActions, /missing_fields/);
 });
 
 test("Leo Needs Your Help uses a symbol rather than an action count", () => {
@@ -206,11 +206,28 @@ test("new starter updates accept verified passport wording without inferring Bri
   assert.match(employerUpdate, /extractVerifiedPassportRtw/);
   assert.match(employerUpdate, /hasPassport/);
   assert.match(employerUpdate, /isBritishPassport/);
-  assert.match(employerUpdate, /nationality: passportRtw\.isBritishPassport \? "British" : null/);
+  assert.match(employerUpdate, /existingNationality \|\| "Not specified"/);
+  assert.match(employerUpdate, /nationality,/);
 });
 
 test("shared emergency contact email can satisfy both supplied contacts", () => {
   const employerUpdate = read("lib/onboarding/newStarterEmployerUpdate.ts");
   assert.match(employerUpdate, /sharedEmail/);
   assert.match(employerUpdate, /for \(const contact of contacts\) contact\.email = contact\.email \|\| sharedEmail/);
+});
+
+
+test("new starter automation is decoupled from Ask Leo UI", () => {
+  assert.doesNotMatch(employeeProfilePage, /dashboard\/ask-leo\?employeeId/);
+  assert.doesNotMatch(employeeProfilePage, /Ask Leo to get/);
+  assert.match(employeeProfilePage, /method: "POST"/);
+  assert.match(dashboardPage, /attentionCount/);
+});
+
+test("contract gaps are surfaced as explicit employer confirmations", () => {
+  assert.match(newStarterAutoActions, /Salary \/ pay/);
+  assert.match(newStarterAutoActions, /Contracted hours/);
+  assert.match(newStarterAutoActions, /Place of work/);
+  assert.match(newStarterReadiness, /Confirm:/);
+  assert.match(employeeProfilePage, /Contract information to confirm/);
 });

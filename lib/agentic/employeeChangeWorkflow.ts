@@ -138,3 +138,37 @@ export function downstreamAdminForChanges(changes: EmploymentChange[]) {
 
   return actions;
 }
+
+
+export function buildEmployeeChangePacks(changes: EmploymentChange[]) {
+  const byField = new Map(changes.map((change) => [change.field, change]));
+
+  const contractFields = [
+    "role",
+    "contracted_hours_per_week",
+    "contracted_days_per_week",
+    "working_days",
+    "working_pattern_type",
+    "annual_leave_allowance",
+  ];
+  const payrollFields = [
+    "role",
+    "contracted_hours_per_week",
+    "contracted_days_per_week",
+    "working_pattern_type",
+    "annual_leave_allowance",
+    "employment_end_date",
+    "status",
+  ];
+
+  const pick = (fields: string[]) =>
+    fields
+      .map((field) => byField.get(field))
+      .filter((change): change is EmploymentChange => Boolean(change));
+
+  return {
+    contractVariation: pick(contractFields),
+    payrollChange: pick(payrollFields),
+    roleAssignments: byField.has("role") ? [byField.get("role") as EmploymentChange] : [],
+  };
+}

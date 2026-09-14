@@ -3,7 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
-import { syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
+import { syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -853,6 +853,28 @@ export async function PATCH(
       }
     }
 
+    let probationManagerSync: { updated: boolean; reason: string } | null = null;
+    const approvedManager = readOptionalString(updates.manager);
+
+    if (
+      approvedManager &&
+      readOptionalString(existingDetails.data?.manager) !== approvedManager
+    ) {
+      try {
+        probationManagerSync = await syncAgenticProbationManager({
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          managerName: approvedManager,
+          userId: user.id,
+        });
+      } catch (probationManagerSyncError) {
+        console.warn(
+          "Agentic probation manager assignments could not be resynchronised:",
+          probationManagerSyncError,
+        );
+      }
+    }
+
     const changes = detectApprovedEmploymentChanges({
       previousEmployee: currentEmployee as Record<string, unknown>,
       nextEmployee: employeeResult.data as Record<string, unknown>,
@@ -970,6 +992,7 @@ export async function PATCH(
         downstreamAdmin,
         changePacks,
         probationSync,
+        probationManagerSync,
       },
     });
   } catch (error) {

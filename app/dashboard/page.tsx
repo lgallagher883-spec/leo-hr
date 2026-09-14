@@ -63,7 +63,7 @@ type FoundationsResponse = {
   facts?: FoundationFact[];
 };
 
-type NewStarterAttention = {
+type LeoAttention = {
   id: number;
   name: string;
   start_date: string | null;
@@ -278,7 +278,7 @@ function DashboardPageContent() {
     useState<ComplianceIntelligence | null>(null);
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
-  const [newStarterAttention, setNewStarterAttention] = useState<NewStarterAttention[]>([]);
+  const [newStarterAttention, setLeoAttention] = useState<LeoAttention[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [reminderActionInProgress, setReminderActionInProgress] = useState<string | null>(null);
 
@@ -449,7 +449,7 @@ function DashboardPageContent() {
   useEffect(() => {
     let active = true;
 
-    async function loadNewStarterAttention() {
+    async function loadLeoAttention() {
       try {
         const response = await fetch("/api/employees", {
           method: "GET",
@@ -501,24 +501,67 @@ function DashboardPageContent() {
               name: employee.name,
               start_date: employee.start_date ?? null,
               attentionCount,
-            } as NewStarterAttention;
+            } as LeoAttention;
           })
         );
 
         if (active) {
-          setNewStarterAttention(
-            (checks.filter(Boolean) as NewStarterAttention[]).filter(
+          setLeoAttention(
+            (checks.filter(Boolean) as LeoAttention[]).filter(
               (starter) => starter.attentionCount > 0,
             ),
           );
         }
       } catch (error) {
         console.error("New starter attention could not be loaded:", error);
-        if (active) setNewStarterAttention([]);
+        if (active) setLeoAttention([]);
       }
     }
 
-    void loadNewStarterAttention();
+    void loadLeoAttention();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAgenticAttention() {
+      try {
+        const response = await fetch("/api/agentic/attention", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || "Agentic attention could not be loaded.");
+        }
+
+        const grouped = new Map<number, LeoAttention>();
+
+        for (const item of Array.isArray(payload.items) ? payload.items : []) {
+          const employeeId = Number(item?.employeeId);
+          if (!Number.isInteger(employeeId) || employeeId <= 0) continue;
+
+          const current = grouped.get(employeeId);
+          grouped.set(employeeId, {
+            id: employeeId,
+            name: String(item?.employeeName || current?.name || "Employee"),
+            start_date: current?.start_date ?? null,
+            attentionCount: (current?.attentionCount ?? 0) + 1,
+          });
+        }
+
+        if (active) setAgenticAttention(Array.from(grouped.values()));
+      } catch (error) {
+        console.error("Agentic attention could not be loaded:", error);
+        if (active) setAgenticAttention([]);
+      }
+    }
+
+    void loadAgenticAttention();
     return () => { active = false; };
   }, []);
 
@@ -729,6 +772,22 @@ function DashboardPageContent() {
     [employeeCount, foundationFacts.length, foundationSections],
   );
 
+  const leoAttention = useMemo(() => {
+    const grouped = new Map<number, LeoAttention>();
+
+    for (const item of [...newStarterAttention, ...agenticAttention]) {
+      const current = grouped.get(item.id);
+      grouped.set(item.id, {
+        id: item.id,
+        name: item.name || current?.name || "Employee",
+        start_date: item.start_date ?? current?.start_date ?? null,
+        attentionCount: (current?.attentionCount ?? 0) + item.attentionCount,
+      });
+    }
+
+    return Array.from(grouped.values()).filter((item) => item.attentionCount > 0);
+  }, [agenticAttention, newStarterAttention]);
+
   const setupComplete = setupSteps.every((step) => step.complete);
   const completedSetupSteps = setupSteps.filter((step) => step.complete).length;
 
@@ -846,9 +905,9 @@ function DashboardPageContent() {
           />
         ))}
 
-        {newStarterAttention.length > 0 ? (
+        {leoAttention.length > 0 ? (
           <LeoNeedsHelpCard
-            starters={newStarterAttention}
+            starters={leoAttention}
             onOpenStarter={(employeeId) => router.push(`/dashboard/employees/${employeeId}`)}
             onOpenEmployees={() => router.push("/dashboard/employees")}
           />
@@ -925,7 +984,7 @@ function LeoNeedsHelpCard({
   onOpenStarter,
   onOpenEmployees,
 }: {
-  starters: NewStarterAttention[];
+  starters: LeoAttention[];
   onOpenStarter: (employeeId: number) => void;
   onOpenEmployees: () => void;
 }) {

@@ -67,9 +67,7 @@ type NewStarterAttention = {
   id: number;
   name: string;
   start_date: string | null;
-  overallStatus: string;
-  missing: number;
-  needsReview: number;
+  attentionCount: number;
 };
 
 type DashboardPriority = {
@@ -101,6 +99,28 @@ type ReminderItem = {
     status_band?: string;
   };
 };
+
+function requiresEmployerAttention(item: {
+  key?: unknown;
+  status?: unknown;
+  detail?: unknown;
+}): boolean {
+  const key = typeof item.key === "string" ? item.key : "";
+  const status = typeof item.status === "string" ? item.status : "";
+  const detail = typeof item.detail === "string" ? item.detail : "";
+
+  if (status === "complete" || status === "not_required") return false;
+
+  if (["starter_details", "manager", "right_to_work", "dbs", "emergency_contact", "future_start_date"].includes(key)) {
+    return true;
+  }
+
+  if (key === "contract") return detail.includes("Confirm:");
+  if (key === "portal_invitation") return detail.toLowerCase().includes("email");
+
+  return false;
+}
+
 
 function normalisePath(path: string | undefined): string | null {
   if (!path) return null;
@@ -455,20 +475,32 @@ function DashboardPageContent() {
 
         const checks = await Promise.all(
           starters.map(async (employee: any) => {
-            const check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
-              method: "GET",
+            let check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
+              method: "POST",
               cache: "no-store",
               credentials: "include",
             });
+
+            if (check.status === 403) {
+              check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
+                method: "GET",
+                cache: "no-store",
+                credentials: "include",
+              });
+            }
+
             const result = await check.json().catch(() => null);
             if (!check.ok || !result?.success) return null;
+
+            const attentionCount = Array.isArray(result.readiness?.items)
+              ? result.readiness.items.filter(requiresEmployerAttention).length
+              : 0;
+
             return {
               id: employee.id,
               name: employee.name,
               start_date: employee.start_date ?? null,
-              overallStatus: result.readiness.overallStatus,
-              missing: result.readiness.counts.missing,
-              needsReview: result.readiness.counts.needsReview,
+              attentionCount,
             } as NewStarterAttention;
           })
         );
@@ -476,7 +508,7 @@ function DashboardPageContent() {
         if (active) {
           setNewStarterAttention(
             (checks.filter(Boolean) as NewStarterAttention[]).filter(
-              (starter) => starter.missing + starter.needsReview > 0,
+              (starter) => starter.attentionCount > 0,
             ),
           );
         }
@@ -898,9 +930,7 @@ function LeoNeedsHelpCard({
   onOpenEmployees: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const needsHelp = starters.some(
-    (starter) => starter.missing + starter.needsReview > 0,
-  );
+  const needsHelp = starters.some((starter) => starter.attentionCount > 0);
 
   return (
     <button

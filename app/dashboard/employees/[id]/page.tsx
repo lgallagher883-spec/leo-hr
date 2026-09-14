@@ -645,7 +645,10 @@ export default function EmployeeProfilePage() {
         </div>
       </header>
 
-      {isNewStarter && (
+      {isNewStarter &&
+        (newStarterLoading ||
+          !newStarterReadiness ||
+          newStarterReadiness.overallStatus !== "ready") && (
         <NewStarterBanner
           employeeName={employee.name}
           startDate={startDateLabel}

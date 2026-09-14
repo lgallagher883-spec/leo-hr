@@ -160,10 +160,10 @@ export function buildNewStarterWorkflowProgressReply(args: {
     return Boolean(item && item.status !== "complete" && item.status !== "not_required");
   };
 
+  const pendingKeys = new Set(pending.map((item) => item.key));
+
   let next = "";
-  if (isOutstanding("manager")) {
-    next = `Who will ${name} report to?`;
-  } else if (isOutstanding("right_to_work")) {
+  if (isOutstanding("right_to_work")) {
     next = `Has ${name}'s right to work check been completed? If it has, I need the completed check to be recorded before I can clear that action.`;
   } else if (isOutstanding("dbs")) {
     next = `Does ${name}'s role require a DBS check or safeguarding clearance?`;
@@ -176,6 +176,10 @@ export function buildNewStarterWorkflowProgressReply(args: {
     next = `I still need a contact telephone number for each emergency contact before I can treat that action as complete.`;
   } else if (isOutstanding("mandatory_learning")) {
     next = `What mandatory learning, if any, should apply to ${name}'s role?`;
+  } else if (isOutstanding("manager") && !pendingKeys.has("manager")) {
+    next = `Who will ${name} report to?`;
+  } else if (isOutstanding("manager")) {
+    next = `The manager action is still open because the manager you supplied could not yet be matched safely in this organisation.`;
   } else if (isOutstanding("probation")) {
     next = `I can prepare the probation dates from the recorded start date, but the probation action has not yet been completed in the employee record.`;
   } else if (isOutstanding("portal_invitation")) {
@@ -186,11 +190,26 @@ export function buildNewStarterWorkflowProgressReply(args: {
     next = "There are still outstanding readiness items that need to be completed or recorded.";
   }
 
+  const unresolvedNotes: string[] = [];
+  if (pendingKeys.has("manager")) {
+    unresolvedNotes.push("the manager must be matched to a current employee record before I can update it");
+  }
+  if (pendingKeys.has("emergency_contact_details")) {
+    unresolvedNotes.push("the emergency contacts still need telephone numbers");
+  }
+
   lines.push(
     "",
     `${remaining} new starter action${remaining === 1 ? "" : "s"} remain outstanding.`,
     "",
     next,
+  );
+
+  if (unresolvedNotes.length > 0) {
+    lines.push("", `Still waiting on: ${unresolvedNotes.join(" · ")}.`);
+  }
+
+  lines.push(
     "",
     `When you have that information, let me know so I can continue getting ${name} ready.`,
   );

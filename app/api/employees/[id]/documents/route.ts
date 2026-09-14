@@ -483,6 +483,11 @@ export async function POST(
       fileName: fileValue.name,
       notes,
     });
+    const canonicalDocumentType =
+      (documentType === "Other" || documentType === "Document") &&
+      classification.confidence === "high"
+        ? documentWorkflowLabel(classification)
+        : documentType;
     const now = new Date().toISOString();
     const filePath = `${employeeId}/${Date.now()}-${safeFileName(
       fileValue.name,
@@ -508,7 +513,7 @@ export async function POST(
       .insert({
         employee_id: employeeId,
         title,
-        document_type: documentType,
+        document_type: canonicalDocumentType,
         file_name: fileValue.name,
         file_path: filePath,
         file_type: fileValue.type || null,
@@ -543,7 +548,7 @@ export async function POST(
         source_record_id: String(documentResult.data.id),
         metadata: {
           employee_document_id: documentResult.data.id,
-          document_type: documentType,
+          document_type: canonicalDocumentType,
           file_name: fileValue.name,
           file_path: filePath,
           agentic_document_classification: classification.category,
@@ -596,6 +601,46 @@ export async function POST(
       );
     }
 
+    if (classification.category === "fit_note") {
+      const sicknessResult = await admin
+        .from("employee_leave_records")
+        .select("id,leave_type,status,start_date,end_date")
+        .eq("employee_id", employeeId)
+        .ilike("leave_type", "%sickness%")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!sicknessResult.error && (sicknessResult.data ?? []).length > 0) {
+        const sickness = sicknessResult.data![0];
+        const linkResult = await admin
+          .from("employee_timeline")
+          .insert({
+            employee_id: employeeId,
+            event_type: "Absence Evidence Linked",
+            title: "Fit note linked to sickness absence",
+            description: "Leo linked the uploaded fit note to the latest sickness absence record for administrative continuity. No medical judgement was made.",
+            status: "Completed",
+            source_module: "Agentic Leo",
+            source_record_id: String(documentResult.data.id),
+            metadata: {
+              employee_document_id: documentResult.data.id,
+              leave_record_id: sickness.id,
+              leave_type: sickness.leave_type,
+              leave_status: sickness.status,
+              absence_start_date: sickness.start_date,
+              absence_end_date: sickness.end_date,
+            },
+            event_date: now,
+            created_by: user.id,
+            created_at: now,
+          });
+
+        if (linkResult.error) {
+          console.warn("Fit note absence link timeline event could not be created:", linkResult.error);
+        }
+      }
+    }
+
     const auditResult = await admin
       .from("audit_logs")
       .insert({
@@ -614,7 +659,7 @@ export async function POST(
         description: `${title} was uploaded to ${employee.name}'s employee record.`,
         new_values: {
           document_id: documentResult.data.id,
-          document_type: documentType,
+          document_type: canonicalDocumentType,
           file_name: fileValue.name,
           agentic_document_classification: classification.category,
           agentic_classification_confidence: classification.confidence,

@@ -82,6 +82,7 @@ export async function assessNewStarterReadiness(args: {
     emergencyResult,
     probationResult,
     invitationResult,
+    contractPrepResult,
   ] = await Promise.all([
     supabase
       .from("employee_employment_details")
@@ -124,6 +125,15 @@ export async function assessNewStarterReadiness(args: {
       .eq("employee_id", employeeId)
       .order("created_at", { ascending: false })
       .limit(1),
+    supabase
+      .from("employee_timeline")
+      .select("id,metadata,created_at")
+      .eq("organisation_id", organisationId)
+      .eq("employee_id", employeeId)
+      .eq("source_module", "Agentic Leo")
+      .eq("event_type", "Contract Preparation")
+      .order("created_at", { ascending: false })
+      .limit(1),
   ]);
 
   const errors = [
@@ -134,6 +144,7 @@ export async function assessNewStarterReadiness(args: {
     emergencyResult.error,
     probationResult.error,
     invitationResult.error,
+    contractPrepResult.error,
   ].filter(Boolean);
 
   if (errors.length > 0) {
@@ -144,6 +155,14 @@ export async function assessNewStarterReadiness(args: {
   const rtw = latest<Record<string, unknown>>(rtwResult.data);
   const dbs = latest<Record<string, unknown>>(dbsResult.data);
   const invitation = latest<Record<string, unknown>>(invitationResult.data);
+  const contractPrep = latest<Record<string, unknown>>(contractPrepResult.data);
+  const contractMetadata =
+    contractPrep && typeof contractPrep.metadata === "object" && contractPrep.metadata
+      ? (contractPrep.metadata as Record<string, unknown>)
+      : {};
+  const contractMissingFields = Array.isArray(contractMetadata.missing_fields)
+    ? contractMetadata.missing_fields.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    : [];
   const hasContract = (documentsResult.data ?? []).some((document: any) =>
     isContractDocument(document.document_type, document.title),
   );
@@ -226,7 +245,13 @@ export async function assessNewStarterReadiness(args: {
       status: hasContract ? "complete" : "missing",
       blocking: false,
       dueDate: dueDate("contract_issue"),
-      detail: hasContract ? "An employment contract or written particulars document is recorded." : "Prepare and issue the employment contract or written particulars.",
+      detail: hasContract
+        ? "An employment contract or written particulars document is recorded."
+        : contractMissingFields.length > 0
+          ? `Leo has prepared the contract as far as possible. Confirm: ${contractMissingFields.join(" · ")}.`
+          : contractPrep
+            ? "Leo has assembled the contract context and is continuing preparation."
+            : "Leo will prepare the employment contract from the organisation resource and information already held.",
     },
     {
       key: "emergency_contact",

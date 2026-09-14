@@ -57,9 +57,9 @@ export function prepareNewStarterPlan(
       actions.push({
         key: "probation_schedule",
         label: "Prepare probation schedule",
-        kind: "prepare",
+        kind: "automatic",
         status: "ready",
-        reason: "Leo can prepare the existing probation workflow dates for employer approval.",
+        reason: "Leo can create the standard probation workflow from the recorded start date without employer input.",
         payload: {
           action: "start",
           startDate,
@@ -94,11 +94,11 @@ export function prepareNewStarterPlan(
     actions.push({
       key: "employee_invitation",
       label: "Prepare employee portal invitation",
-      kind: "approval_required",
+      kind: "automatic",
       status: employee.email ? "ready" : "blocked",
       reason: employee.email
-        ? "Leo can prepare the invitation, but sending it externally requires employer approval."
-        : "An employee email address is required before an invitation can be prepared.",
+        ? "Leo can send the standard Employee portal invitation automatically."
+        : "An employee email address is required before Leo can send the portal invitation.",
       payload: employee.email
         ? {
             employeeId: employee.id,

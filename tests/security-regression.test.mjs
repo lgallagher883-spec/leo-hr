@@ -127,6 +127,7 @@ const agenticDocumentWorkflow = read("lib/agentic/documentWorkflow.ts");
 const agenticDocumentText = read("lib/agentic/documentText.ts");
 const agenticDocumentFacts = read("lib/agentic/documentFacts.ts");
 const agenticEmployeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
+const agenticAttentionRoute = read("app/api/agentic/attention/route.ts");
 const employmentRoute = read("app/api/employees/[id]/employment/route.ts");
 const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
 const dashboardPage = read("app/dashboard/page.tsx");
@@ -311,4 +312,17 @@ test("change-it-once prepares reusable downstream packs without external submiss
   assert.match(employmentRoute, /submission_status: "not_submitted"/);
   assert.match(employmentRoute, /issue_status: "not_issued"/);
   assert.match(employmentRoute, /employer_reentry_required: false/);
+});
+
+
+test("Agentic Leo exceptions derive from current records and stay out of Ask Leo", () => {
+  assert.match(agenticAttentionRoute, /source_module", "Agentic Leo"/);
+  assert.match(agenticAttentionRoute, /status", "Needs Review"/);
+  assert.match(agenticAttentionRoute, /employee_right_to_work/);
+  assert.match(agenticAttentionRoute, /employee_dbs_checks/);
+  assert.match(agenticAttentionRoute, /employee_driving_checks/);
+  assert.doesNotMatch(agenticAttentionRoute, /ask-leo|Ask Leo/);
+  assert.match(dashboardPage, /\/api\/agentic\/attention/);
+  assert.match(employeeProfilePage, /AgenticAttentionBanner/);
+  assert.match(employeeProfilePage, /Leo needs your help/);
 });

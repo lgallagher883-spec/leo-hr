@@ -28,6 +28,56 @@ function validEmail(value: unknown): value is string {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function lowerText(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function findFoundationValue(
+  rows: Array<{ section?: unknown; key?: unknown; value?: unknown }>,
+  terms: string[],
+): string | null {
+  for (const row of rows) {
+    const key = lowerText(row.key);
+    if (terms.some((term) => key.includes(term))) {
+      const value = typeof row.value === "string" ? row.value.trim() : "";
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+function buildContractMissingFields(args: {
+  employee: Record<string, any>;
+  employment: Record<string, any> | null;
+  foundations: Array<Record<string, any>>;
+}): string[] {
+  const { employee, employment, foundations } = args;
+  const missing: string[] = [];
+
+  if (!employee.role) missing.push("Role / job title");
+  if (!employee.start_date) missing.push("Start date");
+
+  const salary =
+    employment?.salary ??
+    employment?.pay ??
+    employment?.annual_salary ??
+    findFoundationValue(foundations, ["salary", "pay", "remuneration"]);
+  if (!salary) missing.push("Salary / pay");
+
+  const hours =
+    employment?.contracted_hours_per_week ??
+    findFoundationValue(foundations, ["contracted hours", "working hours", "hours per week"]);
+  if (!hours) missing.push("Contracted hours");
+
+  const placeOfWork =
+    employment?.place_of_work ??
+    employment?.work_location ??
+    findFoundationValue(foundations, ["place of work", "work location", "workplace"]);
+  if (!placeOfWork) missing.push("Place of work");
+
+  return missing;
+}
+
 export async function runNewStarterAutomaticActions(args: {
   organisationId: string;
   employeeId: number;
@@ -192,6 +242,11 @@ export async function runNewStarterAutomaticActions(args: {
 
   if (!contractResource.error && (contractResource.data ?? []).length > 0) {
     const source = contractResource.data![0];
+    const contractMissingFields = buildContractMissingFields({
+      employee,
+      employment: employment.data ?? null,
+      foundations: (foundations.data ?? []) as Array<Record<string, any>>,
+    });
     const existingPrep = await admin
       .from("employee_timeline")
       .select("id")
@@ -222,6 +277,7 @@ export async function runNewStarterAutomaticActions(args: {
           },
           employment_details: employment.data ?? null,
           foundation_facts: foundations.data ?? [],
+          missing_fields: contractMissingFields,
           issue_status: "not_issued",
         },
         event_date: new Date().toISOString(),
@@ -230,7 +286,12 @@ export async function runNewStarterAutomaticActions(args: {
       });
 
       if (!event.error) {
-        completed.push({ key: "contract_preparation", summary: "Leo selected the company contract resource and assembled the known company and employee details for the draft." });
+        completed.push({
+          key: "contract_preparation",
+          summary: contractMissingFields.length > 0
+            ? `Leo prepared the contract context and identified ${contractMissingFields.length} term${contractMissingFields.length === 1 ? "" : "s"} that still need confirmation.`
+            : "Leo selected the company contract resource and assembled the known company and employee details for the draft.",
+        });
       }
     }
   } else {

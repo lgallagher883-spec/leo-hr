@@ -459,3 +459,121 @@ export async function syncAgenticProbationToApprovedStartDate(args: {
 
   return { updated: true, reason: "The untouched standard probation schedule was aligned to the approved start date." };
 }
+
+
+export async function syncAgenticProbationManager(args: {
+  organisationId: string;
+  employeeId: number;
+  managerName: string;
+  userId: string;
+}): Promise<{ updated: boolean; reason: string }> {
+  const { organisationId, employeeId, managerName, userId } = args;
+  const admin = adminClient();
+
+  const employee = await admin
+    .from("employees")
+    .select("id")
+    .eq("id", employeeId)
+    .eq("organisation_id", organisationId)
+    .maybeSingle();
+
+  if (employee.error) throw new Error(employee.error.message);
+  if (!employee.data) return { updated: false, reason: "Employee is outside the active organisation." };
+
+  const sourceEvent = await admin
+    .from("employee_timeline")
+    .select("id,source_record_id")
+    .eq("organisation_id", organisationId)
+    .eq("employee_id", employeeId)
+    .eq("source_module", "Agentic Leo")
+    .eq("event_type", "Agentic Probation Created")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (sourceEvent.error) throw new Error(sourceEvent.error.message);
+
+  const probationId = Number(sourceEvent.data?.[0]?.source_record_id);
+  if (!Number.isInteger(probationId) || probationId <= 0) {
+    return { updated: false, reason: "Probation was not created by Agentic Leo, so Leo left it unchanged." };
+  }
+
+  const probation = await admin
+    .from("employee_probations")
+    .select("id,extension_end_date,final_outcome")
+    .eq("id", probationId)
+    .eq("employee_id", employeeId)
+    .eq("is_archived", false)
+    .maybeSingle();
+
+  if (probation.error) throw new Error(probation.error.message);
+  if (!probation.data) return { updated: false, reason: "The Agentic Leo probation record is no longer active." };
+  if (probation.data.extension_end_date || probation.data.final_outcome) {
+    return { updated: false, reason: "Probation has progressed beyond the standard schedule and was not changed automatically." };
+  }
+
+  const reviews = await admin
+    .from("probation_reviews")
+    .select("id,status,completed_date,manager_name")
+    .eq("probation_id", probationId)
+    .eq("employee_id", employeeId);
+
+  if (reviews.error) throw new Error(reviews.error.message);
+
+  const eligible = (reviews.data ?? []).filter(
+    (review) =>
+      !review.completed_date &&
+      ["Scheduled", "Pending", ""].includes(String(review.status || "")),
+  );
+
+  if (eligible.length === 0) {
+    return { updated: false, reason: "There are no untouched probation reviews to update." };
+  }
+
+  let changed = 0;
+
+  for (const review of eligible) {
+    if (String(review.manager_name || "").trim() === managerName.trim()) continue;
+
+    const result = await admin
+      .from("probation_reviews")
+      .update({
+        manager_name: managerName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", review.id)
+      .eq("probation_id", probationId);
+
+    if (result.error) throw new Error(result.error.message);
+    changed += 1;
+  }
+
+  if (changed === 0) {
+    return { updated: false, reason: "The untouched probation reviews already use the approved manager." };
+  }
+
+  const now = new Date().toISOString();
+  const timeline = await admin.from("employee_timeline").insert({
+    organisation_id: organisationId,
+    employee_id: employeeId,
+    event_type: "Agentic Probation Manager Updated",
+    title: "Probation reviews aligned to new manager",
+    description: "Leo updated the untouched probation review assignments after the approved line-manager change.",
+    status: "Completed",
+    source_module: "Agentic Leo",
+    source_record_id: String(probationId),
+    metadata: {
+      manager_name: managerName,
+      updated_review_count: changed,
+      ask_leo_involved: false,
+    },
+    event_date: now,
+    created_by: userId,
+    created_at: now,
+  });
+
+  if (timeline.error) {
+    console.warn("Agentic probation manager timeline event could not be created:", timeline.error);
+  }
+
+  return { updated: true, reason: "Untouched probation reviews were aligned to the approved manager." };
+}

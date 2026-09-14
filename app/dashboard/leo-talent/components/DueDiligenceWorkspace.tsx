@@ -21,6 +21,7 @@ import VehicleDetails from "./shared/VehicleDetails";
 import SharedDocumentsDetails from "./shared/SharedDocumentsDetails";
 import AppointmentDecisionDetails from "./shared/AppointmentDecisionDetails";
 import CareCheckDBSPanel from "./shared/CareCheckDBSPanel";
+import CareCheckRTWPanel from "./shared/CareCheckRTWPanel";
 
 type SharedKey =
   | "identity_verification"
@@ -193,33 +194,31 @@ function careCheckDbsStatus(payload: Record<string, unknown> | undefined): strin
     typeof careCheck?.statusCode === "string"
       ? careCheck.statusCode.toUpperCase()
       : "";
+  const resultType = careCheck?.resultType;
 
-  if (!providerStatus) return null;
-  if (providerStatus.includes("INVITE")) return "candidate_invited";
-  if (providerStatus.includes("SUBMIT") || providerStatus.includes("APPLICATION")) {
-    return "application_submitted";
+  switch (providerStatus) {
+    case "INVITE_SENT":
+      return "candidate_invited";
+    case "AWAITING_DIGITAL_ID":
+    case "FORM_READY":
+    case "FORM_COMPLETE":
+    case "FORM_AUTHORISED":
+    case "AWAITING_MEDIA_CHECK":
+      return "application_submitted";
+    case "APP_SENT":
+    case "APP_RECEIVED":
+      return "awaiting_certificate";
+    case "APP_COMPLETE":
+      return resultType === true
+        ? "further_review_required"
+        : "awaiting_verification";
+    case "APP_REJECTED":
+    case "APP_WITHDRAWN":
+    case "FORM_INVALID":
+      return "further_review_required";
+    default:
+      return null;
   }
-  if (
-    providerStatus.includes("CERTIFICATE") &&
-    (providerStatus.includes("AWAIT") || providerStatus.includes("PENDING"))
-  ) {
-    return "awaiting_certificate";
-  }
-  if (providerStatus.includes("VERIFY") || providerStatus.includes("VERIFICATION")) {
-    return "awaiting_verification";
-  }
-  if (
-    providerStatus.includes("COMPLETE") ||
-    providerStatus.includes("COMPLETED") ||
-    providerStatus.includes("ISSUED")
-  ) {
-    return "awaiting_verification";
-  }
-  if (providerStatus.includes("REVIEW") || providerStatus.includes("DISCLOS")) {
-    return "further_review_required";
-  }
-
-  return null;
 }
 
 function extractStatus(key: SharedKey, value: any): string | null {
@@ -639,7 +638,23 @@ export default function DueDiligenceWorkspace() {
               {activeTab === "overview" ? <Overview record={selected} requirements={requirements} shared={shared} /> : null}
               {activeTab === "personal" ? <CandidateEmployeeDetails mode="candidate" recordId={selected.candidate?.id} recordLabel={candidateName(selected.candidate)} value={candidateValue} saving={savingKey === "personal"} onSave={savePersonal} /> : null}
               {activeTab === "identity" ? <IdentityVerificationDetails {...sharedProps("identity_verification")} /> : null}
-              {activeTab === "right_to_work" ? <RightToWorkDetails {...sharedProps("right_to_work")} /> : null}
+              {activeTab === "right_to_work" ? (
+                <>
+                  <CareCheckRTWPanel
+                    profileId={selected.profile.id}
+                    candidateEmail={selected.candidate?.email}
+                    careCheck={
+                      valueFor("right_to_work")?.careCheck &&
+                      typeof valueFor("right_to_work").careCheck === "object"
+                        ? valueFor("right_to_work").careCheck
+                        : null
+                    }
+                    canManage={role !== "employee"}
+                    onUpdated={() => loadDetails(selected, false)}
+                  />
+                  <RightToWorkDetails {...sharedProps("right_to_work")} />
+                </>
+              ) : null}
               {activeTab === "references" ? <ReferencesDetails {...sharedProps("references")} value={{ ...valueFor("references"), referencesRequired: true, minimumReferencesRequired: selected.vacancy?.required_reference_count ?? 1 }} /> : null}
               {activeTab === "dbs" ? (
                 <>

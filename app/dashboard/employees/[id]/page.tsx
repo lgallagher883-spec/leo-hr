@@ -356,11 +356,19 @@ export default function EmployeeProfilePage() {
     async function loadNewStarterReadiness() {
       setNewStarterLoading(true);
       try {
-        const response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
-          method: "GET",
+        let response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
+          method: "POST",
           cache: "no-store",
           credentials: "include",
         });
+
+        if (response.status === 403) {
+          response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+          });
+        }
         const result = await response.json().catch(() => null) as
           | { success?: boolean; readiness?: NewStarterReadiness; plan?: NewStarterPlan }
           | null;
@@ -657,13 +665,6 @@ export default function EmployeeProfilePage() {
           readiness={newStarterReadiness}
           plan={newStarterPlan}
           loading={newStarterLoading}
-          onAskLeo={() =>
-            router.push(
-              `/dashboard/ask-leo?employeeId=${employee.id}&prompt=${encodeURIComponent(
-                `Help me complete the new starter actions for employee ${employee.name}, who starts on ${employee.start_date || "their recorded start date"}. Use the linked employee readiness context. Do not ask what ${employee.name} refers to.`
-              )}`
-            )
-          }
         />
       )}
 
@@ -1244,8 +1245,7 @@ function NewStarterBanner({
   onViewDocuments,
   readiness,
   plan,
-  loading,
-  onAskLeo,
+  loading
 }: {
   employeeName: string;
   startDate: string;
@@ -1254,7 +1254,6 @@ function NewStarterBanner({
   readiness: NewStarterReadiness | null;
   plan: NewStarterPlan | null;
   loading: boolean;
-  onAskLeo: () => void;
 }) {
   return (
     <section style={newStarterBannerStyle}>
@@ -1327,10 +1326,10 @@ function NewStarterBanner({
 
         <button
           type="button"
-          onClick={onAskLeo}
-          style={primaryButtonStyle}
+          onClick={onViewDocuments}
+          style={secondaryButtonStyle}
         >
-          Ask Leo to get {employeeName} ready
+          Review documents
         </button>
       </div>
     </section>

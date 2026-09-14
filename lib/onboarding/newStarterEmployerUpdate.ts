@@ -42,13 +42,13 @@ function extractManager(message: string): string | null {
 }
 
 function confirmsNoDbs(message: string): boolean {
-  return /does(?:n't| not)\s+(?:need|require)\s+(?:a\s+)?dbs(?:\s+check)?/i.test(message) ||
+  return /does(?:n['’]?t| not)\s+(?:need|require)\s+(?:a\s+)?dbs(?:\s+check)?/i.test(message) ||
     /dbs(?:\s+check)?\s+(?:is\s+)?not\s+required/i.test(message);
 }
 
 function confirmsNoTraining(message: string): boolean {
   return /\bfully trained\b/i.test(message) ||
-    /does(?:n't| not)\s+(?:need|require)\s+(?:any\s+)?(?:mandatory\s+)?training/i.test(message) ||
+    /does(?:n['’]?t| not)\s+(?:need|require)\s+(?:any\s+)?(?:mandatory\s+)?training/i.test(message) ||
     /\bno\s+(?:mandatory\s+)?training\s+(?:is\s+)?required\b/i.test(message);
 }
 

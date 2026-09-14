@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 import Field from "./Field";
 import ProfileSection from "./ProfileSection";
 import SaveButton from "./SaveButton";
@@ -229,11 +228,6 @@ export default function EmployeeDocuments({
 
   return (
     <ProfileSection title="Documents">
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="documents"
-        defaultPrompt="Draft a professional request that lists missing employee documents and asks for submission by a clear date."
-      />
 
       <p
         style={{

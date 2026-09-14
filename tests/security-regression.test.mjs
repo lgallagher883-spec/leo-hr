@@ -126,7 +126,8 @@ test("new starter readiness is surfaced consistently without bypassing the serve
   assert.match(askLeoPage, /new-starter-readiness/);
   assert.match(askLeoPage, /New starter readiness/);
   assert.match(dashboardPage, /new-starter-readiness/);
-  assert.match(dashboardPage, /Leo needs your attention/);
+  assert.match(dashboardPage, /New Starters/);
+  assert.match(dashboardPage, /Review readiness/);
 });
 
 

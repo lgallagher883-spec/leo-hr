@@ -83,6 +83,16 @@ type TimelineEvent = {
   source: string;
 };
 
+type NewStarterReadiness = {
+  overallStatus: "ready" | "needs_attention" | "blocked";
+  counts: { complete: number; missing: number; needsReview: number; blocking: number };
+  items: Array<{ key: string; label: string; status: "complete" | "missing" | "not_required" | "needs_review"; blocking: boolean; detail: string }>;
+};
+
+type NewStarterPlan = {
+  actions: Array<{ key: string; label: string; kind: "automatic" | "prepare" | "approval_required"; status: "ready" | "blocked"; reason: string }>;
+};
+
 type QuickAction = {
   label: string;
   section: ProfileSection;
@@ -242,6 +252,9 @@ export default function EmployeeProfilePage() {
     useState<ProfileSection>("Overview");
 
   const [platformRole] = useState<PlatformRole>(defaultPlatformRole);
+  const [newStarterReadiness, setNewStarterReadiness] = useState<NewStarterReadiness | null>(null);
+  const [newStarterPlan, setNewStarterPlan] = useState<NewStarterPlan | null>(null);
+  const [newStarterLoading, setNewStarterLoading] = useState(false);
 
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -316,6 +329,40 @@ export default function EmployeeProfilePage() {
   useEffect(() => {
     void loadEmployee();
   }, [loadEmployee]);
+
+  useEffect(() => {
+    if (!employeeId || !employee) return;
+    if (normaliseEmployeeStatus(employee.status) !== "New Starter") {
+      setNewStarterReadiness(null);
+      setNewStarterPlan(null);
+      return;
+    }
+
+    let active = true;
+    async function loadNewStarterReadiness() {
+      setNewStarterLoading(true);
+      try {
+        const response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+        const result = await response.json().catch(() => null) as
+          | { success?: boolean; readiness?: NewStarterReadiness; plan?: NewStarterPlan }
+          | null;
+        if (active && response.ok && result?.success) {
+          setNewStarterReadiness(result.readiness ?? null);
+          setNewStarterPlan(result.plan ?? null);
+        }
+      } catch (error) {
+        console.error("New starter readiness could not be loaded:", error);
+      } finally {
+        if (active) setNewStarterLoading(false);
+      }
+    }
+    void loadNewStarterReadiness();
+    return () => { active = false; };
+  }, [employee, employeeId]);
 
   useEffect(() => {
     const selectedItem = navigationItems.find(
@@ -590,6 +637,16 @@ export default function EmployeeProfilePage() {
           startDate={startDateLabel}
           onViewEmployment={() => openSection("Employment")}
           onViewDocuments={() => openSection("Documents")}
+          readiness={newStarterReadiness}
+          plan={newStarterPlan}
+          loading={newStarterLoading}
+          onAskLeo={() =>
+            router.push(
+              `/dashboard/ask-leo?employeeId=${employee.id}&prompt=${encodeURIComponent(
+                `Get me ready for ${employee.name} starting on ${employee.start_date || "their recorded start date"}.`
+              )}`
+            )
+          }
         />
       )}
 
@@ -1168,11 +1225,19 @@ function NewStarterBanner({
   startDate,
   onViewEmployment,
   onViewDocuments,
+  readiness,
+  plan,
+  loading,
+  onAskLeo,
 }: {
   employeeName: string;
   startDate: string;
   onViewEmployment: () => void;
   onViewDocuments: () => void;
+  readiness: NewStarterReadiness | null;
+  plan: NewStarterPlan | null;
+  loading: boolean;
+  onAskLeo: () => void;
 }) {
   return (
     <section style={newStarterBannerStyle}>
@@ -1182,9 +1247,40 @@ function NewStarterBanner({
           Prepare {employeeName} for employment
         </h2>
         <p style={bannerDescriptionStyle}>
-          Start date: {startDate}. Review the employment record and ensure
-          required documents are available before employment begins.
+          Start date: {startDate}. Leo checks the employment record and highlights
+          what is ready, what needs attention and what requires employer approval.
         </p>
+        {loading ? (
+          <p style={bannerDescriptionStyle}>Leo is checking new starter readiness...</p>
+        ) : readiness ? (
+          <div style={{ marginTop: 12 }}>
+            <strong>
+              {readiness.overallStatus === "ready"
+                ? "Ready"
+                : readiness.overallStatus === "blocked"
+                  ? "Blocked"
+                  : "Needs attention"}
+            </strong>
+            <div style={{ marginTop: 6 }}>
+              {readiness.counts.complete} ready · {readiness.counts.missing} missing · {readiness.counts.needsReview} to review
+            </div>
+            <ul style={{ margin: "10px 0 0", paddingLeft: 20 }}>
+              {readiness.items
+                .filter((item) => item.status !== "complete" && item.status !== "not_required")
+                .slice(0, 5)
+                .map((item) => (
+                  <li key={item.key}>{item.label}: {item.detail}</li>
+                ))}
+            </ul>
+            {plan && plan.actions.length > 0 ? (
+              <div style={{ marginTop: 10 }}>
+                Leo can prepare {plan.actions.filter((action) => action.kind === "prepare" || action.kind === "automatic").length} action(s);
+                {" "}
+                {plan.actions.filter((action) => action.kind === "approval_required").length} require employer input or approval.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div style={bannerActionsStyle}>
@@ -1199,9 +1295,17 @@ function NewStarterBanner({
         <button
           type="button"
           onClick={onViewDocuments}
-          style={primaryButtonStyle}
+          style={secondaryButtonStyle}
         >
           View documents
+        </button>
+
+        <button
+          type="button"
+          onClick={onAskLeo}
+          style={primaryButtonStyle}
+        >
+          Ask Leo to prepare
         </button>
       </div>
     </section>

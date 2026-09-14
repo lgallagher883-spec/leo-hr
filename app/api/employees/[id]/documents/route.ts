@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
+import { classifyEmployeeDocument, documentWorkflowLabel } from "@/lib/agentic/documentWorkflow";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -476,6 +477,12 @@ export async function POST(
       readOptionalString(formData.get("documentType")) ||
       "Other";
     const notes = readOptionalString(formData.get("notes"));
+    const classification = classifyEmployeeDocument({
+      title,
+      documentType,
+      fileName: fileValue.name,
+      notes,
+    });
     const now = new Date().toISOString();
     const filePath = `${employeeId}/${Date.now()}-${safeFileName(
       fileValue.name,
@@ -539,6 +546,10 @@ export async function POST(
           document_type: documentType,
           file_name: fileValue.name,
           file_path: filePath,
+          agentic_document_classification: classification.category,
+          agentic_classification_confidence: classification.confidence,
+          agentic_requires_human_verification: classification.requiresHumanVerification,
+          agentic_can_advance_workflow: classification.canAdvanceWorkflow,
         },
         event_date: now,
         created_by: user.id,
@@ -549,6 +560,39 @@ export async function POST(
       console.warn(
         "Employee document timeline event could not be created:",
         timelineResult.error,
+      );
+    }
+
+    const workflowTimelineResult = await admin
+      .from("employee_timeline")
+      .insert({
+        employee_id: employeeId,
+        event_type: "Agentic Document Handling",
+        title: `Leo filed ${documentWorkflowLabel(classification)}`,
+        description: classification.requiresHumanVerification
+          ? `${documentWorkflowLabel(classification)} was filed against the employee record. Leo has not treated the evidence as verified: ${classification.reason}`
+          : `${documentWorkflowLabel(classification)} was filed and the matching administrative workflow may continue where its existing prerequisites are satisfied.`,
+        status: classification.requiresHumanVerification ? "Needs Review" : "Completed",
+        source_module: "Agentic Leo",
+        source_record_id: String(documentResult.data.id),
+        metadata: {
+          employee_document_id: documentResult.data.id,
+          classification: classification.category,
+          confidence: classification.confidence,
+          sensitive: classification.sensitive,
+          requires_human_verification: classification.requiresHumanVerification,
+          can_advance_workflow: classification.canAdvanceWorkflow,
+          reason: classification.reason,
+        },
+        event_date: now,
+        created_by: user.id,
+        created_at: now,
+      });
+
+    if (workflowTimelineResult.error) {
+      console.warn(
+        "Agentic document handling timeline event could not be created:",
+        workflowTimelineResult.error,
       );
     }
 
@@ -572,6 +616,9 @@ export async function POST(
           document_id: documentResult.data.id,
           document_type: documentType,
           file_name: fileValue.name,
+          agentic_document_classification: classification.category,
+          agentic_classification_confidence: classification.confidence,
+          agentic_requires_human_verification: classification.requiresHumanVerification,
         },
         metadata: {
           source_module: "Employees",
@@ -598,6 +645,13 @@ export async function POST(
       {
         success: true,
         document: documentResult.data,
+        agenticHandling: {
+          classification: classification.category,
+          confidence: classification.confidence,
+          filedAs: documentWorkflowLabel(classification),
+          requiresHumanVerification: classification.requiresHumanVerification,
+          canAdvanceWorkflow: classification.canAdvanceWorkflow,
+        },
       },
       { status: 201 },
     );

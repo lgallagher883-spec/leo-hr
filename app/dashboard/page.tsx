@@ -896,9 +896,8 @@ function LeoNeedsHelpCard({
   onOpenEmployees: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const totalActions = starters.reduce(
-    (total, starter) => total + starter.missing + starter.needsReview,
-    0,
+  const needsHelp = starters.some(
+    (starter) => starter.missing + starter.needsReview > 0,
   );
 
   return (
@@ -923,10 +922,12 @@ function LeoNeedsHelpCard({
     >
       <span style={summaryLabelStyle}>Leo Needs Your Help</span>
 
-      <span style={summaryNumberStyle}>{totalActions}</span>
+      <span style={summaryHelpSymbolStyle} aria-hidden="true">
+        {needsHelp ? "✦" : "✓"}
+      </span>
 
       <span style={summaryActionStyle}>
-        {totalActions > 0 ? "Review actions" : "View employees"}
+        {needsHelp ? "Review actions" : "View employees"}
         <span aria-hidden="true">→</span>
       </span>
     </button>
@@ -1259,6 +1260,14 @@ const summaryNumberStyle: CSSProperties = {
   lineHeight: 1,
   fontWeight: 700,
   letterSpacing: "-0.03em",
+  color: "#6E5084",
+};
+
+const summaryHelpSymbolStyle: CSSProperties = {
+  display: "block",
+  fontSize: "46px",
+  lineHeight: 1,
+  fontWeight: 700,
   color: "#6E5084",
 };
 

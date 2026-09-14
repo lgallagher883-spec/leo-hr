@@ -16,8 +16,15 @@ export function classifyEmployeeDocument(input: {
   documentType?: unknown;
   fileName?: unknown;
   notes?: unknown;
+  contentText?: unknown;
 }): DocumentClassification {
-  const haystack = [normalise(input.title), normalise(input.documentType), normalise(input.fileName), normalise(input.notes)].join(" ");
+  const haystack = [
+    normalise(input.title),
+    normalise(input.documentType),
+    normalise(input.fileName),
+    normalise(input.notes),
+    normalise(input.contentText).slice(0, 50_000),
+  ].join(" ");
 
   if (haystack.includes("right to work") || haystack.includes("passport") || haystack.includes("visa")) {
     return { category: "right_to_work", confidence: "high", sensitive: true, canAdvanceWorkflow: false, requiresHumanVerification: true, reason: "Identity evidence can be filed automatically, but receiving it does not itself verify right to work." };

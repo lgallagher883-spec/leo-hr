@@ -814,11 +814,13 @@ function DashboardPageContent() {
           />
         ))}
 
-        <LeoNeedsHelpCard
-          starters={newStarterAttention}
-          onOpenStarter={(employeeId) => router.push(`/dashboard/employees/${employeeId}`)}
-          onOpenEmployees={() => router.push("/dashboard/employees")}
-        />
+        {newStarterAttention.length > 0 ? (
+          <LeoNeedsHelpCard
+            starters={newStarterAttention}
+            onOpenStarter={(employeeId) => router.push(`/dashboard/employees/${employeeId}`)}
+            onOpenEmployees={() => router.push("/dashboard/employees")}
+          />
+        ) : null}
       </section>
 
       <section style={remindersSectionStyle} aria-label="In-app reminders">

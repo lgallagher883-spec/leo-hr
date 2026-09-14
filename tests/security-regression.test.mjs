@@ -260,3 +260,13 @@ test("agentic document handling stays silent and evidence-safe", () => {
   assert.match(agenticDocumentWorkflow, /suitability and verification remain human-controlled/);
   assert.match(agenticDocumentWorkflow, /canAdvanceWorkflow: false/);
 });
+
+
+test("document filing advances safe workflow continuity", () => {
+  assert.match(employeeDocumentsRoute, /canonicalDocumentType/);
+  assert.match(employeeDocumentsRoute, /Absence Evidence Linked/);
+  assert.match(employeeDocumentsRoute, /No medical judgement was made/);
+  assert.match(newStarterReadiness, /Right to work evidence is already on file/);
+  assert.match(newStarterReadiness, /DBS evidence is already on file/);
+  assert.match(newStarterReadiness, /authorised person still needs to verify/);
+});

@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
+import { syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -831,6 +832,27 @@ export async function PATCH(
       );
     }
 
+    let probationSync: { updated: boolean; reason: string } | null = null;
+    const newStartDate = readOptionalString(updates.start_date);
+    if (
+      newStartDate &&
+      currentEmployee.start_date !== newStartDate
+    ) {
+      try {
+        probationSync = await syncAgenticProbationToApprovedStartDate({
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          startDate: newStartDate,
+          userId: user.id,
+        });
+      } catch (probationSyncError) {
+        console.warn(
+          "Agentic probation schedule could not be resynchronised:",
+          probationSyncError,
+        );
+      }
+    }
+
     const changes = detectApprovedEmploymentChanges({
       previousEmployee: currentEmployee as Record<string, unknown>,
       nextEmployee: employeeResult.data as Record<string, unknown>,
@@ -947,6 +969,7 @@ export async function PATCH(
         changes,
         downstreamAdmin,
         changePacks,
+        probationSync,
       },
     });
   } catch (error) {

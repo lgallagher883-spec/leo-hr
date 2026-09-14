@@ -1260,10 +1260,7 @@ function NewStarterBanner({
         <h2 style={bannerTitleStyle}>
           Prepare {employeeName} for employment
         </h2>
-        <p style={bannerDescriptionStyle}>
-          Start date: {startDate}. Leo checks the employment record and highlights
-          what is ready, what needs attention and what requires employer approval.
-        </p>
+        <p style={bannerDescriptionStyle}>Starts {startDate}</p>
         {loading ? (
           <p style={bannerDescriptionStyle}>Leo is checking new starter readiness...</p>
         ) : readiness ? (
@@ -1271,28 +1268,47 @@ function NewStarterBanner({
             <strong>
               {readiness.overallStatus === "ready"
                 ? "Ready"
-                : readiness.overallStatus === "blocked"
-                  ? "Blocked"
-                  : "Needs attention"}
+                : `Needs attention · ${readiness.counts.missing + readiness.counts.needsReview}`}
             </strong>
-            <div style={{ marginTop: 6 }}>
-              {readiness.counts.complete} ready · {readiness.counts.missing} missing · {readiness.counts.needsReview} to review
-            </div>
-            <ul style={{ margin: "10px 0 0", paddingLeft: 20 }}>
-              {readiness.items
-                .filter((item) => item.status !== "complete" && item.status !== "not_required")
-                .slice(0, 5)
-                .map((item) => (
-                  <li key={item.key}>{item.label}: {item.detail}</li>
-                ))}
-            </ul>
-            {plan && plan.actions.length > 0 ? (
-              <div style={{ marginTop: 10 }}>
-                Leo can prepare {plan.actions.filter((action) => action.kind === "prepare" || action.kind === "automatic").length} action(s);
-                {" "}
-                {plan.actions.filter((action) => action.kind === "approval_required").length} require employer input or approval.
+
+            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+              <div>
+                <strong>Employer input</strong>
+                <div style={bannerDescriptionStyle}>
+                  {readiness.items
+                    .filter((item) =>
+                      ["manager", "right_to_work", "dbs", "contract"].includes(item.key) &&
+                      item.status !== "complete" &&
+                      item.status !== "not_required"
+                    )
+                    .map((item) => item.key === "contract" ? "Employment terms" : item.label)
+                    .join(" · ") || "Nothing needed"}
+                </div>
               </div>
-            ) : null}
+
+              <div>
+                <strong>Leo can prepare</strong>
+                <div style={bannerDescriptionStyle}>
+                  {plan?.actions
+                    .filter((action) => (action.kind === "prepare" || action.kind === "automatic") && action.status === "ready")
+                    .map((action) => {
+                      if (action.key === "probation_schedule") return "Probation";
+                      if (action.key === "onboarding_plan") return "Onboarding";
+                      if (action.key === "employee_invitation") return "Employee invitation";
+                      if (action.key === "contract_preparation") return "Employment documents";
+                      return action.label;
+                    })
+                    .join(" · ") || "Nothing to prepare yet"}
+                </div>
+              </div>
+
+              {readiness.items.some((item) => item.key === "emergency_contact" && item.status !== "complete") ? (
+                <div>
+                  <strong>{employeeName} to complete</strong>
+                  <div style={bannerDescriptionStyle}>Emergency contact</div>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -1308,18 +1324,10 @@ function NewStarterBanner({
 
         <button
           type="button"
-          onClick={onViewDocuments}
-          style={secondaryButtonStyle}
-        >
-          View documents
-        </button>
-
-        <button
-          type="button"
           onClick={onAskLeo}
           style={primaryButtonStyle}
         >
-          Ask Leo to prepare
+          Ask Leo to get {employeeName} ready
         </button>
       </div>
     </section>

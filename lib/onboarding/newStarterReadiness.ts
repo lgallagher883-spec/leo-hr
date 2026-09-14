@@ -110,7 +110,7 @@ export async function assessNewStarterReadiness(args: {
       .limit(100),
     supabase
       .from("employee_emergency_contacts")
-      .select("id,full_name,phone")
+      .select("id,full_name,relationship,phone,email")
       .eq("employee_id", employeeId)
       .limit(1),
     supabase

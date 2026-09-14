@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
-import { detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
+import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -839,31 +839,101 @@ export async function PATCH(
       nextEmployment: detailsResult.data as Record<string, unknown>,
     });
     const downstreamAdmin = downstreamAdminForChanges(changes);
+    const changePacks = buildEmployeeChangePacks(changes);
 
     if (changes.length > 0) {
-      const changeTimeline = await admin.from("employee_timeline").insert({
-        organisation_id: accessResult.access.organisationId,
-        employee_id: employeeId,
-        event_type: "Agentic Employee Change",
-        title: "Leo prepared downstream administration",
-        description:
-          "Leo detected the approved employment changes and prepared the related administrative follow-up without requiring the employer to re-enter the same information.",
-        status: "Prepared",
-        source_module: "Agentic Leo",
-        source_record_id: String(employeeId),
-        metadata: {
-          changes,
-          downstream_admin: downstreamAdmin,
-          ask_leo_involved: false,
+      const timelineEntries: Array<Record<string, unknown>> = [
+        {
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Agentic Employee Change",
+          title: "Leo prepared downstream administration",
+          description:
+            "Leo detected the approved employment changes and prepared the related administrative follow-up without requiring the employer to re-enter the same information.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes,
+            downstream_admin: downstreamAdmin,
+            ask_leo_involved: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
         },
-        event_date: now,
-        created_by: user.id,
-        created_at: now,
-      });
+      ];
+
+      if (changePacks.contractVariation.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Contract Variation Prepared",
+          title: "Contract variation information prepared",
+          description:
+            "Leo assembled the approved contractual changes into a variation pack. No document has been issued automatically.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: changePacks.contractVariation,
+            issue_status: "not_issued",
+            employer_reentry_required: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      if (changePacks.payrollChange.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Payroll Change Pack Prepared",
+          title: "Payroll change information prepared",
+          description:
+            "Leo assembled the approved employment changes that may need to be supplied to payroll. Nothing has been submitted externally.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: changePacks.payrollChange,
+            submission_status: "not_submitted",
+            employer_reentry_required: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      if (changePacks.roleAssignments.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Role Assignment Review Prepared",
+          title: "Role-based assignments review prepared",
+          description:
+            "Leo recorded the role change so policy, learning and compliance assignments can be compared before anything new is assigned.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: changePacks.roleAssignments,
+            automatic_assignment_status: "not_run",
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      const changeTimeline = await admin.from("employee_timeline").insert(timelineEntries);
 
       if (changeTimeline.error) {
         console.warn(
-          "Agentic employee change timeline event could not be written:",
+          "Agentic employee change timeline events could not be written:",
           changeTimeline.error,
         );
       }
@@ -876,6 +946,7 @@ export async function PATCH(
       agenticChange: {
         changes,
         downstreamAdmin,
+        changePacks,
       },
     });
   } catch (error) {

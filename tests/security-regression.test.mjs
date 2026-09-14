@@ -115,3 +115,16 @@ test("new starter action planning stays deterministic and keeps consequential ac
   assert.match(newStarterPlan, /employee portal invitation/);
   assert.match(newStarterPlan, /must not infer whether DBS is required/);
 });
+
+const employeeProfilePage = read("app/dashboard/employees/[id]/page.tsx");
+const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
+const dashboardPage = read("app/dashboard/page.tsx");
+
+test("new starter readiness is surfaced consistently without bypassing the server readiness API", () => {
+  assert.match(employeeProfilePage, /new-starter-readiness/);
+  assert.match(employeeProfilePage, /Ask Leo to prepare/);
+  assert.match(askLeoPage, /new-starter-readiness/);
+  assert.match(askLeoPage, /New starter readiness/);
+  assert.match(dashboardPage, /new-starter-readiness/);
+  assert.match(dashboardPage, /Leo needs your attention/);
+});

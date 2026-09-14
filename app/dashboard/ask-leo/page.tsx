@@ -653,7 +653,20 @@ export default function AskLeoPage() {
             conversationBeforeReply,
             sarContext
           )
-        : "";
+        : newStarterContext?.readiness
+          ? [
+              "NEW STARTER EMPLOYEE CONTEXT:",
+              `Employee ID: ${newStarterEmployeeId}`,
+              `Readiness: ${newStarterContext.readiness.overallStatus}`,
+              ...newStarterContext.readiness.items.map(
+                (item) => `${item.label}: ${item.status}. ${item.detail}`
+              ),
+              ...(newStarterContext.plan?.actions || []).map(
+                (action) => `Planned action: ${action.label}. Type: ${action.kind}. Status: ${action.status}. ${action.reason}`
+              ),
+              "Treat the named person as an employee/new starter in Leo HR. Do not ask what their name or the word 'test' means. Help the employer work through the readiness actions using this context. Do not claim to have changed records, sent invitations or issued documents unless the relevant approved action has actually completed."
+            ].join("\n")
+          : "";
 
       const response = await fetch(
         "/api/ask-leo",
@@ -668,7 +681,7 @@ export default function AskLeoPage() {
             latestMessage: messageText,
             conversationId,
             requestId,
-            contextType: sarContext
+            contextType: sarContext || newStarterContext?.readiness
               ? "contextual"
               : "general",
             conversation:
@@ -1122,20 +1135,10 @@ export default function AskLeoPage() {
               borderRadius: 12,
               background: "#fff",
             }}>
-              <strong>New starter readiness</strong>
+              <strong>New starter actions</strong>
               <div style={{ marginTop: 6 }}>
-                {newStarterContext.readiness.counts.complete} ready · {newStarterContext.readiness.counts.missing} missing · {newStarterContext.readiness.counts.needsReview} to review
+                {newStarterContext.readiness.counts.missing + newStarterContext.readiness.counts.needsReview} items need attention. Leo has the employee record and readiness plan in context.
               </div>
-              <ul style={{ margin: "10px 0 0", paddingLeft: 20 }}>
-                {newStarterContext.readiness.items
-                  .filter((item) => item.status !== "complete" && item.status !== "not_required")
-                  .map((item) => <li key={item.key}>{item.label}: {item.detail}</li>)}
-              </ul>
-              {newStarterContext.plan?.actions?.length ? (
-                <div style={{ marginTop: 10 }}>
-                  Leo has prepared the next-step plan. Actions that change records or send something externally remain subject to the existing permissions and approval controls.
-                </div>
-              ) : null}
             </div>
           ) : null}
           {messages.map((message, index) =>

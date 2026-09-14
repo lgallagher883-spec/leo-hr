@@ -326,3 +326,14 @@ test("Agentic Leo exceptions derive from current records and stay out of Ask Leo
   assert.match(employeeProfilePage, /AgenticAttentionBanner/);
   assert.match(employeeProfilePage, /Leo needs your help/);
 });
+
+
+test("Agentic probation only reschedules untouched standard schedules", () => {
+  assert.match(newStarterAutoActions, /Agentic Probation Created/);
+  assert.match(newStarterAutoActions, /syncAgenticProbationToApprovedStartDate/);
+  assert.match(newStarterAutoActions, /Probation was not created by Agentic Leo/);
+  assert.match(newStarterAutoActions, /A probation review has already progressed/);
+  assert.match(newStarterAutoActions, /extension_end_date \|\| probation\.data\.final_outcome/);
+  assert.match(employmentRoute, /probationSync/);
+  assert.match(employmentRoute, /approved employee start date changed/);
+});

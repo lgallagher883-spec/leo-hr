@@ -57,8 +57,9 @@ function selectsDraftContract(message: string): boolean {
 }
 
 function extractEmergencyContacts(message: string): Array<{
-  name: string;
+  name: string | null;
   relationship: string;
+  email: string | null;
 }> {
   const relationshipMap: Record<string, string> = {
     mum: "Mother",
@@ -72,26 +73,75 @@ function extractEmergencyContacts(message: string): Array<{
     brother: "Brother",
   };
 
-  const contacts: Array<{ name: string; relationship: string }> = [];
-  const pattern = /\b(mum|mother|dad|father|wife|husband|partner|sister|brother)\s*[,\-:]?\s*([A-Za-z][A-Za-z'’-]{1,60})\b/gi;
+  const contacts: Array<{ name: string | null; relationship: string; email: string | null }> = [];
+  const relationPattern = /\b(mum|mother|dad|father|wife|husband|partner|sister|brother)\b/gi;
+  const relationMatches = Array.from(message.matchAll(relationPattern));
+  const emails = Array.from(message.matchAll(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi));
 
-  for (const match of message.matchAll(pattern)) {
-    const relation = relationshipMap[match[1].toLowerCase()];
-    const name = match[2].trim();
-    if (
-      relation &&
-      name &&
-      !contacts.some(
-        (contact) =>
-          contact.name.toLowerCase() === name.toLowerCase() &&
-          contact.relationship === relation,
-      )
-    ) {
-      contacts.push({ name, relationship: relation });
-    }
+  for (let index = 0; index < relationMatches.length; index += 1) {
+    const match = relationMatches[index];
+    const relationship = relationshipMap[match[1].toLowerCase()];
+    const start = (match.index ?? 0) + match[0].length;
+    const end = relationMatches[index + 1]?.index ?? message.length;
+    const segment = message.slice(start, end);
+
+    const named = segment.match(/^\s*[,\-:]?\s*([A-Za-z][A-Za-z'’-]{1,60})(?=\s*(?:[,.;]|\band\b|$))/i);
+    const rejectedWords = new Set(["can", "is", "will", "should", "could", "may", "has", "have"]);
+    const candidateName = named?.[1]?.trim() ?? null;
+    const name = candidateName && !rejectedWords.has(candidateName.toLowerCase()) ? candidateName : null;
+    const email = segment.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0] ?? null;
+
+    contacts.push({ name, relationship, email });
+  }
+
+  // If relationships were supplied earlier but this message now supplies contact emails in order,
+  // preserve those emails for the existing contact slots rather than inventing names.
+  if (contacts.length === 0 && emails.length > 0) {
+    return emails.slice(0, 2).map((match, index) => ({
+      name: null,
+      relationship: index === 0 ? "Mother" : "Father",
+      email: match[0],
+    }));
+  }
+
+  // A second email may follow "and Dave can be contacted..." without repeating "dad".
+  if (contacts.length === 1 && emails.length > 1) {
+    contacts.push({
+      name: null,
+      relationship: contacts[0].relationship === "Mother" ? "Father" : "Emergency contact",
+      email: emails[1][0],
+    });
   }
 
   return contacts.slice(0, 2);
+}
+
+function extractVerifiedBritishPassport(message: string): { verified: boolean; passportExpiry: string | null } {
+  const verified =
+    /\b(?:right to work|rtw)\b[^.]{0,80}\b(?:verified|checked|complete(?:d)?)\b/i.test(message) ||
+    /\b(?:verified|checked|complete(?:d)?)\b[^.]{0,80}\b(?:right to work|rtw)\b/i.test(message);
+
+  if (!verified || !/\bbritish passport\b/i.test(message)) {
+    return { verified: false, passportExpiry: null };
+  }
+
+  const expiryMatch = message.match(
+    /passport[^.]{0,100}expir(?:es|y|ed)?\s+(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\s+(\d{4})/i,
+  );
+
+  if (!expiryMatch) return { verified: true, passportExpiry: null };
+
+  const months: Record<string, string> = {
+    january: "01", february: "02", march: "03", april: "04", may: "05", june: "06",
+    july: "07", august: "08", september: "09", october: "10", november: "11", december: "12",
+  };
+  const month = months[expiryMatch[2].toLowerCase()];
+  if (!month) return { verified: true, passportExpiry: null };
+
+  return {
+    verified: true,
+    passportExpiry: `${expiryMatch[3]}-${month}-${expiryMatch[1].padStart(2, "0")}`,
+  };
 }
 
 async function writeDecisionEvent(args: {
@@ -363,6 +413,55 @@ export async function applyNewStarterEmployerMessage(args: {
     });
   }
 
+  const britishPassport = extractVerifiedBritishPassport(message);
+  if (britishPassport.verified) {
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    const notes = britishPassport.passportExpiry
+      ? `Employer confirmed through Agentic Leo that a British passport was used to verify right to work. Passport expiry: ${britishPassport.passportExpiry}. Passport expiry is recorded as document information only and is not treated as an expiry of British right to work.`
+      : "Employer confirmed through Agentic Leo that a British passport was used to verify right to work.";
+
+    const rtwInsert = await admin.from("employee_right_to_work").insert({
+      employee_id: employeeId,
+      nationality: "British",
+      immigration_status: null,
+      visa_or_permit_type: null,
+      share_code: null,
+      right_to_work_expiry: null,
+      restrictions: null,
+      check_completed_date: today,
+      next_review_date: null,
+      notes,
+      updated_at: now,
+    });
+
+    if (rtwInsert.error) throw new Error(rtwInsert.error.message);
+
+    applied.push({
+      key: "right_to_work",
+      summary: britishPassport.passportExpiry
+        ? `Right to work is recorded as verified using a British passport. I noted the passport expiry as ${britishPassport.passportExpiry}, but I have not treated that as an expiry of the right to work.`
+        : "Right to work is recorded as verified using a British passport.",
+    });
+
+    await writeAudit({
+      admin,
+      organisationId,
+      employeeId,
+      employeeName: employee.name,
+      userId,
+      userEmail,
+      action: "Right to work verified",
+      description: `The employer confirmed that ${employee.name}'s right to work was verified using a British passport.`,
+      newValues: {
+        nationality: "British",
+        check_completed_date: today,
+        passport_expiry: britishPassport.passportExpiry,
+        right_to_work_expiry: null,
+      },
+    });
+  }
+
   const emergencyContacts = extractEmergencyContacts(message);
   if (emergencyContacts.length > 0) {
     const existingContacts = await admin
@@ -383,10 +482,10 @@ export async function applyNewStarterEmployerMessage(args: {
       const payload = {
         employee_id: employeeId,
         contact_number: contactNumber,
-        full_name: incoming.name,
-        relationship: incoming.relationship,
+        full_name: incoming.name || existing?.full_name || incoming.relationship,
+        relationship: incoming.relationship || existing?.relationship || "Emergency contact",
         phone: existing?.phone ?? null,
-        email: existing?.email ?? null,
+        email: incoming.email || existing?.email || null,
         address: existing?.address ?? null,
         updated_at: new Date().toISOString(),
       };
@@ -405,14 +504,25 @@ export async function applyNewStarterEmployerMessage(args: {
 
     applied.push({
       key: "emergency_contact",
-      summary: `I recorded ${emergencyContacts.map((contact) => `${contact.name} (${contact.relationship.toLowerCase()})`).join(" and ")} as emergency contacts.`,
+      summary: `I recorded the emergency contact information supplied for ${emergencyContacts.map((contact) => contact.name ? `${contact.name} (${contact.relationship.toLowerCase()})` : contact.relationship.toLowerCase()).join(" and ")}.`,
     });
 
-    const contactDetailsMissing = emergencyContacts.some(() => true);
+    const savedContactDetails = emergencyContacts.map((incoming, index) => {
+      const existing = (existingContacts.data ?? []).find(
+        (row: any) => row.contact_number === index + 1,
+      );
+      return {
+        phone: text(existing?.phone),
+        email: text(incoming.email) || text(existing?.email),
+      };
+    });
+    const contactDetailsMissing = savedContactDetails.some(
+      (contact) => !contact.phone && !contact.email,
+    );
     if (contactDetailsMissing) {
       pending.push({
         key: "emergency_contact_details",
-        summary: "Their contact telephone numbers are still missing, so the emergency-contact action remains incomplete.",
+        summary: "At least one emergency contact still needs a telephone number or email address, so I have kept that action open.",
       });
     }
 
@@ -438,6 +548,7 @@ export async function applyNewStarterEmployerMessage(args: {
       confirmsNoDbs(message) ||
       confirmsNoTraining(message) ||
       selectsDraftContract(message) ||
+      britishPassport.verified ||
       emergencyContacts.length > 0,
     applied,
     pending,

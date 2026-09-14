@@ -1081,9 +1081,6 @@ export default function RightToWorkDetails({
                 (mode === "candidate"
                   ? "Candidate record"
                   : "Employee record")}
-              {recordId !== undefined
-                ? ` · Record ${String(recordId)}`
-                : ""}
             </p>
           </div>
         </div>

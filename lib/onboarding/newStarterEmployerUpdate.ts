@@ -73,7 +73,7 @@ function extractEmergencyContacts(message: string): Array<{
   };
 
   const contacts: Array<{ name: string; relationship: string }> = [];
-  const pattern = /\b(mum|mother|dad|father|wife|husband|partner|sister|brother)\s+([A-Za-z][A-Za-z'’-]{1,60})\b/gi;
+  const pattern = /\b(mum|mother|dad|father|wife|husband|partner|sister|brother)\s*[,\-:]?\s*([A-Za-z][A-Za-z'’-]{1,60})\b/gi;
 
   for (const match of message.matchAll(pattern)) {
     const relation = relationshipMap[match[1].toLowerCase()];
@@ -275,8 +275,8 @@ export async function applyNewStarterEmployerMessage(args: {
         key: "manager",
         summary:
           viable.length === 0
-            ? `I could not match "${managerCandidate}" to a current employee in this organisation, so I have not changed the manager field.`
-            : `I found more than one possible match for "${managerCandidate}", so I have not changed the manager field.`,
+            ? `You told me ${managerCandidate} will be the line manager, but I cannot match that name to a current employee in this organisation. I have kept the manager action open rather than guessing.`
+            : `You told me ${managerCandidate} will be the line manager, but I found more than one possible match. I have kept the manager action open rather than guessing.`,
       });
     }
   }

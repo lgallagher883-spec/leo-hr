@@ -157,8 +157,9 @@ export async function assessNewStarterReadiness(args: {
   const hasEmergencyContact = (emergencyResult.data ?? []).length > 0;
   const hasTraining = (trainingResult.data ?? []).length > 0;
   const manager = text(employmentResult.data?.manager);
+  const dbsRequirementKnown = typeof dbs?.dbs_required === "boolean";
   const dbsRequired = dbs?.dbs_required === true;
-  const dbsComplete = !dbsRequired || Boolean(dbs?.certificate_issue_date);
+  const dbsComplete = dbsRequired && Boolean(dbs?.certificate_issue_date);
   const hasRtw = Boolean(rtw?.check_completed_date);
   const hasProbation = Boolean(probationResult.data?.id);
   const hasPortalInvite =
@@ -210,10 +211,10 @@ export async function assessNewStarterReadiness(args: {
     {
       key: "dbs",
       label: "DBS / safeguarding",
-      status: !dbsRequired ? "not_required" : dbsComplete ? "complete" : "missing",
-      blocking: dbsRequired && !dbsComplete,
+      status: !dbsRequirementKnown ? "needs_review" : !dbsRequired ? "not_required" : dbsComplete ? "complete" : "missing",
+      blocking: dbsRequirementKnown && dbsRequired && !dbsComplete,
       dueDate: dueDate("dbs_clearance"),
-      detail: !dbsRequired ? "No DBS requirement is currently recorded." : dbsComplete ? "DBS clearance is recorded." : "DBS is marked as required but clearance is not yet recorded.",
+      detail: !dbsRequirementKnown ? "Confirm whether this role requires DBS or safeguarding clearance." : !dbsRequired ? "DBS is explicitly recorded as not required." : dbsComplete ? "DBS clearance is recorded." : "DBS is marked as required but clearance is not yet recorded.",
     },
     {
       key: "contract",

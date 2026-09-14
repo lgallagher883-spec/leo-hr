@@ -673,7 +673,7 @@ export default function EmployeeProfilePage() {
         />
       )}
 
-      <div className="employee-profile-layout">
+      <div id="employee-profile-content" className="employee-profile-layout">
         <aside style={navigationStyle} aria-label="Employee profile sections">
           <div style={navigationHeadingStyle}>
             <div style={navigationTitleStyle}>Employee record</div>

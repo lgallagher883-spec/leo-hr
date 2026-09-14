@@ -105,3 +105,13 @@ test("new starter readiness API requires workforce view permission and blocks em
   assert.match(newStarterReadinessApi, /role === "employee"/);
   assert.match(newStarterReadinessApi, /leo_current_organisation_id/);
 });
+
+const newStarterPlan = read("lib/onboarding/newStarterPlan.ts");
+
+test("new starter action planning stays deterministic and keeps consequential actions gated", () => {
+  assert.doesNotMatch(newStarterPlan, /OpenAI|chat\.completions|responses\.create/);
+  assert.match(newStarterPlan, /kind: "approval_required"/);
+  assert.match(newStarterPlan, /Prepare probation schedule/);
+  assert.match(newStarterPlan, /employee portal invitation/);
+  assert.match(newStarterPlan, /must not infer whether DBS is required/);
+});

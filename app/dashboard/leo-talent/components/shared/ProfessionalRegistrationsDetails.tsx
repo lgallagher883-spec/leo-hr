@@ -651,7 +651,7 @@ export default function ProfessionalRegistrationsDetails({
   return (
     <section style={styles.card}>
       <header style={styles.cardHeader}>
-        <div style={styles.identity}><span style={styles.identityIcon}><Award size={21} /></span><div style={{ minWidth: 0 }}><div style={styles.titleRow}><h2 style={styles.cardTitle}>Professional registrations</h2><span style={{ ...styles.statusBadge, background: overallAppearance.background, borderColor: overallAppearance.border, color: overallAppearance.color }}>{overallAppearance.icon}{labelFor(STATUS_OPTIONS, draft.overallStatus)}</span></div><p style={styles.cardSubtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}{recordId !== undefined ? ` · Record ${String(recordId)}` : ""}</p></div></div>
+        <div style={styles.identity}><span style={styles.identityIcon}><Award size={21} /></span><div style={{ minWidth: 0 }}><div style={styles.titleRow}><h2 style={styles.cardTitle}>Professional registrations</h2><span style={{ ...styles.statusBadge, background: overallAppearance.background, borderColor: overallAppearance.border, color: overallAppearance.color }}>{overallAppearance.icon}{labelFor(STATUS_OPTIONS, draft.overallStatus)}</span></div><p style={styles.cardSubtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}</p></div></div>
         <div style={styles.headerActions}>{headerActions}{!editing && resolvedPermissions.canEdit ? <button type="button" style={styles.secondaryButton} onClick={beginEditing} disabled={isDisabled}><Pencil size={15} />Edit registrations</button> : null}</div>
       </header>
 

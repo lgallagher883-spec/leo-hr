@@ -26,6 +26,10 @@ export type CareCheckStatusResult = {
   certificateSeenDate: string | null;
   withdrawalReason: string | null;
   withdrawalDate: string | null;
+  digitalIdCheckStatus: string | null;
+  digitalIdCheckDate: string | null;
+  rtwCheckStatus: string | null;
+  rtwCheckDate: string | null;
   rawResponse: string;
 };
 
@@ -167,6 +171,10 @@ export async function pullCareCheckApplicationStatus(
   const certificateSeenDate = getTagValue(rawResponse, "CertificateSeenDate");
   const withdrawalReason = getTagValue(rawResponse, "WithdrawalReason");
   const withdrawalDate = getTagValue(rawResponse, "WithdrawalDate");
+  const digitalIdCheckStatus = getTagValue(rawResponse, "DigitalIDCheckStatus");
+  const digitalIdCheckDate = getTagValue(rawResponse, "DigitalIDCheckDate");
+  const rtwCheckStatus = getTagValue(rawResponse, "RtwCheckStatus");
+  const rtwCheckDate = getTagValue(rawResponse, "RtwCheckDate");
 
   return {
     success: responseCode === "OK",
@@ -191,6 +199,10 @@ export async function pullCareCheckApplicationStatus(
     certificateSeenDate,
     withdrawalReason,
     withdrawalDate,
+    digitalIdCheckStatus,
+    digitalIdCheckDate,
+    rtwCheckStatus,
+    rtwCheckDate,
     rawResponse,
   };
 }

@@ -122,6 +122,8 @@ test("new starter action planning stays deterministic and keeps consequential ac
 
 const employeeProfilePage = read("app/dashboard/employees/[id]/page.tsx");
 const employeeDashboardPage = read("app/dashboard/employee/page.tsx");
+const employeeDocumentsRoute = read("app/api/employees/[id]/documents/route.ts");
+const agenticDocumentWorkflow = read("lib/agentic/documentWorkflow.ts");
 const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
 const dashboardPage = read("app/dashboard/page.tsx");
 
@@ -246,4 +248,15 @@ test("employee self-service work stays out of employer help", () => {
   assert.match(employeeDashboardPage, /Complete your emergency contact/);
   assert.match(employeeDashboardPage, /\/api\/my-employment\/emergency-contacts/);
   assert.match(employeeDashboardPage, /Add emergency contact/);
+});
+
+
+test("agentic document handling stays silent and evidence-safe", () => {
+  assert.match(employeeDocumentsRoute, /classifyEmployeeDocument/);
+  assert.match(employeeDocumentsRoute, /Agentic Document Handling/);
+  assert.match(employeeDocumentsRoute, /source_module: "Agentic Leo"/);
+  assert.doesNotMatch(employeeDocumentsRoute, /dashboard\/ask-leo/);
+  assert.match(agenticDocumentWorkflow, /receiving it does not itself verify right to work/);
+  assert.match(agenticDocumentWorkflow, /suitability and verification remain human-controlled/);
+  assert.match(agenticDocumentWorkflow, /canAdvanceWorkflow: false/);
 });

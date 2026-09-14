@@ -278,7 +278,8 @@ function DashboardPageContent() {
     useState<ComplianceIntelligence | null>(null);
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
-  const [newStarterAttention, setLeoAttention] = useState<LeoAttention[]>([]);
+  const [newStarterAttention, setNewStarterAttention] = useState<LeoAttention[]>([]);
+  const [agenticAttention, setAgenticAttention] = useState<LeoAttention[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [reminderActionInProgress, setReminderActionInProgress] = useState<string | null>(null);
 
@@ -506,7 +507,7 @@ function DashboardPageContent() {
         );
 
         if (active) {
-          setLeoAttention(
+          setNewStarterAttention(
             (checks.filter(Boolean) as LeoAttention[]).filter(
               (starter) => starter.attentionCount > 0,
             ),
@@ -514,7 +515,7 @@ function DashboardPageContent() {
         }
       } catch (error) {
         console.error("New starter attention could not be loaded:", error);
-        if (active) setLeoAttention([]);
+        if (active) setNewStarterAttention([]);
       }
     }
 

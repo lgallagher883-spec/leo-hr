@@ -634,27 +634,11 @@ function DashboardPageContent() {
         onClick: () => router.push("/dashboard/leo-conversations"),
         priorityRank: 3,
       },
-      {
-        id: "new-starters",
-        label: "New Starters",
-        value: newStarterAttention.length,
-        actionLabel: "Review readiness",
-        onClick: () => {
-          if (newStarterAttention.length === 1) {
-            router.push(`/dashboard/employees/${newStarterAttention[0].id}`);
-            return;
-          }
-
-          router.push("/dashboard/employees");
-        },
-        priorityRank: 0,
-      },
     ].sort((a, b) => b.priorityRank - a.priorityRank);
   }, [
     complianceIntelligence,
     employeeCount,
     liveMatters,
-    newStarterAttention,
     priority.destination,
     router,
     staleMatters,
@@ -824,6 +808,12 @@ function DashboardPageContent() {
             onClick={shortcut.onClick}
           />
         ))}
+
+        <LeoNeedsHelpCard
+          starters={newStarterAttention}
+          onOpenStarter={(employeeId) => router.push(`/dashboard/employees/${employeeId}`)}
+          onOpenEmployees={() => router.push("/dashboard/employees")}
+        />
       </section>
 
       <section style={remindersSectionStyle} aria-label="In-app reminders">
@@ -888,6 +878,65 @@ function DashboardPageContent() {
         )}
       </section>
     </main>
+  );
+}
+
+function LeoNeedsHelpCard({
+  starters,
+  onOpenStarter,
+  onOpenEmployees,
+}: {
+  starters: NewStarterAttention[];
+  onOpenStarter: (employeeId: number) => void;
+  onOpenEmployees: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const totalActions = starters.reduce(
+    (total, starter) => total + starter.missing + starter.needsReview,
+    0,
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (starters.length === 1) {
+          onOpenStarter(starters[0].id);
+          return;
+        }
+        onOpenEmployees();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      style={{
+        ...summaryCardStyle,
+        ...(hovered ? summaryCardHoverStyle : {}),
+      }}
+      aria-label="Review items where Leo needs employer help"
+    >
+      <span style={summaryLabelStyle}>Leo Needs Your Help</span>
+
+      <span style={summaryNumberStyle}>{totalActions}</span>
+
+      <span style={{ color: "#6B7280", fontSize: "13px", lineHeight: 1.5 }}>
+        {starters.length === 0
+          ? "Nothing needs your input right now."
+          : starters
+              .slice(0, 3)
+              .map(
+                (starter) =>
+                  `${starter.name}: ${starter.missing + starter.needsReview} action${starter.missing + starter.needsReview === 1 ? "" : "s"}`,
+              )
+              .join(" · ")}
+      </span>
+
+      <span style={summaryActionStyle}>
+        {totalActions > 0 ? "Review actions" : "View employees"}
+        <span aria-hidden="true">→</span>
+      </span>
+    </button>
   );
 }
 

@@ -546,7 +546,7 @@ export default function QualificationsDetails({
       <header style={styles.cardHeader}>
         <div style={styles.identity}>
           <span style={styles.identityIcon}><GraduationCap size={21} /></span>
-          <div><div style={styles.titleRow}><h2 style={styles.cardTitle}>Qualifications</h2><span style={styles.badge}>{statusLabel(draft.overallStatus)}</span></div><p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}{recordId !== undefined ? ` · Record ${recordId}` : ""}</p></div>
+          <div><div style={styles.titleRow}><h2 style={styles.cardTitle}>Qualifications</h2><span style={styles.badge}>{statusLabel(draft.overallStatus)}</span></div><p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}</p></div>
         </div>
         <div style={styles.actions}>{headerActions}{!editing && resolvedPermissions.canEdit ? <button type="button" style={styles.secondaryButton} disabled={isDisabled} onClick={async () => { setEditing(true); await audit("qualifications_edit_started"); }}><Pencil size={15} />Edit qualifications</button> : null}</div>
       </header>

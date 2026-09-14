@@ -747,7 +747,6 @@ export default function HealthDetails({
             </div>
             <p style={styles.cardSubtitle}>
               {recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}
-              {recordId !== undefined ? ` · Record ${String(recordId)}` : ""}
             </p>
           </div>
         </div>

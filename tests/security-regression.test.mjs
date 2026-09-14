@@ -346,5 +346,5 @@ test("Agentic probation manager sync only touches untouched reviews", () => {
   assert.match(newStarterAutoActions, /\["Scheduled", "Pending", ""\]/);
   assert.match(newStarterAutoActions, /Agentic Probation Manager Updated/);
   assert.match(employmentRoute, /probationManagerSync/);
-  assert.match(employmentRoute, /approved line-manager change/);
+  assert.match(newStarterAutoActions, /approved line-manager change/);
 });

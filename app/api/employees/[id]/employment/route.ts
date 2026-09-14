@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
+import { detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -686,7 +687,7 @@ export async function PATCH(
 
     const existingDetails = await admin
       .from("employee_employment_details")
-      .select("id")
+      .select(EMPLOYMENT_DETAILS_SELECT)
       .eq("employee_id", employeeId)
       .maybeSingle();
 
@@ -830,10 +831,52 @@ export async function PATCH(
       );
     }
 
+    const changes = detectApprovedEmploymentChanges({
+      previousEmployee: currentEmployee as Record<string, unknown>,
+      nextEmployee: employeeResult.data as Record<string, unknown>,
+      previousEmployment:
+        (existingDetails.data as Record<string, unknown> | null) ?? null,
+      nextEmployment: detailsResult.data as Record<string, unknown>,
+    });
+    const downstreamAdmin = downstreamAdminForChanges(changes);
+
+    if (changes.length > 0) {
+      const changeTimeline = await admin.from("employee_timeline").insert({
+        organisation_id: accessResult.access.organisationId,
+        employee_id: employeeId,
+        event_type: "Agentic Employee Change",
+        title: "Leo prepared downstream administration",
+        description:
+          "Leo detected the approved employment changes and prepared the related administrative follow-up without requiring the employer to re-enter the same information.",
+        status: "Prepared",
+        source_module: "Agentic Leo",
+        source_record_id: String(employeeId),
+        metadata: {
+          changes,
+          downstream_admin: downstreamAdmin,
+          ask_leo_involved: false,
+        },
+        event_date: now,
+        created_by: user.id,
+        created_at: now,
+      });
+
+      if (changeTimeline.error) {
+        console.warn(
+          "Agentic employee change timeline event could not be written:",
+          changeTimeline.error,
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       employee: employeeResult.data,
       employmentDetails: detailsResult.data,
+      agenticChange: {
+        changes,
+        downstreamAdmin,
+      },
     });
   } catch (error) {
     console.error("Employment details update failed:", error);

@@ -253,7 +253,7 @@ function isUpcomingStarter(employee: Pick<Employee, "status" | "start_date">): b
 function requiresEmployerAttention(item: NewStarterReadiness["items"][number]): boolean {
   if (item.status === "complete" || item.status === "not_required") return false;
 
-  if (["starter_details", "manager", "right_to_work", "dbs", "emergency_contact", "future_start_date"].includes(item.key)) {
+  if (["starter_details", "manager", "right_to_work", "dbs", "future_start_date"].includes(item.key)) {
     return true;
   }
 

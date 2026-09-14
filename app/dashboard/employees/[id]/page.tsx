@@ -718,7 +718,7 @@ export default function EmployeeProfilePage() {
             <div style={sectionStackStyle}>
               <SectionHeading
                 eyebrow="Employee overview"
-                title={`${employee.name} at a glance`}
+                title={employee.name}
                 description="Current employment information, compliance position and useful actions from one place."
               />
 

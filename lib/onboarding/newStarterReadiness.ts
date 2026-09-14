@@ -131,9 +131,9 @@ export async function assessNewStarterReadiness(args: {
     rtwResult.error,
     dbsResult.error,
     documentsResult.error,
-    emergencyResult.error.error,
+    emergencyResult.error,
     probationResult.error,
-    invitationResult.error.error,
+    invitationResult.error,
   ].filter(Boolean);
 
   if (errors.length > 0) {

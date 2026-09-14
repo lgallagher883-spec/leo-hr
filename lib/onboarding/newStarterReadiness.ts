@@ -166,6 +166,19 @@ export async function assessNewStarterReadiness(args: {
   const hasContract = (documentsResult.data ?? []).some((document: any) =>
     isContractDocument(document.document_type, document.title),
   );
+  const documentHaystack = (documentsResult.data ?? [])
+    .map((document: any) =>
+      `${lower(document.document_type)} ${lower(document.title)}`
+    )
+    .join(" ");
+  const hasRtwEvidence =
+    documentHaystack.includes("right to work") ||
+    documentHaystack.includes("passport") ||
+    documentHaystack.includes("visa");
+  const hasDbsEvidence =
+    documentHaystack.includes("dbs") ||
+    documentHaystack.includes("disclosure") ||
+    documentHaystack.includes("safeguard");
   const hasEmergencyContact = (emergencyResult.data ?? []).some(
     (contact: any) =>
       Boolean(text(contact.full_name)) &&
@@ -229,7 +242,11 @@ export async function assessNewStarterReadiness(args: {
       status: hasRtw ? "complete" : "missing",
       blocking: !hasRtw,
       dueDate: dueDate("right_to_work"),
-      detail: hasRtw ? "A completed right to work check is recorded." : "A completed right to work check is required before employment begins.",
+      detail: hasRtw
+        ? "A completed right to work check is recorded."
+        : hasRtwEvidence
+          ? "Right to work evidence is already on file. An authorised person still needs to verify and record the completed check before employment begins."
+          : "A completed right to work check is required before employment begins.",
     },
     {
       key: "dbs",
@@ -237,7 +254,15 @@ export async function assessNewStarterReadiness(args: {
       status: !dbsRequirementKnown ? "needs_review" : !dbsRequired ? "not_required" : dbsComplete ? "complete" : "missing",
       blocking: dbsRequirementKnown && dbsRequired && !dbsComplete,
       dueDate: dueDate("dbs_clearance"),
-      detail: !dbsRequirementKnown ? "Confirm whether this role requires DBS or safeguarding clearance." : !dbsRequired ? "DBS is explicitly recorded as not required." : dbsComplete ? "DBS clearance is recorded." : "DBS is marked as required but clearance is not yet recorded.",
+      detail: !dbsRequirementKnown
+        ? "Confirm whether this role requires DBS or safeguarding clearance."
+        : !dbsRequired
+          ? "DBS is explicitly recorded as not required."
+          : dbsComplete
+            ? "DBS clearance is recorded."
+            : hasDbsEvidence
+              ? "DBS evidence is already on file. Verification and any suitability decision still need to be completed."
+              : "DBS is marked as required but clearance is not yet recorded.",
     },
     {
       key: "contract",

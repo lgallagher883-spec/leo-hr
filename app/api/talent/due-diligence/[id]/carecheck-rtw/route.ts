@@ -292,11 +292,11 @@ export async function POST(request: Request, routeContext: RouteContext) {
         // uses its own deterministic provider namespace rather than reusing
         // the Leo application/candidate reference used by DBS.
         externalReference: careCheckReference(
-          `RTW_${text(context.application?.application_reference)}`,
+          `RTW${text(context.application?.application_reference)}`,
           `RTWAPP${String(context.profile.application_id)}`,
         ),
         candidateReference: careCheckReference(
-          `RTW_${text(context.candidate.candidate_reference)}`,
+          `RTW${text(context.candidate.candidate_reference)}`,
           `RTWCAN${String(context.profile.candidate_id)}`,
         ),
         candidateEmailAddress: context.candidate.email,

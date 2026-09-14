@@ -250,6 +250,25 @@ function isUpcomingStarter(employee: Pick<Employee, "status" | "start_date">): b
   return start.getTime() >= today.getTime();
 }
 
+function requiresEmployerAttention(item: NewStarterReadiness["items"][number]): boolean {
+  if (item.status === "complete" || item.status === "not_required") return false;
+
+  if (["starter_details", "manager", "right_to_work", "dbs", "emergency_contact", "future_start_date"].includes(item.key)) {
+    return true;
+  }
+
+  if (item.key === "contract") {
+    return item.detail.includes("Confirm:");
+  }
+
+  if (item.key === "portal_invitation") {
+    return item.detail.toLowerCase().includes("email");
+  }
+
+  return false;
+}
+
+
 export default function EmployeeProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -655,8 +674,8 @@ export default function EmployeeProfilePage() {
 
       {isNewStarter &&
         (newStarterLoading ||
-          !newStarterReadiness ||
-          newStarterReadiness.overallStatus !== "ready") && (
+          (newStarterReadiness &&
+            newStarterReadiness.items.some(requiresEmployerAttention))) && (
         <NewStarterBanner
           employeeName={employee.name}
           startDate={startDateLabel}
@@ -1244,8 +1263,8 @@ function NewStarterBanner({
   onViewEmployment,
   onViewDocuments,
   readiness,
-  plan,
-  loading
+  plan: _plan,
+  loading,
 }: {
   employeeName: string;
   startDate: string;
@@ -1255,82 +1274,70 @@ function NewStarterBanner({
   plan: NewStarterPlan | null;
   loading: boolean;
 }) {
+  const attentionItems = readiness?.items.filter(requiresEmployerAttention) ?? [];
+
   return (
     <section style={newStarterBannerStyle}>
       <div>
-        <div style={bannerEyebrowStyle}>New starter</div>
-        <h2 style={bannerTitleStyle}>
-          Prepare {employeeName} for employment
-        </h2>
+        <div style={bannerEyebrowStyle}>Leo needs your help</div>
+        <h2 style={bannerTitleStyle}>{employeeName}</h2>
         <p style={bannerDescriptionStyle}>Starts {startDate}</p>
+
         {loading ? (
-          <p style={bannerDescriptionStyle}>Leo is checking new starter readiness...</p>
-        ) : readiness ? (
-          <div style={{ marginTop: 12 }}>
-            <strong>
-              {readiness.overallStatus === "ready"
-                ? "Ready"
-                : `Needs attention · ${readiness.counts.missing + readiness.counts.needsReview}`}
-            </strong>
+          <p style={bannerDescriptionStyle}>
+            Leo is completing the preparation it can do automatically...
+          </p>
+        ) : attentionItems.length > 0 ? (
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            {attentionItems.map((item) => {
+              const contractConfirm =
+                item.key === "contract" && item.detail.includes("Confirm:")
+                  ? item.detail.split("Confirm:")[1]?.replace(/\.$/, "").trim()
+                  : null;
 
-            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-              <div>
-                <strong>Employer input</strong>
-                <div style={bannerDescriptionStyle}>
-                  {readiness.items
-                    .filter((item) =>
-                      ["manager", "right_to_work", "dbs", "contract"].includes(item.key) &&
-                      item.status !== "complete" &&
-                      item.status !== "not_required"
-                    )
-                    .map((item) => item.key === "contract" ? "Employment terms" : item.label)
-                    .join(" · ") || "Nothing needed"}
+              return (
+                <div key={item.key}>
+                  <strong>
+                    {item.key === "contract"
+                      ? "Contract information to confirm"
+                      : item.label}
+                  </strong>
+                  <div style={bannerDescriptionStyle}>
+                    {contractConfirm ? (
+                      <strong>{contractConfirm}</strong>
+                    ) : (
+                      item.detail
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <strong>Leo can prepare</strong>
-                <div style={bannerDescriptionStyle}>
-                  {plan?.actions
-                    .filter((action) => (action.kind === "prepare" || action.kind === "automatic") && action.status === "ready")
-                    .map((action) => {
-                      if (action.key === "probation_schedule") return "Probation";
-                      if (action.key === "onboarding_plan") return "Onboarding";
-                      if (action.key === "employee_invitation") return "Employee invitation";
-                      if (action.key === "contract_preparation") return "Employment documents";
-                      return action.label;
-                    })
-                    .join(" · ") || "Nothing to prepare yet"}
-                </div>
-              </div>
-
-              {readiness.items.some((item) => item.key === "emergency_contact" && item.status !== "complete") ? (
-                <div>
-                  <strong>{employeeName} to complete</strong>
-                  <div style={bannerDescriptionStyle}>Emergency contact</div>
-                </div>
-              ) : null}
-            </div>
+              );
+            })}
           </div>
         ) : null}
       </div>
 
       <div style={bannerActionsStyle}>
-        <button
-          type="button"
-          onClick={onViewEmployment}
-          style={secondaryButtonStyle}
-        >
-          Review employment
-        </button>
+        {attentionItems.some((item) =>
+          ["starter_details", "manager", "contract", "future_start_date"].includes(item.key)
+        ) ? (
+          <button
+            type="button"
+            onClick={onViewEmployment}
+            style={secondaryButtonStyle}
+          >
+            Review employment
+          </button>
+        ) : null}
 
-        <button
-          type="button"
-          onClick={onViewDocuments}
-          style={secondaryButtonStyle}
-        >
-          Review documents
-        </button>
+        {attentionItems.some((item) => item.key === "contract") ? (
+          <button
+            type="button"
+            onClick={onViewDocuments}
+            style={secondaryButtonStyle}
+          >
+            Review documents
+          </button>
+        ) : null}
       </div>
     </section>
   );

@@ -634,11 +634,27 @@ function DashboardPageContent() {
         onClick: () => router.push("/dashboard/leo-conversations"),
         priorityRank: 3,
       },
+      {
+        id: "new-starters",
+        label: "New Starters",
+        value: newStarterAttention.length,
+        actionLabel: "Review readiness",
+        onClick: () => {
+          if (newStarterAttention.length === 1) {
+            router.push(`/dashboard/employees/${newStarterAttention[0].id}`);
+            return;
+          }
+
+          router.push("/dashboard/employees");
+        },
+        priorityRank: 0,
+      },
     ].sort((a, b) => b.priorityRank - a.priorityRank);
   }, [
     complianceIntelligence,
     employeeCount,
     liveMatters,
+    newStarterAttention,
     priority.destination,
     router,
     staleMatters,
@@ -753,43 +769,6 @@ function DashboardPageContent() {
                   {step.complete ? "✓" : "→"}
                 </span>
                 <span>{step.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {newStarterAttention.length > 0 ? (
-        <section style={setupCardStyle} aria-labelledby="new-starter-attention-heading">
-          <div style={setupHeaderStyle}>
-            <div>
-              <div style={setupEyebrowStyle}>Leo needs your attention</div>
-              <h2 id="new-starter-attention-heading" style={setupTitleStyle}>
-                New starter readiness
-              </h2>
-              <p style={setupTextStyle}>
-                Leo has checked upcoming starters and highlighted anything that needs preparing or employer input.
-              </p>
-            </div>
-          </div>
-          <div style={setupListStyle}>
-            {newStarterAttention.map((starter) => (
-              <button
-                key={starter.id}
-                type="button"
-                onClick={() => router.push(`/dashboard/employees/${starter.id}`)}
-                style={setupStepStyle}
-              >
-                <span style={setupCheckStyle} aria-hidden="true">
-                  {starter.overallStatus === "ready" ? "✓" : "→"}
-                </span>
-                <span>
-                  {starter.name}
-                  {starter.start_date ? ` · starts ${starter.start_date}` : ""}
-                  {starter.missing + starter.needsReview > 0
-                    ? ` · ${starter.missing + starter.needsReview} item(s) need attention`
-                    : " · ready"}
-                </span>
               </button>
             ))}
           </div>

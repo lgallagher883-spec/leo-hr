@@ -15,6 +15,17 @@ export type CareCheckStatusResult = {
   isCurrentStatus: boolean | null;
   workingWithVulnerableAdults: string | null;
   workingWithChildren: string | null;
+  workforce: string | null;
+  disclosureType: string | null;
+  resultType: boolean | null;
+  riskAssessment: string | null;
+  dbsReference: string | null;
+  certificateNumber: string | null;
+  certificateIssueDate: string | null;
+  certificateReceivedDate: string | null;
+  certificateSeenDate: string | null;
+  withdrawalReason: string | null;
+  withdrawalDate: string | null;
   rawResponse: string;
 };
 
@@ -145,6 +156,17 @@ export async function pullCareCheckApplicationStatus(
     rawResponse,
     "WorkingWithChildren",
   );
+  const workforce = getTagValue(rawResponse, "Workforce");
+  const disclosureType = getTagValue(rawResponse, "DisclosureType");
+  const resultType = readBoolean(getTagValue(rawResponse, "ResultType"));
+  const riskAssessment = getTagValue(rawResponse, "RiskAssessment");
+  const dbsReference = getTagValue(rawResponse, "DBSReference");
+  const certificateNumber = getTagValue(rawResponse, "CertificateNo");
+  const certificateIssueDate = getTagValue(rawResponse, "CertificateIssueDate");
+  const certificateReceivedDate = getTagValue(rawResponse, "CertificateReceivedDate");
+  const certificateSeenDate = getTagValue(rawResponse, "CertificateSeenDate");
+  const withdrawalReason = getTagValue(rawResponse, "WithdrawalReason");
+  const withdrawalDate = getTagValue(rawResponse, "WithdrawalDate");
 
   return {
     success: responseCode === "OK",
@@ -158,6 +180,17 @@ export async function pullCareCheckApplicationStatus(
     isCurrentStatus,
     workingWithVulnerableAdults,
     workingWithChildren,
+    workforce,
+    disclosureType,
+    resultType,
+    riskAssessment,
+    dbsReference,
+    certificateNumber,
+    certificateIssueDate,
+    certificateReceivedDate,
+    certificateSeenDate,
+    withdrawalReason,
+    withdrawalDate,
     rawResponse,
   };
 }

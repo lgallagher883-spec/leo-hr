@@ -83,6 +83,7 @@ export async function assessNewStarterReadiness(args: {
     trainingResult,
     probationResult,
     invitationResult,
+    agentDecisionResult,
   ] = await Promise.all([
     supabase
       .from("employee_employment_details")
@@ -130,6 +131,14 @@ export async function assessNewStarterReadiness(args: {
       .eq("employee_id", employeeId)
       .order("created_at", { ascending: false })
       .limit(1),
+    supabase
+      .from("employee_timeline")
+      .select("id,metadata,created_at")
+      .eq("organisation_id", organisationId)
+      .eq("employee_id", employeeId)
+      .eq("source_module", "Agentic Leo")
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   const errors = [
@@ -141,6 +150,7 @@ export async function assessNewStarterReadiness(args: {
     trainingResult.error,
     probationResult.error,
     invitationResult.error,
+    agentDecisionResult.error,
   ].filter(Boolean);
 
   if (errors.length > 0) {
@@ -154,11 +164,31 @@ export async function assessNewStarterReadiness(args: {
   const hasContract = (documentsResult.data ?? []).some((document: any) =>
     isContractDocument(document.document_type, document.title),
   );
-  const hasEmergencyContact = (emergencyResult.data ?? []).length > 0;
+  const hasEmergencyContact = (emergencyResult.data ?? []).some(
+    (contact: any) =>
+      Boolean(text(contact.full_name)) &&
+      Boolean(text(contact.relationship)) &&
+      Boolean(text(contact.phone)),
+  );
   const hasTraining = (trainingResult.data ?? []).length > 0;
+  const agentDecisions = (agentDecisionResult.data ?? []) as Array<{
+    metadata?: Record<string, unknown> | null;
+  }>;
+  const mandatoryLearningNotRequired = agentDecisions.some(
+    (row) =>
+      row.metadata?.decision_key === "mandatory_learning" &&
+      row.metadata?.decision_value === "not_required",
+  );
   const manager = text(employmentResult.data?.manager);
-  const dbsRequirementKnown = typeof dbs?.dbs_required === "boolean";
-  const dbsRequired = dbs?.dbs_required === true;
+  const dbsRequiredRaw = dbs?.dbs_required;
+  const dbsRequirementKnown =
+    typeof dbsRequiredRaw === "boolean" ||
+    (typeof dbsRequiredRaw === "string" &&
+      ["yes", "no", "true", "false"].includes(dbsRequiredRaw.trim().toLowerCase()));
+  const dbsRequired =
+    dbsRequiredRaw === true ||
+    (typeof dbsRequiredRaw === "string" &&
+      ["yes", "true"].includes(dbsRequiredRaw.trim().toLowerCase()));
   const dbsComplete = dbsRequired && Boolean(dbs?.certificate_issue_date);
   const hasRtw = Boolean(rtw?.check_completed_date);
   const hasProbation = Boolean(probationResult.data?.id);
@@ -235,10 +265,18 @@ export async function assessNewStarterReadiness(args: {
     {
       key: "mandatory_learning",
       label: "Mandatory learning",
-      status: hasTraining ? "complete" : "needs_review",
+      status: mandatoryLearningNotRequired
+        ? "not_required"
+        : hasTraining
+          ? "complete"
+          : "needs_review",
       blocking: false,
       dueDate: dueDate("mandatory_learning"),
-      detail: hasTraining ? "Training records already exist for this employee." : "Confirm and assign required organisation-wide and role-specific learning.",
+      detail: mandatoryLearningNotRequired
+        ? "The employer confirmed that no additional mandatory learning is required for this starter."
+        : hasTraining
+          ? "Training records already exist for this employee."
+          : "Confirm and assign required organisation-wide and role-specific learning.",
     },
     {
       key: "probation",

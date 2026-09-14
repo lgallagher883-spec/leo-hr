@@ -37,8 +37,10 @@ function displayPreparedAction(action: NewStarterPreparedAction): string {
 export function buildNewStarterWorkflowStartReply(args: {
   readiness: NewStarterReadinessResult;
   plan: NewStarterPlan;
+  automaticCompleted?: Array<{ key: string; summary: string }>;
+  automaticDeferred?: Array<{ key: string; summary: string }>;
 }): string {
-  const { readiness, plan } = args;
+  const { readiness, plan, automaticCompleted = [], automaticDeferred = [] } = args;
   const name = readiness.employee.name || "the new starter";
   const remaining = readiness.counts.missing + readiness.counts.needsReview;
 
@@ -63,8 +65,6 @@ export function buildNewStarterWorkflowStartReply(args: {
   if (outstanding(readiness, "manager")) employerInputs.push("line manager");
   if (outstanding(readiness, "dbs")) employerInputs.push("DBS / safeguarding requirement");
   if (outstanding(readiness, "right_to_work")) employerInputs.push("right to work");
-  if (outstanding(readiness, "contract")) employerInputs.push("employment terms");
-  if (outstanding(readiness, "mandatory_learning")) employerInputs.push("mandatory learning");
 
   const employeeInputs: string[] = [];
   if (outstanding(readiness, "emergency_contact")) employeeInputs.push("emergency contact");
@@ -76,21 +76,27 @@ export function buildNewStarterWorkflowStartReply(args: {
     nextQuestion = `First, does ${name}'s role require a DBS check or safeguarding clearance?`;
   } else if (outstanding(readiness, "right_to_work")) {
     nextQuestion = `First, how will ${name}'s right to work check be completed and recorded?`;
-  } else if (outstanding(readiness, "contract")) {
-    nextQuestion = `First, are ${name}'s employment terms confirmed so I can use them to prepare the employment documents?`;
-  } else if (outstanding(readiness, "mandatory_learning")) {
-    nextQuestion = `First, what mandatory learning should apply to ${name}'s role?`;
-  } else if (outstanding(readiness, "portal_invitation")) {
+  } else if (outstanding(readiness, "portal_invitation") && !readiness.employee.email) {
     nextQuestion = readiness.employee.email
       ? `The employee invitation is ready to prepare. I will still need your approval before anything is sent externally.`
       : `First, what email address should be used for ${name}'s employee portal invitation?`;
+  } else if (outstanding(readiness, "emergency_contact")) {
+    nextQuestion = `I still need usable emergency contact details for ${name}.`;
   } else {
-    nextQuestion = "The remaining items need to be completed or recorded before I can close the new starter workflow.";
+    nextQuestion = "";
   }
 
   const lines = [
-    `${name} has ${remaining} new starter action${remaining === 1 ? "" : "s"} outstanding.`,
+    `I'm getting ${name} ready using the information and resources already held in Leo.`,
   ];
+
+  if (automaticCompleted.length > 0) {
+    lines.push("", automaticCompleted.map((action) => `• ${action.summary}`).join("\n"));
+  }
+
+  if (outstanding(readiness, "contract")) {
+    lines.push("", "I'm handling the employment contract preparation from the organisation's contract resource and the company and employee information already held. I'll only come back to you if a genuinely required term is missing.");
+  }
 
   if (prepared.length > 0) {
     lines.push(
@@ -100,10 +106,7 @@ export function buildNewStarterWorkflowStartReply(args: {
   }
 
   if (employerInputs.length > 0) {
-    lines.push(
-      "",
-      `I still need employer input on: ${employerInputs.join(" · ")}.`,
-    );
+    lines.push("", `I still need your input on: ${employerInputs.join(" · ")}.`);
   }
 
   if (employeeInputs.length > 0) {
@@ -112,12 +115,11 @@ export function buildNewStarterWorkflowStartReply(args: {
     );
   }
 
-  lines.push(
-    "",
-    nextQuestion,
-    "",
-    `When you have that information, let me know so I can continue getting ${name} ready.`,
-  );
+  if (nextQuestion) {
+    lines.push("", nextQuestion, "", `When you have that information, let me know so I can continue getting ${name} ready.`);
+  } else {
+    lines.push("", `I'll continue the remaining Leo-owned preparation without asking you to repeat information already in the system.`);
+  }
 
   return lines.join("\n");
 }
@@ -167,27 +169,16 @@ export function buildNewStarterWorkflowProgressReply(args: {
     next = `Has ${name}'s right to work check been completed? If it has, I need the completed check to be recorded before I can clear that action.`;
   } else if (isOutstanding("dbs")) {
     next = `Does ${name}'s role require a DBS check or safeguarding clearance?`;
-  } else if (isOutstanding("contract")) {
-    const contractAction = plan.actions.find((action) => action.key === "contract_preparation");
-    next = contractAction?.status === "ready"
-      ? `The employment document is still not complete. I have the chosen draft-contract basis, but I still need the confirmed employment terms required to prepare it safely.`
-      : `I still need the confirmed employment terms before the employment document can be prepared.`;
   } else if (isOutstanding("emergency_contact")) {
     next = `I still need a contact telephone number for each emergency contact before I can treat that action as complete.`;
-  } else if (isOutstanding("mandatory_learning")) {
-    next = `What mandatory learning, if any, should apply to ${name}'s role?`;
   } else if (isOutstanding("manager") && !pendingKeys.has("manager")) {
     next = `Who will ${name} report to?`;
   } else if (isOutstanding("manager")) {
     next = `The manager action is still open because the manager you supplied could not yet be matched safely in this organisation.`;
-  } else if (isOutstanding("probation")) {
-    next = `I can prepare the probation dates from the recorded start date, but the probation action has not yet been completed in the employee record.`;
-  } else if (isOutstanding("portal_invitation")) {
-    next = readiness.employee.email
-      ? `The employee portal invitation can be prepared, but it still requires employer approval before anything is sent externally.`
-      : `What email address should be used for ${name}'s employee portal invitation?`;
+  } else if (isOutstanding("portal_invitation") && !readiness.employee.email) {
+    next = `What email address should be used for ${name}'s employee portal invitation?`;
   } else {
-    next = "There are still outstanding readiness items that need to be completed or recorded.";
+    next = "Leo is continuing the remaining preparation from the records and resources already available.";
   }
 
   const unresolvedNotes: string[] = [];

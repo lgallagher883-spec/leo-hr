@@ -124,6 +124,7 @@ const employeeProfilePage = read("app/dashboard/employees/[id]/page.tsx");
 const employeeDashboardPage = read("app/dashboard/employee/page.tsx");
 const employeeDocumentsRoute = read("app/api/employees/[id]/documents/route.ts");
 const agenticDocumentWorkflow = read("lib/agentic/documentWorkflow.ts");
+const agenticDocumentText = read("lib/agentic/documentText.ts");
 const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
 const dashboardPage = read("app/dashboard/page.tsx");
 
@@ -269,4 +270,13 @@ test("document filing advances safe workflow continuity", () => {
   assert.match(newStarterReadiness, /Right to work evidence is already on file/);
   assert.match(newStarterReadiness, /DBS evidence is already on file/);
   assert.match(newStarterReadiness, /authorised person still needs to verify/);
+});
+
+
+test("document classification prefers deterministic extraction before AI", () => {
+  assert.match(agenticDocumentText, /mammoth\.extractRawText/);
+  assert.match(agenticDocumentText, /TextDecoder/);
+  assert.match(employeeDocumentsRoute, /extractEmployeeDocumentText/);
+  assert.match(employeeDocumentsRoute, /contentText: extracted\.text/);
+  assert.doesNotMatch(agenticDocumentText, /OpenAI|chat\.completions|responses\.create/);
 });

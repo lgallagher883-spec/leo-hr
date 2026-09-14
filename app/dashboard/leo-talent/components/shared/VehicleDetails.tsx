@@ -1762,11 +1762,6 @@ export default function VehicleDetails({
                   ? "Candidate record"
                   : "Employee record")}
 
-              {recordId !== undefined
-                ? ` · Record ${String(
-                    recordId,
-                  )}`
-                : ""}
             </p>
           </div>
         </div>

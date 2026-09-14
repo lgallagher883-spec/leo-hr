@@ -2,25 +2,11 @@ import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { addOnboardingDays, getOnboardingTemplates } from "@/lib/onboarding/templates";
 
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
-type ConditionalItem = "dbs" | "equipment" | "learning";
 
 const writeRoles = new Set<PlatformRole>(["owner", "senior", "manager"]);
-
-const itemTemplates = [
-  { key: "candidate_details", name: "Complete starter details", category: "candidate_details", description: "Confirm the starter information required for the employment record.", ownerType: "candidate", dueOffsetDays: -5, candidateVisible: true, candidateEditable: true, mandatory: true },
-  { key: "right_to_work", name: "Confirm right to work", category: "safer_recruitment", description: "Complete and record the required right to work check before employment begins.", ownerType: "hr", dueOffsetDays: -7, candidateVisible: false, candidateEditable: false, mandatory: true },
-  { key: "references", name: "Confirm references", category: "safer_recruitment", description: "Confirm required references and record telephone verification where applicable.", ownerType: "hr", dueOffsetDays: -7, candidateVisible: false, candidateEditable: false, mandatory: true },
-  { key: "dbs_clearance", name: "Confirm DBS or safeguarding clearance", category: "safer_recruitment", description: "Complete the required DBS, barred-list or safeguarding checks for the role.", ownerType: "hr", dueOffsetDays: -5, candidateVisible: false, candidateEditable: false, mandatory: true, conditional: "dbs" as ConditionalItem },
-  { key: "contract_issue", name: "Issue employment contract", category: "documents", description: "Issue the contract and written particulars using the agreed employment terms.", ownerType: "hr", dueOffsetDays: -10, candidateVisible: true, candidateEditable: false, mandatory: true },
-  { key: "contract_signature", name: "Receive signed employment contract", category: "documents", description: "Confirm the signed contract has been received and stored.", ownerType: "candidate", dueOffsetDays: -2, candidateVisible: true, candidateEditable: true, mandatory: true },
-  { key: "payroll_information", name: "Collect payroll information", category: "payroll", description: "Collect bank and tax information through the approved secure process.", ownerType: "candidate", dueOffsetDays: -5, candidateVisible: true, candidateEditable: true, mandatory: true },
-  { key: "payroll_setup", name: "Add starter to payroll", category: "payroll", description: "Complete payroll setup and confirm the first payroll cut-off.", ownerType: "employer", dueOffsetDays: -2, candidateVisible: false, candidateEditable: false, mandatory: true },
-  { key: "equipment", name: "Prepare equipment", category: "equipment", description: "Prepare and allocate the equipment required for the role.", ownerType: "manager", dueOffsetDays: -2, candidateVisible: false, candidateEditable: false, mandatory: true, conditional: "equipment" as ConditionalItem },
-  { key: "mandatory_learning", name: "Assign mandatory learning", category: "learning", description: "Assign organisation-wide and role-specific learning in Leo Learn.", ownerType: "hr", dueOffsetDays: -1, candidateVisible: true, candidateEditable: false, mandatory: true, conditional: "learning" as ConditionalItem },
-  { key: "first_day_arrangements", name: "Confirm commencement arrangements", category: "induction", description: "Confirm the date of commencement, reporting arrangements, location and key contacts.", ownerType: "manager", dueOffsetDays: -3, candidateVisible: true, candidateEditable: false, mandatory: true },
-];
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -37,12 +23,6 @@ function normaliseRole(value: unknown): PlatformRole {
   if (role === "senior" || role === "hr") return "senior";
   if (role === "manager") return "manager";
   return "employee";
-}
-
-function addDays(value: string, days: number): string {
-  const date = new Date(`${value}T12:00:00`);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 async function getAppointmentDecisionOutcome(
@@ -121,14 +101,7 @@ function checklistRows(
   startDate: string,
   options: { includeDbs: boolean; includeEquipment: boolean; includeLearning: boolean; automatic?: boolean },
 ) {
-  return itemTemplates
-    .filter((template) => {
-      if (template.conditional === "dbs") return options.includeDbs;
-      if (template.conditional === "equipment") return options.includeEquipment;
-      if (template.conditional === "learning") return options.includeLearning;
-      return true;
-    })
-    .map((template) => ({
+  return getOnboardingTemplates(options).map((template) => ({
       organisation_id: organisationId,
       appointment_id: appointmentId,
       item_key: template.key,
@@ -136,7 +109,7 @@ function checklistRows(
       item_category: template.category,
       description: template.description,
       owner_type: template.ownerType,
-      due_date: addDays(startDate, template.dueOffsetDays),
+      due_date: addOnboardingDays(startDate, template.dueOffsetDays),
       status: "not_started",
       candidate_visible: template.candidateVisible,
       candidate_editable: template.candidateEditable,

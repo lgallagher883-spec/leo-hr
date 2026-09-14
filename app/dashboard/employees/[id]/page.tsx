@@ -83,6 +83,16 @@ type TimelineEvent = {
   source: string;
 };
 
+type NewStarterReadiness = {
+  overallStatus: "ready" | "needs_attention" | "blocked";
+  counts: { complete: number; missing: number; needsReview: number; blocking: number };
+  items: Array<{ key: string; label: string; status: "complete" | "missing" | "not_required" | "needs_review"; blocking: boolean; detail: string }>;
+};
+
+type NewStarterPlan = {
+  actions: Array<{ key: string; label: string; kind: "automatic" | "prepare" | "approval_required"; status: "ready" | "blocked"; reason: string }>;
+};
+
 type QuickAction = {
   label: string;
   section: ProfileSection;
@@ -226,6 +236,20 @@ const quickActions: QuickAction[] = [
 
 const defaultPlatformRole: PlatformRole = "Employee";
 
+function isUpcomingStarter(employee: Pick<Employee, "status" | "start_date">): boolean {
+  const status = normaliseEmployeeStatus(employee.status);
+  if (status === "Archived" || status === "Former Employee") return false;
+  if (status === "New Starter") return true;
+  if (!employee.start_date) return false;
+
+  const start = new Date(`${employee.start_date}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return false;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  return start.getTime() >= today.getTime();
+}
+
 export default function EmployeeProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -242,6 +266,9 @@ export default function EmployeeProfilePage() {
     useState<ProfileSection>("Overview");
 
   const [platformRole] = useState<PlatformRole>(defaultPlatformRole);
+  const [newStarterReadiness, setNewStarterReadiness] = useState<NewStarterReadiness | null>(null);
+  const [newStarterPlan, setNewStarterPlan] = useState<NewStarterPlan | null>(null);
+  const [newStarterLoading, setNewStarterLoading] = useState(false);
 
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -316,6 +343,40 @@ export default function EmployeeProfilePage() {
   useEffect(() => {
     void loadEmployee();
   }, [loadEmployee]);
+
+  useEffect(() => {
+    if (!employeeId || !employee) return;
+    if (!isUpcomingStarter(employee)) {
+      setNewStarterReadiness(null);
+      setNewStarterPlan(null);
+      return;
+    }
+
+    let active = true;
+    async function loadNewStarterReadiness() {
+      setNewStarterLoading(true);
+      try {
+        const response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+        const result = await response.json().catch(() => null) as
+          | { success?: boolean; readiness?: NewStarterReadiness; plan?: NewStarterPlan }
+          | null;
+        if (active && response.ok && result?.success) {
+          setNewStarterReadiness(result.readiness ?? null);
+          setNewStarterPlan(result.plan ?? null);
+        }
+      } catch (error) {
+        console.error("New starter readiness could not be loaded:", error);
+      } finally {
+        if (active) setNewStarterLoading(false);
+      }
+    }
+    void loadNewStarterReadiness();
+    return () => { active = false; };
+  }, [employee, employeeId]);
 
   useEffect(() => {
     const selectedItem = navigationItems.find(
@@ -525,7 +586,7 @@ export default function EmployeeProfilePage() {
 
   const employeeStatus = normaliseEmployeeStatus(employee.status);
   const isArchived = employeeStatus === "Archived";
-  const isNewStarter = employeeStatus === "New Starter";
+  const isNewStarter = isUpcomingStarter(employee);
   const startDateLabel = formatDate(employee.start_date);
 
   return (
@@ -584,12 +645,25 @@ export default function EmployeeProfilePage() {
         </div>
       </header>
 
-      {isNewStarter && (
+      {isNewStarter &&
+        (newStarterLoading ||
+          !newStarterReadiness ||
+          newStarterReadiness.overallStatus !== "ready") && (
         <NewStarterBanner
           employeeName={employee.name}
           startDate={startDateLabel}
-          onViewEmployment={() => openSection("Employment")}
+          onViewEmployment={() => { openSection("Employment"); window.setTimeout(() => document.getElementById("employee-profile-content")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }}
           onViewDocuments={() => openSection("Documents")}
+          readiness={newStarterReadiness}
+          plan={newStarterPlan}
+          loading={newStarterLoading}
+          onAskLeo={() =>
+            router.push(
+              `/dashboard/ask-leo?employeeId=${employee.id}&prompt=${encodeURIComponent(
+                `Help me complete the new starter actions for employee ${employee.name}, who starts on ${employee.start_date || "their recorded start date"}. Use the linked employee readiness context. Do not ask what ${employee.name} refers to.`
+              )}`
+            )
+          }
         />
       )}
 
@@ -602,7 +676,7 @@ export default function EmployeeProfilePage() {
         />
       )}
 
-      <div className="employee-profile-layout">
+      <div id="employee-profile-content" className="employee-profile-layout">
         <aside style={navigationStyle} aria-label="Employee profile sections">
           <div style={navigationHeadingStyle}>
             <div style={navigationTitleStyle}>Employee record</div>
@@ -1168,11 +1242,19 @@ function NewStarterBanner({
   startDate,
   onViewEmployment,
   onViewDocuments,
+  readiness,
+  plan,
+  loading,
+  onAskLeo,
 }: {
   employeeName: string;
   startDate: string;
   onViewEmployment: () => void;
   onViewDocuments: () => void;
+  readiness: NewStarterReadiness | null;
+  plan: NewStarterPlan | null;
+  loading: boolean;
+  onAskLeo: () => void;
 }) {
   return (
     <section style={newStarterBannerStyle}>
@@ -1181,10 +1263,57 @@ function NewStarterBanner({
         <h2 style={bannerTitleStyle}>
           Prepare {employeeName} for employment
         </h2>
-        <p style={bannerDescriptionStyle}>
-          Start date: {startDate}. Review the employment record and ensure
-          required documents are available before employment begins.
-        </p>
+        <p style={bannerDescriptionStyle}>Starts {startDate}</p>
+        {loading ? (
+          <p style={bannerDescriptionStyle}>Leo is checking new starter readiness...</p>
+        ) : readiness ? (
+          <div style={{ marginTop: 12 }}>
+            <strong>
+              {readiness.overallStatus === "ready"
+                ? "Ready"
+                : `Needs attention · ${readiness.counts.missing + readiness.counts.needsReview}`}
+            </strong>
+
+            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+              <div>
+                <strong>Employer input</strong>
+                <div style={bannerDescriptionStyle}>
+                  {readiness.items
+                    .filter((item) =>
+                      ["manager", "right_to_work", "dbs", "contract"].includes(item.key) &&
+                      item.status !== "complete" &&
+                      item.status !== "not_required"
+                    )
+                    .map((item) => item.key === "contract" ? "Employment terms" : item.label)
+                    .join(" · ") || "Nothing needed"}
+                </div>
+              </div>
+
+              <div>
+                <strong>Leo can prepare</strong>
+                <div style={bannerDescriptionStyle}>
+                  {plan?.actions
+                    .filter((action) => (action.kind === "prepare" || action.kind === "automatic") && action.status === "ready")
+                    .map((action) => {
+                      if (action.key === "probation_schedule") return "Probation";
+                      if (action.key === "onboarding_plan") return "Onboarding";
+                      if (action.key === "employee_invitation") return "Employee invitation";
+                      if (action.key === "contract_preparation") return "Employment documents";
+                      return action.label;
+                    })
+                    .join(" · ") || "Nothing to prepare yet"}
+                </div>
+              </div>
+
+              {readiness.items.some((item) => item.key === "emergency_contact" && item.status !== "complete") ? (
+                <div>
+                  <strong>{employeeName} to complete</strong>
+                  <div style={bannerDescriptionStyle}>Emergency contact</div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div style={bannerActionsStyle}>
@@ -1198,10 +1327,10 @@ function NewStarterBanner({
 
         <button
           type="button"
-          onClick={onViewDocuments}
+          onClick={onAskLeo}
           style={primaryButtonStyle}
         >
-          View documents
+          Ask Leo to get {employeeName} ready
         </button>
       </div>
     </section>

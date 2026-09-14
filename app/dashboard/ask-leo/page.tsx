@@ -128,6 +128,9 @@ export default function AskLeoPage() {
   const promptParam =
     searchParams.get("prompt") ?? "";
 
+  const employeeIdParam = searchParams.get("employeeId");
+  const newStarterEmployeeId = employeeIdParam ? Number(employeeIdParam) : null;
+
   const suppliedResourceTitle =
     searchParams.get("resourceTitle")?.trim() ?? "";
 
@@ -180,6 +183,13 @@ export default function AskLeoPage() {
   const [input, setInput] =
     useState("");
 
+  const [loadingNewStarterContext, setLoadingNewStarterContext] = useState(false);
+
+  const [newStarterContext, setNewStarterContext] = useState<{
+    readiness?: { overallStatus: string; counts: { complete: number; missing: number; needsReview: number; blocking: number }; items: Array<{ key: string; label: string; status: string; detail: string }> };
+    plan?: { actions: Array<{ key: string; label: string; kind: string; status: string; reason: string }> };
+  } | null>(null);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -206,6 +216,32 @@ export default function AskLeoPage() {
     shouldCreateMatter,
     setShouldCreateMatter,
   ] = useState(false);
+
+  useEffect(() => {
+    if (!newStarterEmployeeId || !Number.isFinite(newStarterEmployeeId)) {
+      setNewStarterContext(null);
+      setLoadingNewStarterContext(false);
+      return;
+    }
+    let active = true;
+    setLoadingNewStarterContext(true);
+    fetch(`/api/employees/${newStarterEmployeeId}/new-starter-readiness`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => null);
+        if (active && response.ok && result?.success) {
+          setNewStarterContext({ readiness: result.readiness, plan: result.plan });
+        }
+      })
+      .catch((error) => console.error("New starter context could not be loaded:", error))
+      .finally(() => {
+        if (active) setLoadingNewStarterContext(false);
+      });
+    return () => { active = false; };
+  }, [newStarterEmployeeId]);
 
   const conversationIdValue =
     searchParams.get("conversationId");
@@ -381,6 +417,13 @@ export default function AskLeoPage() {
       return;
     }
 
+    if (
+      newStarterEmployeeId &&
+      (loadingNewStarterContext || !newStarterContext?.readiness)
+    ) {
+      return;
+    }
+
     hasSentDashboardPrompt.current =
       true;
 
@@ -388,6 +431,9 @@ export default function AskLeoPage() {
   }, [
     loadingSarContext,
     loadingConversation,
+    loadingNewStarterContext,
+    newStarterContext,
+    newStarterEmployeeId,
     sarId,
     promptParam,
   ]);
@@ -586,6 +632,13 @@ export default function AskLeoPage() {
       return;
     }
 
+    const isNewStarterWorkflowStart = Boolean(
+      newStarterEmployeeId &&
+      messageOverride &&
+      promptParam.trim() &&
+      messageText === promptParam.trim()
+    );
+
     const requestId =
       typeof crypto !== "undefined" &&
       typeof crypto.randomUUID === "function"
@@ -624,7 +677,20 @@ export default function AskLeoPage() {
             conversationBeforeReply,
             sarContext
           )
-        : "";
+        : newStarterContext?.readiness
+          ? [
+              "NEW STARTER EMPLOYEE CONTEXT:",
+              `Employee ID: ${newStarterEmployeeId}`,
+              `Readiness: ${newStarterContext.readiness.overallStatus}`,
+              ...newStarterContext.readiness.items.map(
+                (item) => `${item.label}: ${item.status}. ${item.detail}`
+              ),
+              ...(newStarterContext.plan?.actions || []).map(
+                (action) => `Planned action: ${action.label}. Type: ${action.kind}. Status: ${action.status}. ${action.reason}`
+              ),
+              "Treat the named person as an employee/new starter in Leo HR. Do not ask what their name or the word 'test' means. Help the employer work through the readiness actions using this context. Do not claim to have changed records, sent invitations or issued documents unless the relevant approved action has actually completed."
+            ].join("\n")
+          : "";
 
       const response = await fetch(
         "/api/ask-leo",
@@ -641,7 +707,11 @@ export default function AskLeoPage() {
             requestId,
             contextType: sarContext
               ? "contextual"
-              : "general",
+              : newStarterContext?.readiness
+                ? "new_starter"
+                : "general",
+            newStarterEmployeeId,
+            newStarterWorkflowStart: isNewStarterWorkflowStart,
             conversation:
               conversationBeforeReply,
             contextSummary,
@@ -1085,6 +1155,20 @@ export default function AskLeoPage() {
 
       <div style={chatShellStyle}>
         <div style={chatBoxStyle}>
+          {newStarterContext?.readiness ? (
+            <div style={{
+              marginBottom: 16,
+              padding: 16,
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              background: "#fff",
+            }}>
+              <strong>New starter actions</strong>
+              <div style={{ marginTop: 6 }}>
+                {newStarterContext.readiness.counts.missing + newStarterContext.readiness.counts.needsReview} items need attention. Leo has the employee record and readiness plan in context.
+              </div>
+            </div>
+          ) : null}
           {messages.map((message, index) =>
             message.role === "user" ? (
               <div

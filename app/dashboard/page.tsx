@@ -63,6 +63,15 @@ type FoundationsResponse = {
   facts?: FoundationFact[];
 };
 
+type NewStarterAttention = {
+  id: number;
+  name: string;
+  start_date: string | null;
+  overallStatus: string;
+  missing: number;
+  needsReview: number;
+};
+
 type DashboardPriority = {
   summary: string;
   actionLabel: string;
@@ -249,6 +258,7 @@ function DashboardPageContent() {
     useState<ComplianceIntelligence | null>(null);
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [newStarterAttention, setNewStarterAttention] = useState<NewStarterAttention[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [reminderActionInProgress, setReminderActionInProgress] = useState<string | null>(null);
 
@@ -414,6 +424,70 @@ function DashboardPageContent() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadNewStarterAttention() {
+      try {
+        const response = await fetch("/api/employees", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+        const payload = await response.json().catch(() => null);
+        const employees = Array.isArray(payload?.employees) ? payload.employees : [];
+        const starters = employees
+          .filter((employee: any) => {
+            const status = String(employee.status || "").trim().toLowerCase();
+            if (status === "archived" || status === "former employee") return false;
+            if (status === "new starter" || status === "new_starter") return true;
+            if (!employee.start_date) return false;
+
+            const start = new Date(`${employee.start_date}T12:00:00`);
+            if (Number.isNaN(start.getTime())) return false;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+            return start.getTime() >= today.getTime();
+          })
+          .slice(0, 5);
+
+        const checks = await Promise.all(
+          starters.map(async (employee: any) => {
+            const check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
+              method: "GET",
+              cache: "no-store",
+              credentials: "include",
+            });
+            const result = await check.json().catch(() => null);
+            if (!check.ok || !result?.success) return null;
+            return {
+              id: employee.id,
+              name: employee.name,
+              start_date: employee.start_date ?? null,
+              overallStatus: result.readiness.overallStatus,
+              missing: result.readiness.counts.missing,
+              needsReview: result.readiness.counts.needsReview,
+            } as NewStarterAttention;
+          })
+        );
+
+        if (active) {
+          setNewStarterAttention(
+            (checks.filter(Boolean) as NewStarterAttention[]).filter(
+              (starter) => starter.missing + starter.needsReview > 0,
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("New starter attention could not be loaded:", error);
+        if (active) setNewStarterAttention([]);
+      }
+    }
+
+    void loadNewStarterAttention();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -740,6 +814,12 @@ function DashboardPageContent() {
             onClick={shortcut.onClick}
           />
         ))}
+
+        <LeoNeedsHelpCard
+          starters={newStarterAttention}
+          onOpenStarter={(employeeId) => router.push(`/dashboard/employees/${employeeId}`)}
+          onOpenEmployees={() => router.push("/dashboard/employees")}
+        />
       </section>
 
       <section style={remindersSectionStyle} aria-label="In-app reminders">
@@ -804,6 +884,65 @@ function DashboardPageContent() {
         )}
       </section>
     </main>
+  );
+}
+
+function LeoNeedsHelpCard({
+  starters,
+  onOpenStarter,
+  onOpenEmployees,
+}: {
+  starters: NewStarterAttention[];
+  onOpenStarter: (employeeId: number) => void;
+  onOpenEmployees: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const totalActions = starters.reduce(
+    (total, starter) => total + starter.missing + starter.needsReview,
+    0,
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (starters.length === 1) {
+          onOpenStarter(starters[0].id);
+          return;
+        }
+        onOpenEmployees();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      style={{
+        ...summaryCardStyle,
+        ...(hovered ? summaryCardHoverStyle : {}),
+      }}
+      aria-label="Review items where Leo needs employer help"
+    >
+      <span style={summaryLabelStyle}>Leo Needs Your Help</span>
+
+      <span style={summaryNumberStyle}>{totalActions}</span>
+
+      <span style={{ color: "#6B7280", fontSize: "13px", lineHeight: 1.5 }}>
+        {starters.length === 0
+          ? "Nothing needs your input right now."
+          : starters
+              .slice(0, 3)
+              .map(
+                (starter) =>
+                  `${starter.name}: ${starter.missing + starter.needsReview} action${starter.missing + starter.needsReview === 1 ? "" : "s"}`,
+              )
+              .join(" · ")}
+      </span>
+
+      <span style={summaryActionStyle}>
+        {totalActions > 0 ? "Review actions" : "View employees"}
+        <span aria-hidden="true">→</span>
+      </span>
+    </button>
   );
 }
 

@@ -401,7 +401,7 @@ export default function OverseasChecksDetails({
 
   return <section style={styles.card}>
     <header style={styles.header}>
-      <div style={styles.identity}><span style={styles.icon}><Globe2 size={21} /></span><div><div style={styles.titleRow}><h2 style={styles.title}>Overseas checks</h2><span style={styles.badge}>{statusLabel(draft.overallStatus)}</span></div><p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}{recordId !== undefined ? ` · Record ${recordId}` : ""}</p></div></div>
+      <div style={styles.identity}><span style={styles.icon}><Globe2 size={21} /></span><div><div style={styles.titleRow}><h2 style={styles.title}>Overseas checks</h2><span style={styles.badge}>{statusLabel(draft.overallStatus)}</span></div><p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}</p></div></div>
       <div style={styles.actions}>{headerActions}{!editing && resolvedPermissions.canEdit ? <button type="button" style={styles.secondaryButton} onClick={async () => { setEditing(true); await audit("overseas_checks_edit_started"); }}><Pencil size={15} />Edit overseas checks</button> : null}</div>
     </header>
     {errorMessage ? <div style={styles.errorBanner}><AlertCircle size={16} />{errorMessage}</div> : null}

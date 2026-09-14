@@ -3,6 +3,8 @@ import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT =
   "https://ebulk.wards.mrisoftware.com/cheqs_test3/ws/candidateInviteService";
+const CARECHECK_PRODUCTION_CANDIDATE_INVITE_ENDPOINT =
+  "https://www.matrixscreening.com/care/ws/candidateInviteService";
 
 type CareCheckCandidateInviteInput = {
   externalReference: string;
@@ -78,12 +80,6 @@ export async function sendCareCheckCandidateInvite(
 ): Promise<CareCheckCandidateInviteResult> {
   const careCheckConfig = getCareCheckConfig();
 
-  if (careCheckConfig.environment !== "sandbox") {
-    throw new Error(
-      "Production CareCheck candidate invites are not configured yet.",
-    );
-  }
-
   if (!input.externalReference.trim()) {
     throw new Error("CareCheck externalReference is required.");
   }
@@ -106,11 +102,13 @@ export async function sendCareCheckCandidateInvite(
 
   const envelope = buildCandidateInviteEnvelope(input, careCheckConfig);
 
-  console.log("CARECHECK SOAP REQUEST");
-  console.log(envelope);
+  const endpoint =
+    careCheckConfig.environment === "production"
+      ? CARECHECK_PRODUCTION_CANDIDATE_INVITE_ENDPOINT
+      : CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT;
 
   const response = await fetch(
-    CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT,
+    endpoint,
     {
       method: "POST",
       headers: {
@@ -126,10 +124,6 @@ export async function sendCareCheckCandidateInvite(
   );
 
   const rawResponse = await response.text();
-
-  console.log("CARECHECK HTTP STATUS", response.status);
-  console.log("CARECHECK RESPONSE");
-  console.log(rawResponse);
 
   const applicationReference = getTagValue(
     rawResponse,

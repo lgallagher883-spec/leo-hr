@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { classifyEmployeeDocument, documentWorkflowLabel } from "@/lib/agentic/documentWorkflow";
 import { extractEmployeeDocumentText } from "@/lib/agentic/documentText";
+import { extractDocumentFacts } from "@/lib/agentic/documentFacts";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -496,6 +497,10 @@ export async function POST(
       classification.confidence === "high"
         ? documentWorkflowLabel(classification)
         : documentType;
+    const extractedFacts = extractDocumentFacts({
+      category: classification.category,
+      text: extracted.text,
+    });
     const now = new Date().toISOString();
     const filePath = `${employeeId}/${Date.now()}-${safeFileName(
       fileValue.name,
@@ -564,6 +569,7 @@ export async function POST(
           agentic_can_advance_workflow: classification.canAdvanceWorkflow,
           agentic_text_extraction_method: extracted.method,
           agentic_text_extracted: Boolean(extracted.text),
+          agentic_extracted_facts: extractedFacts,
         },
         event_date: now,
         created_by: user.id,
@@ -598,6 +604,7 @@ export async function POST(
           can_advance_workflow: classification.canAdvanceWorkflow,
           text_extraction_method: extracted.method,
           text_extracted: Boolean(extracted.text),
+          extracted_facts: extractedFacts,
           reason: classification.reason,
         },
         event_date: now,
@@ -676,6 +683,7 @@ export async function POST(
           agentic_classification_confidence: classification.confidence,
           agentic_requires_human_verification: classification.requiresHumanVerification,
           agentic_text_extraction_method: extracted.method,
+          agentic_extracted_facts: extractedFacts,
         },
         metadata: {
           source_module: "Employees",
@@ -709,6 +717,7 @@ export async function POST(
           requiresHumanVerification: classification.requiresHumanVerification,
           canAdvanceWorkflow: classification.canAdvanceWorkflow,
           textExtractionMethod: extracted.method,
+          extractedFacts,
         },
       },
       { status: 201 },

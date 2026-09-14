@@ -128,3 +128,12 @@ test("new starter readiness is surfaced consistently without bypassing the serve
   assert.match(dashboardPage, /new-starter-readiness/);
   assert.match(dashboardPage, /Leo needs your attention/);
 });
+
+
+test("future-dated active employees are treated as upcoming starters", () => {
+  assert.match(employeeProfilePage, /isUpcomingStarter/);
+  assert.match(employeeProfilePage, /start_date/);
+  assert.match(dashboardPage, /employee\.start_date/);
+  assert.match(dashboardPage, /former employee/);
+  assert.match(dashboardPage, /archived/);
+});

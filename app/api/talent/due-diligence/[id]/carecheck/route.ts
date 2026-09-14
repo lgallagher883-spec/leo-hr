@@ -172,36 +172,62 @@ function providerWorkforceForCareCheck(
   return "other";
 }
 
+const CARECHECK_SUBMITTED_STATUSES = new Set([
+  "AWAITING_DIGITAL_ID",
+  "FORM_READY",
+  "FORM_COMPLETE",
+  "FORM_AUTHORISED",
+  "APP_SENT",
+  "APP_RECEIVED",
+  "APP_REJECTED",
+  "APP_COMPLETE",
+  "APP_WITHDRAWN",
+  "FORM_INVALID",
+  "AWAITING_MEDIA_CHECK",
+]);
+
 function careCheckStatusMeansSubmitted(providerStatus: unknown): boolean {
-  const status = text(providerStatus).toUpperCase();
-
-  if (!status) return false;
-  if (status.includes("INVITE")) return false;
-
-  return (
-    status.includes("SUBMIT") ||
-    status.includes("APPLICATION") ||
-    status.includes("APP_RECEIVED") ||
-    status.includes("RECEIVED")
-  );
+  return CARECHECK_SUBMITTED_STATUSES.has(text(providerStatus).toUpperCase());
 }
 
-function leoDbsStatusForCareCheck(providerStatus: unknown): string {
+function leoDbsStatusForCareCheck(
+  providerStatus: unknown,
+  resultType?: unknown,
+): string {
   const status = text(providerStatus).toUpperCase();
 
-  if (!status) return "not_started";
-  if (status.includes("INVITE")) return "candidate_invited";
-  if (status.includes("SUBMIT") || status.includes("APPLICATION")) return "application_submitted";
-  if (status.includes("CERTIFICATE") && (status.includes("AWAIT") || status.includes("PENDING"))) {
-    return "awaiting_certificate";
+  switch (status) {
+    case "INVITE_SENT":
+      return "candidate_invited";
+    case "AWAITING_DIGITAL_ID":
+    case "FORM_READY":
+    case "FORM_COMPLETE":
+    case "FORM_AUTHORISED":
+      return "application_submitted";
+    case "APP_SENT":
+    case "APP_RECEIVED":
+      return "awaiting_certificate";
+    case "APP_COMPLETE":
+      return resultType === true
+        ? "further_review_required"
+        : "awaiting_verification";
+    case "APP_REJECTED":
+    case "APP_WITHDRAWN":
+    case "FORM_INVALID":
+      return "further_review_required";
+    case "AWAITING_MEDIA_CHECK":
+      return "application_submitted";
+    default:
+      return status ? "application_submitted" : "not_started";
   }
-  if (status.includes("VERIFY") || status.includes("VERIFICATION")) return "awaiting_verification";
-  if (status.includes("COMPLETE") || status.includes("COMPLETED") || status.includes("ISSUED")) {
-    return "awaiting_verification";
-  }
-  if (status.includes("REVIEW") || status.includes("DISCLOS")) return "further_review_required";
+}
 
-  return "application_submitted";
+function careCheckDbsCheckType(level: unknown): "Y" | "XS" | "XE" {
+  const normalised = text(level).toLowerCase();
+
+  if (normalised.includes("basic")) return "Y";
+  if (normalised.includes("standard")) return "XS";
+  return "XE";
 }
 
 async function saveCareCheckState({
@@ -223,7 +249,10 @@ async function saveCareCheckState({
       ? (context.shared.payload as Record<string, unknown>)
       : {};
 
-  const leoStatus = leoDbsStatusForCareCheck(careCheck.statusCode);
+  const leoStatus = leoDbsStatusForCareCheck(
+    careCheck.statusCode,
+    careCheck.resultType,
+  );
   const providerWorkforce = providerWorkforceForCareCheck(
     careCheck.workingWithChildren,
     careCheck.workingWithVulnerableAdults,
@@ -248,6 +277,21 @@ async function saveCareCheckState({
           : "")
       : "",
     applicationProvider: "CareCheck",
+    certificateNumber:
+      text(careCheck.certificateNumber) ||
+      text(existingPayload.certificateNumber),
+    certificateIssueDate:
+      text(careCheck.certificateIssueDate) ||
+      text(existingPayload.certificateIssueDate),
+    certificateSeenDate:
+      text(careCheck.certificateSeenDate) ||
+      text(existingPayload.certificateSeenDate),
+    resultPosition:
+      careCheck.resultType === false
+        ? "clear"
+        : careCheck.resultType === true
+          ? "further_review_required"
+          : existingPayload.resultPosition ?? "",
     careCheck,
   };
 
@@ -400,7 +444,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
         candidateEmailAddress: context.candidate.email,
         candidateFirstName: context.candidate.first_name,
         candidateSurname: context.candidate.last_name,
-        checkType: "X",
+        checkType: careCheckDbsCheckType(context.vacancy?.dbs_level),
         type: "DI",
       });
 
@@ -435,7 +479,18 @@ export async function POST(request: Request, routeContext: RouteContext) {
         responseMessage: status.responseMessage,
         workingWithVulnerableAdults: status.workingWithVulnerableAdults,
         workingWithChildren: status.workingWithChildren,
-        providerCheckType: "X",
+        workforce: status.workforce,
+        disclosureType: status.disclosureType,
+        resultType: status.resultType,
+        riskAssessment: status.riskAssessment,
+        dbsReference: status.dbsReference,
+        certificateNumber: status.certificateNumber,
+        certificateIssueDate: status.certificateIssueDate,
+        certificateReceivedDate: status.certificateReceivedDate,
+        certificateSeenDate: status.certificateSeenDate,
+        withdrawalReason: status.withdrawalReason,
+        withdrawalDate: status.withdrawalDate,
+        providerCheckType: careCheckDbsCheckType(context.vacancy?.dbs_level),
         providerInviteType: "DI",
         vacancyDbsLevel: context.vacancy?.dbs_level ?? null,
       };
@@ -486,6 +541,17 @@ export async function POST(request: Request, routeContext: RouteContext) {
         responseMessage: status.responseMessage,
         workingWithVulnerableAdults: status.workingWithVulnerableAdults,
         workingWithChildren: status.workingWithChildren,
+        workforce: status.workforce,
+        disclosureType: status.disclosureType,
+        resultType: status.resultType,
+        riskAssessment: status.riskAssessment,
+        dbsReference: status.dbsReference,
+        certificateNumber: status.certificateNumber,
+        certificateIssueDate: status.certificateIssueDate,
+        certificateReceivedDate: status.certificateReceivedDate,
+        certificateSeenDate: status.certificateSeenDate,
+        withdrawalReason: status.withdrawalReason,
+        withdrawalDate: status.withdrawalDate,
       };
 
       await saveCareCheckState({

@@ -121,6 +121,7 @@ test("new starter action planning stays deterministic and keeps consequential ac
 });
 
 const employeeProfilePage = read("app/dashboard/employees/[id]/page.tsx");
+const employeeDashboardPage = read("app/dashboard/employee/page.tsx");
 const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
 const dashboardPage = read("app/dashboard/page.tsx");
 
@@ -230,4 +231,19 @@ test("contract gaps are surfaced as explicit employer confirmations", () => {
   assert.match(newStarterAutoActions, /Place of work/);
   assert.match(newStarterReadiness, /Confirm:/);
   assert.match(employeeProfilePage, /Contract information to confirm/);
+});
+
+
+test("employee self-service work stays out of employer help", () => {
+  assert.doesNotMatch(
+    employeeProfilePage,
+    /"starter_details", "manager", "right_to_work", "dbs", "emergency_contact"/,
+  );
+  assert.doesNotMatch(
+    dashboardPage,
+    /"starter_details", "manager", "right_to_work", "dbs", "emergency_contact"/,
+  );
+  assert.match(employeeDashboardPage, /Complete your emergency contact/);
+  assert.match(employeeDashboardPage, /\/api\/my-employment\/emergency-contacts/);
+  assert.match(employeeDashboardPage, /Add emergency contact/);
 });

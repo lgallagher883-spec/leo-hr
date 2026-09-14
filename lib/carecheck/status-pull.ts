@@ -3,6 +3,8 @@ import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT =
   "https://ebulk.wards.mrisoftware.com/cheqs_test3/ws/statusPullService";
+const CARECHECK_PRODUCTION_STATUS_PULL_ENDPOINT =
+  "https://www.matrixscreening.com/care/ws/statusPullService";
 
 export type CareCheckStatusResult = {
   success: boolean;
@@ -93,12 +95,6 @@ export async function pullCareCheckApplicationStatus(
 ): Promise<CareCheckStatusResult> {
   const careCheckConfig = getCareCheckConfig();
 
-  if (careCheckConfig.environment !== "sandbox") {
-    throw new Error(
-      "Production CareCheck status pull is not configured yet.",
-    );
-  }
-
   const reference = applicationReference.trim();
 
   if (!reference) {
@@ -107,8 +103,13 @@ export async function pullCareCheckApplicationStatus(
 
   const envelope = buildStatusPullEnvelope(reference, careCheckConfig);
 
+  const endpoint =
+    careCheckConfig.environment === "production"
+      ? CARECHECK_PRODUCTION_STATUS_PULL_ENDPOINT
+      : CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT;
+
   const response = await fetch(
-    CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT,
+    endpoint,
     {
       method: "POST",
       headers: {

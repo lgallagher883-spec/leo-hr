@@ -1322,9 +1322,6 @@ export default function DBSDetails({
                 (mode === "candidate"
                   ? "Candidate record"
                   : "Employee record")}
-              {recordId !== undefined
-                ? ` · Record ${String(recordId)}`
-                : ""}
             </p>
           </div>
         </div>

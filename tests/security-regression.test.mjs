@@ -199,3 +199,18 @@ test("Leo Needs Your Help uses a symbol rather than an action count", () => {
   assert.match(dashboardPage, /needsHelp \? "✦" : "✓"/);
   assert.doesNotMatch(dashboardPage, /\{totalActions\}/);
 });
+
+
+test("new starter updates accept verified passport wording without inferring British nationality", () => {
+  const employerUpdate = read("lib/onboarding/newStarterEmployerUpdate.ts");
+  assert.match(employerUpdate, /extractVerifiedPassportRtw/);
+  assert.match(employerUpdate, /hasPassport/);
+  assert.match(employerUpdate, /isBritishPassport/);
+  assert.match(employerUpdate, /nationality: passportRtw\.isBritishPassport \? "British" : null/);
+});
+
+test("shared emergency contact email can satisfy both supplied contacts", () => {
+  const employerUpdate = read("lib/onboarding/newStarterEmployerUpdate.ts");
+  assert.match(employerUpdate, /sharedEmail/);
+  assert.match(employerUpdate, /for \(const contact of contacts\) contact\.email = contact\.email \|\| sharedEmail/);
+});

@@ -168,7 +168,7 @@ export async function assessNewStarterReadiness(args: {
     (contact: any) =>
       Boolean(text(contact.full_name)) &&
       Boolean(text(contact.relationship)) &&
-      Boolean(text(contact.phone)),
+      (Boolean(text(contact.phone)) || Boolean(text(contact.email))),
   );
   const hasTraining = (trainingResult.data ?? []).length > 0;
   const agentDecisions = (agentDecisionResult.data ?? []) as Array<{

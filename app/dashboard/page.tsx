@@ -473,7 +473,13 @@ function DashboardPageContent() {
           })
         );
 
-        if (active) setNewStarterAttention(checks.filter(Boolean) as NewStarterAttention[]);
+        if (active) {
+          setNewStarterAttention(
+            (checks.filter(Boolean) as NewStarterAttention[]).filter(
+              (starter) => starter.missing + starter.needsReview > 0,
+            ),
+          );
+        }
       } catch (error) {
         console.error("New starter attention could not be loaded:", error);
         if (active) setNewStarterAttention([]);

@@ -287,12 +287,16 @@ export async function POST(request: Request, routeContext: RouteContext) {
       }
 
       const invite = await sendCareCheckCandidateInvite({
+        // CareCheck requires ExternalReference to be unique. A candidate may
+        // have both a DBS and RTW check for the same Leo application, so RTW
+        // uses its own deterministic provider namespace rather than reusing
+        // the Leo application/candidate reference used by DBS.
         externalReference: careCheckReference(
-          context.application?.application_reference,
+          `RTW_${text(context.application?.application_reference)}`,
           `RTWAPP${String(context.profile.application_id)}`,
         ),
         candidateReference: careCheckReference(
-          context.candidate.candidate_reference,
+          `RTW_${text(context.candidate.candidate_reference)}`,
           `RTWCAN${String(context.profile.candidate_id)}`,
         ),
         candidateEmailAddress: context.candidate.email,

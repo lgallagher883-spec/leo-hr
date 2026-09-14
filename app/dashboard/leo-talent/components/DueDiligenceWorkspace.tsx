@@ -612,7 +612,6 @@ export default function DueDiligenceWorkspace() {
               <div style={styles.candidateIdentity}>
                 <span style={styles.largeAvatar}>{initials(selected.candidate)}</span>
                 <div>
-                  <p style={styles.eyebrow}>{selected.application?.application_reference ?? "Application"}</p>
                   <h2 style={styles.candidateName}>{candidateName(selected.candidate)}</h2>
                   <p style={styles.candidateMeta}>{selected.vacancy?.title ?? "Vacancy"}{selected.vacancy?.department ? ` · ${selected.vacancy.department}` : ""}</p>
                 </div>
@@ -719,8 +718,6 @@ function Overview({
     <section style={styles.card}>
       <h3 style={styles.cardTitle}>Current position</h3>
       <div style={styles.summaryGrid}>
-        <Summary label="Candidate reference" value={record.candidate?.candidate_reference ?? "Not recorded"} />
-        <Summary label="Application reference" value={record.application?.application_reference ?? "Not recorded"} />
         <Summary label="Vacancy" value={record.vacancy?.title ?? "Not recorded"} />
         <Summary label="Stage" value={normaliseLabel(record.application?.current_stage_key)} />
         <Summary label="Required references" value={String(record.vacancy?.required_reference_count ?? 1)} />

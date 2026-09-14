@@ -649,7 +649,7 @@ export default function EmployeeProfilePage() {
         <NewStarterBanner
           employeeName={employee.name}
           startDate={startDateLabel}
-          onViewEmployment={() => openSection("Employment")}
+          onViewEmployment={() => { openSection("Employment"); window.setTimeout(() => document.getElementById("employee-profile-content")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }}
           onViewDocuments={() => openSection("Documents")}
           readiness={newStarterReadiness}
           plan={newStarterPlan}
@@ -657,7 +657,7 @@ export default function EmployeeProfilePage() {
           onAskLeo={() =>
             router.push(
               `/dashboard/ask-leo?employeeId=${employee.id}&prompt=${encodeURIComponent(
-                `Get me ready for ${employee.name} starting on ${employee.start_date || "their recorded start date"}.`
+                `Help me complete the new starter actions for employee ${employee.name}, who starts on ${employee.start_date || "their recorded start date"}. Use the linked employee readiness context. Do not ask what ${employee.name} refers to.`
               )}`
             )
           }

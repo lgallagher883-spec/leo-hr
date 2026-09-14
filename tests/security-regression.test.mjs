@@ -335,5 +335,5 @@ test("Agentic probation only reschedules untouched standard schedules", () => {
   assert.match(newStarterAutoActions, /A probation review has already progressed/);
   assert.match(newStarterAutoActions, /extension_end_date \|\| probation\.data\.final_outcome/);
   assert.match(employmentRoute, /probationSync/);
-  assert.match(employmentRoute, /approved employee start date changed/);
+  assert.match(newStarterAutoActions, /approved employee start date changed/);
 });

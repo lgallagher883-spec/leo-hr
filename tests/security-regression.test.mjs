@@ -107,6 +107,8 @@ test("new starter readiness API requires workforce view permission and blocks em
 });
 
 const newStarterPlan = read("lib/onboarding/newStarterPlan.ts");
+const newStarterAgent = read("lib/onboarding/newStarterAgent.ts");
+const promptBuilder = read("leo/prompt/builder™.ts");
 
 test("new starter action planning stays deterministic and keeps consequential actions gated", () => {
   assert.doesNotMatch(newStarterPlan, /OpenAI|chat\.completions|responses\.create/);
@@ -137,4 +139,38 @@ test("future-dated active employees are treated as upcoming starters", () => {
   assert.match(dashboardPage, /employee\.start_date/);
   assert.match(dashboardPage, /former employee/);
   assert.match(dashboardPage, /archived/);
+});
+
+
+test("new starter workflow starts deterministically and avoids an unnecessary model call", () => {
+  assert.doesNotMatch(newStarterAgent, /OpenAI|chat\.completions|responses\.create/);
+  assert.match(newStarterAgent, /When you have that information, let me know so I can continue getting/);
+  assert.match(askLeo, /contextType === "new_starter"/);
+  assert.match(askLeo, /newStarterWorkflowStart/);
+  assert.match(askLeo, /buildNewStarterWorkflowStartReply/);
+});
+
+test("new starter AI follow-up is constrained to the readiness workflow", () => {
+  assert.match(promptBuilder, /AGENTIC NEW STARTER WORKFLOW/);
+  assert.match(promptBuilder, /Do not invent a separate onboarding checklist/);
+  assert.match(promptBuilder, /Always end the response/);
+  assert.match(askLeoPage, /contextType: sarContext/);
+  assert.match(askLeoPage, /"new_starter"/);
+});
+
+test("completed starter work disappears and generic lifecycle AI panels are removed", () => {
+  assert.match(employeeProfilePage, /newStarterReadiness\.overallStatus !== "ready"/);
+  assert.match(dashboardPage, /starter\.missing \+ starter\.needsReview > 0/);
+  const employeeLifecycleFiles = [
+    "app/dashboard/employees/[id]/components/EmploymentDetails.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeDocuments.tsx",
+    "app/dashboard/employees/[id]/components/LeaveAbsence.tsx",
+    "app/dashboard/employees/[id]/components/ComplianceSummary.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeMatters.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeNotes.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeWarnings.tsx",
+  ];
+  for (const file of employeeLifecycleFiles) {
+    assert.doesNotMatch(read(file), /EmployeeLifecycleIntelligence/);
+  }
 });

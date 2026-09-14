@@ -1602,7 +1602,8 @@ function evaluateMatterRecommendation(input: {
 } {
     if (
       input.activeMatterId ||
-      input.contextType === "matter"
+      input.contextType === "matter" ||
+      input.contextType === "new_starter"
     ) {
       return {
         shouldRecommend: false,

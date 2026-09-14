@@ -121,3 +121,79 @@ export function buildNewStarterWorkflowStartReply(args: {
 
   return lines.join("\n");
 }
+
+
+export function buildNewStarterWorkflowProgressReply(args: {
+  readiness: NewStarterReadinessResult;
+  plan: NewStarterPlan;
+  applied: Array<{ key: string; summary: string }>;
+  pending: Array<{ key: string; summary: string }>;
+}): string {
+  const { readiness, plan, applied, pending } = args;
+  const name = readiness.employee.name || "the new starter";
+  const remaining = readiness.counts.missing + readiness.counts.needsReview;
+
+  const lines: string[] = [];
+
+  if (applied.length > 0) {
+    lines.push(
+      applied.map((action) => `• ${action.summary}`).join("\n"),
+    );
+  }
+
+  if (pending.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push(pending.map((item) => `• ${item.summary}`).join("\n"));
+  }
+
+  if (remaining === 0) {
+    lines.push(
+      "",
+      `${name}'s new starter readiness actions are now complete. I do not need any further information for this workflow.`,
+    );
+    return lines.join("\n");
+  }
+
+  const itemByKey = new Map(readiness.items.map((item) => [item.key, item]));
+  const isOutstanding = (key: string) => {
+    const item = itemByKey.get(key);
+    return Boolean(item && item.status !== "complete" && item.status !== "not_required");
+  };
+
+  let next = "";
+  if (isOutstanding("manager")) {
+    next = `Who will ${name} report to?`;
+  } else if (isOutstanding("right_to_work")) {
+    next = `Has ${name}'s right to work check been completed? If it has, I need the completed check to be recorded before I can clear that action.`;
+  } else if (isOutstanding("dbs")) {
+    next = `Does ${name}'s role require a DBS check or safeguarding clearance?`;
+  } else if (isOutstanding("contract")) {
+    const contractAction = plan.actions.find((action) => action.key === "contract_preparation");
+    next = contractAction?.status === "ready"
+      ? `The employment document is still not complete. I have the chosen draft-contract basis, but I still need the confirmed employment terms required to prepare it safely.`
+      : `I still need the confirmed employment terms before the employment document can be prepared.`;
+  } else if (isOutstanding("emergency_contact")) {
+    next = `I still need a contact telephone number for each emergency contact before I can treat that action as complete.`;
+  } else if (isOutstanding("mandatory_learning")) {
+    next = `What mandatory learning, if any, should apply to ${name}'s role?`;
+  } else if (isOutstanding("probation")) {
+    next = `I can prepare the probation dates from the recorded start date, but the probation action has not yet been completed in the employee record.`;
+  } else if (isOutstanding("portal_invitation")) {
+    next = readiness.employee.email
+      ? `The employee portal invitation can be prepared, but it still requires employer approval before anything is sent externally.`
+      : `What email address should be used for ${name}'s employee portal invitation?`;
+  } else {
+    next = "There are still outstanding readiness items that need to be completed or recorded.";
+  }
+
+  lines.push(
+    "",
+    `${remaining} new starter action${remaining === 1 ? "" : "s"} remain outstanding.`,
+    "",
+    next,
+    "",
+    `When you have that information, let me know so I can continue getting ${name} ready.`,
+  );
+
+  return lines.join("\n");
+}

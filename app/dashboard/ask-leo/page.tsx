@@ -128,6 +128,9 @@ export default function AskLeoPage() {
   const promptParam =
     searchParams.get("prompt") ?? "";
 
+  const employeeIdParam = searchParams.get("employeeId");
+  const newStarterEmployeeId = employeeIdParam ? Number(employeeIdParam) : null;
+
   const suppliedResourceTitle =
     searchParams.get("resourceTitle")?.trim() ?? "";
 
@@ -180,6 +183,11 @@ export default function AskLeoPage() {
   const [input, setInput] =
     useState("");
 
+  const [newStarterContext, setNewStarterContext] = useState<{
+    readiness?: { overallStatus: string; counts: { complete: number; missing: number; needsReview: number; blocking: number }; items: Array<{ key: string; label: string; status: string; detail: string }> };
+    plan?: { actions: Array<{ key: string; label: string; kind: string; status: string; reason: string }> };
+  } | null>(null);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -206,6 +214,27 @@ export default function AskLeoPage() {
     shouldCreateMatter,
     setShouldCreateMatter,
   ] = useState(false);
+
+  useEffect(() => {
+    if (!newStarterEmployeeId || !Number.isFinite(newStarterEmployeeId)) {
+      setNewStarterContext(null);
+      return;
+    }
+    let active = true;
+    fetch(`/api/employees/${newStarterEmployeeId}/new-starter-readiness`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => null);
+        if (active && response.ok && result?.success) {
+          setNewStarterContext({ readiness: result.readiness, plan: result.plan });
+        }
+      })
+      .catch((error) => console.error("New starter context could not be loaded:", error));
+    return () => { active = false; };
+  }, [newStarterEmployeeId]);
 
   const conversationIdValue =
     searchParams.get("conversationId");
@@ -1085,6 +1114,30 @@ export default function AskLeoPage() {
 
       <div style={chatShellStyle}>
         <div style={chatBoxStyle}>
+          {newStarterContext?.readiness ? (
+            <div style={{
+              marginBottom: 16,
+              padding: 16,
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              background: "#fff",
+            }}>
+              <strong>New starter readiness</strong>
+              <div style={{ marginTop: 6 }}>
+                {newStarterContext.readiness.counts.complete} ready · {newStarterContext.readiness.counts.missing} missing · {newStarterContext.readiness.counts.needsReview} to review
+              </div>
+              <ul style={{ margin: "10px 0 0", paddingLeft: 20 }}>
+                {newStarterContext.readiness.items
+                  .filter((item) => item.status !== "complete" && item.status !== "not_required")
+                  .map((item) => <li key={item.key}>{item.label}: {item.detail}</li>)}
+              </ul>
+              {newStarterContext.plan?.actions?.length ? (
+                <div style={{ marginTop: 10 }}>
+                  Leo has prepared the next-step plan. Actions that change records or send something externally remain subject to the existing permissions and approval controls.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {messages.map((message, index) =>
             message.role === "user" ? (
               <div

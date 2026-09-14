@@ -305,7 +305,7 @@ export default function AppointmentDecisionDetails({
 
   return <section style={styles.card}>
     <header style={styles.header}>
-      <div style={styles.identity}><span style={styles.icon}><ClipboardCheck size={21} /></span><div><div style={styles.titleRow}><h2 style={styles.title}>Appointment decision</h2><span style={styles.badge}>{outcomeLabel(draft.outcome)}</span></div><p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}{recordId !== undefined ? ` · Record ${recordId}` : ""}</p></div></div>
+      <div style={styles.identity}><span style={styles.icon}><ClipboardCheck size={21} /></span><div><div style={styles.titleRow}><h2 style={styles.title}>Appointment decision</h2><span style={styles.badge}>{outcomeLabel(draft.outcome)}</span></div><p style={styles.subtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}</p></div></div>
       <div style={styles.actions}>{headerActions}{!editing && resolvedPermissions.canEdit ? <button type="button" style={styles.secondaryButton} onClick={async () => { setEditing(true); await audit("appointment_decision_edit_started"); }}><Pencil size={15} />Edit decision</button> : null}</div>
     </header>
     {errorMessage ? <div style={styles.errorBanner}><AlertCircle size={16} />{errorMessage}</div> : null}

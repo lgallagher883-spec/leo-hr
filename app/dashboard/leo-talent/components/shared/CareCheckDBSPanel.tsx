@@ -184,20 +184,6 @@ export default function CareCheckDBSPanel({
             status connected to this due-diligence record.
           </p>
         </div>
-
-        <span
-          style={{
-            border: "1px solid #DCCBE7",
-            borderRadius: "999px",
-            background: "#F7F1FC",
-            color: "#6E5084",
-            padding: "6px 9px",
-            fontSize: "10px",
-            fontWeight: 800,
-          }}
-        >
-          Development
-        </span>
       </div>
 
       {!required ? (

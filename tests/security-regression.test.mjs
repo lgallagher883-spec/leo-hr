@@ -76,3 +76,32 @@ test("ChatGPT MCP accepts legacy read-only tool names", () => {
   assert.match(mcpRoute, /leo_attention:\s*"leo_get_attention_summary"/);
   assert.match(mcpRoute, /legacyToolAliases\[requestedToolName\] \|\| requestedToolName/);
 });
+
+
+const onboardingTemplates = read("lib/onboarding/templates.ts");
+const talentOnboarding = read("app/api/talent/onboarding/route.ts");
+const newStarterReadiness = read("lib/onboarding/newStarterReadiness.ts");
+const newStarterReadinessApi = read("app/api/employees/[id]/new-starter-readiness/route.ts");
+
+test("Talent and direct employee readiness share one onboarding template source", () => {
+  assert.match(talentOnboarding, /@\/lib\/onboarding\/templates/);
+  assert.match(talentOnboarding, /getOnboardingTemplates/);
+  assert.match(onboardingTemplates, /right_to_work/);
+  assert.match(onboardingTemplates, /contract_issue/);
+  assert.match(onboardingTemplates, /mandatory_learning/);
+});
+
+test("new starter readiness is deterministic and organisation scoped", () => {
+  assert.match(newStarterReadiness, /\.eq\("organisation_id", organisationId\)/);
+  assert.match(newStarterReadiness, /employee_right_to_work/);
+  assert.match(newStarterReadiness, /employee_dbs_checks/);
+  assert.match(newStarterReadiness, /employee_probations/);
+  assert.match(newStarterReadiness, /organisation_invitations/);
+  assert.doesNotMatch(newStarterReadiness, /OpenAI|chat\.completions|responses\.create/);
+});
+
+test("new starter readiness API requires workforce view permission and blocks employee accounts", () => {
+  assert.match(newStarterReadinessApi, /employees\.view/);
+  assert.match(newStarterReadinessApi, /role === "employee"/);
+  assert.match(newStarterReadinessApi, /leo_current_organisation_id/);
+});

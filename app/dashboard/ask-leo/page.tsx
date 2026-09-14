@@ -183,6 +183,8 @@ export default function AskLeoPage() {
   const [input, setInput] =
     useState("");
 
+  const [loadingNewStarterContext, setLoadingNewStarterContext] = useState(false);
+
   const [newStarterContext, setNewStarterContext] = useState<{
     readiness?: { overallStatus: string; counts: { complete: number; missing: number; needsReview: number; blocking: number }; items: Array<{ key: string; label: string; status: string; detail: string }> };
     plan?: { actions: Array<{ key: string; label: string; kind: string; status: string; reason: string }> };
@@ -218,9 +220,11 @@ export default function AskLeoPage() {
   useEffect(() => {
     if (!newStarterEmployeeId || !Number.isFinite(newStarterEmployeeId)) {
       setNewStarterContext(null);
+      setLoadingNewStarterContext(false);
       return;
     }
     let active = true;
+    setLoadingNewStarterContext(true);
     fetch(`/api/employees/${newStarterEmployeeId}/new-starter-readiness`, {
       method: "GET",
       cache: "no-store",
@@ -232,7 +236,10 @@ export default function AskLeoPage() {
           setNewStarterContext({ readiness: result.readiness, plan: result.plan });
         }
       })
-      .catch((error) => console.error("New starter context could not be loaded:", error));
+      .catch((error) => console.error("New starter context could not be loaded:", error))
+      .finally(() => {
+        if (active) setLoadingNewStarterContext(false);
+      });
     return () => { active = false; };
   }, [newStarterEmployeeId]);
 
@@ -410,6 +417,13 @@ export default function AskLeoPage() {
       return;
     }
 
+    if (
+      newStarterEmployeeId &&
+      (loadingNewStarterContext || !newStarterContext?.readiness)
+    ) {
+      return;
+    }
+
     hasSentDashboardPrompt.current =
       true;
 
@@ -417,6 +431,9 @@ export default function AskLeoPage() {
   }, [
     loadingSarContext,
     loadingConversation,
+    loadingNewStarterContext,
+    newStarterContext,
+    newStarterEmployeeId,
     sarId,
     promptParam,
   ]);

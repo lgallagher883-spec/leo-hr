@@ -337,3 +337,14 @@ test("Agentic probation only reschedules untouched standard schedules", () => {
   assert.match(employmentRoute, /probationSync/);
   assert.match(newStarterAutoActions, /approved employee start date changed/);
 });
+
+
+test("Agentic probation manager sync only touches untouched reviews", () => {
+  assert.match(newStarterAutoActions, /syncAgenticProbationManager/);
+  assert.match(newStarterAutoActions, /There are no untouched probation reviews to update/);
+  assert.match(newStarterAutoActions, /review\.completed_date/);
+  assert.match(newStarterAutoActions, /\["Scheduled", "Pending", ""\]/);
+  assert.match(newStarterAutoActions, /Agentic Probation Manager Updated/);
+  assert.match(employmentRoute, /probationManagerSync/);
+  assert.match(employmentRoute, /approved line-manager change/);
+});

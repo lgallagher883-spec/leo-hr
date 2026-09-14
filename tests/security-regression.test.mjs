@@ -125,6 +125,8 @@ const employeeDashboardPage = read("app/dashboard/employee/page.tsx");
 const employeeDocumentsRoute = read("app/api/employees/[id]/documents/route.ts");
 const agenticDocumentWorkflow = read("lib/agentic/documentWorkflow.ts");
 const agenticDocumentText = read("lib/agentic/documentText.ts");
+const agenticEmployeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
+const employmentRoute = read("app/api/employees/[id]/employment/route.ts");
 const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
 const dashboardPage = read("app/dashboard/page.tsx");
 
@@ -279,4 +281,15 @@ test("document classification prefers deterministic extraction before AI", () =>
   assert.match(employeeDocumentsRoute, /extractEmployeeDocumentText/);
   assert.match(employeeDocumentsRoute, /contentText: extracted\.text/);
   assert.doesNotMatch(agenticDocumentText, /OpenAI|chat\.completions|responses\.create/);
+});
+
+
+test("approved employee changes prepare downstream administration silently", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /detectApprovedEmploymentChanges/);
+  assert.match(agenticEmployeeChangeWorkflow, /contract_variation/);
+  assert.match(agenticEmployeeChangeWorkflow, /payroll_change_pack/);
+  assert.match(agenticEmployeeChangeWorkflow, /role_assignments_review/);
+  assert.match(employmentRoute, /Agentic Employee Change/);
+  assert.match(employmentRoute, /ask_leo_involved: false/);
+  assert.doesNotMatch(agenticEmployeeChangeWorkflow, /OpenAI|chat\.completions|responses\.create/);
 });

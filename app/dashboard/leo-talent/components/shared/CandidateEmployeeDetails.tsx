@@ -633,9 +633,6 @@ export default function CandidateEmployeeDetails({
 
             <p style={styles.cardSubtitle}>
               {displayName}
-              {recordId !== undefined
-                ? ` · Record ${String(recordId)}`
-                : ""}
             </p>
           </div>
         </div>

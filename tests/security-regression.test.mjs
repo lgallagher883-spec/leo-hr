@@ -108,13 +108,15 @@ test("new starter readiness API requires workforce view permission and blocks em
 
 const newStarterPlan = read("lib/onboarding/newStarterPlan.ts");
 const newStarterAgent = read("lib/onboarding/newStarterAgent.ts");
+const newStarterAutoActions = read("lib/onboarding/newStarterAutoActions.ts");
 const promptBuilder = read("leo/prompt/builder™.ts");
 
 test("new starter action planning stays deterministic and keeps consequential actions gated", () => {
   assert.doesNotMatch(newStarterPlan, /OpenAI|chat\.completions|responses\.create/);
-  assert.match(newStarterPlan, /kind: "approval_required"/);
   assert.match(newStarterPlan, /Prepare probation schedule/);
+  assert.match(newStarterPlan, /kind: "automatic"/);
   assert.match(newStarterPlan, /employee portal invitation/);
+  assert.match(newStarterPlan, /standard Employee portal invitation automatically/);
   assert.match(newStarterPlan, /must not infer whether DBS is required/);
 });
 
@@ -173,4 +175,27 @@ test("completed starter work disappears and generic lifecycle AI panels are remo
   for (const file of employeeLifecycleFiles) {
     assert.doesNotMatch(read(file), /EmployeeLifecycleIntelligence/);
   }
+});
+
+
+test("learning stays out of new starter readiness", () => {
+  assert.doesNotMatch(newStarterReadiness, /mandatory_learning/);
+  assert.doesNotMatch(newStarterReadiness, /employee_training_logs/);
+});
+
+test("Leo automatically handles probation, employee invitation and contract preparation context", () => {
+  assert.match(newStarterAutoActions, /employee_probations/);
+  assert.match(newStarterAutoActions, /probation_reviews/);
+  assert.match(newStarterAutoActions, /role: "employee"/);
+  assert.match(newStarterAutoActions, /inviteUserByEmail/);
+  assert.match(newStarterAutoActions, /company_documents/);
+  assert.match(newStarterAutoActions, /organisation_foundations/);
+  assert.match(newStarterAutoActions, /Contract Preparation/);
+  assert.match(askLeo, /runNewStarterAutomaticActions/);
+});
+
+test("Leo Needs Your Help uses a symbol rather than an action count", () => {
+  assert.match(dashboardPage, /summaryHelpSymbolStyle/);
+  assert.match(dashboardPage, /needsHelp \? "✦" : "✓"/);
+  assert.doesNotMatch(dashboardPage, /\{totalActions\}/);
 });

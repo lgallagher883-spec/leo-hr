@@ -616,23 +616,6 @@ function DashboardPageContent() {
 
     return [
       {
-        id: "employees",
-        label: "Employees",
-        value: employeeCount === null ? "—" : employeeCount,
-        actionLabel: "View Employees",
-        onClick: () => router.push("/dashboard/employees"),
-        priorityRank: liveMatters > 0 ? 2 : 1,
-      },
-      {
-        id: "matters",
-        label: "Live Matters",
-        value: liveMatters,
-        actionLabel: "View Matters",
-        onClick: () => router.push("/dashboard/matters"),
-        priorityRank:
-          urgentMatters > 0 ? 6 : staleMatters > 0 ? 5 : liveMatters > 0 ? 4 : 2,
-      },
-      {
         id: "recent-conversations",
         label: "Recent Conversations",
         value: "View",
@@ -640,7 +623,23 @@ function DashboardPageContent() {
         onClick: () => router.push("/dashboard/leo-conversations"),
         priorityRank: 3,
       },
-    ].sort((a, b) => b.priorityRank - a.priorityRank);
+      {
+        id: "employees",
+        label: "Employees",
+        value: employeeCount === null ? "—" : employeeCount,
+        actionLabel: "View Employees",
+        onClick: () => router.push("/dashboard/employees"),
+        priorityRank: 2,
+      },
+      {
+        id: "matters",
+        label: "Live Matters",
+        value: liveMatters,
+        actionLabel: "View Matters",
+        onClick: () => router.push("/dashboard/matters"),
+        priorityRank: 1,
+      },
+    ];
   }, [
     complianceIntelligence,
     employeeCount,
@@ -925,18 +924,6 @@ function LeoNeedsHelpCard({
       <span style={summaryLabelStyle}>Leo Needs Your Help</span>
 
       <span style={summaryNumberStyle}>{totalActions}</span>
-
-      <span style={{ color: "#6B7280", fontSize: "13px", lineHeight: 1.5 }}>
-        {starters.length === 0
-          ? "Nothing needs your input right now."
-          : starters
-              .slice(0, 3)
-              .map(
-                (starter) =>
-                  `${starter.name}: ${starter.missing + starter.needsReview} action${starter.missing + starter.needsReview === 1 ? "" : "s"}`,
-              )
-              .join(" · ")}
-      </span>
 
       <span style={summaryActionStyle}>
         {totalActions > 0 ? "Review actions" : "View employees"}

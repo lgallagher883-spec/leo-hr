@@ -426,6 +426,15 @@ export async function applyNewStarterEmployerMessage(args: {
   if (passportRtw.verified) {
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
+    const existingRtw = await admin
+      .from("employee_right_to_work")
+      .select("nationality")
+      .eq("employee_id", employeeId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (existingRtw.error) throw new Error(existingRtw.error.message);
+    const existingNationality = text(existingRtw.data?.[0]?.nationality);
+    const nationality = passportRtw.isBritishPassport ? "British" : existingNationality || "Not specified";
     const notes = passportRtw.passportExpiry
       ? passportRtw.isBritishPassport
         ? `Employer confirmed through Agentic Leo that a British passport was used to verify right to work. Passport expiry: ${passportRtw.passportExpiry}. Passport expiry is recorded as document information only and is not treated as an expiry of British right to work.`
@@ -436,7 +445,7 @@ export async function applyNewStarterEmployerMessage(args: {
 
     const rtwInsert = await admin.from("employee_right_to_work").insert({
       employee_id: employeeId,
-      nationality: passportRtw.isBritishPassport ? "British" : null,
+      nationality,
       immigration_status: null,
       visa_or_permit_type: null,
       share_code: null,
@@ -471,7 +480,7 @@ export async function applyNewStarterEmployerMessage(args: {
       action: "Right to work verified",
       description: `The employer confirmed that ${employee.name}'s right to work was verified using a ${passportRtw.isBritishPassport ? "British passport" : "passport"}.`,
       newValues: {
-        nationality: passportRtw.isBritishPassport ? "British" : null,
+        nationality,
         check_completed_date: today,
         passport_expiry: passportRtw.passportExpiry,
         right_to_work_expiry: null,

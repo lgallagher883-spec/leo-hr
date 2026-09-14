@@ -520,7 +520,7 @@ export default function EmergencyContactsDetails({
           <span style={styles.identityIcon}><HeartHandshake size={21} /></span>
           <div style={{ minWidth: 0 }}>
             <div style={styles.titleRow}><h2 style={styles.cardTitle}>Emergency contacts</h2><span style={styles.countBadge}>{draft.contacts.length} contact{draft.contacts.length === 1 ? "" : "s"}</span></div>
-            <p style={styles.cardSubtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}{recordId !== undefined ? ` · Record ${String(recordId)}` : ""}</p>
+            <p style={styles.cardSubtitle}>{recordLabel || (mode === "candidate" ? "Candidate record" : "Employee record")}</p>
           </div>
         </div>
         <div style={styles.headerActions}>{headerActions}{!editing && resolvedPermissions.canEdit ? <button type="button" style={styles.secondaryButton} onClick={beginEditing} disabled={isDisabled}><Pencil size={15} />Edit emergency contacts</button> : null}</div>

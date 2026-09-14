@@ -93,6 +93,16 @@ type NewStarterPlan = {
   actions: Array<{ key: string; label: string; kind: "automatic" | "prepare" | "approval_required"; status: "ready" | "blocked"; reason: string }>;
 };
 
+type AgenticAttentionItem = {
+  id: string;
+  employeeId: number;
+  employeeName: string;
+  title: string;
+  detail: string;
+  category: string;
+  destination: string;
+};
+
 type QuickAction = {
   label: string;
   section: ProfileSection;
@@ -288,6 +298,7 @@ export default function EmployeeProfilePage() {
   const [newStarterReadiness, setNewStarterReadiness] = useState<NewStarterReadiness | null>(null);
   const [newStarterPlan, setNewStarterPlan] = useState<NewStarterPlan | null>(null);
   const [newStarterLoading, setNewStarterLoading] = useState(false);
+  const [agenticAttentionItems, setAgenticAttentionItems] = useState<AgenticAttentionItem[]>([]);
 
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -404,6 +415,43 @@ export default function EmployeeProfilePage() {
     void loadNewStarterReadiness();
     return () => { active = false; };
   }, [employee, employeeId]);
+
+  useEffect(() => {
+    if (!employeeId) return;
+
+    let active = true;
+
+    async function loadAgenticAttention() {
+      try {
+        const response = await fetch(
+          `/api/agentic/attention?employeeId=${employeeId}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          },
+        );
+        const result = await response.json().catch(() => null) as
+          | { success?: boolean; items?: AgenticAttentionItem[] }
+          | null;
+
+        if (!active) return;
+
+        setAgenticAttentionItems(
+          response.ok && result?.success && Array.isArray(result.items)
+            ? result.items
+            : [],
+        );
+      } catch (error) {
+        console.error("Agentic attention could not be loaded for employee:", error);
+        if (active) setAgenticAttentionItems([]);
+      }
+    }
+
+    void loadAgenticAttention();
+    return () => { active = false; };
+  }, [employeeId]);
 
   useEffect(() => {
     const selectedItem = navigationItems.find(
@@ -686,6 +734,13 @@ export default function EmployeeProfilePage() {
           loading={newStarterLoading}
         />
       )}
+
+      {!isNewStarter && agenticAttentionItems.length > 0 ? (
+        <AgenticAttentionBanner
+          item={agenticAttentionItems[0]}
+          onOpenSection={openSection}
+        />
+      ) : null}
 
       {isArchived && (
         <ArchivedBanner
@@ -1255,6 +1310,45 @@ function StatusBadge({ status }: { status: string }) {
   const style = getStatusBadgeStyle(status);
 
   return <span style={style}>{status}</span>;
+}
+
+function AgenticAttentionBanner({
+  item,
+  onOpenSection,
+}: {
+  item: AgenticAttentionItem;
+  onOpenSection: (section: ProfileSection) => void;
+}) {
+  const targetSection: ProfileSection =
+    item.category === "right_to_work"
+      ? "Right to Work"
+      : item.category === "dbs"
+        ? "DBS / Safeguarding"
+        : item.category === "driving"
+          ? "Driving"
+          : item.category === "qualification"
+            ? "Learning"
+            : "Documents";
+
+  return (
+    <section style={newStarterBannerStyle}>
+      <div>
+        <div style={bannerEyebrowStyle}>Leo needs your help</div>
+        <h2 style={bannerTitleStyle}>{item.title}</h2>
+        <p style={bannerDescriptionStyle}>{item.detail}</p>
+      </div>
+
+      <div style={bannerActionsStyle}>
+        <button
+          type="button"
+          onClick={() => onOpenSection(targetSection)}
+          style={secondaryButtonStyle}
+        >
+          Review {targetSection}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function NewStarterBanner({

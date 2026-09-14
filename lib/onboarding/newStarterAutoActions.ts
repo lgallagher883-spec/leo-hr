@@ -147,6 +147,31 @@ export async function runNewStarterAutomaticActions(args: {
           await admin.from("employee_probations").delete().eq("id", probation.data.id);
           deferred.push({ key: "probation", summary: "Leo could not complete the probation review schedule automatically." });
         } else {
+          const probationTimeline = await admin.from("employee_timeline").insert({
+            organisation_id: organisationId,
+            employee_id: employeeId,
+            event_type: "Agentic Probation Created",
+            title: "Standard probation schedule created",
+            description: "Leo created the standard probation period and review schedule from the recorded start date.",
+            status: "Completed",
+            source_module: "Agentic Leo",
+            source_record_id: String(probation.data.id),
+            metadata: {
+              probation_id: probation.data.id,
+              source: "agentic_leo_new_starter",
+              start_date: employee.start_date,
+              standard_end_date: standardEndDate,
+              final_decision_deadline: finalDecisionDeadline,
+            },
+            event_date: new Date().toISOString(),
+            created_by: userId,
+            created_at: new Date().toISOString(),
+          });
+
+          if (probationTimeline.error) {
+            console.warn("Agentic probation timeline event could not be created:", probationTimeline.error);
+          }
+
           completed.push({ key: "probation", summary: "Leo created the standard probation period and review schedule." });
         }
       }
@@ -299,4 +324,138 @@ export async function runNewStarterAutomaticActions(args: {
   }
 
   return { completed, deferred };
+}
+
+
+export async function syncAgenticProbationToApprovedStartDate(args: {
+  organisationId: string;
+  employeeId: number;
+  startDate: string;
+  userId: string;
+}): Promise<{ updated: boolean; reason: string }> {
+  const { organisationId, employeeId, startDate, userId } = args;
+  const admin = adminClient();
+
+  const employee = await admin
+    .from("employees")
+    .select("id")
+    .eq("id", employeeId)
+    .eq("organisation_id", organisationId)
+    .maybeSingle();
+
+  if (employee.error) throw new Error(employee.error.message);
+  if (!employee.data) return { updated: false, reason: "Employee is outside the active organisation." };
+
+  const sourceEvent = await admin
+    .from("employee_timeline")
+    .select("id,source_record_id")
+    .eq("organisation_id", organisationId)
+    .eq("employee_id", employeeId)
+    .eq("source_module", "Agentic Leo")
+    .eq("event_type", "Agentic Probation Created")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (sourceEvent.error) throw new Error(sourceEvent.error.message);
+
+  const probationId = Number(sourceEvent.data?.[0]?.source_record_id);
+  if (!Number.isInteger(probationId) || probationId <= 0) {
+    return { updated: false, reason: "Probation was not created by Agentic Leo, so Leo left it unchanged." };
+  }
+
+  const probation = await admin
+    .from("employee_probations")
+    .select("id,probation_start_date,status,extension_end_date,final_outcome")
+    .eq("id", probationId)
+    .eq("employee_id", employeeId)
+    .eq("is_archived", false)
+    .maybeSingle();
+
+  if (probation.error) throw new Error(probation.error.message);
+  if (!probation.data) return { updated: false, reason: "The Agentic Leo probation record is no longer active." };
+  if (probation.data.probation_start_date === startDate) {
+    return { updated: false, reason: "Probation is already aligned to the approved start date." };
+  }
+  if (probation.data.extension_end_date || probation.data.final_outcome) {
+    return { updated: false, reason: "Probation has progressed beyond the standard schedule and was not changed automatically." };
+  }
+
+  const reviews = await admin
+    .from("probation_reviews")
+    .select("id,review_week,status,completed_date")
+    .eq("probation_id", probationId)
+    .eq("employee_id", employeeId);
+
+  if (reviews.error) throw new Error(reviews.error.message);
+
+  const hasProgress = (reviews.data ?? []).some(
+    (review) =>
+      Boolean(review.completed_date) ||
+      !["Scheduled", "Pending", ""].includes(String(review.status || "")),
+  );
+
+  if (hasProgress) {
+    return { updated: false, reason: "A probation review has already progressed, so Leo left the schedule unchanged." };
+  }
+
+  const standardEndDate = addMonths(startDate, 3);
+  const finalDecisionDeadline = addMonths(startDate, 5);
+
+  const updateProbation = await admin
+    .from("employee_probations")
+    .update({
+      probation_start_date: startDate,
+      standard_end_date: standardEndDate,
+      current_end_date: standardEndDate,
+      final_decision_deadline: finalDecisionDeadline,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", probationId)
+    .eq("employee_id", employeeId);
+
+  if (updateProbation.error) throw new Error(updateProbation.error.message);
+
+  for (const review of reviews.data ?? []) {
+    const week = Number(review.review_week);
+    if (!Number.isFinite(week) || week <= 0) continue;
+
+    const reviewUpdate = await admin
+      .from("probation_reviews")
+      .update({
+        scheduled_date: addDays(startDate, Math.round(week * 7)),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", review.id)
+      .eq("probation_id", probationId);
+
+    if (reviewUpdate.error) throw new Error(reviewUpdate.error.message);
+  }
+
+  const now = new Date().toISOString();
+  const timeline = await admin.from("employee_timeline").insert({
+    organisation_id: organisationId,
+    employee_id: employeeId,
+    event_type: "Agentic Probation Rescheduled",
+    title: "Probation schedule aligned to new start date",
+    description: "Leo updated the untouched standard probation schedule after the approved employee start date changed.",
+    status: "Completed",
+    source_module: "Agentic Leo",
+    source_record_id: String(probationId),
+    metadata: {
+      old_start_date: probation.data.probation_start_date,
+      new_start_date: startDate,
+      standard_end_date: standardEndDate,
+      final_decision_deadline: finalDecisionDeadline,
+      ask_leo_involved: false,
+    },
+    event_date: now,
+    created_by: userId,
+    created_at: now,
+  });
+
+  if (timeline.error) {
+    console.warn("Agentic probation reschedule timeline event could not be created:", timeline.error);
+  }
+
+  return { updated: true, reason: "The untouched standard probation schedule was aligned to the approved start date." };
 }

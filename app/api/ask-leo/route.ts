@@ -15,6 +15,7 @@ import { assessNewStarterReadiness } from "@/lib/onboarding/newStarterReadiness"
 import { prepareNewStarterPlan } from "@/lib/onboarding/newStarterPlan";
 import { buildNewStarterWorkflowStartReply, buildNewStarterWorkflowProgressReply } from "@/lib/onboarding/newStarterAgent";
 import { applyNewStarterEmployerMessage } from "@/lib/onboarding/newStarterEmployerUpdate";
+import { runNewStarterAutomaticActions } from "@/lib/onboarding/newStarterAutoActions";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -330,6 +331,12 @@ export async function POST(req: Request) {
       Number.isInteger(newStarterEmployeeId) &&
       newStarterEmployeeId > 0
     ) {
+      const automaticActions = await runNewStarterAutomaticActions({
+        organisationId,
+        employeeId: newStarterEmployeeId,
+        userId: user.id,
+      });
+
       const readiness = await assessNewStarterReadiness({
         supabase,
         organisationId,
@@ -339,6 +346,8 @@ export async function POST(req: Request) {
       const deterministicReply = buildNewStarterWorkflowStartReply({
         readiness,
         plan,
+        automaticCompleted: automaticActions.completed,
+        automaticDeferred: automaticActions.deferred,
       });
 
       if (
@@ -427,6 +436,12 @@ export async function POST(req: Request) {
         });
 
         if (updateResult.recognised) {
+          await runNewStarterAutomaticActions({
+            organisationId,
+            employeeId: newStarterEmployeeId,
+            userId: user.id,
+          });
+
           const readiness = await assessNewStarterReadiness({
             supabase,
             organisationId,

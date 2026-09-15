@@ -209,12 +209,12 @@ export async function reconcileRoleComplianceResources(args: {
   employeeId: number;
   role: string;
   userId: string;
-}): Promise<{ matched: number; reason: string }> {
+}): Promise<{ matched: number; available: number; reason: string }> {
   const { admin, organisationId, employeeId, role, userId } = args;
   const targetRole = role.trim();
 
   if (!targetRole) {
-    return { matched: 0, reason: "No approved role is recorded." };
+    return { matched: 0, available: 0, reason: "No approved role is recorded." };
   }
 
   const resources = await admin
@@ -242,11 +242,42 @@ export async function reconcileRoleComplianceResources(args: {
   if (!matched.length) {
     return {
       matched: 0,
+      available: 0,
       reason: "No organisation policy or compliance resource explicitly targets the approved role.",
     };
   }
 
   const now = new Date().toISOString();
+
+  const resourceIds = matched.map((resource: any) => resource.id);
+  const companyDocuments = resourceIds.length
+    ? await admin
+        .from("company_documents")
+        .select("id,name,document_type,status,policy_register_id")
+        .eq("organisation_id", organisationId)
+        .in("policy_register_id", resourceIds)
+        .eq("access_level", "everyone")
+    : { data: [], error: null };
+
+  if (companyDocuments.error) {
+    console.warn(
+      "Agentic role compliance documents could not be checked for employee availability:",
+      companyDocuments.error,
+    );
+  }
+
+  const availableResourceIds = new Set(
+    (companyDocuments.data ?? [])
+      .filter((document: any) => {
+        const status = String(document.status || "").toLowerCase();
+        return !status || status === "active";
+      })
+      .map((document: any) => String(document.policy_register_id)),
+  );
+
+  const available = matched.filter((resource: any) =>
+    availableResourceIds.has(String(resource.id)),
+  );
 
   const existing = await admin
     .from("employee_timeline")
@@ -276,6 +307,7 @@ export async function reconcileRoleComplianceResources(args: {
   if (alreadyRecorded) {
     return {
       matched: matched.length,
+      available: available.length,
       reason: "The current role-based compliance resource match is already recorded.",
     };
   }
@@ -296,7 +328,9 @@ export async function reconcileRoleComplianceResources(args: {
         id: resource.id,
         name: resource.name,
         version_number: resource.version_number,
+        available_to_employee: availableResourceIds.has(String(resource.id)),
       })),
+      employee_document_ids: (companyDocuments.data ?? []).map((document: any) => document.id),
       acknowledgement_status: "not_recorded",
       automatic_acknowledgement: false,
       ask_leo_involved: false,
@@ -312,7 +346,11 @@ export async function reconcileRoleComplianceResources(args: {
 
   return {
     matched: matched.length,
-    reason: "Organisation resources explicitly targeting the approved role were matched without inventing acknowledgement.",
+    available: available.length,
+    reason:
+      available.length === matched.length
+        ? "Role-targeted resources are already available in the employee portal without inventing acknowledgement."
+        : "Role-targeted resources were matched; only resources already shared with employees are treated as available.",
   };
 }
 

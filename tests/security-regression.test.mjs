@@ -443,3 +443,14 @@ test("right to work evidence never becomes automatic statutory verification", ()
   assert.match(employeeDocumentsRoute, /Agentic Right To Work Evidence Filed/);
   assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
 });
+
+
+test("Agentic evidence attention self clears when the human verification is complete", () => {
+  assert.match(employeeDocumentsRoute, /classification: "qualification"/);
+  assert.match(employeeDocumentsRoute, /classification: "driving"/);
+  assert.match(employeeDocumentsRoute, /classification: "dbs"/);
+  assert.match(employeeDocumentsRoute, /classification: "right_to_work"/);
+  assert.match(agenticAttentionRoute, /classification === "qualification"/);
+  assert.match(agenticAttentionRoute, /verification_status/);
+  assert.match(agenticAttentionRoute, /toLowerCase\(\) !== "verified"/);
+});

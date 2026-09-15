@@ -824,6 +824,17 @@ test("offboarding prepares administration but preserves consequential decisions"
 });
 
 
+test("offboarding human intervention stays explicit and non-agentic", () => {
+  assert.match(agenticOffboardingWorkflow, /routeHumanInputToNeedsHelp/);
+  assert.match(agenticOffboardingWorkflow, /reasons: string\[\]/);
+  assert.match(employeeEmploymentRoute, /destination: "Leo Needs Your Help"/);
+  assert.match(employeeEmploymentRoute, /reasons: offboardingPlan\.reasons/);
+  assert.match(employeeEmploymentRoute, /final_pay_decision: "not_made"/);
+  assert.match(employeeEmploymentRoute, /access_removal_status: "not_authorised"/);
+  assert.match(employeeEmploymentRoute, /ask_leo_involved: false/);
+});
+
+
 test("an authorised final-date change prepares live offboarding without ending employment", () => {
   assert.match(employeeEmploymentRoute, /planOffboardingAdministration/);
   assert.match(employeeEmploymentRoute, /authorisedDepartureRecorded/);

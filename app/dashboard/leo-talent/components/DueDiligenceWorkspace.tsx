@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import CandidateEmployeeDetails from "./shared/CandidateEmployeeDetails";
-import TalentIntelligencePanel from "./shared/TalentIntelligencePanel";
 import IdentityVerificationDetails from "./shared/IdentityVerificationDetails";
 import RightToWorkDetails from "./shared/RightToWorkDetails";
 import ReferencesDetails from "./shared/ReferencesDetails";
@@ -582,8 +581,6 @@ export default function DueDiligenceWorkspace() {
       </header>
 
       {notice ? <div style={{ ...styles.notice, ...(notice.type === "error" ? styles.noticeError : styles.noticeSuccess) }}><span>{notice.message}</span><button type="button" style={styles.noticeClose} onClick={() => setNotice(null)}>×</button></div> : null}
-
-      <TalentIntelligencePanel stage="due_diligence" />
 
       <div style={styles.workspaceGrid}>
         <aside style={styles.register}>

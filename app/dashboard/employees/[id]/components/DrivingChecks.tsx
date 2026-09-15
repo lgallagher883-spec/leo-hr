@@ -1,16 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type DrivingChecksProps = {
   employeeId: number;
@@ -133,22 +128,16 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
   const risk = getDrivingRisk(penaltyPoints);
 
   async function loadRecords() {
-    const { data, error } = await supabase
-      .from("employee_driving_checks")
-      .select(
-        "id, drives_for_work, vehicle_used, authorised_to_drive, driving_licence_number, licence_categories, licence_issue_date, licence_expiry_date, dvla_check_completed, dvla_check_date, next_dvla_check_due, business_insurance_confirmed, business_insurance_expiry_date, penalty_points, motoring_convictions, restrictions_or_adjustments, senior_authorisation_required, authorised_by, date_authorised, notes, created_at"
-      )
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/driving`, { method: "GET", cache: "no-store", credentials: "include" });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "Driving records could not be loaded.");
+      setRecords(result.records || []);
+    } catch (error) {
       console.error("Error loading driving records:", error);
-      setLoading(false);
-      return;
-    }
-
-    setRecords(data || []);
-    setLoading(false);
+      setMessage(error instanceof Error ? error.message : "Driving records could not be loaded.");
+    } finally { setLoading(false); }
   }
 
   useEffect(() => {
@@ -192,56 +181,22 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase.from("employee_driving_checks").insert([
-      {
-        employee_id: employeeId,
-        drives_for_work: drivesForWork,
-        vehicle_used: drivesForWork === "Yes" ? vehicleUsed : null,
-        authorised_to_drive:
-          drivesForWork === "Yes" ? authorisedToDrive : null,
-        driving_licence_number:
-          drivesForWork === "Yes" ? drivingLicenceNumber || null : null,
-        licence_categories:
-          drivesForWork === "Yes" ? licenceCategories || null : null,
-        licence_issue_date:
-          drivesForWork === "Yes" ? licenceIssueDate || null : null,
-        licence_expiry_date:
-          drivesForWork === "Yes" ? licenceExpiryDate || null : null,
-        dvla_check_completed:
-          drivesForWork === "Yes" ? dvlaCheckCompleted : null,
-        dvla_check_date:
-          drivesForWork === "Yes" ? dvlaCheckDate || null : null,
-        next_dvla_check_due:
-          drivesForWork === "Yes" ? nextDvlaCheckDue || null : null,
-        business_insurance_confirmed:
-          drivesForWork === "Yes" ? businessInsuranceConfirmed : null,
-        business_insurance_expiry_date:
-          drivesForWork === "Yes"
-            ? businessInsuranceExpiryDate || null
-            : null,
-        penalty_points:
-          drivesForWork === "Yes" && penaltyPoints
-            ? Number(penaltyPoints)
-            : null,
-        motoring_convictions:
-          drivesForWork === "Yes" ? motoringConvictions || null : null,
-        restrictions_or_adjustments:
-          drivesForWork === "Yes" ? restrictionsOrAdjustments || null : null,
-        senior_authorisation_required:
-          drivesForWork === "Yes" ? seniorAuthorisationRequired : null,
-        authorised_by: drivesForWork === "Yes" ? authorisedBy || null : null,
-        date_authorised:
-          drivesForWork === "Yes" ? dateAuthorised || null : null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/driving`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          drivesForWork, vehicleUsed, authorisedToDrive, drivingLicenceNumber, licenceCategories,
+          licenceIssueDate, licenceExpiryDate, dvlaCheckCompleted, dvlaCheckDate, nextDvlaCheckDue,
+          businessInsuranceConfirmed, businessInsuranceExpiryDate, penaltyPoints: penaltyPoints ? Number(penaltyPoints) : null,
+          motoringConvictions, restrictionsOrAdjustments, seniorAuthorisationRequired, authorisedBy, dateAuthorised, notes
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "Driving record could not be saved.");
+    } catch (error) {
       console.error("Error saving driving record:", error);
-      setMessage("Driving record could not be saved.");
-      setSaving(false);
-      return;
+      setMessage(error instanceof Error ? error.message : "Driving record could not be saved.");
+      setSaving(false); return;
     }
 
     setDrivesForWork("Yes");

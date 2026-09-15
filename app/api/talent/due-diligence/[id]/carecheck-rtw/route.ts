@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
-import { planWorkforceCheck } from "@/lib/agentic/checkCoordination";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 import { pullCareCheckApplicationStatus } from "@/lib/carecheck/status-pull";
 import { createClient } from "@/lib/supabase/server";
@@ -31,8 +30,24 @@ function careCheckReference(value: unknown, fallback: string): string {
   return normalised || fallback.replace(/[^A-Za-z0-9_]/g, "");
 }
 
-function leoRtwStatus(providerStatus: unknown): string {
+function leoRtwStatus(
+  providerStatus: unknown,
+  rtwCheckStatus?: unknown,
+  rtwCheckDate?: unknown,
+): string {
   const status = text(providerStatus).toUpperCase();
+  const result = text(rtwCheckStatus).toUpperCase();
+  const hasCheckDate = Boolean(text(rtwCheckDate));
+
+  // CareCheck can report the application lifecycle as complete separately
+  // from the RTW result fields. Treat an explicit successful provider result
+  // as verified; never infer a pass merely from APP_COMPLETE.
+  if (
+    ["PASS", "PASSED", "CLEAR", "CLEARED", "VERIFIED", "SUCCESS", "COMPLETE", "COMPLETED"].includes(result) &&
+    (hasCheckDate || status === "APP_COMPLETE")
+  ) {
+    return "verified";
+  }
 
   switch (status) {
     case "INVITE_SENT":
@@ -172,9 +187,13 @@ async function saveState({
       ? (context.shared.payload as Record<string, unknown>)
       : {};
 
-  const status = leoRtwStatus(careCheck.statusCode);
   const providerCheckDate = text(careCheck.rtwCheckDate);
   const providerOutcome = text(careCheck.rtwCheckStatus);
+  const status = leoRtwStatus(
+    careCheck.statusCode,
+    providerOutcome,
+    providerCheckDate,
+  );
 
   const payload = {
     ...existingPayload,
@@ -272,35 +291,6 @@ export async function POST(request: Request, routeContext: RouteContext) {
         ? (existingPayload.careCheck as Record<string, unknown>)
         : {};
 
-    const existingStatus = text(context.shared?.status).toLowerCase();
-    const existingOutcome = text(existingPayload.verificationOutcome).toLowerCase();
-    const existingVerifiedEvidence =
-      ["verified", "complete", "completed", "cleared"].includes(existingStatus) ||
-      ["verified", "valid", "cleared", "pass", "passed"].includes(existingOutcome);
-    const consentRecorded =
-      existingPayload.consentRecorded === true ||
-      existingPayload.consent_recorded === true;
-    const discrepancyRecorded =
-      existingPayload.discrepancyRecorded === true ||
-      existingPayload.discrepancy_recorded === true;
-
-    const agenticCheckPlan = planWorkforceCheck({
-      checkType: "right_to_work",
-      required: true,
-      existingVerifiedEvidence,
-      providerAvailable: true,
-      consentRecorded,
-      discrepancyRecorded,
-    });
-
-    if (action === "agentic_plan") {
-      return NextResponse.json({
-        success: true,
-        agenticCheckPlan,
-        askLeoInvolved: false,
-      });
-    }
-
     if (action === "invite") {
       if (!context.candidate?.email) {
         return NextResponse.json(
@@ -379,7 +369,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
         careCheck,
       });
 
-      return NextResponse.json({ success: true, careCheck, agenticCheckPlan, askLeoInvolved: false });
+      return NextResponse.json({ success: true, careCheck });
     }
 
     if (action === "refresh_status") {

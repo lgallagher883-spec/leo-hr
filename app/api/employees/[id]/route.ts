@@ -138,6 +138,7 @@ export async function GET(
       return NextResponse.json({
         success: true,
         employee,
+        platformRole: toPlatformRole(accessResult.access.role),
       });
     }
 
@@ -770,6 +771,19 @@ function readString(
   return typeof value === "string"
     ? value
     : "";
+}
+
+function toPlatformRole(role: string): "Owner" | "Senior" | "Manager" | "Employee" {
+  switch (role.trim().toLowerCase()) {
+    case "owner":
+      return "Owner";
+    case "senior":
+      return "Senior";
+    case "manager":
+      return "Manager";
+    default:
+      return "Employee";
+  }
 }
 
 type AccessContext = {

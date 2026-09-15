@@ -83,26 +83,6 @@ type TimelineEvent = {
   source: string;
 };
 
-type NewStarterReadiness = {
-  overallStatus: "ready" | "needs_attention" | "blocked";
-  counts: { complete: number; missing: number; needsReview: number; blocking: number };
-  items: Array<{ key: string; label: string; status: "complete" | "missing" | "not_required" | "needs_review"; blocking: boolean; detail: string }>;
-};
-
-type NewStarterPlan = {
-  actions: Array<{ key: string; label: string; kind: "automatic" | "prepare" | "approval_required"; status: "ready" | "blocked"; reason: string }>;
-};
-
-type AgenticAttentionItem = {
-  id: string;
-  employeeId: number;
-  employeeName: string;
-  title: string;
-  detail: string;
-  category: string;
-  destination: string;
-};
-
 type QuickAction = {
   label: string;
   section: ProfileSection;
@@ -244,41 +224,6 @@ const quickActions: QuickAction[] = [
   },
 ];
 
-const defaultPlatformRole: PlatformRole = "Employee";
-
-function isUpcomingStarter(employee: Pick<Employee, "status" | "start_date">): boolean {
-  const status = normaliseEmployeeStatus(employee.status);
-  if (status === "Archived" || status === "Former Employee") return false;
-  if (status === "New Starter") return true;
-  if (!employee.start_date) return false;
-
-  const start = new Date(`${employee.start_date}T12:00:00`);
-  if (Number.isNaN(start.getTime())) return false;
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
-  return start.getTime() >= today.getTime();
-}
-
-function requiresEmployerAttention(item: NewStarterReadiness["items"][number]): boolean {
-  if (item.status === "complete" || item.status === "not_required") return false;
-
-  if (["starter_details", "manager", "right_to_work", "dbs", "future_start_date"].includes(item.key)) {
-    return true;
-  }
-
-  if (item.key === "contract") {
-    return item.detail.includes("Confirm:");
-  }
-
-  if (item.key === "portal_invitation") {
-    return item.detail.toLowerCase().includes("email");
-  }
-
-  return false;
-}
-
-
 export default function EmployeeProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -294,11 +239,7 @@ export default function EmployeeProfilePage() {
   const [activeSection, setActiveSection] =
     useState<ProfileSection>("Overview");
 
-  const [platformRole] = useState<PlatformRole>(defaultPlatformRole);
-  const [newStarterReadiness, setNewStarterReadiness] = useState<NewStarterReadiness | null>(null);
-  const [newStarterPlan, setNewStarterPlan] = useState<NewStarterPlan | null>(null);
-  const [newStarterLoading, setNewStarterLoading] = useState(false);
-  const [agenticAttentionItems, setAgenticAttentionItems] = useState<AgenticAttentionItem[]>([]);
+  const [platformRole, setPlatformRole] = useState<PlatformRole | null>(null);
 
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -311,7 +252,7 @@ export default function EmployeeProfilePage() {
 
   const hasPermission = useCallback(
     (minimumRole: PlatformRole) =>
-      roleRank[platformRole] >= roleRank[minimumRole],
+      platformRole !== null && roleRank[platformRole] >= roleRank[minimumRole],
     [platformRole]
   );
 
@@ -346,6 +287,7 @@ export default function EmployeeProfilePage() {
       const result = (await response.json()) as {
         success?: boolean;
         employee?: Employee;
+        platformRole?: PlatformRole;
         error?: string;
       };
 
@@ -357,6 +299,10 @@ export default function EmployeeProfilePage() {
       }
 
       setEmployee(result.employee);
+      if (!result.platformRole) {
+        throw new Error("Your organisation role could not be resolved.");
+      }
+      setPlatformRole(result.platformRole);
     } catch (error) {
       console.error("Error loading employee:", error);
       setLoadError(
@@ -373,85 +319,6 @@ export default function EmployeeProfilePage() {
   useEffect(() => {
     void loadEmployee();
   }, [loadEmployee]);
-
-  useEffect(() => {
-    if (!employeeId || !employee) return;
-    if (!isUpcomingStarter(employee)) {
-      setNewStarterReadiness(null);
-      setNewStarterPlan(null);
-      return;
-    }
-
-    let active = true;
-    async function loadNewStarterReadiness() {
-      setNewStarterLoading(true);
-      try {
-        let response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
-          method: "POST",
-          cache: "no-store",
-          credentials: "include",
-        });
-
-        if (response.status === 403) {
-          response = await fetch(`/api/employees/${employeeId}/new-starter-readiness`, {
-            method: "GET",
-            cache: "no-store",
-            credentials: "include",
-          });
-        }
-        const result = await response.json().catch(() => null) as
-          | { success?: boolean; readiness?: NewStarterReadiness; plan?: NewStarterPlan }
-          | null;
-        if (active && response.ok && result?.success) {
-          setNewStarterReadiness(result.readiness ?? null);
-          setNewStarterPlan(result.plan ?? null);
-        }
-      } catch (error) {
-        console.error("New starter readiness could not be loaded:", error);
-      } finally {
-        if (active) setNewStarterLoading(false);
-      }
-    }
-    void loadNewStarterReadiness();
-    return () => { active = false; };
-  }, [employee, employeeId]);
-
-  useEffect(() => {
-    if (!employeeId) return;
-
-    let active = true;
-
-    async function loadAgenticAttention() {
-      try {
-        const response = await fetch(
-          `/api/agentic/attention?employeeId=${employeeId}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            credentials: "include",
-            headers: { Accept: "application/json" },
-          },
-        );
-        const result = await response.json().catch(() => null) as
-          | { success?: boolean; items?: AgenticAttentionItem[] }
-          | null;
-
-        if (!active) return;
-
-        setAgenticAttentionItems(
-          response.ok && result?.success && Array.isArray(result.items)
-            ? result.items
-            : [],
-        );
-      } catch (error) {
-        console.error("Agentic attention could not be loaded for employee:", error);
-        if (active) setAgenticAttentionItems([]);
-      }
-    }
-
-    void loadAgenticAttention();
-    return () => { active = false; };
-  }, [employeeId]);
 
   useEffect(() => {
     const selectedItem = navigationItems.find(
@@ -661,7 +528,7 @@ export default function EmployeeProfilePage() {
 
   const employeeStatus = normaliseEmployeeStatus(employee.status);
   const isArchived = employeeStatus === "Archived";
-  const isNewStarter = isUpcomingStarter(employee);
+  const isNewStarter = employeeStatus === "New Starter";
   const startDateLabel = formatDate(employee.start_date);
 
   return (
@@ -695,7 +562,7 @@ export default function EmployeeProfilePage() {
               label="Employee reference"
               value={String(employee.id)}
             />
-            <HeaderMeta label="Access view" value={platformRole} />
+            <HeaderMeta label="Access view" value={platformRole || "Resolving"} />
           </div>
         </div>
 
@@ -720,27 +587,14 @@ export default function EmployeeProfilePage() {
         </div>
       </header>
 
-      {isNewStarter &&
-        (newStarterLoading ||
-          (newStarterReadiness &&
-            newStarterReadiness.items.some(requiresEmployerAttention))) && (
+      {isNewStarter && (
         <NewStarterBanner
           employeeName={employee.name}
           startDate={startDateLabel}
-          onViewEmployment={() => { openSection("Employment"); window.setTimeout(() => document.getElementById("employee-profile-content")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }}
+          onViewEmployment={() => openSection("Employment")}
           onViewDocuments={() => openSection("Documents")}
-          readiness={newStarterReadiness}
-          plan={newStarterPlan}
-          loading={newStarterLoading}
         />
       )}
-
-      {!isNewStarter && agenticAttentionItems.length > 0 ? (
-        <AgenticAttentionBanner
-          item={agenticAttentionItems[0]}
-          onOpenSection={openSection}
-        />
-      ) : null}
 
       {isArchived && (
         <ArchivedBanner
@@ -751,7 +605,7 @@ export default function EmployeeProfilePage() {
         />
       )}
 
-      <div id="employee-profile-content" className="employee-profile-layout">
+      <div className="employee-profile-layout">
         <aside style={navigationStyle} aria-label="Employee profile sections">
           <div style={navigationHeadingStyle}>
             <div style={navigationTitleStyle}>Employee record</div>
@@ -791,12 +645,6 @@ export default function EmployeeProfilePage() {
         <main style={mainContentStyle}>
           {activeSection === "Overview" && (
             <div style={sectionStackStyle}>
-              <SectionHeading
-                eyebrow="Employee overview"
-                title={employee.name}
-                description="Current employment information, compliance position and useful actions from one place."
-              />
-
               <div style={summaryGridStyle}>
                 <SummaryCard
                   label="Employment status"
@@ -1312,126 +1160,46 @@ function StatusBadge({ status }: { status: string }) {
   return <span style={style}>{status}</span>;
 }
 
-function AgenticAttentionBanner({
-  item,
-  onOpenSection,
-}: {
-  item: AgenticAttentionItem;
-  onOpenSection: (section: ProfileSection) => void;
-}) {
-  const targetSection: ProfileSection =
-    item.category === "right_to_work"
-      ? "Right to Work"
-      : item.category === "dbs"
-        ? "DBS / Safeguarding"
-        : item.category === "driving"
-          ? "Driving"
-          : item.category === "qualification"
-            ? "Learning"
-            : "Documents";
-
-  return (
-    <section style={newStarterBannerStyle}>
-      <div>
-        <div style={bannerEyebrowStyle}>Leo needs your help</div>
-        <h2 style={bannerTitleStyle}>{item.title}</h2>
-        <p style={bannerDescriptionStyle}>{item.detail}</p>
-      </div>
-
-      <div style={bannerActionsStyle}>
-        <button
-          type="button"
-          onClick={() => onOpenSection(targetSection)}
-          style={secondaryButtonStyle}
-        >
-          Review {targetSection}
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function NewStarterBanner({
   employeeName,
   startDate,
   onViewEmployment,
   onViewDocuments,
-  readiness,
-  plan: _plan,
-  loading,
 }: {
   employeeName: string;
   startDate: string;
   onViewEmployment: () => void;
   onViewDocuments: () => void;
-  readiness: NewStarterReadiness | null;
-  plan: NewStarterPlan | null;
-  loading: boolean;
 }) {
-  const attentionItems = readiness?.items.filter(requiresEmployerAttention) ?? [];
-
   return (
     <section style={newStarterBannerStyle}>
       <div>
-        <div style={bannerEyebrowStyle}>Leo needs your help</div>
-        <h2 style={bannerTitleStyle}>{employeeName}</h2>
-        <p style={bannerDescriptionStyle}>Starts {startDate}</p>
-
-        {loading ? (
-          <p style={bannerDescriptionStyle}>
-            Leo is completing the preparation it can do automatically...
-          </p>
-        ) : attentionItems.length > 0 ? (
-          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-            {attentionItems.map((item) => {
-              const contractConfirm =
-                item.key === "contract" && item.detail.includes("Confirm:")
-                  ? item.detail.split("Confirm:")[1]?.replace(/\.$/, "").trim()
-                  : null;
-
-              return (
-                <div key={item.key}>
-                  <strong>
-                    {item.key === "contract"
-                      ? "Contract information to confirm"
-                      : item.label}
-                  </strong>
-                  <div style={bannerDescriptionStyle}>
-                    {contractConfirm ? (
-                      <strong>{contractConfirm}</strong>
-                    ) : (
-                      item.detail
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
+        <div style={bannerEyebrowStyle}>New starter</div>
+        <h2 style={bannerTitleStyle}>
+          Prepare {employeeName} for employment
+        </h2>
+        <p style={bannerDescriptionStyle}>
+          Start date: {startDate}. Review the employment record and ensure
+          required documents are available before employment begins.
+        </p>
       </div>
 
       <div style={bannerActionsStyle}>
-        {attentionItems.some((item) =>
-          ["starter_details", "manager", "contract", "future_start_date"].includes(item.key)
-        ) ? (
-          <button
-            type="button"
-            onClick={onViewEmployment}
-            style={secondaryButtonStyle}
-          >
-            Review employment
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={onViewEmployment}
+          style={secondaryButtonStyle}
+        >
+          Review employment
+        </button>
 
-        {attentionItems.some((item) => item.key === "contract") ? (
-          <button
-            type="button"
-            onClick={onViewDocuments}
-            style={secondaryButtonStyle}
-          >
-            Review documents
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={onViewDocuments}
+          style={primaryButtonStyle}
+        >
+          View documents
+        </button>
       </div>
     </section>
   );

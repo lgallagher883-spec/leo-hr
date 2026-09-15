@@ -1,16 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
-import Field from "./Field";
-import SelectField from "./SelectField";
-import SaveButton from "./SaveButton";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type RightToWorkProps = {
   employeeId: number;
@@ -41,6 +32,7 @@ const nationalityOptions = [
 
 export default function RightToWork({ employeeId }: RightToWorkProps) {
   const [records, setRecords] = useState<RightToWorkRecord[]>([]);
+  const [talentRecord, setTalentRecord] = useState<any>(null);
 
   const [nationality, setNationality] = useState("English");
   const [immigrationStatus, setImmigrationStatus] = useState("");
@@ -59,22 +51,25 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   const isOtherNationality = nationality === "Other";
 
   async function loadRecords() {
-    const { data, error } = await supabase
-      .from("employee_right_to_work")
-      .select(
-        "id, nationality, immigration_status, visa_or_permit_type, share_code, right_to_work_expiry, restrictions, check_completed_date, next_review_date, notes, created_at"
-      )
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/right-to-work`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Right to work records could not be loaded.");
+      }
+      setRecords(result.records || []);
+      setTalentRecord(result.talentRecord || null);
+    } catch (error) {
       console.error("Error loading right to work records:", error);
+      setMessage(error instanceof Error ? error.message : "Right to work records could not be loaded.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setRecords(data || []);
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -102,25 +97,30 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase.from("employee_right_to_work").insert([
-      {
-        employee_id: employeeId,
-        nationality,
-        immigration_status: immigrationStatus || null,
-        visa_or_permit_type: visaOrPermitType || null,
-        share_code: shareCode || null,
-        right_to_work_expiry: rightToWorkExpiry || null,
-        restrictions: restrictions || null,
-        check_completed_date: checkCompletedDate || null,
-        next_review_date: nextReviewDate || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/right-to-work`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nationality,
+          immigrationStatus: immigrationStatus || null,
+          visaOrPermitType: visaOrPermitType || null,
+          shareCode: shareCode || null,
+          rightToWorkExpiry: rightToWorkExpiry || null,
+          restrictions: restrictions || null,
+          checkCompletedDate: checkCompletedDate || null,
+          nextReviewDate: nextReviewDate || null,
+          notes: notes || null,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Right to work record could not be saved.");
+      }
+    } catch (error) {
       console.error("Error saving right to work record:", error);
-      setMessage("Right to work record could not be saved.");
+      setMessage(error instanceof Error ? error.message : "Right to work record could not be saved.");
       setSaving(false);
       return;
     }
@@ -139,193 +139,134 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     loadRecords();
   }
 
+  const talentPayload =
+    talentRecord?.payload && typeof talentRecord.payload === "object"
+      ? talentRecord.payload
+      : null;
+  const careCheck =
+    talentPayload?.careCheck && typeof talentPayload.careCheck === "object"
+      ? talentPayload.careCheck
+      : null;
+  const latest = records[0] || null;
+  const status = talentPayload?.status || latest?.immigration_status || "not_recorded";
+  const statusLabel = String(status)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
   return (
     <ProfileSection title="Right to Work">
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
-        Record or complete right to work checks and review dates here at any time, including after an employee import. If nationality is marked as Other, visa or permit details should be completed.
-      </p>
-
-      <SelectField
-        label="Nationality"
-        value={nationality}
-        onChange={setNationality}
-        options={nationalityOptions}
-        small
-      />
-
-      {!isOtherNationality && (
-        <div style={noticeStyle}>
-          British / UK nationality selected. Visa fields are not required, but
-          you should still record the right to work check date and any notes.
-        </div>
-      )}
-
-      {isOtherNationality && (
-        <div style={warningStyle}>
-          Other nationality selected. Complete visa / permit details, expiry date
-          and review information.
-        </div>
-      )}
-
-      {isOtherNationality && (
-        <>
-          <Field
-            label="Immigration Status"
-            value={immigrationStatus}
-            onChange={setImmigrationStatus}
-            placeholder="e.g. Skilled Worker, Student, Dependant"
-          />
-
-          <Field
-            label="Visa / Permit Type"
-            value={visaOrPermitType}
-            onChange={setVisaOrPermitType}
-            placeholder="e.g. Skilled Worker visa"
-          />
-
-          <Field
-            label="Share Code"
-            value={shareCode}
-            onChange={setShareCode}
-            placeholder="e.g. ABC-123-XYZ"
-          />
-
-          <Field
-            label="Right to Work Expiry"
-            value={rightToWorkExpiry}
-            onChange={setRightToWorkExpiry}
-            type="date"
-            small
-          />
-
-          <Field
-            label="Restrictions"
-            value={restrictions}
-            onChange={setRestrictions}
-            placeholder="Any work restrictions or conditions"
-          />
-        </>
-      )}
-
-      <Field
-        label="Check Completed Date"
-        value={checkCompletedDate}
-        onChange={setCheckCompletedDate}
-        type="date"
-        small
-      />
-
-      <Field
-        label="Next Review Date"
-        value={nextReviewDate}
-        onChange={setNextReviewDate}
-        type="date"
-        small
-      />
-
-      <Field
-        label="Notes"
-        value={notes}
-        onChange={setNotes}
-        placeholder="Optional notes"
-      />
-
-      <SaveButton onClick={saveRecord} disabled={saving}>
-        {saving ? "Saving..." : "Save right to work record"}
-      </SaveButton>
-
-      {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
-          {message}
-        </div>
-      )}
-
-      <div style={{ marginTop: "24px" }}>
-        <div style={{ fontWeight: 800, marginBottom: "10px" }}>
-          Right to work history
-        </div>
-
-        {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading right to work records...</div>
-        ) : records.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No right to work records yet.</div>
-        ) : (
-          <div style={{ display: "grid", gap: "10px" }}>
-            {records.map((record) => (
-              <div
-                key={record.id}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "10px",
-                  padding: "12px",
-                  background: "#F9FAFB",
-                }}
-              >
-                <div style={{ fontWeight: 800 }}>
-                  {record.nationality}
-                  {record.visa_or_permit_type
-                    ? ` · ${record.visa_or_permit_type}`
-                    : ""}
-                </div>
-
-                <div style={{ color: "#6B7280", fontSize: "13px", marginTop: "4px" }}>
-                  Check completed: {record.check_completed_date || "Not set"} ·
-                  Next review: {record.next_review_date || "Not set"}
-                </div>
-
-                {record.right_to_work_expiry && (
-                  <div style={{ marginTop: "8px" }}>
-                    <strong>Right to work expiry:</strong>{" "}
-                    {record.right_to_work_expiry}
-                  </div>
-                )}
-
-                {record.share_code && (
-                  <div style={{ marginTop: "8px" }}>
-                    <strong>Share code:</strong> {record.share_code}
-                  </div>
-                )}
-
-                {record.restrictions && (
-                  <div style={{ marginTop: "8px" }}>
-                    <strong>Restrictions:</strong> {record.restrictions}
-                  </div>
-                )}
-
-                {record.notes && (
-                  <div style={{ marginTop: "8px", whiteSpace: "pre-wrap" }}>
-                    <strong>Notes:</strong> {record.notes}
-                  </div>
-                )}
-
-                <div style={{ color: "#6B7280", fontSize: "12px", marginTop: "10px" }}>
-                  Added {new Date(record.created_at).toLocaleString("en-GB")}
-                </div>
-              </div>
-            ))}
+      {loading ? (
+        <div style={{ color: "#6B7280" }}>Loading Right to Work record...</div>
+      ) : (
+        <div style={{ display: "grid", gap: "14px" }}>
+          <div style={summaryStyle}>
+            <div>
+              <div style={eyebrowStyle}>Current position</div>
+              <div style={statusStyle}>{statusLabel}</div>
+            </div>
+            <div style={summaryGridStyle}>
+              <Summary label="Checking method" value={talentPayload?.method || "Not recorded"} />
+              <Summary label="Check date" value={talentPayload?.dateOfCheck || latest?.check_completed_date || "Not recorded"} />
+              <Summary label="Outcome" value={talentPayload?.verificationOutcome || careCheck?.rtwCheckStatus || "Not recorded"} />
+              <Summary label="Permission expiry" value={talentPayload?.expiryDate || latest?.right_to_work_expiry || "Not recorded"} />
+              <Summary label="Next review" value={talentPayload?.followUpDate || latest?.next_review_date || "Not recorded"} />
+              <Summary label="Provider" value={careCheck ? "CareCheck" : "Employer recorded"} />
+            </div>
           </div>
-        )}
-      </div>
+
+          {careCheck ? (
+            <div style={providerStyle}>
+              <div style={eyebrowStyle}>CareCheck</div>
+              <strong>{careCheck.statusDescription || careCheck.statusCode || "Provider status recorded"}</strong>
+              {careCheck.rtwCheckStatus ? <span>Result: {careCheck.rtwCheckStatus}</span> : null}
+              {careCheck.rtwCheckDate ? <span>Check date: {careCheck.rtwCheckDate}</span> : null}
+            </div>
+          ) : null}
+
+          {records.length === 0 && !talentRecord ? (
+            <div style={emptyStyle}>No Right to Work information has been recorded for this employee yet.</div>
+          ) : null}
+        </div>
+      )}
     </ProfileSection>
   );
 }
 
-const noticeStyle: React.CSSProperties = {
-  background: "#F9FAFB",
-  border: "1px solid #e5e7eb",
-  borderRadius: "10px",
-  padding: "12px",
-  color: "#374151",
-  fontSize: "14px",
-  marginBottom: "14px",
+function Summary({ label, value }: { label: string; value: string }) {
+  const display = String(value || "Not recorded").replace(/_/g, " ");
+  return (
+    <div style={itemStyle}>
+      <div style={labelStyle}>{label}</div>
+      <div style={valueStyle}>{display}</div>
+    </div>
+  );
+}
+
+const summaryStyle: React.CSSProperties = {
+  border: "1px solid #E7DDED",
+  borderRadius: "14px",
+  padding: "18px",
+  background: "#FFFFFF",
 };
 
-const warningStyle: React.CSSProperties = {
-  background: "#FEF3C7",
-  border: "1px solid #F59E0B",
+const summaryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "10px",
+  marginTop: "14px",
+};
+
+const itemStyle: React.CSSProperties = {
+  border: "1px solid #EEE7F1",
   borderRadius: "10px",
-  padding: "12px",
-  color: "#92400E",
-  fontSize: "14px",
-  marginBottom: "14px",
+  padding: "11px",
+  background: "#FBF9FC",
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  color: "#6E5084",
+  fontSize: "11px",
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+};
+
+const statusStyle: React.CSSProperties = {
+  marginTop: "5px",
+  color: "#342B38",
+  fontSize: "18px",
+  fontWeight: 800,
+};
+
+const labelStyle: React.CSSProperties = {
+  color: "#817586",
+  fontSize: "10px",
+  fontWeight: 700,
+};
+
+const valueStyle: React.CSSProperties = {
+  marginTop: "4px",
+  color: "#443848",
+  fontSize: "12px",
+  fontWeight: 700,
+  textTransform: "capitalize",
+};
+
+const providerStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "5px",
+  border: "1px solid #DDCDEB",
+  borderRadius: "12px",
+  background: "#FBF8FD",
+  padding: "14px",
+  color: "#443848",
+  fontSize: "12px",
+};
+
+const emptyStyle: React.CSSProperties = {
+  border: "1px solid #E7E1EA",
+  borderRadius: "12px",
+  padding: "14px",
+  color: "#746D78",
+  background: "#FFFFFF",
 };

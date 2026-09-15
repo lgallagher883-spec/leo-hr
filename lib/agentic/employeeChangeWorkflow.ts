@@ -203,6 +203,86 @@ export function buildEmployeeChangePacks(changes: EmploymentChange[]) {
 }
 
 
+export async function reconcileRoleComplianceResources(args: {
+  admin: any;
+  organisationId: string;
+  employeeId: number;
+  role: string;
+  userId: string;
+}): Promise<{ matched: number; reason: string }> {
+  const { admin, organisationId, employeeId, role, userId } = args;
+  const targetRole = role.trim();
+
+  if (!targetRole) {
+    return { matched: 0, reason: "No approved role is recorded." };
+  }
+
+  const resources = await admin
+    .from("policy_register")
+    .select("id,name,register_type,category,notes,version_number")
+    .eq("organisation_id", organisationId)
+    .neq("status", "Archived");
+
+  if (resources.error) throw new Error(resources.error.message);
+
+  const roleNeedle = targetRole.toLowerCase();
+  const matched = (resources.data ?? []).filter((resource: any) => {
+    const type = String(resource.register_type || "").toLowerCase();
+    const category = String(resource.category || "").toLowerCase();
+    const notes = String(resource.notes || "").toLowerCase();
+    const isComplianceResource =
+      type.includes("policy") ||
+      type.includes("procedure") ||
+      category.includes("policy") ||
+      category.includes("compliance");
+
+    return isComplianceResource && notes.includes(roleNeedle);
+  });
+
+  if (!matched.length) {
+    return {
+      matched: 0,
+      reason: "No organisation policy or compliance resource explicitly targets the approved role.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const timeline = await admin.from("employee_timeline").insert({
+    organisation_id: organisationId,
+    employee_id: employeeId,
+    event_type: "Agentic Role Compliance Resources Matched",
+    title: "Role-based compliance resources matched",
+    description:
+      "Leo matched organisation policy and compliance resources that explicitly reference the employee's approved role. This records applicability only and does not claim employee acknowledgement.",
+    status: "Completed",
+    source_module: "Agentic Leo",
+    source_record_id: String(employeeId),
+    metadata: {
+      role: targetRole,
+      matched_resources: matched.map((resource: any) => ({
+        id: resource.id,
+        name: resource.name,
+        version_number: resource.version_number,
+      })),
+      acknowledgement_status: "not_recorded",
+      automatic_acknowledgement: false,
+      ask_leo_involved: false,
+    },
+    event_date: now,
+    created_by: userId,
+    created_at: now,
+  });
+
+  if (timeline.error) {
+    console.warn("Agentic role compliance resource match could not be recorded:", timeline.error);
+  }
+
+  return {
+    matched: matched.length,
+    reason: "Organisation resources explicitly targeting the approved role were matched without inventing acknowledgement.",
+  };
+}
+
 export async function syncPublishedMandatoryRolePathways(args: {
   admin: any;
   organisationId: string;

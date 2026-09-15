@@ -7,6 +7,7 @@ export type EmploymentChange = {
 
 const fieldLabels: Record<string, string> = {
   role: "Role / job title",
+  start_date: "Employment start date",
   manager: "Line manager",
   contracted_hours_per_week: "Contracted hours",
   contracted_days_per_week: "Contracted days",
@@ -39,7 +40,7 @@ export function detectApprovedEmploymentChanges(args: {
   const { previousEmployee, nextEmployee, previousEmployment, nextEmployment } = args;
   const changes: EmploymentChange[] = [];
 
-  for (const field of ["role", "status", "email"]) {
+  for (const field of ["role", "start_date", "status", "email"]) {
     if (comparable(previousEmployee[field]) !== comparable(nextEmployee[field])) {
       changes.push({
         field,
@@ -163,6 +164,7 @@ export function buildEmployeeChangePacks(changes: EmploymentChange[]) {
 
   const contractFields = [
     "role",
+    "start_date",
     "contracted_hours_per_week",
     "contracted_days_per_week",
     "working_days",
@@ -177,6 +179,7 @@ export function buildEmployeeChangePacks(changes: EmploymentChange[]) {
   ];
   const payrollFields = [
     "role",
+    "start_date",
     "contracted_hours_per_week",
     "contracted_days_per_week",
     "working_pattern_type",

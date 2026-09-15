@@ -18,6 +18,7 @@ const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
+const careCheckRtwRoute = read("app/api/talent/due-diligence/[id]/carecheck-rtw/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -628,4 +629,14 @@ test("RTW and DBS automation reuses verified evidence but preserves verification
   assert.match(agenticCheckCoordination, /needsHumanVerification/);
   assert.match(agenticCheckCoordination, /needsHumanSuitabilityDecision/);
   assert.match(agenticCheckCoordination, /checkType === "dbs" && args\.discrepancyRecorded/);
+});
+
+
+test("CareCheck RTW planning checks existing evidence and consent before provider work", () => {
+  assert.match(careCheckRtwRoute, /planWorkforceCheck/);
+  assert.match(careCheckRtwRoute, /existingVerifiedEvidence/);
+  assert.match(careCheckRtwRoute, /consentRecorded/);
+  assert.match(careCheckRtwRoute, /discrepancyRecorded/);
+  assert.match(careCheckRtwRoute, /action === "agentic_plan"/);
+  assert.match(careCheckRtwRoute, /askLeoInvolved: false/);
 });

@@ -15,6 +15,7 @@ const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
 const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
 const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
 const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
+const agenticRecruitmentWorkflow = read("lib/agentic/recruitmentWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -651,4 +652,15 @@ test("CareCheck DBS planning reuses clear evidence and preserves suitability rev
   assert.match(careCheckDbsRoute, /consentRecorded/);
   assert.match(careCheckDbsRoute, /action === "agentic_plan"/);
   assert.match(careCheckDbsRoute, /askLeoInvolved: false/);
+});
+
+
+test("accepted offers prepare onboarding automatically without making recruitment decisions", () => {
+  assert.match(agenticRecruitmentWorkflow, /offerAccepted/);
+  assert.match(agenticRecruitmentWorkflow, /appointmentDecisionAllowsProgression/);
+  assert.match(agenticRecruitmentWorkflow, /ensureOnboardingAppointment/);
+  assert.match(agenticRecruitmentWorkflow, /reuseRecruitmentData/);
+  assert.match(agenticRecruitmentWorkflow, /prepareDueDiligence/);
+  assert.match(agenticRecruitmentWorkflow, /createEmployeeNow/);
+  assert.match(agenticRecruitmentWorkflow, /nonStandardTermsRecorded/);
 });

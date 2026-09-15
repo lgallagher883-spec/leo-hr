@@ -610,3 +610,11 @@ test("recorded probation outcomes trigger admin while termination execution stay
   assert.match(probationRoute, /dismissal_execution_blocked/);
   assert.match(probationRoute, /ask_leo_involved: false/);
 });
+
+
+test("Agentic probation outcomes prepare the existing approved correspondence resources", () => {
+  assert.match(probationRoute, /resource_id: "probation-passed"/);
+  assert.match(probationRoute, /resource_id: "probation-extension"/);
+  assert.match(probationRoute, /resource_id: "probation-termination"/);
+  assert.match(probationRoute, /status: "Prepared only - dismissal execution blocked"/);
+});

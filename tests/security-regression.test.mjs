@@ -10,6 +10,7 @@ const matterBundle = read("app/api/matters/[id]/bundle/route.ts");
 const leave = read("app/api/my-employment/leave/route.ts");
 const knowledgeHealth = read("app/api/knowledge/health/route.ts");
 const secureResources = read("app/api/knowledge/resources/file/route.ts");
+const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);

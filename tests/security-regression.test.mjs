@@ -412,3 +412,13 @@ test("qualification uploads create unverified records without claiming validity"
   assert.match(employeeDocumentsRoute, /Agentic Qualification Evidence Filed/);
   assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
 });
+
+
+test("driving licence evidence never becomes automatic driving authorisation", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "driving"/);
+  assert.match(employeeDocumentsRoute, /authorised_to_drive: "No"/);
+  assert.match(employeeDocumentsRoute, /dvla_check_completed: "No"/);
+  assert.match(employeeDocumentsRoute, /DVLA verification and authority to drive remain separate decisions/);
+  assert.match(employeeDocumentsRoute, /Agentic Driving Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});

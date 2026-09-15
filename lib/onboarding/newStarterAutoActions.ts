@@ -192,6 +192,38 @@ export async function runNewStarterAutomaticActions(args: {
     if (existingInvitation.error) throw new Error(existingInvitation.error.message);
 
     if ((existingInvitation.data ?? []).length === 0) {
+      const existingMemberships = await admin
+        .from("organisation_memberships")
+        .select("user_id,membership_status")
+        .eq("organisation_id", organisationId)
+        .neq("membership_status", "ended");
+
+      if (existingMemberships.error) throw new Error(existingMemberships.error.message);
+
+      let alreadyHasAccess = false;
+
+      for (const membership of existingMemberships.data ?? []) {
+        if (!membership.user_id) continue;
+
+        const memberUser = await admin.auth.admin.getUserById(membership.user_id);
+        if (memberUser.error) {
+          console.warn("Agentic portal access check could not inspect an organisation user:", memberUser.error);
+          continue;
+        }
+
+        const memberEmail = memberUser.data.user?.email?.trim().toLowerCase() ?? "";
+        if (memberEmail === email) {
+          alreadyHasAccess = true;
+          break;
+        }
+      }
+
+      if (alreadyHasAccess) {
+        completed.push({
+          key: "portal_invitation",
+          summary: "The employee already has organisation access, so Leo did not send a duplicate invitation.",
+        });
+      } else {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString();
       const invitation = await admin
@@ -234,8 +266,34 @@ export async function runNewStarterAutomaticActions(args: {
           await admin.from("organisation_invitations").delete().eq("id", invitation.data.id);
           deferred.push({ key: "portal_invitation", summary: "Leo could not send the employee portal invitation automatically." });
         } else {
+          const invitationTimeline = await admin.from("employee_timeline").insert({
+            organisation_id: organisationId,
+            employee_id: employeeId,
+            event_type: "Agentic Portal Invitation Sent",
+            title: "Employee portal invitation sent",
+            description: "Leo sent the standard Employee portal invitation using the valid employee email already held.",
+            status: "Completed",
+            source_module: "Agentic Leo",
+            source_record_id: String(invitation.data.id),
+            metadata: {
+              invitation_id: invitation.data.id,
+              email,
+              role: "employee",
+              expires_at: expiresAt,
+              ask_leo_involved: false,
+            },
+            event_date: new Date().toISOString(),
+            created_by: userId,
+            created_at: new Date().toISOString(),
+          });
+
+          if (invitationTimeline.error) {
+            console.warn("Agentic portal invitation timeline event could not be created:", invitationTimeline.error);
+          }
+
           completed.push({ key: "portal_invitation", summary: "Leo sent the Employee portal invitation." });
         }
+      }
       }
     }
   } else {

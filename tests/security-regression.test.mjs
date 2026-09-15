@@ -19,6 +19,7 @@ const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
 const careCheckRtwRoute = read("app/api/talent/due-diligence/[id]/carecheck-rtw/route.ts");
+const careCheckDbsRoute = read("app/api/talent/due-diligence/[id]/carecheck/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -639,4 +640,15 @@ test("CareCheck RTW planning checks existing evidence and consent before provide
   assert.match(careCheckRtwRoute, /discrepancyRecorded/);
   assert.match(careCheckRtwRoute, /action === "agentic_plan"/);
   assert.match(careCheckRtwRoute, /askLeoInvolved: false/);
+});
+
+
+test("CareCheck DBS planning reuses clear evidence and preserves suitability review", () => {
+  assert.match(careCheckDbsRoute, /planWorkforceCheck/);
+  assert.match(careCheckDbsRoute, /checkType: "dbs"/);
+  assert.match(careCheckDbsRoute, /existingResultPosition/);
+  assert.match(careCheckDbsRoute, /further_review_required/);
+  assert.match(careCheckDbsRoute, /consentRecorded/);
+  assert.match(careCheckDbsRoute, /action === "agentic_plan"/);
+  assert.match(careCheckDbsRoute, /askLeoInvolved: false/);
 });

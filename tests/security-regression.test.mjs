@@ -735,3 +735,12 @@ test("performance review automation prepares administration but preserves manage
   assert.match(agenticPerformanceReview, /blockPayOrPromotionDecision/);
   assert.match(agenticPerformanceReview, /blockFormalCapabilityDecision/);
 });
+
+
+test("performance review pack accepts traceable evidence without inventing assessments", () => {
+  assert.match(agenticPerformanceReview, /PerformanceReviewEvidence/);
+  assert.match(agenticPerformanceReview, /source: "employee_timeline" \| "learning" \| "probation" \| "manager"/);
+  assert.match(agenticPerformanceReview, /reviewPack/);
+  assert.match(agenticPerformanceReview, /evidence: args\.evidence \?\? \[\]/);
+  assert.match(agenticPerformanceReview, /needsHumanAssessment/);
+});

@@ -13,6 +13,7 @@ const secureResources = read("app/api/knowledge/resources/file/route.ts");
 const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
 const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
+const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 
@@ -588,4 +589,13 @@ test("Agentic sickness admin links the existing RTW resource and prepares neutra
   assert.match(managedEmployeeLeaveRoute, /employee_name: employee\.name/);
   assert.match(managedEmployeeLeaveRoute, /payroll_input/);
   assert.match(managedEmployeeLeaveRoute, /payroll_decision: "not_made"/);
+});
+
+
+test("probation automation requires a manager decision and blocks dismissal execution", () => {
+  assert.match(agenticProbationWorkflow, /decisionRecordedByManager/);
+  assert.match(agenticProbationWorkflow, /needsHumanDecision/);
+  assert.match(agenticProbationWorkflow, /implementRecordedOutcome: outcomeRecorded && outcome !== "Terminate Contract"/);
+  assert.match(agenticProbationWorkflow, /dismissalExecutionBlocked: outcome === "Terminate Contract"/);
+  assert.match(agenticProbationWorkflow, /createExtensionMilestone/);
 });

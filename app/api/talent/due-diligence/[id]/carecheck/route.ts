@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { planWorkforceCheck } from "@/lib/agentic/checkCoordination";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 import { pullCareCheckApplicationStatus } from "@/lib/carecheck/status-pull";
 import { createClient } from "@/lib/supabase/server";
@@ -389,13 +390,45 @@ export async function POST(request: Request, routeContext: RouteContext) {
       action?: unknown;
     };
     const action = text(body.action);
-    const existingCareCheck =
-      context.shared?.payload &&
-      typeof context.shared.payload === "object" &&
-      (context.shared.payload as Record<string, unknown>).careCheck &&
-      typeof (context.shared.payload as Record<string, unknown>).careCheck === "object"
-        ? ((context.shared.payload as Record<string, unknown>).careCheck as Record<string, unknown>)
+    const existingPayload =
+      context.shared?.payload && typeof context.shared.payload === "object"
+        ? (context.shared.payload as Record<string, unknown>)
         : {};
+    const existingCareCheck =
+      existingPayload.careCheck &&
+      typeof existingPayload.careCheck === "object"
+        ? (existingPayload.careCheck as Record<string, unknown>)
+        : {};
+
+    const existingStatus = text(context.shared?.status).toLowerCase();
+    const existingResultPosition = text(existingPayload.resultPosition).toLowerCase();
+    const existingVerifiedEvidence =
+      ["verified", "complete", "completed", "cleared"].includes(existingStatus) ||
+      ["clear", "verified", "cleared"].includes(existingResultPosition);
+    const consentRecorded =
+      existingPayload.consentRecorded === true ||
+      existingPayload.consent_recorded === true;
+    const discrepancyRecorded =
+      existingResultPosition === "further_review_required" ||
+      existingPayload.discrepancyRecorded === true ||
+      existingPayload.discrepancy_recorded === true;
+
+    const agenticCheckPlan = planWorkforceCheck({
+      checkType: "dbs",
+      required: Boolean(context.vacancy?.requires_dbs),
+      existingVerifiedEvidence,
+      providerAvailable: true,
+      consentRecorded,
+      discrepancyRecorded,
+    });
+
+    if (action === "agentic_plan") {
+      return NextResponse.json({
+        success: true,
+        agenticCheckPlan,
+        askLeoInvolved: false,
+      });
+    }
 
     if (action === "invite") {
       if (!context.vacancy?.requires_dbs) {
@@ -506,6 +539,8 @@ export async function POST(request: Request, routeContext: RouteContext) {
       return NextResponse.json({
         success: true,
         careCheck,
+        agenticCheckPlan,
+        askLeoInvolved: false,
       });
     }
 

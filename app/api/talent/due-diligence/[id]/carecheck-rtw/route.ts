@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
+import { planWorkforceCheck } from "@/lib/agentic/checkCoordination";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 import { pullCareCheckApplicationStatus } from "@/lib/carecheck/status-pull";
 import { createClient } from "@/lib/supabase/server";
@@ -271,6 +272,35 @@ export async function POST(request: Request, routeContext: RouteContext) {
         ? (existingPayload.careCheck as Record<string, unknown>)
         : {};
 
+    const existingStatus = text(context.shared?.status).toLowerCase();
+    const existingOutcome = text(existingPayload.verificationOutcome).toLowerCase();
+    const existingVerifiedEvidence =
+      ["verified", "complete", "completed", "cleared"].includes(existingStatus) ||
+      ["verified", "valid", "cleared", "pass", "passed"].includes(existingOutcome);
+    const consentRecorded =
+      existingPayload.consentRecorded === true ||
+      existingPayload.consent_recorded === true;
+    const discrepancyRecorded =
+      existingPayload.discrepancyRecorded === true ||
+      existingPayload.discrepancy_recorded === true;
+
+    const agenticCheckPlan = planWorkforceCheck({
+      checkType: "right_to_work",
+      required: true,
+      existingVerifiedEvidence,
+      providerAvailable: process.env.NODE_ENV !== "production",
+      consentRecorded,
+      discrepancyRecorded,
+    });
+
+    if (action === "agentic_plan") {
+      return NextResponse.json({
+        success: true,
+        agenticCheckPlan,
+        askLeoInvolved: false,
+      });
+    }
+
     if (action === "invite") {
       if (!context.candidate?.email) {
         return NextResponse.json(
@@ -349,7 +379,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
         careCheck,
       });
 
-      return NextResponse.json({ success: true, careCheck });
+      return NextResponse.json({ success: true, careCheck, agenticCheckPlan, askLeoInvolved: false });
     }
 
     if (action === "refresh_status") {

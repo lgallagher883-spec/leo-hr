@@ -43,10 +43,40 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const resolved = await contextFor(context,"employees.view");
     if ("response" in resolved) return resolved.response;
     const { data, error } = await resolved.admin.from("employee_right_to_work")
-      .select("id,nationality,immigration_status,visa_or_permit_type,share_code,right_to_work_expiry,restrictions,check_completed_date,next_review_date,notes,created_at")
+      .select("*")
       .eq("employee_id",resolved.employeeId).order("created_at",{ascending:false});
     if (error) throw new Error(error.message);
-    return NextResponse.json({success:true,records:data ?? []},{headers:{"Cache-Control":"no-store"}});
+
+    const records = Array.isArray(data) ? data : [];
+
+    // Talent due-diligence is the source of truth for a candidate converted
+    // to an employee. Surface the latest RTW record directly in the employee
+    // profile as well, even when an older conversion did not copy it across.
+    const { data: candidates, error: candidateError } = await resolved.admin
+      .from("leo_talent_candidates")
+      .select("id")
+      .eq("existing_employee_id", resolved.employeeId)
+      .limit(20);
+    if (candidateError) throw new Error(candidateError.message);
+
+    const candidateIds = (candidates ?? []).map((row:any) => row.id).filter(Boolean);
+    let talentRecord: any = null;
+    if (candidateIds.length > 0) {
+      const { data: shared, error: sharedError } = await resolved.admin
+        .from("leo_talent_candidate_shared_records")
+        .select("id,payload,status,updated_at,completed_at")
+        .in("candidate_id", candidateIds)
+        .eq("component_key", "right_to_work")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (sharedError) throw new Error(sharedError.message);
+      talentRecord = Array.isArray(shared) && shared.length > 0 ? shared[0] : null;
+    }
+
+    return NextResponse.json(
+      {success:true,records,talentRecord},
+      {headers:{"Cache-Control":"no-store"}}
+    );
   } catch (error) {
     console.error("Employee right to work API failed:",error);
     return NextResponse.json({success:false,error:error instanceof Error?error.message:"Right to work records could not be loaded."},{status:500});

@@ -18,6 +18,7 @@ const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
 const agenticRecruitmentWorkflow = read("lib/agentic/recruitmentWorkflow.ts");
 const agenticComplianceReconciliation = read("lib/agentic/complianceReconciliation.ts");
 const agenticPerformanceReview = read("lib/agentic/performanceReviewWorkflow.ts");
+const agenticMatterWorkflow = read("lib/agentic/matterWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -745,4 +746,26 @@ test("performance review pack accepts traceable evidence without inventing asses
   assert.match(agenticPerformanceReview, /item\.label\.trim\(\)/);
   assert.match(agenticPerformanceReview, /seen\.has\(key\)/);
   assert.match(agenticPerformanceReview, /needsHumanAssessment/);
+});
+
+
+test("Matter automation advances administration while preserving HR judgement", () => {
+  assert.match(agenticMatterWorkflow, /maintainChronology/);
+  assert.match(agenticMatterWorkflow, /indexNewEvidence/);
+  assert.match(agenticMatterWorkflow, /prepareApprovedTemplates/);
+  assert.match(agenticMatterWorkflow, /refreshMatterBundle/);
+  assert.match(agenticMatterWorkflow, /administrativePrerequisitesSatisfied/);
+  assert.match(agenticMatterWorkflow, /blockFindingOrCredibilityAssessment/);
+  assert.match(agenticMatterWorkflow, /blockSensitiveCorrespondence/);
+  assert.match(agenticMatterWorkflow, /blockProcessOutcome/);
+  assert.match(agenticMatterWorkflow, /blockDismissalExecution/);
+});
+
+
+test("Matter administration uses traceable evidence and raises missing prerequisites", () => {
+  assert.match(agenticMatterWorkflow, /MatterAdministrationEvidence/);
+  assert.match(agenticMatterWorkflow, /prepareTraceableMatterEvidence/);
+  assert.match(agenticMatterWorkflow, /proceduralInformationComplete/);
+  assert.match(agenticMatterWorkflow, /needsHumanInput/);
+  assert.match(agenticMatterWorkflow, /Dismissal execution is blocked/);
 });

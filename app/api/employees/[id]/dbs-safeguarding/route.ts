@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if ("response" in resolved) return resolved.response;
 
     const body = await request.json();
-    const result = await resolved.admin.from("employee_dbs_checks").insert({
+    const record = {
       employee_id: resolved.employeeId,
       dbs_required: body.dbsRequired === "No" ? "No" : "Yes",
       dbs_level: body.dbsRequired === "No" ? null : body.dbsLevel || "Basic",
@@ -144,8 +144,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
       safeguarding_training_expiry: body.safeguardingTrainingExpiry || null,
       notes: body.notes || null,
       updated_at: new Date().toISOString(),
-    });
+    };
 
+    // Idempotency guard: agentic retries and double-clicks must not create
+    // duplicate history rows when the latest DBS decision is identical.
+    const latest = await resolved.admin
+      .from("employee_dbs_checks")
+      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,safeguarding_training_completed,safeguarding_training_expiry,notes")
+      .eq("employee_id", resolved.employeeId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest.error) throw new Error(latest.error.message);
+
+    const fields = ["dbs_required","dbs_level","certificate_number","certificate_issue_date","next_check_due","update_service","update_service_id","safeguarding_training_completed","safeguarding_training_expiry","notes"] as const;
+    const sameAsLatest = latest.data && fields.every((field) => (latest.data as any)[field] === (record as any)[field]);
+    if (sameAsLatest) {
+      return NextResponse.json({ success: true, duplicateSuppressed: true });
+    }
+
+    const result = await resolved.admin.from("employee_dbs_checks").insert(record);
     if (result.error) throw new Error(result.error.message);
     return NextResponse.json({ success: true });
   } catch (error) {

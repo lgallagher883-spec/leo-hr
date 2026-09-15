@@ -16,6 +16,7 @@ const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
 const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
+const probationRoute = read("app/api/employees/[id]/probation/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -598,4 +599,14 @@ test("probation automation requires a manager decision and blocks dismissal exec
   assert.match(agenticProbationWorkflow, /implementRecordedOutcome: outcomeRecorded && outcome !== "Terminate Contract"/);
   assert.match(agenticProbationWorkflow, /dismissalExecutionBlocked: outcome === "Terminate Contract"/);
   assert.match(agenticProbationWorkflow, /createExtensionMilestone/);
+});
+
+
+test("recorded probation outcomes trigger admin while termination execution stays blocked", () => {
+  assert.match(probationRoute, /planProbationAdministration/);
+  assert.match(probationRoute, /decisionRecordedByManager: true/);
+  assert.match(probationRoute, /Agentic Probation Administration Prepared/);
+  assert.match(probationRoute, /Dismissal execution remains blocked/);
+  assert.match(probationRoute, /dismissal_execution_blocked/);
+  assert.match(probationRoute, /ask_leo_involved: false/);
 });

@@ -526,7 +526,15 @@ export default function EmployeeProfilePage() {
     );
   }
 
-  const employeeStatus = normaliseEmployeeStatus(employee.status);
+  const storedEmployeeStatus = normaliseEmployeeStatus(employee.status);
+  const startDateIsFuture = Boolean(
+    employee.start_date &&
+      new Date(`${employee.start_date}T00:00:00`).getTime() > new Date().setHours(23, 59, 59, 999)
+  );
+  const employeeStatus =
+    storedEmployeeStatus !== "Archived" && startDateIsFuture
+      ? "New Starter"
+      : storedEmployeeStatus;
   const isArchived = employeeStatus === "Archived";
   const isNewStarter = employeeStatus === "New Starter";
   const startDateLabel = formatDate(employee.start_date);

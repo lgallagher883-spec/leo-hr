@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import ProfileSection from "./ProfileSection";
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 
 type ComplianceSummaryProps = {
@@ -111,12 +110,6 @@ export default function ComplianceSummary({
 
   return (
     <ProfileSection title="Compliance Summary">
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="compliance"
-        defaultPrompt="Draft a compliance checkpoint summary that highlights upcoming checks, evidence gaps, and immediate actions."
-      />
-
       {loading ? (
         <div style={{ color: "#6B7280" }}>Checking compliance records...</div>
       ) : items.length === 0 ? (

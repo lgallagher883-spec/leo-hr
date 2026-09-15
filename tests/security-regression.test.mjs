@@ -16,6 +16,7 @@ const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
 const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
 const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
 const agenticRecruitmentWorkflow = read("lib/agentic/recruitmentWorkflow.ts");
+const agenticComplianceReconciliation = read("lib/agentic/complianceReconciliation.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -684,4 +685,15 @@ test("Agentic onboarding readiness ignores optional learning and requires actual
   assert.match(talentOnboardingRoute, /readyForEmployeeCreation/);
   assert.match(talentOnboardingRoute, /learning_excluded_from_required_readiness: true/);
   assert.match(talentOnboardingRoute, /ask_leo_involved: false/);
+});
+
+
+test("compliance reconciliation closes only gaps backed by current verified matching evidence", () => {
+  assert.match(agenticComplianceReconciliation, /evidenceState === "verified"/);
+  assert.match(agenticComplianceReconciliation, /evidenceMatchesEmployee/);
+  assert.match(agenticComplianceReconciliation, /evidenceCurrent/);
+  assert.match(agenticComplianceReconciliation, /closeAdministrativeGap: verifiedUsable/);
+  assert.match(agenticComplianceReconciliation, /present_unverified/);
+  assert.match(agenticComplianceReconciliation, /contradictory/);
+  assert.match(agenticComplianceReconciliation, /needsHumanReview/);
 });

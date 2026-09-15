@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type DBSSafeguardingProps = {
   employeeId: number;
@@ -74,22 +68,31 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   const [message, setMessage] = useState("");
 
   async function loadRecords() {
-    const { data, error } = await supabase
-      .from("employee_dbs_checks")
-      .select(
-        "id, dbs_required, dbs_level, certificate_number, certificate_issue_date, next_check_due, update_service, update_service_id, safeguarding_training_completed, safeguarding_training_expiry, notes, created_at"
-      )
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false });
+    setLoading(true);
 
-    if (error) {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/dbs-safeguarding`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "DBS / safeguarding records could not be loaded.");
+      }
+
+      setRecords(result.records || []);
+    } catch (error) {
       console.error("Error loading DBS records:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "DBS / safeguarding records could not be loaded."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setRecords(data || []);
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -115,27 +118,36 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase.from("employee_dbs_checks").insert([
-      {
-        employee_id: employeeId,
-        dbs_required: dbsRequired,
-        dbs_level: dbsRequired === "Yes" ? dbsLevel : null,
-        certificate_number: certificateNumber || null,
-        certificate_issue_date: certificateIssueDate || null,
-        next_check_due: nextCheckDue || null,
-        update_service: updateService || null,
-        update_service_id: updateServiceId || null,
-        safeguarding_training_completed:
-          safeguardingTrainingCompleted || null,
-        safeguarding_training_expiry: safeguardingTrainingExpiry || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/dbs-safeguarding`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dbsRequired,
+          dbsLevel: dbsRequired === "Yes" ? dbsLevel : null,
+          certificateNumber: certificateNumber || null,
+          certificateIssueDate: certificateIssueDate || null,
+          nextCheckDue: nextCheckDue || null,
+          updateService: updateService || null,
+          updateServiceId: updateServiceId || null,
+          safeguardingTrainingCompleted: safeguardingTrainingCompleted || null,
+          safeguardingTrainingExpiry: safeguardingTrainingExpiry || null,
+          notes: notes || null,
+        }),
+      });
+      const result = await response.json();
 
-    if (error) {
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "DBS / safeguarding record could not be saved.");
+      }
+    } catch (error) {
       console.error("Error saving DBS record:", error);
-      setMessage("DBS / safeguarding record could not be saved.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "DBS / safeguarding record could not be saved."
+      );
       setSaving(false);
       return;
     }

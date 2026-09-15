@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
-import { assessRoutineAnnualLeave, readDelegatedRoutineLeaveApproval } from "@/lib/agentic/leaveWorkflow";
+import { assessRoutineAnnualLeave, readDelegatedRoutineLeaveApproval, shouldAutoCancelRoutineAnnualLeave } from "@/lib/agentic/leaveWorkflow";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +60,8 @@ type GovUkBankHolidayResponse = {
 };
 
 type LeaveRequestBody = {
+  action?: unknown;
+  recordId?: unknown;
   leaveType?: unknown;
   startDate?: unknown;
   endDate?: unknown;
@@ -656,6 +658,176 @@ export async function GET() {
   }
 }
 
+
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { success: false, error: "You must be signed in to manage your leave." },
+        { status: 401 },
+      );
+    }
+
+    const accessResult = await resolveActiveOrganisationAccess(supabase, user.id);
+    if (!accessResult.ok) return accessResult.response;
+
+    const organisationId = accessResult.access.organisationId;
+    const body = (await request.json().catch(() => ({}))) as LeaveRequestBody;
+    const action = readText(body.action);
+    const recordId = readNumber(body.recordId);
+
+    if (action !== "cancel" || !recordId || recordId <= 0) {
+      return NextResponse.json(
+        { success: false, error: "A valid routine leave cancellation is required." },
+        { status: 400 },
+      );
+    }
+
+    const { data: employeeLink, error: employeeLinkError } = await supabase
+      .from("employee_user_links")
+      .select("employee_id")
+      .eq("organisation_id", organisationId)
+      .eq("user_id", user.id)
+      .eq("link_status", "active")
+      .maybeSingle();
+
+    if (employeeLinkError) throw new Error(employeeLinkError.message);
+    if (!employeeLink) {
+      return NextResponse.json(
+        { success: false, error: "Your employee record is not linked." },
+        { status: 404 },
+      );
+    }
+
+    const admin = getAdminClient();
+    const existing = await admin
+      .from("employee_leave_records")
+      .select("id,leave_type,status,start_date,end_date,days_taken,notes,created_at")
+      .eq("id", recordId)
+      .eq("employee_id", employeeLink.employee_id)
+      .maybeSingle();
+
+    if (existing.error) throw new Error(existing.error.message);
+    if (!existing.data) {
+      return NextResponse.json(
+        { success: false, error: "The leave record could not be found." },
+        { status: 404 },
+      );
+    }
+
+    const [knowledgeResult, approvalEvent] = await Promise.all([
+      admin
+        .from("company_knowledge")
+        .select("title,content")
+        .eq("organisation_id", organisationId),
+      admin
+        .from("employee_timeline")
+        .select("id,metadata")
+        .eq("employee_id", employeeLink.employee_id)
+        .eq("source_record_id", String(recordId))
+        .eq("event_type", "Leave & Absence")
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+
+    if (knowledgeResult.error) throw new Error(knowledgeResult.error.message);
+    if (approvalEvent.error) throw new Error(approvalEvent.error.message);
+
+    const wasAgenticAutoApproved = (approvalEvent.data ?? []).some((event: any) => {
+      const metadata =
+        event.metadata && typeof event.metadata === "object" ? event.metadata : {};
+      return metadata.agentic_auto_approved === true;
+    });
+
+    const start = parseDateOnlyValue(existing.data.start_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assessment = shouldAutoCancelRoutineAnnualLeave({
+      leaveType: String(existing.data.leave_type || ""),
+      currentStatus: existing.data.status,
+      delegatedAutoApproval: readDelegatedRoutineLeaveApproval(
+        knowledgeResult.data ?? [],
+      ),
+      wasAgenticAutoApproved,
+      leaveHasStarted: !start || start <= today,
+    });
+
+    if (!assessment.canAutoCancel) {
+      return NextResponse.json(
+        {
+          success: false,
+          requiresHumanReview: true,
+          error:
+            "Leo cannot automatically cancel this leave record. It needs human review.",
+          reasons: assessment.reasons,
+        },
+        { status: 409 },
+      );
+    }
+
+    const now = new Date().toISOString();
+    const result = await admin
+      .from("employee_leave_records")
+      .update({ status: "Cancelled", updated_at: now })
+      .eq("id", recordId)
+      .eq("employee_id", employeeLink.employee_id)
+      .select("id,leave_type,status,start_date,end_date,days_taken,notes,created_at")
+      .single();
+
+    if (result.error || !result.data) {
+      throw new Error(result.error?.message || "The leave record could not be cancelled.");
+    }
+
+    await admin.from("employee_timeline").insert({
+      organisation_id: organisationId,
+      employee_id: employeeLink.employee_id,
+      event_type: "Leave & Absence",
+      title: "Leave automatically cancelled",
+      description:
+        "Leo cancelled a future routine annual leave booking that it had previously approved automatically.",
+      status: "Cancelled",
+      source_module: "Agentic Leo",
+      source_record_id: String(recordId),
+      metadata: {
+        leave_type: result.data.leave_type,
+        start_date: result.data.start_date,
+        end_date: result.data.end_date,
+        days_taken: result.data.days_taken,
+        agentic_auto_cancelled: true,
+        balance_restored_by_status: true,
+        ask_leo_involved: false,
+      },
+      event_date: now,
+      created_by: user.id,
+      created_at: now,
+    });
+
+    return NextResponse.json({
+      success: true,
+      record: result.data as LeaveRecord,
+      balanceRestored: true,
+    });
+  } catch (error) {
+    console.error("LEO leave cancellation failed:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Your leave cancellation could not be completed.",
+      },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

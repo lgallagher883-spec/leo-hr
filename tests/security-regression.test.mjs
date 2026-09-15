@@ -359,3 +359,14 @@ test("Agentic contract preparation refreshes only while unissued", () => {
   assert.match(employmentRoute, /contractPreparationRefresh/);
   assert.match(employmentRoute, /refreshUnissuedAgenticContractPreparation/);
 });
+
+
+test("approved leave configuration propagates without a duplicate balance write", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /part_year_worker/);
+  assert.match(agenticEmployeeChangeWorkflow, /holiday_year_start_month/);
+  assert.match(agenticEmployeeChangeWorkflow, /leave_entitlement_basis/);
+  assert.match(agenticEmployeeChangeWorkflow, /bank_holiday_treatment/);
+  assert.match(employmentRoute, /Agentic Leave Configuration Updated/);
+  assert.match(employmentRoute, /separate_balance_write_required: false/);
+  assert.match(employmentRoute, /leave workspace will use the updated configuration automatically/);
+});

@@ -492,3 +492,11 @@ test("role changes match only explicit organisation compliance resources without
   assert.match(employeeChangeWorkflow, /automatic_acknowledgement: false/);
   assert.match(employeeChangeWorkflow, /ask_leo_involved: false/);
 });
+
+
+test("role compliance reconciliation is idempotent for the same role and resource versions", () => {
+  assert.match(employeeChangeWorkflow, /Agentic Role Compliance Resources Matched/);
+  assert.match(employeeChangeWorkflow, /matchedIds/);
+  assert.match(employeeChangeWorkflow, /alreadyRecorded/);
+  assert.match(employeeChangeWorkflow, /current role-based compliance resource match is already recorded/);
+});

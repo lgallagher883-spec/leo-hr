@@ -539,3 +539,12 @@ test("Agentic leave decisions persist their basis without Ask Leo", () => {
   assert.match(employeeLeaveRoute, /agentic_decision_reasons: routineAssessment\.reasons/);
   assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
 });
+
+
+test("routine Agentic cancellation only reverses leave Leo itself safely approved", () => {
+  assert.match(agenticLeaveWorkflow, /shouldAutoCancelRoutineAnnualLeave/);
+  assert.match(agenticLeaveWorkflow, /wasAgenticAutoApproved/);
+  assert.match(agenticLeaveWorkflow, /only reverses leave that it previously approved automatically/);
+  assert.match(agenticLeaveWorkflow, /leaveHasStarted/);
+  assert.match(agenticLeaveWorkflow, /canAutoCancel: reasons\.length === 0/);
+});

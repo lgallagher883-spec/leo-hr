@@ -464,3 +464,11 @@ test("Agentic attention follows the exact evidence record and requires the real 
   assert.match(agenticAttentionRoute, /authorised_to_drive/);
   assert.match(agenticAttentionRoute, /dvla_check_completed/);
 });
+
+
+test("approved start date changes flow through Agentic contract and payroll preparation", () => {
+  assert.match(employeeChangeWorkflow, /start_date: "Employment start date"/);
+  assert.match(employeeChangeWorkflow, /\["role", "start_date", "status", "email"\]/);
+  assert.match(employeeChangeWorkflow, /const contractFields = \[\s*"role",\s*"start_date"/);
+  assert.match(employeeChangeWorkflow, /const payrollFields = \[\s*"role",\s*"start_date"/);
+});

@@ -619,6 +619,94 @@ export async function POST(
       );
     }
 
+    if (classification.category === "qualification") {
+      const factMap = new Map(
+        extractedFacts.map((fact) => [fact.key, fact.value]),
+      );
+      const certificateNumber = factMap.get("certificate_number") || null;
+      const expiryDate = factMap.get("qualification_expiry") || null;
+
+      const existingQualification = certificateNumber
+        ? await admin
+            .from("employee_qualifications")
+            .select("id")
+            .eq("employee_id", employeeId)
+            .eq("certificate_number", certificateNumber)
+            .eq("is_archived", false)
+            .limit(1)
+        : null;
+
+      if (!existingQualification?.error && !(existingQualification?.data ?? []).length) {
+        const qualification = await admin
+          .from("employee_qualifications")
+          .insert({
+            employee_id: employeeId,
+            qualification_type_id: null,
+            title,
+            category: "Other",
+            certificate_number: certificateNumber,
+            expiry_date: expiryDate,
+            status: "Active",
+            verification_status: "Unverified",
+            mandatory: false,
+            renewal_required: Boolean(expiryDate),
+            renewal_reminder_days: expiryDate ? 30 : null,
+            employee_notes: null,
+            manager_notes:
+              "Evidence was filed by Agentic Leo. Qualification validity or equivalence has not been verified.",
+            source_type: "Agentic Leo document",
+          })
+          .select("id")
+          .single();
+
+        if (qualification.error) {
+          console.warn("Agentic qualification record could not be created:", qualification.error);
+        } else {
+          const evidence = await admin.from("qualification_evidence").insert({
+            employee_qualification_id: qualification.data.id,
+            evidence_type: "Certificate",
+            title,
+            file_name: fileValue.name,
+            file_path: filePath,
+            uploaded_by: user.id,
+            uploaded_at: now,
+          });
+
+          if (evidence.error) {
+            console.warn("Agentic qualification evidence link could not be created:", evidence.error);
+          }
+
+          const qualificationTimeline = await admin
+            .from("employee_timeline")
+            .insert({
+              employee_id: employeeId,
+              event_type: "Agentic Qualification Evidence Filed",
+              title: "Qualification evidence added",
+              description:
+                "Leo created an unverified qualification record from the uploaded evidence and linked the certificate. Validity and equivalence still require human verification.",
+              status: "Needs Review",
+              source_module: "Agentic Leo",
+              source_record_id: String(qualification.data.id),
+              metadata: {
+                employee_document_id: documentResult.data.id,
+                employee_qualification_id: qualification.data.id,
+                certificate_number: certificateNumber,
+                expiry_date: expiryDate,
+                verification_status: "Unverified",
+                ask_leo_involved: false,
+              },
+              event_date: now,
+              created_by: user.id,
+              created_at: now,
+            });
+
+          if (qualificationTimeline.error) {
+            console.warn("Agentic qualification timeline event could not be created:", qualificationTimeline.error);
+          }
+        }
+      }
+    }
+
     if (classification.category === "contract" && classification.canAdvanceWorkflow) {
       const unissuedPreparation = await admin
         .from("employee_timeline")

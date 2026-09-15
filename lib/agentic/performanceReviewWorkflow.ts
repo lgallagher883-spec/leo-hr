@@ -1,3 +1,9 @@
+export type PerformanceReviewEvidence = {
+  source: "employee_timeline" | "learning" | "probation" | "manager";
+  label: string;
+  recordedAt?: string | null;
+};
+
 export type PerformanceReviewAdminPlan = {
   prepareReview: boolean;
   carryForwardOpenActions: boolean;
@@ -5,6 +11,12 @@ export type PerformanceReviewAdminPlan = {
   needsHumanAssessment: boolean;
   blockPayOrPromotionDecision: boolean;
   blockFormalCapabilityDecision: boolean;
+  reviewPack: {
+    objectivesAvailable: boolean;
+    previousCommitmentsAvailable: boolean;
+    employeeContributionAvailable: boolean;
+    evidence: PerformanceReviewEvidence[];
+  };
   reasons: string[];
 };
 
@@ -17,6 +29,7 @@ export function planPerformanceReviewAdministration(args: {
   developmentActionsApproved: boolean;
   payOrPromotionDecisionRequested: boolean;
   formalCapabilityDecisionRequested: boolean;
+  evidence?: PerformanceReviewEvidence[];
 }): PerformanceReviewAdminPlan {
   const reasons: string[] = [];
 
@@ -41,6 +54,12 @@ export function planPerformanceReviewAdministration(args: {
       args.reviewCycleOpen && !args.managerAssessmentRecorded,
     blockPayOrPromotionDecision: args.payOrPromotionDecisionRequested,
     blockFormalCapabilityDecision: args.formalCapabilityDecisionRequested,
+    reviewPack: {
+      objectivesAvailable: args.objectivesAvailable,
+      previousCommitmentsAvailable: args.previousCommitmentsAvailable,
+      employeeContributionAvailable: args.employeeContributionAvailable,
+      evidence: args.evidence ?? [],
+    },
     reasons,
   };
 }

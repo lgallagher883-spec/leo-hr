@@ -11,6 +11,11 @@ import {
   StoredPolicySection,
 } from "@/leo/knowledge/storage/policies";
 import { buildAskLeoProfessionalPrompt } from "@/leo/prompt/builder™";
+import { assessNewStarterReadiness } from "@/lib/onboarding/newStarterReadiness";
+import { prepareNewStarterPlan } from "@/lib/onboarding/newStarterPlan";
+import { buildNewStarterWorkflowStartReply, buildNewStarterWorkflowProgressReply } from "@/lib/onboarding/newStarterAgent";
+import { applyNewStarterEmployerMessage } from "@/lib/onboarding/newStarterEmployerUpdate";
+import { runNewStarterAutomaticActions } from "@/lib/onboarding/newStarterAutoActions";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -52,6 +57,8 @@ type AskLeoRequestBody = {
   policies?: unknown;
   organisationMemory?: unknown;
   previousMatters?: unknown;
+  newStarterEmployeeId?: unknown;
+  newStarterWorkflowStart?: unknown;
 };
 
 type MatterContextPayload = {
@@ -306,6 +313,198 @@ export async function POST(req: Request) {
     }
 
     conversationMs = performance.now() - conversationStartMs;
+
+    const newStarterEmployeeId =
+      typeof body.newStarterEmployeeId === "number"
+        ? body.newStarterEmployeeId
+        : typeof body.newStarterEmployeeId === "string"
+          ? Number(body.newStarterEmployeeId)
+          : null;
+
+    const newStarterWorkflowStart =
+      body.newStarterWorkflowStart === true;
+
+    if (
+      contextType === "new_starter" &&
+      newStarterWorkflowStart &&
+      newStarterEmployeeId &&
+      Number.isInteger(newStarterEmployeeId) &&
+      newStarterEmployeeId > 0
+    ) {
+      const automaticActions = await runNewStarterAutomaticActions({
+        organisationId,
+        employeeId: newStarterEmployeeId,
+        userId: user.id,
+      });
+
+      const readiness = await assessNewStarterReadiness({
+        supabase,
+        organisationId,
+        employeeId: newStarterEmployeeId,
+      });
+      const plan = prepareNewStarterPlan(readiness);
+      const deterministicReply = buildNewStarterWorkflowStartReply({
+        readiness,
+        plan,
+        automaticCompleted: automaticActions.completed,
+        automaticDeferred: automaticActions.deferred,
+      });
+
+      if (
+        shouldPersistConversation &&
+        persistedConversationId
+      ) {
+        const saveLeoMessageResult =
+          await saveAskLeoConversationMessage({
+            supabase,
+            conversationId: persistedConversationId,
+            organisationId,
+            userId: user.id,
+            role: "leo",
+            content: deterministicReply,
+            requestId,
+          });
+
+        if (
+          saveLeoMessageResult.error &&
+          !saveLeoMessageResult.isDuplicate
+        ) {
+          console.error(
+            "Deterministic new starter reply could not be persisted:",
+            saveLeoMessageResult.error
+          );
+        }
+
+        const nowIso = new Date().toISOString();
+        const { error: conversationUpdateError } =
+          await supabase
+            .from("ask_leo_conversations")
+            .update({
+              last_message_preview:
+                buildConversationPreview(deterministicReply),
+              last_message_at: nowIso,
+              updated_at: nowIso,
+            })
+            .eq("id", persistedConversationId)
+            .eq("organisation_id", organisationId)
+            .eq("user_id", user.id);
+
+        if (conversationUpdateError) {
+          console.error(
+            "Deterministic new starter conversation metadata could not be updated:",
+            conversationUpdateError
+          );
+        }
+      }
+
+      return createReplayStreamResponse({
+        response: deterministicReply,
+        conversationId: persistedConversationId,
+      });
+    }
+
+    if (
+      contextType === "new_starter" &&
+      !newStarterWorkflowStart &&
+      newStarterEmployeeId &&
+      Number.isInteger(newStarterEmployeeId) &&
+      newStarterEmployeeId > 0
+    ) {
+      const {
+        data: canManageEmployees,
+        error: managePermissionError,
+      } = await (supabase as any).rpc("leo_has_permission", {
+        target_organisation_id: organisationId,
+        target_permission_key: "employees.manage",
+        target_user_id: user.id,
+      });
+
+      if (managePermissionError) {
+        return NextResponse.json(
+          { error: "Your employee management permission could not be verified." },
+          { status: 500 },
+        );
+      }
+
+      if (canManageEmployees) {
+        const updateResult = await applyNewStarterEmployerMessage({
+          organisationId,
+          employeeId: newStarterEmployeeId,
+          userId: user.id,
+          userEmail: user.email || null,
+          message,
+        });
+
+        if (updateResult.recognised) {
+          await runNewStarterAutomaticActions({
+            organisationId,
+            employeeId: newStarterEmployeeId,
+            userId: user.id,
+          });
+
+          const readiness = await assessNewStarterReadiness({
+            supabase,
+            organisationId,
+            employeeId: newStarterEmployeeId,
+          });
+          const plan = prepareNewStarterPlan(readiness);
+          const deterministicReply = buildNewStarterWorkflowProgressReply({
+            readiness,
+            plan,
+            applied: updateResult.applied,
+            pending: updateResult.pending,
+          });
+
+          if (shouldPersistConversation && persistedConversationId) {
+            const saveLeoMessageResult = await saveAskLeoConversationMessage({
+              supabase,
+              conversationId: persistedConversationId,
+              organisationId,
+              userId: user.id,
+              role: "leo",
+              content: deterministicReply,
+              requestId,
+            });
+
+            if (
+              saveLeoMessageResult.error &&
+              !saveLeoMessageResult.isDuplicate
+            ) {
+              console.error(
+                "Agentic new starter reply could not be persisted:",
+                saveLeoMessageResult.error,
+              );
+            }
+
+            const nowIso = new Date().toISOString();
+            const { error: conversationUpdateError } =
+              await supabase
+                .from("ask_leo_conversations")
+                .update({
+                  last_message_preview:
+                    buildConversationPreview(deterministicReply),
+                  last_message_at: nowIso,
+                  updated_at: nowIso,
+                })
+                .eq("id", persistedConversationId)
+                .eq("organisation_id", organisationId)
+                .eq("user_id", user.id);
+
+            if (conversationUpdateError) {
+              console.error(
+                "Agentic new starter conversation metadata could not be updated:",
+                conversationUpdateError,
+              );
+            }
+          }
+
+          return createReplayStreamResponse({
+            response: deterministicReply,
+            conversationId: persistedConversationId,
+          });
+        }
+      }
+    }
 
     /*
      * 1. OPERATIONAL ROUTING
@@ -1516,7 +1715,8 @@ function evaluateMatterRecommendation(input: {
 } {
     if (
       input.activeMatterId ||
-      input.contextType === "matter"
+      input.contextType === "matter" ||
+      input.contextType === "new_starter"
     ) {
       return {
         shouldRecommend: false,

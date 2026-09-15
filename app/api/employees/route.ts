@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { runNewStarterAutomaticActions } from "@/lib/onboarding/newStarterAutoActions";
 
 export const dynamic = "force-dynamic";
 
@@ -258,10 +259,28 @@ export async function POST(request: Request) {
       );
     }
 
+    let automaticPreparation = null;
+
+    if (employee.start_date) {
+      try {
+        automaticPreparation = await runNewStarterAutomaticActions({
+          organisationId,
+          employeeId: employee.id,
+          userId: user.id,
+        });
+      } catch (automationError) {
+        console.warn(
+          "New starter automatic preparation could not complete immediately:",
+          automationError,
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
         employee,
+        automaticPreparation,
       },
       { status: 201 }
     );

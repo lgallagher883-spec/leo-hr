@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
+import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges, reconcileRoleComplianceResources, syncPublishedMandatoryRolePathways } from "@/lib/agentic/employeeChangeWorkflow";
+import { planOffboardingAdministration } from "@/lib/agentic/offboardingWorkflow";
+import { refreshUnissuedAgenticContractPreparation, syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -686,7 +689,7 @@ export async function PATCH(
 
     const existingDetails = await admin
       .from("employee_employment_details")
-      .select("id")
+      .select(EMPLOYMENT_DETAILS_SELECT)
       .eq("employee_id", employeeId)
       .maybeSingle();
 
@@ -830,10 +833,339 @@ export async function PATCH(
       );
     }
 
+    let probationSync: { updated: boolean; reason: string } | null = null;
+    const newStartDate = readOptionalString(updates.start_date);
+    if (
+      newStartDate &&
+      currentEmployee.start_date !== newStartDate
+    ) {
+      try {
+        probationSync = await syncAgenticProbationToApprovedStartDate({
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          startDate: newStartDate,
+          userId: user.id,
+        });
+      } catch (probationSyncError) {
+        console.warn(
+          "Agentic probation schedule could not be resynchronised:",
+          probationSyncError,
+        );
+      }
+    }
+
+    let probationManagerSync: { updated: boolean; reason: string } | null = null;
+    const approvedManager = readOptionalString(updates.manager);
+
+    if (
+      approvedManager &&
+      readOptionalString(existingDetails.data?.manager) !== approvedManager
+    ) {
+      try {
+        probationManagerSync = await syncAgenticProbationManager({
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          managerName: approvedManager,
+          userId: user.id,
+        });
+      } catch (probationManagerSyncError) {
+        console.warn(
+          "Agentic probation manager assignments could not be resynchronised:",
+          probationManagerSyncError,
+        );
+      }
+    }
+
+    const changes = detectApprovedEmploymentChanges({
+      previousEmployee: currentEmployee as Record<string, unknown>,
+      nextEmployee: employeeResult.data as Record<string, unknown>,
+      previousEmployment:
+        (existingDetails.data as Record<string, unknown> | null) ?? null,
+      nextEmployment: detailsResult.data as Record<string, unknown>,
+    });
+    const downstreamAdmin = downstreamAdminForChanges(changes);
+    const changePacks = buildEmployeeChangePacks(changes);
+    const authorisedDepartureRecorded = changes.some(
+      (change) =>
+        change.field === "employment_end_date" &&
+        Boolean(detailsResult.data.employment_end_date),
+    );
+    const offboardingPlan = authorisedDepartureRecorded
+      ? planOffboardingAdministration({
+          departureAuthorised: true,
+          finalDateConfirmed: true,
+          departureDisputed: false,
+          leaveRulesConfigured: Boolean(
+            detailsResult.data.leave_entitlement_basis &&
+              detailsResult.data.holiday_year_start_month &&
+              detailsResult.data.holiday_year_start_day,
+          ),
+          // The employment update does not prove that every leave, payroll,
+          // access or retention record is complete. Those checks stay open.
+          leaveRecordsComplete: false,
+          payrollInputsComplete: false,
+          accessChangesApproved: false,
+          retentionRulesConfigured: false,
+          finalPayOrDeductionDecisionRequested: false,
+        })
+      : null;
+
+    let contractPreparationRefresh:
+      | { updated: boolean; reason: string; missingFields?: string[] }
+      | null = null;
+
+    if (changes.length > 0) {
+      try {
+        contractPreparationRefresh = await refreshUnissuedAgenticContractPreparation({
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          userId: user.id,
+        });
+      } catch (contractRefreshError) {
+        console.warn(
+          "Agentic unissued contract preparation could not be refreshed:",
+          contractRefreshError,
+        );
+      }
+    }
+
+    let mandatoryRolePathways:
+      | { assigned: number; existing: number; reason: string }
+      | null = null;
+
+    if (changes.some((change) => change.field === "role") && employeeResult.data.role) {
+      try {
+        mandatoryRolePathways = await syncPublishedMandatoryRolePathways({
+          admin,
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          role: employeeResult.data.role,
+          userId: user.id,
+        });
+      } catch (rolePathwayError) {
+        console.warn(
+          "Agentic mandatory role pathways could not be synchronised:",
+          rolePathwayError,
+        );
+      }
+    }
+
+    let roleComplianceResources:
+      | { matched: number; available: number; reason: string }
+      | null = null;
+
+    if (changes.some((change) => change.field === "role") && employeeResult.data.role) {
+      try {
+        roleComplianceResources = await reconcileRoleComplianceResources({
+          admin,
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          role: employeeResult.data.role,
+          userId: user.id,
+        });
+      } catch (roleComplianceError) {
+        console.warn(
+          "Agentic role compliance resources could not be reconciled:",
+          roleComplianceError,
+        );
+      }
+    }
+
+    if (changes.length > 0) {
+      const timelineEntries: Array<Record<string, unknown>> = [
+        {
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Agentic Employee Change",
+          title: "Leo prepared downstream administration",
+          description:
+            "Leo detected the approved employment changes and prepared the related administrative follow-up without requiring the employer to re-enter the same information.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes,
+            downstream_admin: downstreamAdmin,
+            ask_leo_involved: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        },
+      ];
+
+      if (changePacks.contractVariation.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Contract Variation Prepared",
+          title: "Contract variation information prepared",
+          description:
+            "Leo assembled the approved contractual changes into a variation pack. No document has been issued automatically.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: changePacks.contractVariation,
+            issue_status: "not_issued",
+            employer_reentry_required: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      const entitlementChanges = changes.filter((change) =>
+        [
+          "contracted_hours_per_week",
+          "contracted_days_per_week",
+          "working_days",
+          "annual_leave_allowance",
+          "part_year_worker",
+          "holiday_year_start_month",
+          "holiday_year_start_day",
+          "leave_entitlement_basis",
+          "bank_holiday_treatment",
+          "reserved_leave_days",
+          "employment_end_date",
+        ].includes(change.field),
+      );
+
+      if (entitlementChanges.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Agentic Leave Configuration Updated",
+          title: "Leave configuration updated",
+          description:
+            "Leo recorded the approved leave-related employment changes. The leave workspace will use the updated configuration automatically when it calculates entitlement and balances.",
+          status: "Completed",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: entitlementChanges,
+            recalculation_source: "employee_employment_details",
+            separate_balance_write_required: false,
+            ask_leo_involved: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      if (changePacks.payrollChange.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Payroll Change Pack Prepared",
+          title: "Payroll change information prepared",
+          description:
+            "Leo assembled the approved employment changes that may need to be supplied to payroll. Nothing has been submitted externally.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: changePacks.payrollChange,
+            submission_status: "not_submitted",
+            employer_reentry_required: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      if (changePacks.roleAssignments.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Role Assignment Review Prepared",
+          title: "Role-based assignments review prepared",
+          description:
+            "Leo recorded the role change so policy, learning and compliance assignments can be compared before anything new is assigned.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: changePacks.roleAssignments,
+            automatic_assignment_status: "not_run",
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      if (offboardingPlan) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Agentic Offboarding Prepared",
+          title: "Offboarding administration prepared",
+          description:
+            "Leo recognised the authorised final date and prepared the offboarding administration plan. No employment, final-pay, deduction or access-removal decision has been made.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            final_date: detailsResult.data.employment_end_date,
+            reason_for_leaving_recorded: Boolean(
+              detailsResult.data.reason_for_leaving,
+            ),
+            plan: offboardingPlan,
+            human_intervention: offboardingPlan.routeHumanInputToNeedsHelp
+              ? {
+                  destination: "Leo Needs Your Help",
+                  status: "open",
+                  reasons: offboardingPlan.reasons,
+                }
+              : {
+                  destination: "none",
+                  status: "not_required",
+                  reasons: [],
+                },
+            checklist: {
+              resource_id: "employee-exit-checklist",
+              route: "/dashboard/policies/checklists/employee-exit-checklist",
+            },
+            employment_status_changed: false,
+            final_pay_decision: "not_made",
+            access_removal_status: "not_authorised",
+            ask_leo_involved: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
+      const changeTimeline = await admin.from("employee_timeline").insert(timelineEntries);
+
+      if (changeTimeline.error) {
+        console.warn(
+          "Agentic employee change timeline events could not be written:",
+          changeTimeline.error,
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       employee: employeeResult.data,
       employmentDetails: detailsResult.data,
+      agenticChange: {
+        changes,
+        downstreamAdmin,
+        changePacks,
+        probationSync,
+        probationManagerSync,
+        contractPreparationRefresh,
+        mandatoryRolePathways,
+        roleComplianceResources,
+        offboardingPlan,
+      },
     });
   } catch (error) {
     console.error("Employment details update failed:", error);

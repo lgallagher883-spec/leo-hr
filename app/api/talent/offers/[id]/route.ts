@@ -5,6 +5,7 @@ import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolv
 import { transferCompletedSignaturesForOffer } from "@/lib/docusign/envelopes";
 import { createClient } from "@/lib/supabase/server";
 import { convertAppointmentToEmployee } from "@/lib/talent/conversion";
+import { planAcceptedOfferAdministration } from "@/lib/agentic/recruitmentWorkflow";
 
 type RouteContext = { params: Promise<{ id: string }> };
 type PlatformRole = "owner" | "senior" | "manager" | "employee";
@@ -305,6 +306,17 @@ async function syncOfferAutomation(
       activeAppointment = reopened.data;
     }
 
+    const agenticOfferPlan = planAcceptedOfferAdministration({
+      offerAccepted: true,
+      startDateConfirmed: Boolean(
+        optionalText(activeAppointment.agreed_start_date) ||
+          optionalText(offer.proposed_start_date),
+      ),
+      appointmentDecisionAllowsProgression: !blockedByDecision(decisionOutcome),
+      requiredChecksSatisfied: false,
+      nonStandardTermsRecorded: false,
+    });
+
     await writeTalentActivity(
       supabase,
       organisationId,
@@ -317,12 +329,15 @@ async function syncOfferAutomation(
         appointment_id: activeAppointment.id,
         due_diligence_profile_id: dueDiligence.id,
         appointment_decision: decisionOutcome,
+        agentic_offer_plan: agenticOfferPlan,
+        ask_leo_involved: false,
       },
     );
 
     return {
       appointment: activeAppointment,
       dueDiligenceProfileId: dueDiligence.id,
+      agenticOfferPlan,
     };
   }
 
@@ -443,6 +458,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         offer: updateResult.data,
         appointment: automation.appointment,
         dueDiligenceProfileId: automation.dueDiligenceProfileId,
+        agenticOfferPlan: automation.agenticOfferPlan ?? null,
+        askLeoInvolved: false,
       });
     }
 
@@ -477,6 +494,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         offer: updateResult.data,
         appointment: automation.appointment,
         dueDiligenceProfileId: automation.dueDiligenceProfileId,
+        agenticOfferPlan: automation.agenticOfferPlan ?? null,
+        askLeoInvolved: false,
       });
     }
 

@@ -551,6 +551,80 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ success: true, appointment: result.data });
     }
 
+    if (action === "agentic_readiness") {
+      const itemsResult = await (supabase as any)
+        .from("leo_talent_onboarding_items")
+        .select("id,item_key,item_name,item_category,status,metadata")
+        .eq("appointment_id", id)
+        .eq("organisation_id", access.organisationId);
+
+      if (itemsResult.error) throw new Error(itemsResult.error.message);
+
+      const items = Array.isArray(itemsResult.data) ? itemsResult.data : [];
+      const requiredItems = items.filter((item: any) => {
+        const metadata =
+          item.metadata && typeof item.metadata === "object" ? item.metadata : {};
+        return metadata.mandatory !== false && item.item_category !== "learning";
+      });
+      const incompleteRequired = requiredItems.filter(
+        (item: any) => !["complete", "not_required"].includes(text(item.status)),
+      );
+
+      const decisionOutcome = await getAppointmentDecisionOutcome(
+        supabase as any,
+        access.organisationId,
+        String(appointmentResult.data.application_id),
+      );
+      const startDateConfirmed = Boolean(
+        optionalText(appointmentResult.data.agreed_start_date) ||
+          optionalText(appointmentResult.data.actual_start_date),
+      );
+      const requiredChecksSatisfied = incompleteRequired.length === 0;
+      const readyForEmployeeCreation =
+        startDateConfirmed &&
+        !blockedByDecision(decisionOutcome) &&
+        requiredChecksSatisfied;
+
+      await writeTalentActivity(
+        supabase as any,
+        access.organisationId,
+        access.user.id,
+        id,
+        "agentic_onboarding_readiness_assessed",
+        readyForEmployeeCreation
+          ? "Leo confirmed the onboarding appointment is administratively ready for employee creation."
+          : "Leo assessed onboarding readiness and retained the outstanding required administration.",
+        {
+          start_date_confirmed: startDateConfirmed,
+          appointment_decision: decisionOutcome,
+          required_checks_satisfied: requiredChecksSatisfied,
+          outstanding_required_items: incompleteRequired.map((item: any) => ({
+            id: item.id,
+            key: item.item_key,
+            name: item.item_name,
+            category: item.item_category,
+            status: item.status,
+          })),
+          learning_excluded_from_required_readiness: true,
+          ready_for_employee_creation: readyForEmployeeCreation,
+          ask_leo_involved: false,
+        },
+      );
+
+      return NextResponse.json({
+        success: true,
+        readiness: {
+          startDateConfirmed,
+          appointmentDecision: decisionOutcome,
+          requiredChecksSatisfied,
+          outstandingRequiredItems: incompleteRequired,
+          learningExcludedFromRequiredReadiness: true,
+          readyForEmployeeCreation,
+        },
+        askLeoInvolved: false,
+      });
+    }
+
     if (action === "update_item") {
       const itemId = text(body.itemId);
       const status = text(body.status);

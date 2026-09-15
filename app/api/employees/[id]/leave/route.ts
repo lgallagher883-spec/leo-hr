@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { planAbsenceAdministration } from "@/lib/agentic/absenceWorkflow";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -1075,9 +1076,85 @@ export async function PATCH(
       description: `${result.data.leave_type} was updated for ${employee.name}.`,
     });
 
+    let agenticAbsencePlan = null;
+    if (String(result.data.leave_type || "").toLowerCase() === "sickness absence") {
+      agenticAbsencePlan = planAbsenceAdministration({
+        leaveType: String(result.data.leave_type || ""),
+        status: result.data.status,
+        startDate: result.data.start_date,
+        endDate: result.data.end_date,
+        evidenceComplete: false,
+        welfareConcernRecorded: false,
+        adjustmentNeedRecorded: false,
+        recordDisputed: false,
+      });
+
+      if (
+        agenticAbsencePlan.prepareReturnToWork ||
+        agenticAbsencePlan.preparePayrollInput
+      ) {
+        const nowAgentic = new Date().toISOString();
+        const existingPlan = await admin
+          .from("employee_timeline")
+          .select("id,metadata")
+          .eq("employee_id", employeeId)
+          .eq("event_type", "Agentic Absence Administration Prepared")
+          .eq("source_record_id", String(result.data.id))
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        const alreadyPrepared = (existingPlan.data ?? []).some((event: any) => {
+          const metadata =
+            event.metadata && typeof event.metadata === "object"
+              ? event.metadata
+              : {};
+          return (
+            metadata.status === result.data.status &&
+            metadata.end_date === result.data.end_date
+          );
+        });
+
+        if (!alreadyPrepared) {
+          await admin.from("employee_timeline").insert({
+            organisation_id: accessResult.access.organisationId,
+            employee_id: employeeId,
+            event_type: "Agentic Absence Administration Prepared",
+            title: agenticAbsencePlan.prepareReturnToWork
+              ? "Return-to-work administration prepared"
+              : "Absence administration prepared",
+            description: agenticAbsencePlan.prepareReturnToWork
+              ? "Leo prepared the routine return-to-work and payroll administration from the recorded sickness absence. No welfare, adjustment or attendance judgement has been made."
+              : "Leo prepared the routine payroll administration from the recorded sickness absence. No welfare, adjustment or attendance judgement has been made.",
+            status: agenticAbsencePlan.needsHumanReview
+              ? "Needs Review"
+              : "Prepared",
+            source_module: "Agentic Leo",
+            source_record_id: String(result.data.id),
+            metadata: {
+              leave_record_id: result.data.id,
+              status: result.data.status,
+              start_date: result.data.start_date,
+              end_date: result.data.end_date,
+              prepare_return_to_work: agenticAbsencePlan.prepareReturnToWork,
+              prepare_payroll_input: agenticAbsencePlan.preparePayrollInput,
+              close_routine_administration:
+                agenticAbsencePlan.closeRoutineAdministration,
+              needs_human_review: agenticAbsencePlan.needsHumanReview,
+              reasons: agenticAbsencePlan.reasons,
+              ask_leo_involved: false,
+            },
+            event_date: nowAgentic,
+            created_by: user.id,
+            created_at: nowAgentic,
+          });
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       record: result.data,
+      agenticAbsencePlan,
     });
   } catch (error) {
     console.error("Leave record update failed:", error);

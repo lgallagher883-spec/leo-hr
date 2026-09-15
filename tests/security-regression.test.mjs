@@ -14,6 +14,7 @@ const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
 const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
+const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -568,4 +569,14 @@ test("absence administration prepares routine work but never decides welfare or 
   assert.match(agenticAbsenceWorkflow, /adjustmentNeedRecorded/);
   assert.match(agenticAbsenceWorkflow, /recordDisputed/);
   assert.match(agenticAbsenceWorkflow, /needsHumanReview/);
+});
+
+
+test("live sickness records prepare Agentic RTW and payroll admin without Ask Leo", () => {
+  assert.match(managedEmployeeLeaveRoute, /planAbsenceAdministration/);
+  assert.match(managedEmployeeLeaveRoute, /Agentic Absence Administration Prepared/);
+  assert.match(managedEmployeeLeaveRoute, /prepare_return_to_work/);
+  assert.match(managedEmployeeLeaveRoute, /prepare_payroll_input/);
+  assert.match(managedEmployeeLeaveRoute, /No welfare, adjustment or attendance judgement has been made/);
+  assert.match(managedEmployeeLeaveRoute, /ask_leo_involved: false/);
 });

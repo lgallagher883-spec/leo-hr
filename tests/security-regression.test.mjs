@@ -432,3 +432,14 @@ test("DBS certificate evidence never becomes an automatic suitability decision",
   assert.match(employeeDocumentsRoute, /Suitability, certificate level and any Update Service verification remain separate decisions/);
   assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
 });
+
+
+test("right to work evidence never becomes automatic statutory verification", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "right_to_work"/);
+  assert.match(employeeDocumentsRoute, /check_completed_date: null/);
+  assert.match(employeeDocumentsRoute, /right_to_work_expiry: null/);
+  assert.match(employeeDocumentsRoute, /right_to_work_expiry_set_from_document: false/);
+  assert.match(employeeDocumentsRoute, /has not been treated as completion of the statutory right to work check/);
+  assert.match(employeeDocumentsRoute, /Agentic Right To Work Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});

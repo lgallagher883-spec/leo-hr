@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges, reconcileRoleComplianceResources, syncPublishedMandatoryRolePathways } from "@/lib/agentic/employeeChangeWorkflow";
+import { planOffboardingAdministration } from "@/lib/agentic/offboardingWorkflow";
 import { refreshUnissuedAgenticContractPreparation, syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -884,6 +885,30 @@ export async function PATCH(
     });
     const downstreamAdmin = downstreamAdminForChanges(changes);
     const changePacks = buildEmployeeChangePacks(changes);
+    const authorisedDepartureRecorded = changes.some(
+      (change) =>
+        change.field === "employment_end_date" &&
+        Boolean(detailsResult.data.employment_end_date),
+    );
+    const offboardingPlan = authorisedDepartureRecorded
+      ? planOffboardingAdministration({
+          departureAuthorised: true,
+          finalDateConfirmed: true,
+          departureDisputed: false,
+          leaveRulesConfigured: Boolean(
+            detailsResult.data.leave_entitlement_basis &&
+              detailsResult.data.holiday_year_start_month &&
+              detailsResult.data.holiday_year_start_day,
+          ),
+          // The employment update does not prove that every leave, payroll,
+          // access or retention record is complete. Those checks stay open.
+          leaveRecordsComplete: false,
+          payrollInputsComplete: false,
+          accessChangesApproved: false,
+          retentionRulesConfigured: false,
+          finalPayOrDeductionDecisionRequested: false,
+        })
+      : null;
 
     let contractPreparationRefresh:
       | { updated: boolean; reason: string; missingFields?: string[] }
@@ -1073,6 +1098,38 @@ export async function PATCH(
         });
       }
 
+      if (offboardingPlan) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Agentic Offboarding Prepared",
+          title: "Offboarding administration prepared",
+          description:
+            "Leo recognised the authorised final date and prepared the offboarding administration plan. No employment, final-pay, deduction or access-removal decision has been made.",
+          status: "Prepared",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            final_date: detailsResult.data.employment_end_date,
+            reason_for_leaving_recorded: Boolean(
+              detailsResult.data.reason_for_leaving,
+            ),
+            plan: offboardingPlan,
+            checklist: {
+              resource_id: "employee-exit-checklist",
+              route: "/dashboard/policies/checklists/employee-exit-checklist",
+            },
+            employment_status_changed: false,
+            final_pay_decision: "not_made",
+            access_removal_status: "not_authorised",
+            ask_leo_involved: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
       const changeTimeline = await admin.from("employee_timeline").insert(timelineEntries);
 
       if (changeTimeline.error) {
@@ -1096,6 +1153,7 @@ export async function PATCH(
         contractPreparationRefresh,
         mandatoryRolePathways,
         roleComplianceResources,
+        offboardingPlan,
       },
     });
   } catch (error) {

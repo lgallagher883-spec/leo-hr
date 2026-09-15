@@ -22,6 +22,7 @@ const agenticMatterWorkflow = read("lib/agentic/matterWorkflow.ts");
 const agenticMatterPlanRoute = read("app/api/matters/[id]/agentic-plan/route.ts");
 const matterDocumentsRoute = read("app/api/matters/[id]/documents/route.ts");
 const agenticOffboardingWorkflow = read("lib/agentic/offboardingWorkflow.ts");
+const employeeEmploymentRoute = read("app/api/employees/[id]/employment/route.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -819,4 +820,17 @@ test("offboarding prepares administration but preserves consequential decisions"
   assert.match(agenticOffboardingWorkflow, /prepareRetentionWorkflow/);
   assert.match(agenticOffboardingWorkflow, /blockFinalPayOrDeductionDecision/);
   assert.match(agenticOffboardingWorkflow, /blockUnauthorisedAccessRemoval/);
+});
+
+
+test("an authorised final-date change prepares live offboarding without ending employment", () => {
+  assert.match(employeeEmploymentRoute, /planOffboardingAdministration/);
+  assert.match(employeeEmploymentRoute, /authorisedDepartureRecorded/);
+  assert.match(employeeEmploymentRoute, /change\.field === "employment_end_date"/);
+  assert.match(employeeEmploymentRoute, /Agentic Offboarding Prepared/);
+  assert.match(employeeEmploymentRoute, /employee-exit-checklist/);
+  assert.match(employeeEmploymentRoute, /employment_status_changed: false/);
+  assert.match(employeeEmploymentRoute, /final_pay_decision: "not_made"/);
+  assert.match(employeeEmploymentRoute, /access_removal_status: "not_authorised"/);
+  assert.match(employeeEmploymentRoute, /ask_leo_involved: false/);
 });

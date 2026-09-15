@@ -30,8 +30,24 @@ function careCheckReference(value: unknown, fallback: string): string {
   return normalised || fallback.replace(/[^A-Za-z0-9_]/g, "");
 }
 
-function leoRtwStatus(providerStatus: unknown): string {
+function leoRtwStatus(
+  providerStatus: unknown,
+  rtwCheckStatus?: unknown,
+  rtwCheckDate?: unknown,
+): string {
   const status = text(providerStatus).toUpperCase();
+  const result = text(rtwCheckStatus).toUpperCase();
+  const hasCheckDate = Boolean(text(rtwCheckDate));
+
+  // CareCheck can report the application lifecycle as complete separately
+  // from the RTW result fields. Treat an explicit successful provider result
+  // as verified; never infer a pass merely from APP_COMPLETE.
+  if (
+    ["PASS", "PASSED", "CLEAR", "CLEARED", "VERIFIED", "SUCCESS", "COMPLETE", "COMPLETED"].includes(result) &&
+    (hasCheckDate || status === "APP_COMPLETE")
+  ) {
+    return "verified";
+  }
 
   switch (status) {
     case "INVITE_SENT":
@@ -171,9 +187,13 @@ async function saveState({
       ? (context.shared.payload as Record<string, unknown>)
       : {};
 
-  const status = leoRtwStatus(careCheck.statusCode);
   const providerCheckDate = text(careCheck.rtwCheckDate);
   const providerOutcome = text(careCheck.rtwCheckStatus);
+  const status = leoRtwStatus(
+    careCheck.statusCode,
+    providerOutcome,
+    providerCheckDate,
+  );
 
   const payload = {
     ...existingPayload,

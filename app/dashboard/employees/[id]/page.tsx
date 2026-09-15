@@ -224,8 +224,6 @@ const quickActions: QuickAction[] = [
   },
 ];
 
-const defaultPlatformRole: PlatformRole = "Employee";
-
 export default function EmployeeProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -241,7 +239,7 @@ export default function EmployeeProfilePage() {
   const [activeSection, setActiveSection] =
     useState<ProfileSection>("Overview");
 
-  const [platformRole] = useState<PlatformRole>(defaultPlatformRole);
+  const [platformRole, setPlatformRole] = useState<PlatformRole | null>(null);
 
   const [archiving, setArchiving] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -254,7 +252,7 @@ export default function EmployeeProfilePage() {
 
   const hasPermission = useCallback(
     (minimumRole: PlatformRole) =>
-      roleRank[platformRole] >= roleRank[minimumRole],
+      platformRole !== null && roleRank[platformRole] >= roleRank[minimumRole],
     [platformRole]
   );
 
@@ -289,6 +287,7 @@ export default function EmployeeProfilePage() {
       const result = (await response.json()) as {
         success?: boolean;
         employee?: Employee;
+        platformRole?: PlatformRole;
         error?: string;
       };
 
@@ -300,6 +299,10 @@ export default function EmployeeProfilePage() {
       }
 
       setEmployee(result.employee);
+      if (!result.platformRole) {
+        throw new Error("Your organisation role could not be resolved.");
+      }
+      setPlatformRole(result.platformRole);
     } catch (error) {
       console.error("Error loading employee:", error);
       setLoadError(
@@ -559,7 +562,7 @@ export default function EmployeeProfilePage() {
               label="Employee reference"
               value={String(employee.id)}
             />
-            <HeaderMeta label="Access view" value={platformRole} />
+            <HeaderMeta label="Access view" value={platformRole || "Resolving"} />
           </div>
         </div>
 

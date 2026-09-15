@@ -715,3 +715,12 @@ test("live compliance reconciliation respects whether DBS actually applies", () 
   assert.match(complianceIntelligenceRoute, /requirementApplies: dbsRequired/);
   assert.match(complianceIntelligenceRoute, /evidenceState: dbsEvidenceRow \? "verified" : "missing"/);
 });
+
+
+test("driving compliance only applies to employees who actually drive for work", () => {
+  assert.match(complianceIntelligenceRoute, /requirement: "driving_for_work"/);
+  assert.match(complianceIntelligenceRoute, /drivesForWork/);
+  assert.match(complianceIntelligenceRoute, /requirementApplies: drivesForWork/);
+  assert.match(complianceIntelligenceRoute, /business_insurance_expiry_date/);
+  assert.match(complianceIntelligenceRoute, /mot_expiry_date/);
+});

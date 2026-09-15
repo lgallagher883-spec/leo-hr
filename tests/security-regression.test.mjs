@@ -580,3 +580,12 @@ test("live sickness records prepare Agentic RTW and payroll admin without Ask Le
   assert.match(managedEmployeeLeaveRoute, /No welfare, adjustment or attendance judgement has been made/);
   assert.match(managedEmployeeLeaveRoute, /ask_leo_involved: false/);
 });
+
+
+test("Agentic sickness admin links the existing RTW resource and prepares neutral payroll inputs", () => {
+  assert.match(managedEmployeeLeaveRoute, /resource_id: "return-to-work-form"/);
+  assert.match(managedEmployeeLeaveRoute, /route: "\/dashboard\/policies\/forms\/return-to-work-form"/);
+  assert.match(managedEmployeeLeaveRoute, /employee_name: employee\.name/);
+  assert.match(managedEmployeeLeaveRoute, /payroll_input/);
+  assert.match(managedEmployeeLeaveRoute, /payroll_decision: "not_made"/);
+});

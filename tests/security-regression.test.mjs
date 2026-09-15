@@ -17,6 +17,7 @@ const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
 const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
 const agenticRecruitmentWorkflow = read("lib/agentic/recruitmentWorkflow.ts");
 const agenticComplianceReconciliation = read("lib/agentic/complianceReconciliation.ts");
+const agenticPerformanceReview = read("lib/agentic/performanceReviewWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -723,4 +724,14 @@ test("driving compliance only applies to employees who actually drive for work",
   assert.match(complianceIntelligenceRoute, /requirementApplies: drivesForWork/);
   assert.match(complianceIntelligenceRoute, /business_insurance_expiry_date/);
   assert.match(complianceIntelligenceRoute, /mot_expiry_date/);
+});
+
+
+test("performance review automation prepares administration but preserves manager judgement", () => {
+  assert.match(agenticPerformanceReview, /prepareReview/);
+  assert.match(agenticPerformanceReview, /carryForwardOpenActions/);
+  assert.match(agenticPerformanceReview, /prepareDevelopmentAssignments/);
+  assert.match(agenticPerformanceReview, /managerAssessmentRecorded/);
+  assert.match(agenticPerformanceReview, /blockPayOrPromotionDecision/);
+  assert.match(agenticPerformanceReview, /blockFormalCapabilityDecision/);
 });

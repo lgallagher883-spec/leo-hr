@@ -71,3 +71,39 @@ export function readDelegatedRoutineLeaveApproval(
 
   return explicitlyDelegates && !explicitBlock;
 }
+
+
+export function shouldAutoCancelRoutineAnnualLeave(args: {
+  leaveType: string;
+  currentStatus: string | null;
+  delegatedAutoApproval: boolean;
+  wasAgenticAutoApproved: boolean;
+  leaveHasStarted: boolean;
+}): { canAutoCancel: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (!args.delegatedAutoApproval) {
+    reasons.push("The organisation has not explicitly delegated routine annual leave approval to Leo.");
+  }
+
+  if (args.leaveType !== "Annual Leave" && args.leaveType !== "Half Day Leave") {
+    reasons.push("This leave type requires human consideration.");
+  }
+
+  if (!args.wasAgenticAutoApproved) {
+    reasons.push("Leo only reverses leave that it previously approved automatically.");
+  }
+
+  if (String(args.currentStatus || "").toLowerCase() !== "approved") {
+    reasons.push("Only an approved leave record can be automatically cancelled.");
+  }
+
+  if (args.leaveHasStarted) {
+    reasons.push("Leave that has already started requires human consideration.");
+  }
+
+  return {
+    canAutoCancel: reasons.length === 0,
+    reasons,
+  };
+}

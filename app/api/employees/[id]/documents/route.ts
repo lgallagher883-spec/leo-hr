@@ -769,6 +769,7 @@ export async function POST(
               source_record_id: String(dbsRecord.data.id),
               metadata: {
                 employee_document_id: documentResult.data.id,
+                classification: "dbs",
                 employee_dbs_check_id: dbsRecord.data.id,
                 certificate_number: certificateNumber,
                 certificate_issue_date: certificateIssueDate,
@@ -972,6 +973,7 @@ export async function POST(
               source_record_id: String(qualification.data.id),
               metadata: {
                 employee_document_id: documentResult.data.id,
+                classification: "qualification",
                 employee_qualification_id: qualification.data.id,
                 certificate_number: certificateNumber,
                 expiry_date: expiryDate,

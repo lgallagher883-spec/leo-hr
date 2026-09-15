@@ -500,3 +500,12 @@ test("role compliance reconciliation is idempotent for the same role and resourc
   assert.match(employeeChangeWorkflow, /alreadyRecorded/);
   assert.match(employeeChangeWorkflow, /current role-based compliance resource match is already recorded/);
 });
+
+
+test("role policy reconciliation only treats already shared company documents as employee available", () => {
+  assert.match(employeeChangeWorkflow, /from\("company_documents"\)/);
+  assert.match(employeeChangeWorkflow, /\.eq\("access_level", "everyone"\)/);
+  assert.match(employeeChangeWorkflow, /available_to_employee: availableResourceIds/);
+  assert.match(employeeChangeWorkflow, /acknowledgement_status: "not_recorded"/);
+  assert.match(employeeChangeWorkflow, /only resources already shared with employees are treated as available/);
+});

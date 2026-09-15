@@ -392,3 +392,13 @@ test("Agentic new starter portal invitation avoids existing organisation access"
   assert.match(newStarterAutoActions, /role: "employee"/);
   assert.match(newStarterAutoActions, /ask_leo_involved: false/);
 });
+
+
+test("received contracts close only matching unissued Agentic preparation", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "contract"/);
+  assert.match(employeeDocumentsRoute, /event_type", "Contract Preparation"/);
+  assert.match(employeeDocumentsRoute, /preparationMetadata\.issue_status === "not_issued"/);
+  assert.match(employeeDocumentsRoute, /issue_status: "received"/);
+  assert.match(employeeDocumentsRoute, /Agentic Contract Workflow Completed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});

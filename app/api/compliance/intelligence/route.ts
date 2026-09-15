@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { planComplianceReconciliation } from "@/lib/agentic/complianceReconciliation";
 import { runLeoCore } from "@/leo/core/router";
 import { buildDraftDocument } from "@/leo/draft/engine";
 import { buildLeoInsight } from "@/leo/insight/engine";
@@ -592,6 +593,39 @@ export async function GET() {
       loadOrganisationMemory(supabase, organisationId),
     ]);
 
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const { data: rightToWorkEvidence } = await supabase
+      .from("employee_right_to_work")
+      .select("employee_id,right_to_work_expiry,next_review_date,created_at")
+      .in("employee_id", employees.map((employee) => employee.id))
+      .order("created_at", { ascending: false });
+
+    const latestRtw = latestByEmployee((rightToWorkEvidence || []) as RightToWorkRow[]);
+    const agenticReconciliation = employees.map((employee) => {
+      const evidence = latestRtw.get(employee.id);
+      const evidenceDate = evidence
+        ? readDateOnly(evidence.next_review_date || evidence.right_to_work_expiry)
+        : null;
+      const evidenceCurrent = Boolean(
+        evidenceDate && evidenceDate.getTime() >= today.getTime(),
+      );
+      const plan = planComplianceReconciliation({
+        requirementApplies: true,
+        evidenceState: evidence ? "verified" : "missing",
+        evidenceMatchesEmployee: Boolean(evidence),
+        evidenceCurrent,
+      });
+
+      return {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        requirement: "right_to_work",
+        evidenceRecordCreatedAt: evidence?.created_at || null,
+        plan,
+      };
+    });
+
     const organisationKnowledge = foundations
       .map((item, index) => ({
         id: `${text(item.section) || "foundation"}-${text(item.key) || "item"}-${index}`,
@@ -690,6 +724,17 @@ export async function GET() {
           actionsOutstanding: snapshot.actionsOutstanding,
         },
         snapshot,
+        agenticReconciliation: {
+          assessed: agenticReconciliation.length,
+          repairedFromVerifiedEvidence: agenticReconciliation.filter(
+            (item) => item.plan.closeAdministrativeGap,
+          ).length,
+          needsEvidenceOrReview: agenticReconciliation.filter(
+            (item) => item.plan.supportingEvidenceRequired || item.plan.needsHumanReview,
+          ).length,
+          items: agenticReconciliation,
+          askLeoInvolved: false,
+        },
         draft: {
           summary: draft.summary,
           rationale: draft.rationale.slice(0, 2),

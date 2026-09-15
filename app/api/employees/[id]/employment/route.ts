@@ -3,7 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
-import { syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
+import { refreshUnissuedAgenticContractPreparation, syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -885,6 +885,25 @@ export async function PATCH(
     const downstreamAdmin = downstreamAdminForChanges(changes);
     const changePacks = buildEmployeeChangePacks(changes);
 
+    let contractPreparationRefresh:
+      | { updated: boolean; reason: string; missingFields?: string[] }
+      | null = null;
+
+    if (changes.length > 0) {
+      try {
+        contractPreparationRefresh = await refreshUnissuedAgenticContractPreparation({
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          userId: user.id,
+        });
+      } catch (contractRefreshError) {
+        console.warn(
+          "Agentic unissued contract preparation could not be refreshed:",
+          contractRefreshError,
+        );
+      }
+    }
+
     if (changes.length > 0) {
       const timelineEntries: Array<Record<string, unknown>> = [
         {
@@ -993,6 +1012,7 @@ export async function PATCH(
         changePacks,
         probationSync,
         probationManagerSync,
+        contractPreparationRefresh,
       },
     });
   } catch (error) {

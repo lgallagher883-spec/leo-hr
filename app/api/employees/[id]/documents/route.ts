@@ -619,6 +619,88 @@ export async function POST(
       );
     }
 
+    if (classification.category === "dbs") {
+      const factMap = new Map(
+        extractedFacts.map((fact) => [fact.key, fact.value]),
+      );
+      const certificateNumber = factMap.get("certificate_number") || null;
+      const certificateIssueDate = factMap.get("certificate_issue_date") || null;
+
+      const existingDbs = certificateNumber
+        ? await admin
+            .from("employee_dbs_checks")
+            .select("id")
+            .eq("employee_id", employeeId)
+            .eq("certificate_number", certificateNumber)
+            .limit(1)
+        : null;
+
+      if (!existingDbs?.error && !(existingDbs?.data ?? []).length) {
+        const nextCheckDue = certificateIssueDate
+          ? (() => {
+              const parsed = new Date(certificateIssueDate);
+              if (Number.isNaN(parsed.getTime())) return null;
+              parsed.setMonth(parsed.getMonth() + 11);
+              return parsed.toISOString().slice(0, 10);
+            })()
+          : null;
+
+        const dbsRecord = await admin
+          .from("employee_dbs_checks")
+          .insert({
+            employee_id: employeeId,
+            dbs_required: "Yes",
+            dbs_level: null,
+            certificate_number: certificateNumber,
+            certificate_issue_date: certificateIssueDate,
+            next_check_due: nextCheckDue,
+            update_service: null,
+            update_service_id: null,
+            safeguarding_training_completed: null,
+            safeguarding_training_expiry: null,
+            notes:
+              "DBS certificate evidence was filed by Agentic Leo. Certificate evidence alone has not been treated as a suitability decision or Update Service check.",
+            updated_at: now,
+          })
+          .select("id")
+          .single();
+
+        if (dbsRecord.error) {
+          console.warn("Agentic DBS evidence record could not be created:", dbsRecord.error);
+        } else {
+          const dbsTimeline = await admin
+            .from("employee_timeline")
+            .insert({
+              employee_id: employeeId,
+              event_type: "Agentic DBS Evidence Filed",
+              title: "DBS certificate evidence added",
+              description:
+                "Leo carried the available DBS certificate details into the employee record. Suitability, certificate level and any Update Service verification remain separate decisions.",
+              status: "Needs Review",
+              source_module: "Agentic Leo",
+              source_record_id: String(dbsRecord.data.id),
+              metadata: {
+                employee_document_id: documentResult.data.id,
+                employee_dbs_check_id: dbsRecord.data.id,
+                certificate_number: certificateNumber,
+                certificate_issue_date: certificateIssueDate,
+                next_check_due: nextCheckDue,
+                suitability_decision_recorded: false,
+                update_service_verified: false,
+                ask_leo_involved: false,
+              },
+              event_date: now,
+              created_by: user.id,
+              created_at: now,
+            });
+
+          if (dbsTimeline.error) {
+            console.warn("Agentic DBS evidence timeline event could not be created:", dbsTimeline.error);
+          }
+        }
+      }
+    }
+
     if (classification.category === "driving") {
       const factMap = new Map(
         extractedFacts.map((fact) => [fact.key, fact.value]),

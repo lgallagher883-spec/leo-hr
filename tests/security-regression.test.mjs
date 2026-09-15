@@ -548,3 +548,13 @@ test("routine Agentic cancellation only reverses leave Leo itself safely approve
   assert.match(agenticLeaveWorkflow, /leaveHasStarted/);
   assert.match(agenticLeaveWorkflow, /canAutoCancel: reasons\.length === 0/);
 });
+
+
+test("employee self service only auto cancels future leave Leo previously auto approved", () => {
+  assert.match(employeeLeaveRoute, /shouldAutoCancelRoutineAnnualLeave/);
+  assert.match(employeeLeaveRoute, /wasAgenticAutoApproved/);
+  assert.match(employeeLeaveRoute, /requiresHumanReview: true/);
+  assert.match(employeeLeaveRoute, /status: "Cancelled"/);
+  assert.match(employeeLeaveRoute, /balance_restored_by_status: true/);
+  assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
+});

@@ -619,6 +619,75 @@ export async function POST(
       );
     }
 
+    if (classification.category === "contract" && classification.canAdvanceWorkflow) {
+      const unissuedPreparation = await admin
+        .from("employee_timeline")
+        .select("id,metadata")
+        .eq("employee_id", employeeId)
+        .eq("source_module", "Agentic Leo")
+        .eq("event_type", "Contract Preparation")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!unissuedPreparation.error && unissuedPreparation.data?.[0]) {
+        const preparation = unissuedPreparation.data[0];
+        const preparationMetadata =
+          preparation.metadata && typeof preparation.metadata === "object"
+            ? (preparation.metadata as Record<string, unknown>)
+            : {};
+
+        if (preparationMetadata.issue_status === "not_issued") {
+          const completion = await admin
+            .from("employee_timeline")
+            .update({
+              description:
+                "Leo linked the received employment contract to the employee record and closed the earlier unissued contract preparation.",
+              status: "Completed",
+              metadata: {
+                ...preparationMetadata,
+                issue_status: "received",
+                received_employee_document_id: documentResult.data.id,
+                received_file_name: fileValue.name,
+                completed_at: now,
+                ask_leo_involved: false,
+              },
+              updated_at: now,
+            })
+            .eq("id", preparation.id)
+            .eq("employee_id", employeeId);
+
+          if (completion.error) {
+            console.warn("Agentic contract preparation could not be closed:", completion.error);
+          } else {
+            const completionTimeline = await admin
+              .from("employee_timeline")
+              .insert({
+                employee_id: employeeId,
+                event_type: "Agentic Contract Workflow Completed",
+                title: "Employment contract filed",
+                description:
+                  "Leo filed the received employment contract and closed the matching unissued contract preparation.",
+                status: "Completed",
+                source_module: "Agentic Leo",
+                source_record_id: String(documentResult.data.id),
+                metadata: {
+                  employee_document_id: documentResult.data.id,
+                  contract_preparation_event_id: preparation.id,
+                  ask_leo_involved: false,
+                },
+                event_date: now,
+                created_by: user.id,
+                created_at: now,
+              });
+
+            if (completionTimeline.error) {
+              console.warn("Agentic contract completion timeline event could not be created:", completionTimeline.error);
+            }
+          }
+        }
+      }
+    }
+
     if (classification.category === "fit_note") {
       const sicknessResult = await admin
         .from("employee_leave_records")

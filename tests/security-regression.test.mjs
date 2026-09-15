@@ -12,6 +12,7 @@ const knowledgeHealth = read("app/api/knowledge/health/route.ts");
 const secureResources = read("app/api/knowledge/resources/file/route.ts");
 const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
+const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -519,4 +520,14 @@ test("routine leave automation requires explicit delegation and confirmed safe i
   assert.match(agenticLeaveWorkflow, /available annual leave balance/);
   assert.match(agenticLeaveWorkflow, /overlaps another active leave record/);
   assert.match(agenticLeaveWorkflow, /canAutoApprove: reasons\.length === 0/);
+});
+
+
+test("employee leave only auto approves after explicit organisation delegation", () => {
+  assert.match(agenticLeaveWorkflow, /explicitlyDelegates && !explicitBlock/);
+  assert.match(employeeLeaveRoute, /readDelegatedRoutineLeaveApproval/);
+  assert.match(employeeLeaveRoute, /assessRoutineAnnualLeave/);
+  assert.match(employeeLeaveRoute, /resolvedStatus = routineAssessment\.canAutoApprove/);
+  assert.match(employeeLeaveRoute, /agentic_auto_approved: resolvedStatus === "Approved"/);
+  assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
 });

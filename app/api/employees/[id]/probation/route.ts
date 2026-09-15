@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { planProbationAdministration } from "@/lib/agentic/probationWorkflow";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -1194,10 +1195,55 @@ export async function PATCH(
         },
       });
 
+      const agenticProbationPlan = planProbationAdministration({
+        reviewType: reviewResult.data.review_type,
+        reviewStatus: reviewResult.data.status,
+        recordedOutcome: finalOutcome,
+        decisionRecordedByManager: true,
+      });
+
+      const nowAgentic = new Date().toISOString();
+      await admin.from("employee_timeline").insert({
+        organisation_id: accessResult.access.organisationId,
+        employee_id: employeeId,
+        event_type: "Agentic Probation Administration Prepared",
+        title:
+          finalOutcome === "Terminate Contract"
+            ? "Probation outcome administration prepared"
+            : "Probation outcome administration completed",
+        description:
+          finalOutcome === "Terminate Contract"
+            ? "Leo prepared the administration following the manager's recorded probation decision. Dismissal execution remains blocked."
+            : "Leo progressed the routine administration following the manager's recorded probation decision.",
+        status:
+          finalOutcome === "Terminate Contract" ? "Needs Review" : "Completed",
+        source_module: "Agentic Leo",
+        source_record_id: String(probationId),
+        metadata: {
+          review_id: reviewId,
+          final_outcome: finalOutcome,
+          final_outcome_date: completedDate,
+          prepare_outcome_correspondence:
+            agenticProbationPlan.prepareOutcomeCorrespondence,
+          implement_recorded_outcome:
+            agenticProbationPlan.implementRecordedOutcome,
+          create_extension_milestone:
+            agenticProbationPlan.createExtensionMilestone,
+          dismissal_execution_blocked:
+            agenticProbationPlan.dismissalExecutionBlocked,
+          needs_human_decision: agenticProbationPlan.needsHumanDecision,
+          ask_leo_involved: false,
+        },
+        event_date: nowAgentic,
+        created_by: user.id,
+        created_at: nowAgentic,
+      });
+
       return NextResponse.json({
         success: true,
         probation: finalProbation,
         review: reviewResult.data,
+        agenticProbationPlan,
       });
     }
 

@@ -1,16 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import Field from "./Field";
 import SelectField from "./SelectField";
 import SaveButton from "./SaveButton";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type RightToWorkProps = {
   employeeId: number;
@@ -59,22 +54,24 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   const isOtherNationality = nationality === "Other";
 
   async function loadRecords() {
-    const { data, error } = await supabase
-      .from("employee_right_to_work")
-      .select(
-        "id, nationality, immigration_status, visa_or_permit_type, share_code, right_to_work_expiry, restrictions, check_completed_date, next_review_date, notes, created_at"
-      )
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/right-to-work`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Right to work records could not be loaded.");
+      }
+      setRecords(result.records || []);
+    } catch (error) {
       console.error("Error loading right to work records:", error);
+      setMessage(error instanceof Error ? error.message : "Right to work records could not be loaded.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setRecords(data || []);
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -102,25 +99,30 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase.from("employee_right_to_work").insert([
-      {
-        employee_id: employeeId,
-        nationality,
-        immigration_status: immigrationStatus || null,
-        visa_or_permit_type: visaOrPermitType || null,
-        share_code: shareCode || null,
-        right_to_work_expiry: rightToWorkExpiry || null,
-        restrictions: restrictions || null,
-        check_completed_date: checkCompletedDate || null,
-        next_review_date: nextReviewDate || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/right-to-work`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nationality,
+          immigrationStatus: immigrationStatus || null,
+          visaOrPermitType: visaOrPermitType || null,
+          shareCode: shareCode || null,
+          rightToWorkExpiry: rightToWorkExpiry || null,
+          restrictions: restrictions || null,
+          checkCompletedDate: checkCompletedDate || null,
+          nextReviewDate: nextReviewDate || null,
+          notes: notes || null,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Right to work record could not be saved.");
+      }
+    } catch (error) {
       console.error("Error saving right to work record:", error);
-      setMessage("Right to work record could not be saved.");
+      setMessage(error instanceof Error ? error.message : "Right to work record could not be saved.");
       setSaving(false);
       return;
     }

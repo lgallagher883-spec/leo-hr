@@ -1115,6 +1115,17 @@ export async function PATCH(
               detailsResult.data.reason_for_leaving,
             ),
             plan: offboardingPlan,
+            human_intervention: offboardingPlan.routeHumanInputToNeedsHelp
+              ? {
+                  destination: "Leo Needs Your Help",
+                  status: "open",
+                  reasons: offboardingPlan.reasons,
+                }
+              : {
+                  destination: "none",
+                  status: "not_required",
+                  reasons: [],
+                },
             checklist: {
               resource_id: "employee-exit-checklist",
               route: "/dashboard/policies/checklists/employee-exit-checklist",

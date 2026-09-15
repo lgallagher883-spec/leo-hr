@@ -4,6 +4,23 @@ export type PerformanceReviewEvidence = {
   recordedAt?: string | null;
 };
 
+function prepareTraceableEvidence(
+  evidence: PerformanceReviewEvidence[] = [],
+): PerformanceReviewEvidence[] {
+  const seen = new Set<string>();
+
+  return evidence.flatMap((item) => {
+    const label = item.label.trim();
+    const recordedAt = item.recordedAt?.trim() || null;
+    const key = `${item.source}:${label.toLocaleLowerCase()}:${recordedAt || ""}`;
+
+    if (!label || seen.has(key)) return [];
+    seen.add(key);
+
+    return [{ source: item.source, label, recordedAt }];
+  });
+}
+
 export type PerformanceReviewAdminPlan = {
   prepareReview: boolean;
   carryForwardOpenActions: boolean;
@@ -58,7 +75,7 @@ export function planPerformanceReviewAdministration(args: {
       objectivesAvailable: args.objectivesAvailable,
       previousCommitmentsAvailable: args.previousCommitmentsAvailable,
       employeeContributionAvailable: args.employeeContributionAvailable,
-      evidence: args.evidence ?? [],
+      evidence: prepareTraceableEvidence(args.evidence),
     },
     reasons,
   };

@@ -741,6 +741,8 @@ test("performance review pack accepts traceable evidence without inventing asses
   assert.match(agenticPerformanceReview, /PerformanceReviewEvidence/);
   assert.match(agenticPerformanceReview, /source: "employee_timeline" \| "learning" \| "probation" \| "manager"/);
   assert.match(agenticPerformanceReview, /reviewPack/);
-  assert.match(agenticPerformanceReview, /evidence: args\.evidence \?\? \[\]/);
+  assert.match(agenticPerformanceReview, /prepareTraceableEvidence/);
+  assert.match(agenticPerformanceReview, /item\.label\.trim\(\)/);
+  assert.match(agenticPerformanceReview, /seen\.has\(key\)/);
   assert.match(agenticPerformanceReview, /needsHumanAssessment/);
 });

@@ -454,3 +454,13 @@ test("Agentic evidence attention self clears when the human verification is comp
   assert.match(agenticAttentionRoute, /verification_status/);
   assert.match(agenticAttentionRoute, /toLowerCase\(\) !== "verified"/);
 });
+
+
+test("Agentic attention follows the exact evidence record and requires the real decision", () => {
+  assert.match(agenticAttentionRoute, /employee_dbs_check_id/);
+  assert.match(agenticAttentionRoute, /employee_driving_check_id/);
+  assert.match(agenticAttentionRoute, /dbs_level/);
+  assert.match(agenticAttentionRoute, /suitabilityConfirmed/);
+  assert.match(agenticAttentionRoute, /authorised_to_drive/);
+  assert.match(agenticAttentionRoute, /dvla_check_completed/);
+});

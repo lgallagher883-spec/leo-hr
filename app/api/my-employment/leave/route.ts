@@ -1056,6 +1056,9 @@ export async function POST(request: Request) {
       manuallyAdjusted: false,
       source: "Employee",
       futureCalendarSync: false,
+      agenticAutoApproved: resolvedStatus === "Approved",
+      agenticDecisionReasons: routineAssessment.reasons,
+      askLeoInvolved: false,
     };
 
     const insertResult = await admin
@@ -1115,6 +1118,9 @@ export async function POST(request: Request) {
       },
       metadata: {
         source_module: "Employee Leave",
+        agentic_auto_approved: resolvedStatus === "Approved",
+        agentic_decision_reasons: routineAssessment.reasons,
+        ask_leo_involved: false,
       },
       source_page: "/dashboard/my-employment/leave",
       ip_address:
@@ -1147,6 +1153,9 @@ export async function POST(request: Request) {
         start_date: insertResult.data.start_date,
         end_date: insertResult.data.end_date,
         days_taken: insertResult.data.days_taken,
+        agentic_auto_approved: resolvedStatus === "Approved",
+        agentic_decision_reasons: routineAssessment.reasons,
+        ask_leo_involved: false,
       },
       event_date: now,
       created_by: user.id,

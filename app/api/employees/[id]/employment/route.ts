@@ -949,6 +949,45 @@ export async function PATCH(
         });
       }
 
+      const entitlementChanges = changes.filter((change) =>
+        [
+          "contracted_hours_per_week",
+          "contracted_days_per_week",
+          "working_days",
+          "annual_leave_allowance",
+          "part_year_worker",
+          "holiday_year_start_month",
+          "holiday_year_start_day",
+          "leave_entitlement_basis",
+          "bank_holiday_treatment",
+          "reserved_leave_days",
+          "employment_end_date",
+        ].includes(change.field),
+      );
+
+      if (entitlementChanges.length > 0) {
+        timelineEntries.push({
+          organisation_id: accessResult.access.organisationId,
+          employee_id: employeeId,
+          event_type: "Agentic Leave Configuration Updated",
+          title: "Leave configuration updated",
+          description:
+            "Leo recorded the approved leave-related employment changes. The leave workspace will use the updated configuration automatically when it calculates entitlement and balances.",
+          status: "Completed",
+          source_module: "Agentic Leo",
+          source_record_id: String(employeeId),
+          metadata: {
+            changes: entitlementChanges,
+            recalculation_source: "employee_employment_details",
+            separate_balance_write_required: false,
+            ask_leo_involved: false,
+          },
+          event_date: now,
+          created_by: user.id,
+          created_at: now,
+        });
+      }
+
       if (changePacks.payrollChange.length > 0) {
         timelineEntries.push({
           organisation_id: accessResult.access.organisationId,

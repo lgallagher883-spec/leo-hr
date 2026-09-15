@@ -686,6 +686,7 @@ export async function POST(
                 source_record_id: String(rtwRecord.data.id),
                 metadata: {
                   employee_document_id: documentResult.data.id,
+                  classification: "right_to_work",
                   employee_right_to_work_id: rtwRecord.data.id,
                   passport_number: passportNumber,
                   evidence_document_expiry: documentExpiry,
@@ -880,6 +881,7 @@ export async function POST(
                 source_record_id: String(drivingRecord.data.id),
                 metadata: {
                   employee_document_id: documentResult.data.id,
+                  classification: "driving",
                   employee_driving_check_id: drivingRecord.data.id,
                   licence_number: licenceNumber,
                   licence_expiry_date: licenceExpiry,

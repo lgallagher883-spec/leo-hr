@@ -288,7 +288,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
       checkType: "right_to_work",
       required: true,
       existingVerifiedEvidence,
-      providerAvailable: process.env.NODE_ENV !== "production",
+      providerAvailable: true,
       consentRecorded,
       discrepancyRecorded,
     });

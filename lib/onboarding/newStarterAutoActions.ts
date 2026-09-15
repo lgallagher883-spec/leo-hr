@@ -577,3 +577,141 @@ export async function syncAgenticProbationManager(args: {
 
   return { updated: true, reason: "Untouched probation reviews were aligned to the approved manager." };
 }
+
+
+export async function refreshUnissuedAgenticContractPreparation(args: {
+  organisationId: string;
+  employeeId: number;
+  userId: string;
+}): Promise<{ updated: boolean; reason: string; missingFields?: string[] }> {
+  const { organisationId, employeeId, userId } = args;
+  const admin = adminClient();
+
+  const preparation = await admin
+    .from("employee_timeline")
+    .select("id,source_record_id,metadata")
+    .eq("organisation_id", organisationId)
+    .eq("employee_id", employeeId)
+    .eq("source_module", "Agentic Leo")
+    .eq("event_type", "Contract Preparation")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (preparation.error) throw new Error(preparation.error.message);
+  const prep = preparation.data?.[0];
+  if (!prep) return { updated: false, reason: "There is no Agentic Leo contract preparation to refresh." };
+
+  const existingMetadata =
+    prep.metadata && typeof prep.metadata === "object"
+      ? (prep.metadata as Record<string, any>)
+      : {};
+
+  if (existingMetadata.issue_status !== "not_issued") {
+    return { updated: false, reason: "The contract preparation is no longer unissued, so Leo left it unchanged." };
+  }
+
+  const [employeeResult, employmentResult, foundationsResult, sourceResult] = await Promise.all([
+    admin
+      .from("employees")
+      .select("id,name,email,role,start_date,status")
+      .eq("id", employeeId)
+      .eq("organisation_id", organisationId)
+      .maybeSingle(),
+    admin
+      .from("employee_employment_details")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .maybeSingle(),
+    admin
+      .from("organisation_foundations")
+      .select("section,key,value")
+      .eq("organisation_id", organisationId)
+      .in("section", ["Company Profile", "Employment Framework", "Organisation Structure"]),
+    admin
+      .from("company_documents")
+      .select("id,name,document_type,category,file_name,file_path,notes")
+      .eq("id", Number(prep.source_record_id))
+      .eq("organisation_id", organisationId)
+      .eq("is_archived", false)
+      .maybeSingle(),
+  ]);
+
+  if (employeeResult.error) throw new Error(employeeResult.error.message);
+  if (employmentResult.error) throw new Error(employmentResult.error.message);
+  if (foundationsResult.error) throw new Error(foundationsResult.error.message);
+  if (sourceResult.error) throw new Error(sourceResult.error.message);
+
+  if (!employeeResult.data) {
+    return { updated: false, reason: "The employee record could not be found." };
+  }
+  if (!sourceResult.data) {
+    return { updated: false, reason: "The contract resource used for preparation is no longer available." };
+  }
+
+  const missingFields = buildContractMissingFields({
+    employee: employeeResult.data,
+    employment: employmentResult.data ?? null,
+    foundations: (foundationsResult.data ?? []) as Array<Record<string, any>>,
+  });
+
+  const now = new Date().toISOString();
+  const refresh = await admin
+    .from("employee_timeline")
+    .update({
+      description: "Leo refreshed the unissued contract preparation using the latest approved company and employee information already held.",
+      status: "Prepared",
+      metadata: {
+        ...existingMetadata,
+        contract_resource: sourceResult.data,
+        employee: {
+          id: employeeResult.data.id,
+          name: employeeResult.data.name,
+          email: employeeResult.data.email,
+          role: employeeResult.data.role,
+          start_date: employeeResult.data.start_date,
+        },
+        employment_details: employmentResult.data ?? null,
+        foundation_facts: foundationsResult.data ?? [],
+        missing_fields: missingFields,
+        issue_status: "not_issued",
+        refreshed_at: now,
+        refreshed_by: "agentic_leo_change_it_once",
+        ask_leo_involved: false,
+      },
+      updated_at: now,
+    })
+    .eq("id", prep.id)
+    .eq("organisation_id", organisationId)
+    .eq("employee_id", employeeId);
+
+  if (refresh.error) throw new Error(refresh.error.message);
+
+  const timeline = await admin.from("employee_timeline").insert({
+    organisation_id: organisationId,
+    employee_id: employeeId,
+    event_type: "Agentic Contract Preparation Refreshed",
+    title: "Unissued contract preparation refreshed",
+    description: "Leo kept the unissued contract preparation aligned with the latest approved employee information.",
+    status: "Completed",
+    source_module: "Agentic Leo",
+    source_record_id: String(prep.id),
+    metadata: {
+      contract_resource_id: sourceResult.data.id,
+      missing_fields: missingFields,
+      ask_leo_involved: false,
+    },
+    event_date: now,
+    created_by: userId,
+    created_at: now,
+  });
+
+  if (timeline.error) {
+    console.warn("Agentic contract refresh timeline event could not be created:", timeline.error);
+  }
+
+  return {
+    updated: true,
+    reason: "The unissued contract preparation was refreshed from the latest approved information.",
+    missingFields,
+  };
+}

@@ -969,7 +969,7 @@ export async function POST(request: Request) {
       }
 
       if (!employmentForBalance.error && employmentForBalance.data) {
-        const details = employmentForBalance.data as EmploymentLeaveDetails;
+        const details = employmentForBalance.data as EmploymentDetails;
         const statutoryAllowance = calculateCurrentStatutoryDays(
           details,
           employeeResult.data.start_date,

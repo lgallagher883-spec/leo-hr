@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
-import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges } from "@/lib/agentic/employeeChangeWorkflow";
+import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges, syncPublishedMandatoryRolePathways } from "@/lib/agentic/employeeChangeWorkflow";
 import { refreshUnissuedAgenticContractPreparation, syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -904,6 +904,27 @@ export async function PATCH(
       }
     }
 
+    let mandatoryRolePathways:
+      | { assigned: number; existing: number; reason: string }
+      | null = null;
+
+    if (changes.some((change) => change.field === "role") && employeeResult.data.role) {
+      try {
+        mandatoryRolePathways = await syncPublishedMandatoryRolePathways({
+          admin,
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          role: employeeResult.data.role,
+          userId: user.id,
+        });
+      } catch (rolePathwayError) {
+        console.warn(
+          "Agentic mandatory role pathways could not be synchronised:",
+          rolePathwayError,
+        );
+      }
+    }
+
     if (changes.length > 0) {
       const timelineEntries: Array<Record<string, unknown>> = [
         {
@@ -1052,6 +1073,7 @@ export async function PATCH(
         probationSync,
         probationManagerSync,
         contractPreparationRefresh,
+        mandatoryRolePathways,
       },
     });
   } catch (error) {

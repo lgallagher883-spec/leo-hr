@@ -21,6 +21,7 @@ const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
 const careCheckRtwRoute = read("app/api/talent/due-diligence/[id]/carecheck-rtw/route.ts");
 const careCheckDbsRoute = read("app/api/talent/due-diligence/[id]/carecheck/route.ts");
+const talentOfferRoute = read("app/api/talent/offers/[id]/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -663,4 +664,13 @@ test("accepted offers prepare onboarding automatically without making recruitmen
   assert.match(agenticRecruitmentWorkflow, /prepareDueDiligence/);
   assert.match(agenticRecruitmentWorkflow, /createEmployeeNow/);
   assert.match(agenticRecruitmentWorkflow, /nonStandardTermsRecorded/);
+});
+
+
+test("accepted offer handoff invokes Agentic onboarding planning without Ask Leo", () => {
+  assert.match(talentOfferRoute, /planAcceptedOfferAdministration/);
+  assert.match(talentOfferRoute, /agentic_offer_plan/);
+  assert.match(talentOfferRoute, /requiredChecksSatisfied: false/);
+  assert.match(talentOfferRoute, /ask_leo_involved: false/);
+  assert.match(talentOfferRoute, /askLeoInvolved: false/);
 });

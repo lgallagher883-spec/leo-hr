@@ -24,6 +24,7 @@ const careCheckRtwRoute = read("app/api/talent/due-diligence/[id]/carecheck-rtw/
 const careCheckDbsRoute = read("app/api/talent/due-diligence/[id]/carecheck/route.ts");
 const talentOfferRoute = read("app/api/talent/offers/[id]/route.ts");
 const talentOnboardingRoute = read("app/api/talent/onboarding/[id]/route.ts");
+const complianceIntelligenceRoute = read("app/api/compliance/intelligence/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -696,4 +697,13 @@ test("compliance reconciliation closes only gaps backed by current verified matc
   assert.match(agenticComplianceReconciliation, /present_unverified/);
   assert.match(agenticComplianceReconciliation, /contradictory/);
   assert.match(agenticComplianceReconciliation, /needsHumanReview/);
+});
+
+
+test("live compliance intelligence reconciles RTW evidence deterministically without Ask Leo", () => {
+  assert.match(complianceIntelligenceRoute, /planComplianceReconciliation/);
+  assert.match(complianceIntelligenceRoute, /requirement: "right_to_work"/);
+  assert.match(complianceIntelligenceRoute, /repairedFromVerifiedEvidence/);
+  assert.match(complianceIntelligenceRoute, /needsEvidenceOrReview/);
+  assert.match(complianceIntelligenceRoute, /askLeoInvolved: false/);
 });

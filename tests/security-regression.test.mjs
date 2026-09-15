@@ -531,3 +531,11 @@ test("employee leave only auto approves after explicit organisation delegation",
   assert.match(employeeLeaveRoute, /agentic_auto_approved: resolvedStatus === "Approved"/);
   assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
 });
+
+
+test("Agentic leave decisions persist their basis without Ask Leo", () => {
+  assert.match(employeeLeaveRoute, /agenticAutoApproved: resolvedStatus === "Approved"/);
+  assert.match(employeeLeaveRoute, /agenticDecisionReasons: routineAssessment\.reasons/);
+  assert.match(employeeLeaveRoute, /agentic_decision_reasons: routineAssessment\.reasons/);
+  assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
+});

@@ -179,11 +179,11 @@ export default function CareCheckRTWPanel({
         />
         <Info
           label="RTW result status"
-          value={careCheck?.rtwCheckStatus || "Not yet reported"}
+          value={careCheck?.rtwCheckStatus || (careCheck?.statusCode === "APP_COMPLETE" ? "Application complete — result pending" : "Not yet reported")}
         />
         <Info
           label="RTW check date"
-          value={careCheck?.rtwCheckDate || "Not yet reported"}
+          value={careCheck?.rtwCheckDate || (careCheck?.statusCode === "APP_COMPLETE" ? "Pending provider result" : "Not yet reported")}
         />
       </div>
 

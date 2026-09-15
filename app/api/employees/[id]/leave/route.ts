@@ -1136,7 +1136,29 @@ export async function PATCH(
               start_date: result.data.start_date,
               end_date: result.data.end_date,
               prepare_return_to_work: agenticAbsencePlan.prepareReturnToWork,
+              return_to_work_resource: agenticAbsencePlan.prepareReturnToWork
+                ? {
+                    title: "Return to Work Form",
+                    resource_id: "return-to-work-form",
+                    route: "/dashboard/policies/forms/return-to-work-form",
+                    employee_name: employee.name,
+                    absence_start_date: result.data.start_date,
+                    absence_end_date: result.data.end_date,
+                    leave_record_id: result.data.id,
+                    status: "Prepared",
+                  }
+                : null,
               prepare_payroll_input: agenticAbsencePlan.preparePayrollInput,
+              payroll_input: agenticAbsencePlan.preparePayrollInput
+                ? {
+                    leave_type: result.data.leave_type,
+                    absence_start_date: result.data.start_date,
+                    absence_end_date: result.data.end_date,
+                    recorded_days: result.data.days_taken,
+                    status: "Prepared",
+                    payroll_decision: "not_made",
+                  }
+                : null,
               close_routine_administration:
                 agenticAbsencePlan.closeRoutineAdministration,
               needs_human_review: agenticAbsencePlan.needsHumanReview,

@@ -99,6 +99,7 @@ export function downstreamAdminForChanges(changes: EmploymentChange[]) {
 
   if (
     fields.has("role") ||
+    fields.has("start_date") ||
     fields.has("contracted_hours_per_week") ||
     fields.has("contracted_days_per_week") ||
     fields.has("working_days") ||
@@ -134,6 +135,7 @@ export function downstreamAdminForChanges(changes: EmploymentChange[]) {
 
   if (
     fields.has("role") ||
+    fields.has("start_date") ||
     fields.has("contracted_hours_per_week") ||
     fields.has("contracted_days_per_week") ||
     fields.has("working_pattern_type")

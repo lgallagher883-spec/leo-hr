@@ -619,6 +619,118 @@ export async function POST(
       );
     }
 
+    if (classification.category === "driving") {
+      const factMap = new Map(
+        extractedFacts.map((fact) => [fact.key, fact.value]),
+      );
+      const licenceNumber = factMap.get("licence_number") || null;
+      const licenceExpiry = factMap.get("licence_expiry") || null;
+
+      const latestDriving = await admin
+        .from("employee_driving_checks")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (latestDriving.error) {
+        console.warn("Agentic driving evidence could not inspect the existing driving record:", latestDriving.error);
+      } else {
+        const current = latestDriving.data?.[0] ?? null;
+        const sameLicence =
+          current &&
+          licenceNumber &&
+          current.driving_licence_number &&
+          String(current.driving_licence_number).trim().toLowerCase() ===
+            licenceNumber.trim().toLowerCase();
+
+        const payload = current
+          ? {
+              ...current,
+              id: undefined,
+              created_at: undefined,
+              driving_licence_number:
+                current.driving_licence_number || licenceNumber,
+              licence_expiry_date:
+                current.licence_expiry_date || licenceExpiry,
+              authorised_to_drive:
+                current.authorised_to_drive || "No",
+              notes: [
+                current.notes,
+                "Driving licence evidence was filed by Agentic Leo. Evidence has not been treated as DVLA verification or authorisation to drive.",
+              ]
+                .filter(Boolean)
+                .join("\n"),
+              updated_at: now,
+            }
+          : {
+              employee_id: employeeId,
+              drives_for_work: "Yes",
+              vehicle_used: null,
+              authorised_to_drive: "No",
+              driving_licence_number: licenceNumber,
+              licence_categories: null,
+              licence_issue_date: null,
+              licence_expiry_date: licenceExpiry,
+              dvla_check_completed: "No",
+              dvla_check_date: null,
+              next_dvla_check_due: null,
+              business_insurance_confirmed: null,
+              business_insurance_expiry_date: null,
+              penalty_points: null,
+              motoring_convictions: null,
+              restrictions_or_adjustments: null,
+              senior_authorisation_required: null,
+              authorised_by: null,
+              date_authorised: null,
+              notes:
+                "Driving licence evidence was filed by Agentic Leo. Evidence has not been treated as DVLA verification or authorisation to drive.",
+              updated_at: now,
+            };
+
+        if (!sameLicence || !current?.licence_expiry_date) {
+          const drivingRecord = await admin
+            .from("employee_driving_checks")
+            .insert(payload)
+            .select("id")
+            .single();
+
+          if (drivingRecord.error) {
+            console.warn("Agentic driving evidence record could not be created:", drivingRecord.error);
+          } else {
+            const drivingTimeline = await admin
+              .from("employee_timeline")
+              .insert({
+                employee_id: employeeId,
+                event_type: "Agentic Driving Evidence Filed",
+                title: "Driving licence evidence added",
+                description:
+                  "Leo carried the available licence details into the employee driving record. DVLA verification and authority to drive remain separate decisions.",
+                status: "Needs Review",
+                source_module: "Agentic Leo",
+                source_record_id: String(drivingRecord.data.id),
+                metadata: {
+                  employee_document_id: documentResult.data.id,
+                  employee_driving_check_id: drivingRecord.data.id,
+                  licence_number: licenceNumber,
+                  licence_expiry_date: licenceExpiry,
+                  dvla_check_completed: false,
+                  authorised_to_drive: false,
+                  ask_leo_involved: false,
+                },
+                event_date: now,
+                created_by: user.id,
+                created_at: now,
+              });
+
+            if (drivingTimeline.error) {
+              console.warn("Agentic driving evidence timeline event could not be created:", drivingTimeline.error);
+            }
+          }
+        }
+      }
+    }
+
     if (classification.category === "qualification") {
       const factMap = new Map(
         extractedFacts.map((fact) => [fact.key, fact.value]),

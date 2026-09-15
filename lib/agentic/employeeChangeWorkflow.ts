@@ -13,6 +13,12 @@ const fieldLabels: Record<string, string> = {
   working_days: "Working days",
   working_pattern_type: "Working pattern",
   annual_leave_allowance: "Annual leave allowance",
+  part_year_worker: "Part-year worker status",
+  holiday_year_start_month: "Holiday year start month",
+  holiday_year_start_day: "Holiday year start day",
+  leave_entitlement_basis: "Leave entitlement basis",
+  bank_holiday_treatment: "Bank holiday treatment",
+  reserved_leave_days: "Reserved leave days",
   employment_end_date: "Employment end date",
   status: "Employment status",
   email: "Email",
@@ -51,6 +57,12 @@ export function detectApprovedEmploymentChanges(args: {
     "working_days",
     "working_pattern_type",
     "annual_leave_allowance",
+    "part_year_worker",
+    "holiday_year_start_month",
+    "holiday_year_start_day",
+    "leave_entitlement_basis",
+    "bank_holiday_treatment",
+    "reserved_leave_days",
     "employment_end_date",
   ]) {
     if (comparable(previousEmployment?.[field]) !== comparable(nextEmployment[field])) {
@@ -103,7 +115,13 @@ export function downstreamAdminForChanges(changes: EmploymentChange[]) {
     fields.has("contracted_hours_per_week") ||
     fields.has("contracted_days_per_week") ||
     fields.has("working_days") ||
-    fields.has("annual_leave_allowance")
+    fields.has("annual_leave_allowance") ||
+    fields.has("part_year_worker") ||
+    fields.has("holiday_year_start_month") ||
+    fields.has("holiday_year_start_day") ||
+    fields.has("leave_entitlement_basis") ||
+    fields.has("bank_holiday_treatment") ||
+    fields.has("reserved_leave_days")
   ) {
     actions.push({
       key: "entitlement_review",
@@ -150,6 +168,12 @@ export function buildEmployeeChangePacks(changes: EmploymentChange[]) {
     "working_days",
     "working_pattern_type",
     "annual_leave_allowance",
+    "part_year_worker",
+    "holiday_year_start_month",
+    "holiday_year_start_day",
+    "leave_entitlement_basis",
+    "bank_holiday_treatment",
+    "reserved_leave_days",
   ];
   const payrollFields = [
     "role",

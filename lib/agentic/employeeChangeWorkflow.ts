@@ -247,6 +247,39 @@ export async function reconcileRoleComplianceResources(args: {
   }
 
   const now = new Date().toISOString();
+
+  const existing = await admin
+    .from("employee_timeline")
+    .select("id,metadata")
+    .eq("employee_id", employeeId)
+    .eq("event_type", "Agentic Role Compliance Resources Matched")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (existing.error) throw new Error(existing.error.message);
+
+  const matchedIds = matched.map((resource: any) => String(resource.id)).sort();
+  const alreadyRecorded = (existing.data ?? []).some((event: any) => {
+    const metadata =
+      event.metadata && typeof event.metadata === "object" ? event.metadata : {};
+    const previousRole = String(metadata.role || "").trim().toLowerCase();
+    const previousIds = Array.isArray(metadata.matched_resources)
+      ? metadata.matched_resources.map((resource: any) => String(resource?.id)).sort()
+      : [];
+
+    return (
+      previousRole === roleNeedle &&
+      JSON.stringify(previousIds) === JSON.stringify(matchedIds)
+    );
+  });
+
+  if (alreadyRecorded) {
+    return {
+      matched: matched.length,
+      reason: "The current role-based compliance resource match is already recorded.",
+    };
+  }
+
   const timeline = await admin.from("employee_timeline").insert({
     organisation_id: organisationId,
     employee_id: employeeId,

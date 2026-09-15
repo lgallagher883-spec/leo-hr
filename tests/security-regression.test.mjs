@@ -370,3 +370,15 @@ test("approved leave configuration propagates without a duplicate balance write"
   assert.match(employmentRoute, /separate_balance_write_required: false/);
   assert.match(employmentRoute, /leave workspace will use the updated configuration automatically/);
 });
+
+
+test("approved role changes assign only explicit published mandatory pathways", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /syncPublishedMandatoryRolePathways/);
+  assert.match(agenticEmployeeChangeWorkflow, /\.eq\("status", "Published"\)/);
+  assert.match(agenticEmployeeChangeWorkflow, /\.eq\("assignment_type", "Mandatory"\)/);
+  assert.match(agenticEmployeeChangeWorkflow, /\.ilike\("target_role", targetRole\)/);
+  assert.match(agenticEmployeeChangeWorkflow, /without duplicating existing active assignments/);
+  assert.match(agenticEmployeeChangeWorkflow, /assignment_source: "Agentic Leo - approved role"/);
+  assert.match(employmentRoute, /mandatoryRolePathways/);
+  assert.match(employmentRoute, /syncPublishedMandatoryRolePathways/);
+});

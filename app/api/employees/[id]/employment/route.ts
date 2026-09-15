@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
-import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges, syncPublishedMandatoryRolePathways } from "@/lib/agentic/employeeChangeWorkflow";
+import { buildEmployeeChangePacks, detectApprovedEmploymentChanges, downstreamAdminForChanges, reconcileRoleComplianceResources, syncPublishedMandatoryRolePathways } from "@/lib/agentic/employeeChangeWorkflow";
 import { refreshUnissuedAgenticContractPreparation, syncAgenticProbationManager, syncAgenticProbationToApprovedStartDate } from "@/lib/onboarding/newStarterAutoActions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -925,6 +925,27 @@ export async function PATCH(
       }
     }
 
+    let roleComplianceResources:
+      | { matched: number; reason: string }
+      | null = null;
+
+    if (changes.some((change) => change.field === "role") && employeeResult.data.role) {
+      try {
+        roleComplianceResources = await reconcileRoleComplianceResources({
+          admin,
+          organisationId: accessResult.access.organisationId,
+          employeeId,
+          role: employeeResult.data.role,
+          userId: user.id,
+        });
+      } catch (roleComplianceError) {
+        console.warn(
+          "Agentic role compliance resources could not be reconciled:",
+          roleComplianceError,
+        );
+      }
+    }
+
     if (changes.length > 0) {
       const timelineEntries: Array<Record<string, unknown>> = [
         {
@@ -1074,6 +1095,7 @@ export async function PATCH(
         probationManagerSync,
         contractPreparationRefresh,
         mandatoryRolePathways,
+        roleComplianceResources,
       },
     });
   } catch (error) {

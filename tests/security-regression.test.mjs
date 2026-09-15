@@ -348,3 +348,14 @@ test("Agentic probation manager sync only touches untouched reviews", () => {
   assert.match(employmentRoute, /probationManagerSync/);
   assert.match(newStarterAutoActions, /approved line-manager change/);
 });
+
+
+test("Agentic contract preparation refreshes only while unissued", () => {
+  assert.match(newStarterAutoActions, /refreshUnissuedAgenticContractPreparation/);
+  assert.match(newStarterAutoActions, /issue_status !== "not_issued"/);
+  assert.match(newStarterAutoActions, /contract preparation is no longer unissued/);
+  assert.match(newStarterAutoActions, /refreshed_by: "agentic_leo_change_it_once"/);
+  assert.match(newStarterAutoActions, /Agentic Contract Preparation Refreshed/);
+  assert.match(employmentRoute, /contractPreparationRefresh/);
+  assert.match(employmentRoute, /refreshUnissuedAgenticContractPreparation/);
+});

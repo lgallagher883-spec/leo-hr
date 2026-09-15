@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type ComplianceSummaryProps = {
   employeeId: number;
@@ -75,154 +70,39 @@ export default function ComplianceSummary({
 
   useEffect(() => {
     async function loadCompliance() {
-      const newItems: ComplianceItem[] = [];
-
-      const rightToWork = await supabase
-        .from("employee_right_to_work")
-        .select("right_to_work_expiry, next_review_date")
-        .eq("employee_id", employeeId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      const dbs = await supabase
-        .from("employee_dbs_checks")
-        .select("next_check_due, safeguarding_training_expiry")
-        .eq("employee_id", employeeId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      const driving = await supabase
-        .from("employee_driving_checks")
-        .select(
-          "licence_expiry_date, next_dvla_check_due, business_insurance_expiry_date"
-        )
-        .eq("employee_id", employeeId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      const training = await supabase
-        .from("employee_training_logs")
-        .select("training_name, refresh_or_expiry_date")
-        .eq("employee_id", employeeId)
-        .order("refresh_or_expiry_date", { ascending: true });
-
-      const leaveRecords = await supabase
-        .from("employee_leave_records")
-        .select("leave_type, status, days_taken")
-        .eq("employee_id", employeeId);
-
-      const employmentDetails = await supabase
-        .from("employee_employment_details")
-        .select("annual_leave_allowance")
-        .eq("employee_id", employeeId)
-        .maybeSingle();
-
-      const latestRightToWork = rightToWork.data?.[0];
-      if (latestRightToWork) {
-        if (latestRightToWork.right_to_work_expiry) {
-          newItems.push(
-            buildDateMessage(
-              "Right to Work Expiry",
-              latestRightToWork.right_to_work_expiry
-            )
-          );
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/employees/${employeeId}/compliance-summary`, { credentials: "include", cache: "no-store" });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || "Compliance records could not be loaded.");
+        const newItems: ComplianceItem[] = [];
+        const rt = result.rightToWork;
+        if (rt?.right_to_work_expiry) newItems.push(buildDateMessage("Right to Work Expiry", rt.right_to_work_expiry));
+        if (rt?.next_review_date) newItems.push(buildDateMessage("Right to Work Review", rt.next_review_date));
+        const dbs = result.dbs;
+        if (dbs) {
+          newItems.push(buildDateMessage("DBS Next Check", dbs.next_check_due));
+          if (dbs.safeguarding_training_expiry) newItems.push(buildDateMessage("Safeguarding Training", dbs.safeguarding_training_expiry));
         }
-
-        if (latestRightToWork.next_review_date) {
-          newItems.push(
-            buildDateMessage(
-              "Right to Work Review",
-              latestRightToWork.next_review_date
-            )
-          );
-        }
-      }
-
-      const latestDbs = dbs.data?.[0];
-      if (latestDbs) {
-        newItems.push(buildDateMessage("DBS Next Check", latestDbs.next_check_due));
-
-        if (latestDbs.safeguarding_training_expiry) {
-          newItems.push(
-            buildDateMessage(
-              "Safeguarding Training",
-              latestDbs.safeguarding_training_expiry
-            )
-          );
-        }
-      }
-
-      const latestDriving = driving.data?.[0];
-      if (latestDriving) {
-        if (latestDriving.licence_expiry_date) {
-          newItems.push(
-            buildDateMessage(
-              "Driving Licence Expiry",
-              latestDriving.licence_expiry_date
-            )
-          );
-        }
-
-        if (latestDriving.next_dvla_check_due) {
-          newItems.push(
-            buildDateMessage(
-              "DVLA Check Due",
-              latestDriving.next_dvla_check_due
-            )
-          );
-        }
-
-        if (latestDriving.business_insurance_expiry_date) {
-          newItems.push(
-            buildDateMessage(
-              "Business Insurance Expiry",
-              latestDriving.business_insurance_expiry_date
-            )
-          );
-        }
-      }
-
-      (training.data || []).forEach((record: any) => {
-        if (record.refresh_or_expiry_date) {
-          const message = buildDateMessage(
-            `Training: ${record.training_name}`,
-            record.refresh_or_expiry_date
-          );
-
-          if (message.level !== "ok") {
-            newItems.push(message);
+        const d = result.driving;
+        if (d?.licence_expiry_date) newItems.push(buildDateMessage("Driving Licence Expiry", d.licence_expiry_date));
+        if (d?.next_dvla_check_due) newItems.push(buildDateMessage("DVLA Check Due", d.next_dvla_check_due));
+        if (d?.business_insurance_expiry_date) newItems.push(buildDateMessage("Business Insurance Expiry", d.business_insurance_expiry_date));
+        (result.training || []).forEach((record: any) => {
+          if (record.refresh_or_expiry_date) {
+            const m = buildDateMessage(`Training: ${record.training_name}`, record.refresh_or_expiry_date);
+            if (m.level !== "ok") newItems.push(m);
           }
-        }
-      });
-
-      const allowance = Number(
-        employmentDetails.data?.annual_leave_allowance || 0
-      );
-
-      const annualLeaveUsed = (leaveRecords.data || [])
-        .filter(
-          (record: any) =>
-            record.leave_type === "Annual Leave" &&
-            record.status !== "Cancelled"
-        )
-        .reduce((total: number, record: any) => {
-          const days = Number(record.days_taken || 0);
-          return total + (Number.isNaN(days) ? 0 : days);
-        }, 0);
-
-      if (allowance > 0 && annualLeaveUsed > allowance) {
-        newItems.push({
-          title: "Annual Leave",
-          detail: `Recorded annual leave is ${annualLeaveUsed} days against an entitlement of ${allowance} days.`,
-          level: "review",
         });
-      }
-
-      setItems(newItems);
-      setLoading(false);
+        const allowance = Number(result.annualLeaveAllowance || 0), used = Number(result.annualLeaveUsed || 0);
+        if (allowance > 0 && used > allowance) newItems.push({title:"Annual Leave",detail:`Recorded annual leave is ${used} days against an entitlement of ${allowance} days.`,level:"review"});
+        setItems(newItems);
+      } catch (error) {
+        console.error("Error loading compliance summary:", error);
+        setItems([]);
+      } finally { setLoading(false); }
     }
-
-    loadCompliance();
+    void loadCompliance();
   }, [employeeId]);
 
   const reviewItems = items.filter((item) => item.level === "review");

@@ -82,7 +82,19 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         throw new Error(result.error || "DBS / safeguarding records could not be loaded.");
       }
 
-      setRecords(result.records || []);
+      const seen = new Set<string>();
+      const uniqueRecords = (result.records || []).filter((record: DBSRecord) => {
+        const key = JSON.stringify([
+          record.dbs_required, record.dbs_level, record.certificate_number,
+          record.certificate_issue_date, record.next_check_due, record.update_service,
+          record.update_service_id, record.safeguarding_training_completed,
+          record.safeguarding_training_expiry, record.notes,
+        ]);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setRecords(uniqueRecords);
     } catch (error) {
       console.error("Error loading DBS records:", error);
       setMessage(

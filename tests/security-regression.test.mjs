@@ -820,6 +820,7 @@ test("offboarding prepares administration but preserves consequential decisions"
   assert.match(agenticOffboardingWorkflow, /prepareRetentionWorkflow/);
   assert.match(agenticOffboardingWorkflow, /blockFinalPayOrDeductionDecision/);
   assert.match(agenticOffboardingWorkflow, /blockUnauthorisedAccessRemoval/);
+  assert.match(agenticOffboardingWorkflow, /routeHumanInputToNeedsHelp/);
 });
 
 

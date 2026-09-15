@@ -362,7 +362,7 @@ async function buildComplianceCandidates(args: {
     (admin as any)
       .from("employee_dbs_checks")
       .select(
-        "employee_id,dbs_required,next_check_due,safeguarding_training_expiry,update_service,update_service_next_check_due,created_at",
+        "employee_id,dbs_required,next_check_due,safeguarding_training_expiry,update_service,created_at",
       )
       .in("employee_id", employeeIds)
       .order("created_at", { ascending: false }),
@@ -493,19 +493,8 @@ async function buildComplianceCandidates(args: {
         });
       }
 
-      if (String(dbs?.update_service).toLowerCase() === "yes") {
-        const updateDue = text(dbs?.update_service_next_check_due);
-        if (updateDue) {
-          pushCandidate({
-            employeeId,
-            sourceType: "dbs_update_service",
-            sourceId: String(employeeId),
-            dueDate: updateDue,
-            title: "DBS update service check",
-            actionUrl: `/dashboard/employees/${employeeId}?section=dbs`,
-          });
-        }
-      }
+      // Update Service reminders are driven by the recorded DBS next-check date.
+      // Do not query a separate legacy column that may not exist in older/local schemas.
     }
 
     if (String(driving?.drives_for_work).toLowerCase() === "yes") {

@@ -619,6 +619,93 @@ export async function POST(
       );
     }
 
+    if (classification.category === "right_to_work") {
+      const factMap = new Map(
+        extractedFacts.map((fact) => [fact.key, fact.value]),
+      );
+      const passportNumber = factMap.get("passport_number") || null;
+      const documentExpiry = factMap.get("document_expiry") || null;
+
+      const recentRtw = await admin
+        .from("employee_right_to_work")
+        .select("id,notes,right_to_work_expiry")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (recentRtw.error) {
+        console.warn("Agentic right-to-work evidence could not inspect existing records:", recentRtw.error);
+      } else {
+        const passportAlreadyFiled =
+          passportNumber &&
+          (recentRtw.data ?? []).some((record) =>
+            String(record.notes || "")
+              .toLowerCase()
+              .includes(passportNumber.toLowerCase()),
+          );
+
+        if (!passportAlreadyFiled) {
+          const rtwRecord = await admin
+            .from("employee_right_to_work")
+            .insert({
+              employee_id: employeeId,
+              nationality: null,
+              immigration_status: null,
+              visa_or_permit_type: null,
+              share_code: null,
+              right_to_work_expiry: null,
+              restrictions: null,
+              check_completed_date: null,
+              next_review_date: null,
+              notes: [
+                "Right to work evidence was filed by Agentic Leo.",
+                passportNumber ? `Passport number: ${passportNumber}.` : null,
+                documentExpiry ? `Evidence document expiry: ${documentExpiry}.` : null,
+                "The evidence document expiry has not been treated as a right to work expiry date. A compliant right to work check must still be completed and recorded.",
+              ]
+                .filter(Boolean)
+                .join(" "),
+              updated_at: now,
+            })
+            .select("id")
+            .single();
+
+          if (rtwRecord.error) {
+            console.warn("Agentic right-to-work evidence record could not be created:", rtwRecord.error);
+          } else {
+            const rtwTimeline = await admin
+              .from("employee_timeline")
+              .insert({
+                employee_id: employeeId,
+                event_type: "Agentic Right To Work Evidence Filed",
+                title: "Right to work evidence added",
+                description:
+                  "Leo filed the available identity evidence against the employee. The evidence has not been treated as completion of the statutory right to work check.",
+                status: "Needs Review",
+                source_module: "Agentic Leo",
+                source_record_id: String(rtwRecord.data.id),
+                metadata: {
+                  employee_document_id: documentResult.data.id,
+                  employee_right_to_work_id: rtwRecord.data.id,
+                  passport_number: passportNumber,
+                  evidence_document_expiry: documentExpiry,
+                  check_completed: false,
+                  right_to_work_expiry_set_from_document: false,
+                  ask_leo_involved: false,
+                },
+                event_date: now,
+                created_by: user.id,
+                created_at: now,
+              });
+
+            if (rtwTimeline.error) {
+              console.warn("Agentic right-to-work timeline event could not be created:", rtwTimeline.error);
+            }
+          }
+        }
+      }
+    }
+
     if (classification.category === "dbs") {
       const factMap = new Map(
         extractedFacts.map((fact) => [fact.key, fact.value]),

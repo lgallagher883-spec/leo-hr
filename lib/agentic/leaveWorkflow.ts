@@ -44,3 +44,30 @@ export function assessRoutineAnnualLeave(args: {
     reasons,
   };
 }
+
+
+export function readDelegatedRoutineLeaveApproval(
+  companyKnowledge: Array<{ title?: string | null; content?: string | null }>,
+): boolean {
+  const statements = companyKnowledge
+    .map((item) => `${item.title || ""}\n${item.content || ""}`.toLowerCase())
+    .join("\n");
+
+  const explicitlyDelegates =
+    /leo\s+(?:may|can|is authorised to|is authorized to)\s+(?:automatically\s+)?approve\s+(?:routine\s+)?annual leave/.test(
+      statements,
+    ) ||
+    /(?:routine\s+)?annual leave\s+(?:may|can)\s+be\s+(?:automatically\s+)?approved\s+by\s+leo/.test(
+      statements,
+    );
+
+  const explicitBlock =
+    /leo\s+(?:must not|cannot|can not|is not authorised to|is not authorized to)\s+(?:automatically\s+)?approve\s+(?:routine\s+)?annual leave/.test(
+      statements,
+    ) ||
+    /annual leave\s+(?:must|should)\s+be\s+approved\s+by\s+(?:a\s+)?(?:manager|owner|human)/.test(
+      statements,
+    );
+
+  return explicitlyDelegates && !explicitBlock;
+}

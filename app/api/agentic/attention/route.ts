@@ -36,17 +36,31 @@ async function issueStillNeedsHuman(admin: ReturnType<typeof getAdminClient>, em
   }
 
   if (classification === "dbs") {
-    const result = await admin
+    const dbsRecordId = numberValue(metadata.employee_dbs_check_id);
+    let query = admin
       .from("employee_dbs_checks")
-      .select("id,dbs_required,certificate_issue_date")
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .select("id,dbs_required,certificate_issue_date,dbs_level,notes")
+      .eq("employee_id", employeeId);
+
+    query = dbsRecordId
+      ? query.eq("id", dbsRecordId)
+      : query.order("created_at", { ascending: false }).limit(1);
+
+    const result = await query;
     if (result.error) throw new Error(result.error.message);
     const latest = result.data?.[0];
-    if (!latest) return true;
+    if (!latest) return false;
     if (text(latest.dbs_required).toLowerCase() === "no") return false;
-    return !latest.certificate_issue_date;
+
+    const issueDateConfirmed = Boolean(latest.certificate_issue_date);
+    const levelConfirmed = Boolean(text(latest.dbs_level));
+    const notes = text(latest.notes).toLowerCase();
+    const suitabilityConfirmed =
+      notes.includes("suitability confirmed") ||
+      notes.includes("suitable for role") ||
+      notes.includes("suitability decision: suitable");
+
+    return !(issueDateConfirmed && levelConfirmed && suitabilityConfirmed);
   }
 
   if (classification === "qualification") {
@@ -67,17 +81,26 @@ async function issueStillNeedsHuman(admin: ReturnType<typeof getAdminClient>, em
   }
 
   if (classification === "driving") {
-    const result = await admin
+    const drivingRecordId = numberValue(metadata.employee_driving_check_id);
+    let query = admin
       .from("employee_driving_checks")
-      .select("id,drives_for_work,dvla_check_completed")
-      .eq("employee_id", employeeId)
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .select("id,drives_for_work,dvla_check_completed,authorised_to_drive")
+      .eq("employee_id", employeeId);
+
+    query = drivingRecordId
+      ? query.eq("id", drivingRecordId)
+      : query.order("created_at", { ascending: false }).limit(1);
+
+    const result = await query;
     if (result.error) throw new Error(result.error.message);
     const latest = result.data?.[0];
-    if (!latest) return true;
+    if (!latest) return false;
     if (text(latest.drives_for_work).toLowerCase() === "no") return false;
-    return text(latest.dvla_check_completed).toLowerCase() !== "yes";
+
+    return !(
+      text(latest.dvla_check_completed).toLowerCase() === "yes" &&
+      text(latest.authorised_to_drive).toLowerCase() === "yes"
+    );
   }
 
   return true;

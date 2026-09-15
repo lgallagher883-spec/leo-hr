@@ -12,6 +12,7 @@ const knowledgeHealth = read("app/api/knowledge/health/route.ts");
 const secureResources = read("app/api/knowledge/resources/file/route.ts");
 const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
+const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
@@ -557,4 +558,14 @@ test("employee self service only auto cancels future leave Leo previously auto a
   assert.match(employeeLeaveRoute, /status: "Cancelled"/);
   assert.match(employeeLeaveRoute, /balance_restored_by_status: true/);
   assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
+});
+
+
+test("absence administration prepares routine work but never decides welfare or adjustments", () => {
+  assert.match(agenticAbsenceWorkflow, /prepareReturnToWork/);
+  assert.match(agenticAbsenceWorkflow, /preparePayrollInput/);
+  assert.match(agenticAbsenceWorkflow, /welfareConcernRecorded/);
+  assert.match(agenticAbsenceWorkflow, /adjustmentNeedRecorded/);
+  assert.match(agenticAbsenceWorkflow, /recordDisputed/);
+  assert.match(agenticAbsenceWorkflow, /needsHumanReview/);
 });

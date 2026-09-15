@@ -1225,6 +1225,36 @@ export async function PATCH(
           final_outcome_date: completedDate,
           prepare_outcome_correspondence:
             agenticProbationPlan.prepareOutcomeCorrespondence,
+          outcome_correspondence: agenticProbationPlan.prepareOutcomeCorrespondence
+            ? finalOutcome === "Permanent Employment"
+              ? {
+                  title: "Probation Successfully Completed",
+                  resource_id: "probation-passed",
+                  route: "/dashboard/policies/letters/probation-passed",
+                  employee_name: employee.name,
+                  outcome_date: completedDate,
+                  status: "Prepared",
+                }
+              : finalOutcome === "Extend Probation"
+                ? {
+                    title: "Probation Extension",
+                    resource_id: "probation-extension",
+                    route: "/dashboard/policies/letters/probation-extension",
+                    employee_name: employee.name,
+                    outcome_date: completedDate,
+                    extension_end_date: finalProbation.extension_end_date,
+                    extension_reason: finalProbation.extension_reason,
+                    status: "Prepared",
+                  }
+                : {
+                    title: "Probation Termination",
+                    resource_id: "probation-termination",
+                    route: "/dashboard/policies/letters/probation-termination",
+                    employee_name: employee.name,
+                    outcome_date: completedDate,
+                    status: "Prepared only - dismissal execution blocked",
+                  }
+            : null,
           implement_recorded_outcome:
             agenticProbationPlan.implementRecordedOutcome,
           create_extension_milestone:

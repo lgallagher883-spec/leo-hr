@@ -595,7 +595,7 @@ export async function GET() {
 
     const today = new Date();
     today.setHours(12, 0, 0, 0);
-    const [{ data: rightToWorkEvidence }, { data: dbsEvidence }] = await Promise.all([
+    const [{ data: rightToWorkEvidence }, { data: dbsEvidence }, { data: drivingEvidence }] = await Promise.all([
       supabase
         .from("employee_right_to_work")
         .select("employee_id,right_to_work_expiry,next_review_date,created_at")
@@ -606,10 +606,16 @@ export async function GET() {
         .select("employee_id,dbs_required,next_check_due,created_at")
         .in("employee_id", employees.map((employee) => employee.id))
         .order("created_at", { ascending: false }),
+      supabase
+        .from("employee_driving_checks")
+        .select("employee_id,drives_for_work,licence_expiry_date,next_dvla_check_due,business_insurance_expiry_date,mot_required,mot_expiry_date,vehicle_ownership,vehicle_used,created_at")
+        .in("employee_id", employees.map((employee) => employee.id))
+        .order("created_at", { ascending: false }),
     ]);
 
     const latestRtw = latestByEmployee((rightToWorkEvidence || []) as RightToWorkRow[]);
     const latestDbs = latestByEmployee((dbsEvidence || []) as DbsRow[]);
+    const latestDriving = latestByEmployee((drivingEvidence || []) as DrivingRow[]);
     const agenticReconciliation = employees.flatMap((employee) => {
       const rtwEvidence = latestRtw.get(employee.id);
       const rtwDate = rtwEvidence
@@ -632,6 +638,37 @@ export async function GET() {
         evidenceCurrent: !dbsRequired || Boolean(dbsDate && dbsDate.getTime() >= today.getTime()),
       });
 
+      const drivingEvidenceRow = latestDriving.get(employee.id);
+      const drivesForWork = Boolean(
+        drivingEvidenceRow && isAffirmative(drivingEvidenceRow.drives_for_work),
+      );
+      const drivingDates = drivingEvidenceRow
+        ? [
+            drivingEvidenceRow.licence_expiry_date,
+            drivingEvidenceRow.next_dvla_check_due,
+            drivingEvidenceRow.business_insurance_expiry_date,
+          ]
+        : [];
+      const personalVehicle = Boolean(
+        drivingEvidenceRow &&
+          (normalise(drivingEvidenceRow.vehicle_ownership).includes("personal") ||
+            normalise(drivingEvidenceRow.vehicle_used).includes("personal") ||
+            isAffirmative(drivingEvidenceRow.mot_required)),
+      );
+      if (personalVehicle && drivingEvidenceRow) {
+        drivingDates.push(drivingEvidenceRow.mot_expiry_date);
+      }
+      const drivingCurrent =
+        !drivesForWork ||
+        (drivingDates.length > 0 &&
+          drivingDates.every((value) => classifyDate(value, today, today) === "current"));
+      const drivingPlan = planComplianceReconciliation({
+        requirementApplies: drivesForWork,
+        evidenceState: drivingEvidenceRow ? "verified" : "missing",
+        evidenceMatchesEmployee: Boolean(drivingEvidenceRow),
+        evidenceCurrent: drivingCurrent,
+      });
+
       return [
         {
           employeeId: employee.id,
@@ -646,6 +683,13 @@ export async function GET() {
           requirement: "dbs",
           evidenceRecordCreatedAt: dbsEvidenceRow?.created_at || null,
           plan: dbsPlan,
+        },
+        {
+          employeeId: employee.id,
+          employeeName: employee.name,
+          requirement: "driving_for_work",
+          evidenceRecordCreatedAt: drivingEvidenceRow?.created_at || null,
+          plan: drivingPlan,
         },
       ];
     });

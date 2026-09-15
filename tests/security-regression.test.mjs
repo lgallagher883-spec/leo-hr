@@ -483,3 +483,12 @@ test("start date changes create the same downstream actions as their prepared pa
   assert.match(employeeChangeWorkflow, /start_date/);
   assert.equal(startDateChange[0].field, "start_date");
 });
+
+
+test("role changes match only explicit organisation compliance resources without faking acknowledgement", () => {
+  assert.match(employeeChangeWorkflow, /reconcileRoleComplianceResources/);
+  assert.match(employeeChangeWorkflow, /notes\.includes\(roleNeedle\)/);
+  assert.match(employeeChangeWorkflow, /acknowledgement_status: "not_recorded"/);
+  assert.match(employeeChangeWorkflow, /automatic_acknowledgement: false/);
+  assert.match(employeeChangeWorkflow, /ask_leo_involved: false/);
+});

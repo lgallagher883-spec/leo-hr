@@ -570,7 +570,7 @@ export default function EmployeeProfilePage() {
               label="Employee reference"
               value={String(employee.id)}
             />
-            <HeaderMeta label="Access view" value={platformRole || "Resolving"} />
+            <HeaderMeta label="Your access" value={platformRole || "Resolving"} />
           </div>
         </div>
 

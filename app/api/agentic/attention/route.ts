@@ -49,6 +49,23 @@ async function issueStillNeedsHuman(admin: ReturnType<typeof getAdminClient>, em
     return !latest.certificate_issue_date;
   }
 
+  if (classification === "qualification") {
+    const qualificationId = numberValue(metadata.employee_qualification_id);
+    if (!qualificationId) return true;
+
+    const result = await admin
+      .from("employee_qualifications")
+      .select("id,verification_status,is_archived")
+      .eq("id", qualificationId)
+      .eq("employee_id", employeeId)
+      .maybeSingle();
+
+    if (result.error) throw new Error(result.error.message);
+    if (!result.data || result.data.is_archived) return false;
+
+    return text(result.data.verification_status).toLowerCase() !== "verified";
+  }
+
   if (classification === "driving") {
     const result = await admin
       .from("employee_driving_checks")

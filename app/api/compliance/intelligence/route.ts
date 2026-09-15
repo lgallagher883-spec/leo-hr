@@ -595,35 +595,59 @@ export async function GET() {
 
     const today = new Date();
     today.setHours(12, 0, 0, 0);
-    const { data: rightToWorkEvidence } = await supabase
-      .from("employee_right_to_work")
-      .select("employee_id,right_to_work_expiry,next_review_date,created_at")
-      .in("employee_id", employees.map((employee) => employee.id))
-      .order("created_at", { ascending: false });
+    const [{ data: rightToWorkEvidence }, { data: dbsEvidence }] = await Promise.all([
+      supabase
+        .from("employee_right_to_work")
+        .select("employee_id,right_to_work_expiry,next_review_date,created_at")
+        .in("employee_id", employees.map((employee) => employee.id))
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("employee_dbs_checks")
+        .select("employee_id,dbs_required,next_check_due,created_at")
+        .in("employee_id", employees.map((employee) => employee.id))
+        .order("created_at", { ascending: false }),
+    ]);
 
     const latestRtw = latestByEmployee((rightToWorkEvidence || []) as RightToWorkRow[]);
-    const agenticReconciliation = employees.map((employee) => {
-      const evidence = latestRtw.get(employee.id);
-      const evidenceDate = evidence
-        ? readDateOnly(evidence.next_review_date || evidence.right_to_work_expiry)
+    const latestDbs = latestByEmployee((dbsEvidence || []) as DbsRow[]);
+    const agenticReconciliation = employees.flatMap((employee) => {
+      const rtwEvidence = latestRtw.get(employee.id);
+      const rtwDate = rtwEvidence
+        ? readDateOnly(rtwEvidence.next_review_date || rtwEvidence.right_to_work_expiry)
         : null;
-      const evidenceCurrent = Boolean(
-        evidenceDate && evidenceDate.getTime() >= today.getTime(),
-      );
-      const plan = planComplianceReconciliation({
+      const rtwPlan = planComplianceReconciliation({
         requirementApplies: true,
-        evidenceState: evidence ? "verified" : "missing",
-        evidenceMatchesEmployee: Boolean(evidence),
-        evidenceCurrent,
+        evidenceState: rtwEvidence ? "verified" : "missing",
+        evidenceMatchesEmployee: Boolean(rtwEvidence),
+        evidenceCurrent: Boolean(rtwDate && rtwDate.getTime() >= today.getTime()),
       });
 
-      return {
-        employeeId: employee.id,
-        employeeName: employee.name,
-        requirement: "right_to_work",
-        evidenceRecordCreatedAt: evidence?.created_at || null,
-        plan,
-      };
+      const dbsEvidenceRow = latestDbs.get(employee.id);
+      const dbsRequired = Boolean(dbsEvidenceRow && isAffirmative(dbsEvidenceRow.dbs_required));
+      const dbsDate = dbsEvidenceRow ? readDateOnly(dbsEvidenceRow.next_check_due) : null;
+      const dbsPlan = planComplianceReconciliation({
+        requirementApplies: dbsRequired,
+        evidenceState: dbsEvidenceRow ? "verified" : "missing",
+        evidenceMatchesEmployee: Boolean(dbsEvidenceRow),
+        evidenceCurrent: !dbsRequired || Boolean(dbsDate && dbsDate.getTime() >= today.getTime()),
+      });
+
+      return [
+        {
+          employeeId: employee.id,
+          employeeName: employee.name,
+          requirement: "right_to_work",
+          evidenceRecordCreatedAt: rtwEvidence?.created_at || null,
+          plan: rtwPlan,
+        },
+        {
+          employeeId: employee.id,
+          employeeName: employee.name,
+          requirement: "dbs",
+          evidenceRecordCreatedAt: dbsEvidenceRow?.created_at || null,
+          plan: dbsPlan,
+        },
+      ];
     });
 
     const organisationKnowledge = foundations

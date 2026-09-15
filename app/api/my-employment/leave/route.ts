@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
+import { assessRoutineAnnualLeave, readDelegatedRoutineLeaveApproval } from "@/lib/agentic/leaveWorkflow";
 
 export const dynamic = "force-dynamic";
 
@@ -938,6 +939,76 @@ export async function POST(request: Request) {
       );
     }
 
+    let delegatedAutoApproval = false;
+    let confirmedAvailableDays: number | null = null;
+
+    if (leaveType === "Annual Leave" || leaveType === "Half Day Leave") {
+      const [knowledgeResult, employmentForBalance, approvedLeaveResult] =
+        await Promise.all([
+          admin
+            .from("company_knowledge")
+            .select("title,content")
+            .eq("organisation_id", organisationId),
+          admin
+            .from("employee_employment_details")
+            .select(
+              "annual_leave_allowance,working_days,working_pattern_type,contracted_days_per_week,employment_end_date,part_year_worker,holiday_year_start_month,holiday_year_start_day,leave_entitlement_basis,bank_holiday_treatment",
+            )
+            .eq("employee_id", employeeResult.data.id)
+            .maybeSingle(),
+          admin
+            .from("employee_leave_records")
+            .select("days_taken,status,leave_type")
+            .eq("employee_id", employeeResult.data.id),
+        ]);
+
+      if (!knowledgeResult.error) {
+        delegatedAutoApproval = readDelegatedRoutineLeaveApproval(
+          knowledgeResult.data ?? [],
+        );
+      }
+
+      if (!employmentForBalance.error && employmentForBalance.data) {
+        const details = employmentForBalance.data as EmploymentLeaveDetails;
+        const statutoryAllowance = calculateCurrentStatutoryDays(
+          details,
+          employeeResult.data.start_date,
+        );
+        const allowance =
+          details.leave_entitlement_basis === "Statutory"
+            ? statutoryAllowance
+            : readNumber(details.annual_leave_allowance);
+
+        if (allowance !== null && !approvedLeaveResult.error) {
+          const used = (approvedLeaveResult.data ?? [])
+            .filter(
+              (record) =>
+                String(record.status || "").toLowerCase() === "approved" &&
+                (record.leave_type === "Annual Leave" ||
+                  record.leave_type === "Half Day Leave"),
+            )
+            .reduce(
+              (total, record) => total + (readNumber(record.days_taken) ?? 0),
+              0,
+            );
+          confirmedAvailableDays = Math.max(0, allowance - used);
+        }
+      }
+    }
+
+    const routineAssessment = assessRoutineAnnualLeave({
+      leaveType,
+      daysTaken: resolvedDaysTaken,
+      availableDays: confirmedAvailableDays,
+      overlapsExisting: false,
+      workingPatternKnown: resolvedDaysTaken > 0,
+      delegatedAutoApproval,
+    });
+
+    const resolvedStatus = routineAssessment.canAutoApprove
+      ? "Approved"
+      : "Submitted";
+
     const now = new Date().toISOString();
 
     const recordCategoryByLeaveType: Record<string, string> = {
@@ -992,7 +1063,7 @@ export async function POST(request: Request) {
       .insert({
         employee_id: employeeResult.data.id,
         leave_type: leaveType,
-        status: "Submitted",
+        status: resolvedStatus,
         start_date: startDate,
         end_date: endDate,
         days_taken: resolvedDaysTaken,
@@ -1023,12 +1094,15 @@ export async function POST(request: Request) {
       user_id: user.id,
       user_name: userName,
       user_email: user.email || null,
-      action: "Leave request submitted",
+      action: resolvedStatus === "Approved" ? "Leave automatically approved" : "Leave request submitted",
       action_category: "Employee",
       entity_type: "Employee",
       entity_id: String(employeeResult.data.id),
       entity_name: employeeResult.data.name,
-      description: `${leaveType} was requested by ${employeeResult.data.name}.`,
+      description:
+        resolvedStatus === "Approved"
+          ? `${leaveType} was automatically approved for ${employeeResult.data.name} under the organisation's explicit delegation.`
+          : `${leaveType} was requested by ${employeeResult.data.name}.`,
       new_values: {
         leave_record_id: insertResult.data.id,
         leave_type: insertResult.data.leave_type,
@@ -1036,6 +1110,8 @@ export async function POST(request: Request) {
         start_date: insertResult.data.start_date,
         end_date: insertResult.data.end_date,
         days_taken: insertResult.data.days_taken,
+        agentic_auto_approved: resolvedStatus === "Approved",
+        ask_leo_involved: false,
       },
       metadata: {
         source_module: "Employee Leave",
@@ -1058,9 +1134,12 @@ export async function POST(request: Request) {
       organisation_id: organisationId,
       employee_id: employeeResult.data.id,
       event_type: "Leave & Absence",
-      title: "Leave request submitted",
-      description: `${leaveType} was requested by ${employeeResult.data.name}.`,
-      status: "Submitted",
+      title: resolvedStatus === "Approved" ? "Leave automatically approved" : "Leave request submitted",
+      description:
+        resolvedStatus === "Approved"
+          ? `${leaveType} was automatically approved for ${employeeResult.data.name} under the organisation's explicit delegation.`
+          : `${leaveType} was requested by ${employeeResult.data.name}.`,
+      status: resolvedStatus,
       source_module: "Leave & Absence",
       source_record_id: String(insertResult.data.id),
       metadata: {

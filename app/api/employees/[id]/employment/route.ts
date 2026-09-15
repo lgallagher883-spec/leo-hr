@@ -926,7 +926,7 @@ export async function PATCH(
     }
 
     let roleComplianceResources:
-      | { matched: number; reason: string }
+      | { matched: number; available: number; reason: string }
       | null = null;
 
     if (changes.some((change) => change.field === "role") && employeeResult.data.role) {

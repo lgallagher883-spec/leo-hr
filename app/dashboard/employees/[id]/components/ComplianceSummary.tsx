@@ -79,7 +79,7 @@ export default function ComplianceSummary({
         if (rt?.right_to_work_expiry) newItems.push(buildDateMessage("Right to Work Expiry", rt.right_to_work_expiry));
         if (rt?.next_review_date) newItems.push(buildDateMessage("Right to Work Review", rt.next_review_date));
         const dbs = result.dbs;
-        if (dbs) {
+        if (dbs && String(dbs.dbs_required || "").toLowerCase() !== "no") {
           newItems.push(buildDateMessage("DBS Next Check", dbs.next_check_due));
           if (dbs.safeguarding_training_expiry) newItems.push(buildDateMessage("Safeguarding Training", dbs.safeguarding_training_expiry));
         }

@@ -21,6 +21,7 @@ const agenticPerformanceReview = read("lib/agentic/performanceReviewWorkflow.ts"
 const agenticMatterWorkflow = read("lib/agentic/matterWorkflow.ts");
 const agenticMatterPlanRoute = read("app/api/matters/[id]/agentic-plan/route.ts");
 const matterDocumentsRoute = read("app/api/matters/[id]/documents/route.ts");
+const agenticOffboardingWorkflow = read("lib/agentic/offboardingWorkflow.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -797,4 +798,25 @@ test("new Matter documents maintain chronology without claiming verification", (
   assert.match(matterDocumentsRoute, /evidence_verified: false/);
   assert.match(matterDocumentsRoute, /The source document remains the/);
   assert.doesNotMatch(matterDocumentsRoute, /evidence_verified: true/);
+});
+
+
+test("offboarding automation requires an authorised confirmed departure", () => {
+  assert.match(agenticOffboardingWorkflow, /departureAuthorised/);
+  assert.match(agenticOffboardingWorkflow, /finalDateConfirmed/);
+  assert.match(agenticOffboardingWorkflow, /departureDisputed/);
+  assert.match(agenticOffboardingWorkflow, /confirmedDeparture/);
+  assert.match(agenticOffboardingWorkflow, /blockInferredDeparture/);
+});
+
+
+test("offboarding prepares administration but preserves consequential decisions", () => {
+  assert.match(agenticOffboardingWorkflow, /prepareHandoverPack/);
+  assert.match(agenticOffboardingWorkflow, /prepareAssetReturnPack/);
+  assert.match(agenticOffboardingWorkflow, /calculateProvisionalLeaveReconciliation/);
+  assert.match(agenticOffboardingWorkflow, /preparePayrollInputs/);
+  assert.match(agenticOffboardingWorkflow, /scheduleApprovedAccessChanges/);
+  assert.match(agenticOffboardingWorkflow, /prepareRetentionWorkflow/);
+  assert.match(agenticOffboardingWorkflow, /blockFinalPayOrDeductionDecision/);
+  assert.match(agenticOffboardingWorkflow, /blockUnauthorisedAccessRemoval/);
 });

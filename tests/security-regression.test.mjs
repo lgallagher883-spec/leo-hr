@@ -22,6 +22,7 @@ const probationRoute = read("app/api/employees/[id]/probation/route.ts");
 const careCheckRtwRoute = read("app/api/talent/due-diligence/[id]/carecheck-rtw/route.ts");
 const careCheckDbsRoute = read("app/api/talent/due-diligence/[id]/carecheck/route.ts");
 const talentOfferRoute = read("app/api/talent/offers/[id]/route.ts");
+const talentOnboardingRoute = read("app/api/talent/onboarding/[id]/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -673,4 +674,14 @@ test("accepted offer handoff invokes Agentic onboarding planning without Ask Leo
   assert.match(talentOfferRoute, /requiredChecksSatisfied: false/);
   assert.match(talentOfferRoute, /ask_leo_involved: false/);
   assert.match(talentOfferRoute, /askLeoInvolved: false/);
+});
+
+
+test("Agentic onboarding readiness ignores optional learning and requires actual admin completion", () => {
+  assert.match(talentOnboardingRoute, /action === "agentic_readiness"/);
+  assert.match(talentOnboardingRoute, /item\.item_category !== "learning"/);
+  assert.match(talentOnboardingRoute, /requiredChecksSatisfied = incompleteRequired\.length === 0/);
+  assert.match(talentOnboardingRoute, /readyForEmployeeCreation/);
+  assert.match(talentOnboardingRoute, /learning_excluded_from_required_readiness: true/);
+  assert.match(talentOnboardingRoute, /ask_leo_involved: false/);
 });

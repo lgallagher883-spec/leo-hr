@@ -5,6 +5,7 @@ export type OffboardingAdministrationPlan = {
   preparePayrollInputs: boolean;
   scheduleApprovedAccessChanges: boolean;
   prepareRetentionWorkflow: boolean;
+  routeHumanInputToNeedsHelp: boolean;
   needsHumanInput: boolean;
   blockInferredDeparture: boolean;
   blockFinalPayOrDeductionDecision: boolean;
@@ -62,6 +63,14 @@ export function planOffboardingAdministration(args: {
       confirmedDeparture && args.accessChangesApproved,
     prepareRetentionWorkflow:
       confirmedDeparture && args.retentionRulesConfigured,
+    routeHumanInputToNeedsHelp:
+      !confirmedDeparture ||
+      !args.leaveRulesConfigured ||
+      !args.leaveRecordsComplete ||
+      !args.payrollInputsComplete ||
+      !args.accessChangesApproved ||
+      !args.retentionRulesConfigured ||
+      args.finalPayOrDeductionDecisionRequested,
     needsHumanInput:
       !confirmedDeparture ||
       !args.leaveRulesConfigured ||

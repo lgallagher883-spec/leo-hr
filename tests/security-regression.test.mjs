@@ -19,6 +19,7 @@ const agenticRecruitmentWorkflow = read("lib/agentic/recruitmentWorkflow.ts");
 const agenticComplianceReconciliation = read("lib/agentic/complianceReconciliation.ts");
 const agenticPerformanceReview = read("lib/agentic/performanceReviewWorkflow.ts");
 const agenticMatterWorkflow = read("lib/agentic/matterWorkflow.ts");
+const agenticMatterPlanRoute = read("app/api/matters/[id]/agentic-plan/route.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -768,4 +769,22 @@ test("Matter administration uses traceable evidence and raises missing prerequis
   assert.match(agenticMatterWorkflow, /proceduralInformationComplete/);
   assert.match(agenticMatterWorkflow, /needsHumanInput/);
   assert.match(agenticMatterWorkflow, /Dismissal execution is blocked/);
+});
+
+
+test("live Matter administration planning is permissioned and organisation scoped", () => {
+  assert.match(agenticMatterPlanRoute, /leo_current_organisation_id/);
+  assert.match(agenticMatterPlanRoute, /target_permission_key: "matters\.view"/);
+  assert.match(agenticMatterPlanRoute, /\.from\("matters"\)/);
+  assert.match(agenticMatterPlanRoute, /\.eq\("id", matterId\)/);
+  assert.match(agenticMatterPlanRoute, /The Matter could not be found or accessed/);
+});
+
+
+test("live Matter planning uses existing evidence without inventing process completion", () => {
+  assert.match(agenticMatterPlanRoute, /\.from\("matter_timeline"\)/);
+  assert.match(agenticMatterPlanRoute, /\.from\("matter_documents"\)/);
+  assert.match(agenticMatterPlanRoute, /administrativePrerequisitesSatisfied: false/);
+  assert.match(agenticMatterPlanRoute, /planMatterAdministration/);
+  assert.match(agenticMatterPlanRoute, /askLeoInvolved: false/);
 });

@@ -833,5 +833,7 @@ test("an authorised final-date change prepares live offboarding without ending e
   assert.match(employeeEmploymentRoute, /employment_status_changed: false/);
   assert.match(employeeEmploymentRoute, /final_pay_decision: "not_made"/);
   assert.match(employeeEmploymentRoute, /access_removal_status: "not_authorised"/);
+  assert.match(employeeEmploymentRoute, /human_intervention: offboardingPlan\.routeHumanInputToNeedsHelp/);
+  assert.match(employeeEmploymentRoute, /destination: "Leo Needs Your Help"/);
   assert.match(employeeEmploymentRoute, /ask_leo_involved: false/);
 });

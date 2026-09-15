@@ -20,6 +20,7 @@ const agenticComplianceReconciliation = read("lib/agentic/complianceReconciliati
 const agenticPerformanceReview = read("lib/agentic/performanceReviewWorkflow.ts");
 const agenticMatterWorkflow = read("lib/agentic/matterWorkflow.ts");
 const agenticMatterPlanRoute = read("app/api/matters/[id]/agentic-plan/route.ts");
+const matterDocumentsRoute = read("app/api/matters/[id]/documents/route.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -787,4 +788,13 @@ test("live Matter planning uses existing evidence without inventing process comp
   assert.match(agenticMatterPlanRoute, /administrativePrerequisitesSatisfied: false/);
   assert.match(agenticMatterPlanRoute, /planMatterAdministration/);
   assert.match(agenticMatterPlanRoute, /askLeoInvolved: false/);
+});
+
+
+test("new Matter documents maintain chronology without claiming verification", () => {
+  assert.match(matterDocumentsRoute, /recordDocumentChronology/);
+  assert.match(matterDocumentsRoute, /event_type: "matter_document_added"/);
+  assert.match(matterDocumentsRoute, /evidence_verified: false/);
+  assert.match(matterDocumentsRoute, /The source document remains the/);
+  assert.doesNotMatch(matterDocumentsRoute, /evidence_verified: true/);
 });

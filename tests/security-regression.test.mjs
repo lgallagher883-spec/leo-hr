@@ -473,3 +473,13 @@ test("approved start date changes flow through Agentic contract and payroll prep
   assert.match(employeeChangeWorkflow, /const contractFields = \[\s*"role",\s*"start_date"/);
   assert.match(employeeChangeWorkflow, /const payrollFields = \[\s*"role",\s*"start_date"/);
 });
+
+
+test("start date changes create the same downstream actions as their prepared packs", () => {
+  const startDateChange = [{ field: "start_date", label: "Employment start date", previousValue: "2026-09-21", newValue: "2026-09-28" }];
+  assert.match(employeeChangeWorkflow, /fields\.has\("start_date"\)/);
+  assert.match(employeeChangeWorkflow, /key: "contract_variation"/);
+  assert.match(employeeChangeWorkflow, /key: "payroll_change_pack"/);
+  assert.match(employeeChangeWorkflow, /start_date/);
+  assert.equal(startDateChange[0].field, "start_date");
+});

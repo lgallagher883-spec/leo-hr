@@ -402,3 +402,13 @@ test("received contracts close only matching unissued Agentic preparation", () =
   assert.match(employeeDocumentsRoute, /Agentic Contract Workflow Completed/);
   assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
 });
+
+
+test("qualification uploads create unverified records without claiming validity", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "qualification"/);
+  assert.match(employeeDocumentsRoute, /verification_status: "Unverified"/);
+  assert.match(employeeDocumentsRoute, /Validity and equivalence still require human verification/);
+  assert.match(employeeDocumentsRoute, /qualification_evidence/);
+  assert.match(employeeDocumentsRoute, /Agentic Qualification Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});

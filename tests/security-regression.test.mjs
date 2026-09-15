@@ -14,6 +14,7 @@ const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
 const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
 const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
 const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
+const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
 const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
 const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
 const probationRoute = read("app/api/employees/[id]/probation/route.ts");
@@ -617,4 +618,14 @@ test("Agentic probation outcomes prepare the existing approved correspondence re
   assert.match(probationRoute, /resource_id: "probation-extension"/);
   assert.match(probationRoute, /resource_id: "probation-termination"/);
   assert.match(probationRoute, /status: "Prepared only - dismissal execution blocked"/);
+});
+
+
+test("RTW and DBS automation reuses verified evidence but preserves verification and suitability decisions", () => {
+  assert.match(agenticCheckCoordination, /existingVerifiedEvidence/);
+  assert.match(agenticCheckCoordination, /providerAvailable/);
+  assert.match(agenticCheckCoordination, /consentRecorded/);
+  assert.match(agenticCheckCoordination, /needsHumanVerification/);
+  assert.match(agenticCheckCoordination, /needsHumanSuitabilityDecision/);
+  assert.match(agenticCheckCoordination, /checkType === "dbs" && args\.discrepancyRecorded/);
 });

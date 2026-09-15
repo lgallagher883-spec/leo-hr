@@ -645,12 +645,6 @@ export default function EmployeeProfilePage() {
         <main style={mainContentStyle}>
           {activeSection === "Overview" && (
             <div style={sectionStackStyle}>
-              <SectionHeading
-                eyebrow="Employee overview"
-                title={`${employee.name} at a glance`}
-                description="Current employment information, compliance position and useful actions from one place."
-              />
-
               <div style={summaryGridStyle}>
                 <SummaryCard
                   label="Employment status"

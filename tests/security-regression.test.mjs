@@ -422,3 +422,13 @@ test("driving licence evidence never becomes automatic driving authorisation", (
   assert.match(employeeDocumentsRoute, /Agentic Driving Evidence Filed/);
   assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
 });
+
+
+test("DBS certificate evidence never becomes an automatic suitability decision", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "dbs"/);
+  assert.match(employeeDocumentsRoute, /Agentic DBS Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /suitability_decision_recorded: false/);
+  assert.match(employeeDocumentsRoute, /update_service_verified: false/);
+  assert.match(employeeDocumentsRoute, /Suitability, certificate level and any Update Service verification remain separate decisions/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});

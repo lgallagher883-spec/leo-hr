@@ -707,3 +707,11 @@ test("live compliance intelligence reconciles RTW evidence deterministically wit
   assert.match(complianceIntelligenceRoute, /needsEvidenceOrReview/);
   assert.match(complianceIntelligenceRoute, /askLeoInvolved: false/);
 });
+
+
+test("live compliance reconciliation respects whether DBS actually applies", () => {
+  assert.match(complianceIntelligenceRoute, /requirement: "dbs"/);
+  assert.match(complianceIntelligenceRoute, /dbsRequired/);
+  assert.match(complianceIntelligenceRoute, /requirementApplies: dbsRequired/);
+  assert.match(complianceIntelligenceRoute, /evidenceState: dbsEvidenceRow \? "verified" : "missing"/);
+});

@@ -11,6 +11,7 @@ const leave = read("app/api/my-employment/leave/route.ts");
 const knowledgeHealth = read("app/api/knowledge/health/route.ts");
 const secureResources = read("app/api/knowledge/resources/file/route.ts");
 const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
+const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -508,4 +509,14 @@ test("role policy reconciliation only treats already shared company documents as
   assert.match(employeeChangeWorkflow, /available_to_employee: availableResourceIds/);
   assert.match(employeeChangeWorkflow, /acknowledgement_status: "not_recorded"/);
   assert.match(employeeChangeWorkflow, /only resources already shared with employees are treated as available/);
+});
+
+
+test("routine leave automation requires explicit delegation and confirmed safe inputs", () => {
+  assert.match(agenticLeaveWorkflow, /delegatedAutoApproval/);
+  assert.match(agenticLeaveWorkflow, /Annual Leave/);
+  assert.match(agenticLeaveWorkflow, /workingPatternKnown/);
+  assert.match(agenticLeaveWorkflow, /available annual leave balance/);
+  assert.match(agenticLeaveWorkflow, /overlaps another active leave record/);
+  assert.match(agenticLeaveWorkflow, /canAutoApprove: reasons\.length === 0/);
 });

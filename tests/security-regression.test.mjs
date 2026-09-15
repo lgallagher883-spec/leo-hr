@@ -382,3 +382,13 @@ test("approved role changes assign only explicit published mandatory pathways", 
   assert.match(employmentRoute, /mandatoryRolePathways/);
   assert.match(employmentRoute, /syncPublishedMandatoryRolePathways/);
 });
+
+
+test("Agentic new starter portal invitation avoids existing organisation access", () => {
+  assert.match(newStarterAutoActions, /organisation_memberships/);
+  assert.match(newStarterAutoActions, /getUserById/);
+  assert.match(newStarterAutoActions, /already has organisation access/);
+  assert.match(newStarterAutoActions, /Agentic Portal Invitation Sent/);
+  assert.match(newStarterAutoActions, /role: "employee"/);
+  assert.match(newStarterAutoActions, /ask_leo_involved: false/);
+});

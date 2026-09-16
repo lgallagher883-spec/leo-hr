@@ -151,6 +151,7 @@
   font-size: clamp(42px, 4.3vw, 66px);
   line-height: 0.98;
   letter-spacing: -0.045em;
+  color: #7d7d7d;
 }
 
 .welcome-copy {

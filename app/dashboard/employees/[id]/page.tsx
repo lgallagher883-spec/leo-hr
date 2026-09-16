@@ -1746,7 +1746,7 @@ const headerTitleRowStyle: CSSProperties = {
 
 const employeeNameStyle: CSSProperties = {
   margin: "4px 0 0",
-  color: "#241B2B",
+  color: "#5F4377",
   fontSize: "30px",
   lineHeight: 1.15,
 };

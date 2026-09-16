@@ -224,7 +224,7 @@ const eyebrowStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "32px",
   fontWeight: 800,
   margin: "0 0 8px 0",
@@ -272,7 +272,7 @@ const leoIconStyle: React.CSSProperties = {
 };
 
 const leoNameStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "16px",
   fontWeight: 800,
 };
@@ -299,7 +299,7 @@ const factsSectionStyle: React.CSSProperties = {
 };
 
 const sectionHeadingStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "16px",
   fontWeight: 800,
   marginBottom: "12px",
@@ -326,7 +326,7 @@ const factKeyStyle: React.CSSProperties = {
 };
 
 const factValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "15px",
   fontWeight: 700,
   lineHeight: 1.45,
@@ -348,7 +348,7 @@ const conversationPromptStyle: React.CSSProperties = {
 };
 
 const promptTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "17px",
   fontWeight: 800,
   marginBottom: "7px",
@@ -369,7 +369,7 @@ const textareaStyle: React.CSSProperties = {
   padding: "14px",
   borderRadius: "14px",
   border: "1px solid #D1D5DB",
-  color: "#111827",
+  color: "var(--leo-heading)",
   background: "#FFFFFF",
   fontSize: "14px",
   fontFamily: "inherit",

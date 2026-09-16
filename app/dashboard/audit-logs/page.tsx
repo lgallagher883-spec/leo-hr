@@ -2195,9 +2195,9 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#5F4377",
+  color: "#6E5084",
   fontSize: "27px",
-  fontWeight: 700,
+  fontWeight: 600,
 };
 
 const subtitleStyle: React.CSSProperties = {

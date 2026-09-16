@@ -658,7 +658,7 @@ const sparkleStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: "32px",
   fontWeight: 800,
-  color: "#111827",
+  color: "var(--leo-heading)",
   margin: "0 0 14px 0",
 };
 
@@ -769,7 +769,7 @@ const sidePanelStyle: React.CSSProperties = {
 const sideTitleStyle: React.CSSProperties = {
   fontSize: "16px",
   fontWeight: 800,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const sideTextStyle: React.CSSProperties = {

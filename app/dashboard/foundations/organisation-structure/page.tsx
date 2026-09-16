@@ -223,7 +223,7 @@ const eyebrowStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "32px",
   fontWeight: 800,
   margin: "0 0 8px 0",

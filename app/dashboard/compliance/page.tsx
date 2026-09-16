@@ -1506,11 +1506,7 @@ export default function CompliancePage() {
     <div style={pageStyle}>
       <header style={headerStyle}>
         <div>
-          <div style={eyebrowStyle}>
-            Workforce assurance
-          </div>
-
-          <h1 style={titleStyle}>Compliance</h1>
+<h1 style={titleStyle}>Compliance</h1>
 
           <p style={subtitleStyle}>
             Review employee checks and learning

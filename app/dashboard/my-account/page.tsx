@@ -473,7 +473,7 @@ const styles = `
 
   h1 {
     margin-bottom: 8px;
-    color: #5F4377;
+    color: #6E5084;
     font-size: clamp(2rem, 4vw, 3rem);
     line-height: 1.08;
     letter-spacing: -0.035em;

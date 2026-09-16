@@ -4053,7 +4053,7 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: "5px 0 5px",
-  color: "#241B2B",
+  color: "#5F4377",
   fontSize: "32px",
   lineHeight: 1.1,
   letterSpacing: "-0.02em",

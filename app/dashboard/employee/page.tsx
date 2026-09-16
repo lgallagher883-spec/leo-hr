@@ -228,8 +228,6 @@ export default function EmployeeDashboardPage() {
       <div className={styles.desktopEmployeeDashboard}>
       <header style={headerStyle}>
         <div>
-          <p style={eyebrowStyle}>Employee workspace</p>
-
           <h1 style={titleStyle}>
             Welcome back
             {!loadingName && firstName ? `, ${firstName}` : ""}
@@ -360,7 +358,8 @@ const eyebrowStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   fontSize: "30px",
   lineHeight: 1.2,
-  fontWeight: 700,
+  fontFamily: "var(--font-manrope), Manrope, sans-serif",
+  fontWeight: 600,
   letterSpacing: "-0.02em",
   margin: 0,
   color: "#6E5084",

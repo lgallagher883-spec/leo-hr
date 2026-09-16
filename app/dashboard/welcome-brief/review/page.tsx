@@ -35,7 +35,7 @@ export default function WelcomeBriefReviewPage() {
           style={{
             margin: 0,
             fontSize: "34px",
-            color: "#111827",
+            color: "var(--leo-heading)",
           }}
         >
           Welcome Brief Complete

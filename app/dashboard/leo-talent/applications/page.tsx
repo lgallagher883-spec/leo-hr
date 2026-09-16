@@ -993,7 +993,7 @@ const styles: Record<string, CSSProperties> = {
   },
   title: {
     margin: 0,
-    color: "#111827",
+    color: "#5F4377",
     fontSize: "30px",
     lineHeight: 1.2,
   },

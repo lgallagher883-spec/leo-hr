@@ -744,7 +744,7 @@ function DashboardPageContent() {
 
       <section style={remindersSectionStyle} aria-label="In-app reminders">
         <div style={remindersHeaderStyle}>
-          <h2 style={remindersTitleStyle}>Reminder & expiry intelligence</h2>
+          <h2 style={remindersTitleStyle}>Reminder & Expiry Intelligence</h2>
           <span style={remindersCountStyle}>{reminders.length}</span>
         </div>
 
@@ -1126,7 +1126,7 @@ const summaryLabelStyle: CSSProperties = {
   fontSize: "17px",
   lineHeight: 1.35,
   fontWeight: 700,
-  color: "#111827",
+  color: "#7D7D7D",
 };
 
 const summaryNumberStyle: CSSProperties = {
@@ -1174,7 +1174,7 @@ const remindersHeaderStyle: CSSProperties = {
 
 const remindersTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#6E5084",
   fontSize: "18px",
   lineHeight: 1.35,
 };

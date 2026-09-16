@@ -1972,7 +1972,7 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
     letterSpacing: "0.08em",
   },
-  title: { margin: 0, fontSize: 30, lineHeight: 1.15, color: "#111827" },
+  title: { margin: 0, fontSize: 30, lineHeight: 1.15, color: "#5F4377" },
   description: {
     margin: "8px 0 0",
     color: "#6B7280",

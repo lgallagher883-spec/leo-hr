@@ -267,7 +267,7 @@ const titleStyle: React.CSSProperties = {
   fontSize: "30px",
   fontWeight: 800,
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const subtitleStyle: React.CSSProperties = {
@@ -288,7 +288,7 @@ const sectionTitleStyle: React.CSSProperties = {
   fontSize: "18px",
   fontWeight: 800,
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const formGridStyle: React.CSSProperties = {

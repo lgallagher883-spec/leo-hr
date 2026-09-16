@@ -652,7 +652,7 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "26px",
   fontWeight: 700,
 };
@@ -725,13 +725,13 @@ const deadlineLabelStyle: React.CSSProperties = {
 };
 
 const deadlineValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "16px",
   fontWeight: 700,
 };
 
 const sectionTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "16px",
   margin: "0 0 16px",
 };

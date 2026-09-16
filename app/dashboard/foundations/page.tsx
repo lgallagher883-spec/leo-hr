@@ -267,7 +267,7 @@ const headerStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: "30px",
   fontWeight: 800,
-  color: "#111827",
+  color: "var(--leo-heading)",
   margin: 0,
 };
 
@@ -330,7 +330,7 @@ const understandingCardStyle: React.CSSProperties = {
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: "18px",
   fontWeight: 800,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const mutedTextStyle: React.CSSProperties = {
@@ -382,13 +382,13 @@ const cardStyle: React.CSSProperties = {
 const cardTitleStyle: React.CSSProperties = {
   fontSize: "17px",
   fontWeight: 800,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const featuredCardTitleStyle: React.CSSProperties = {
   fontSize: "20px",
   fontWeight: 800,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const cardDescriptionStyle: React.CSSProperties = {

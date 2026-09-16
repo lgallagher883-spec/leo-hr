@@ -459,7 +459,7 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const descriptionStyle: CSSProperties = {
@@ -546,7 +546,7 @@ const workspaceHeaderStyle: CSSProperties = {
 
 const workspaceTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const workspaceDescriptionStyle: CSSProperties = {
@@ -603,7 +603,7 @@ const panelStyle: CSSProperties = {
 
 const panelTitleStyle: CSSProperties = {
   margin: "0 0 14px",
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: 16,
 };
 

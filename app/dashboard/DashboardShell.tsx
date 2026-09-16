@@ -399,7 +399,7 @@ export default function DashboardShell({
       style={{
         minHeight: "100vh",
         fontFamily:
-          '"Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif',
+          'Inter, "Aptos", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif',
         background: "#F5FFF9",
         color: "#2F2635",
       }}

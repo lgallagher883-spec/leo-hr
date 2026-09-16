@@ -2806,7 +2806,7 @@ const pageHeaderStyle: React.CSSProperties = {
 
 const pageTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
 };
 
 const pageDescriptionStyle: React.CSSProperties = {

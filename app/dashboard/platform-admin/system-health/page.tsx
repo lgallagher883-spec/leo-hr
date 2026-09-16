@@ -321,7 +321,7 @@ const eyebrowStyle = {
 const titleStyle = {
   margin: "7px 0 5px",
   fontSize: 32,
-  color: "#2F2635",
+  color: "#5F4377",
 };
 
 const subtitleStyle = {

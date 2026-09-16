@@ -545,7 +545,7 @@ const styles = `
 .page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:24px}
 .eyebrow,.card-eyebrow{margin:0 0 8px;color:#6e5084;font-size:.76rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
 h1,h2,p{margin-top:0}
-h1{margin-bottom:8px;color:#2d2332;font-size:clamp(2rem,4vw,3rem);line-height:1.08;letter-spacing:-.035em}
+h1{margin-bottom:8px;color:#5F4377;font-size:clamp(2rem,4vw,3rem);line-height:1.08;letter-spacing:-.035em}
 .page-heading p:not(.eyebrow){max-width:760px;margin-bottom:0;color:#6d6371;font-size:1rem;line-height:1.65}
 .secondary-link{flex:0 0 auto;min-height:44px;display:inline-flex;align-items:center;padding:0 17px;border:1px solid #cdb2e2;border-radius:12px;background:#fff;color:#6e5084;font-weight:800;text-decoration:none}
 .organisation-navigation{display:flex;gap:8px;overflow:auto;margin-bottom:22px;padding:6px;border:1px solid #e4dbe7;border-radius:16px;background:#fff}

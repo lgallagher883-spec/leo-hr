@@ -350,7 +350,7 @@ const titleStyle: React.CSSProperties = {
   fontSize: "26px",
   fontWeight: 700,
   marginBottom: "4px",
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const subtitleStyle: React.CSSProperties = {
@@ -380,7 +380,7 @@ const searchInputStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
   borderRadius: "10px",
   background: "#FFFFFF",
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "14px",
   outline: "none",
   boxSizing: "border-box",

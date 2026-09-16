@@ -873,7 +873,8 @@ const headerStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   fontSize: "30px",
   lineHeight: 1.2,
-  fontWeight: 700,
+  fontWeight: 600,
+  fontFamily: "Manrope, Inter, Aptos, Segoe UI Variable, Segoe UI, sans-serif",
   letterSpacing: "-0.02em",
   margin: 0,
   color: "#6E5084",
@@ -1042,7 +1043,8 @@ const smallSparkleStyle: CSSProperties = {
 const askLeoTitleStyle: CSSProperties = {
   fontSize: "30px",
   lineHeight: 1.2,
-  fontWeight: 700,
+  fontWeight: 600,
+  fontFamily: "Manrope, Inter, Aptos, Segoe UI Variable, Segoe UI, sans-serif",
   letterSpacing: "-0.02em",
   color: "#6E5084",
   margin: "0 0 10px",

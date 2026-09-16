@@ -1708,13 +1708,15 @@ const backButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "7px",
-  border: "none",
-  background: "transparent",
+  border: "1px solid #D8CCDE",
+  background: "#FFFFFF",
+  borderRadius: "10px",
   cursor: "pointer",
-  color: "#6B7280",
-  fontWeight: 700,
-  padding: "0",
+  color: "#6E5084",
+  fontWeight: 600,
+  padding: "9px 13px",
   marginBottom: "16px",
+  boxShadow: "0 1px 2px rgba(73, 52, 86, 0.04)",
 };
 
 const headerStyle: CSSProperties = {

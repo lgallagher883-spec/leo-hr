@@ -2802,7 +2802,7 @@ const overviewTitleStyle:
   margin: 0,
   fontSize: "22px",
   fontWeight: 800,
-  color: "#5F4377",
+  color: "#111827",
 };
 
 const overviewTextStyle:
@@ -2896,7 +2896,7 @@ const sectionTitleStyle:
   fontSize: "18px",
   fontWeight: 800,
   margin: 0,
-  color: "#5F4377",
+  color: "#111827",
 };
 
 const formDescriptionStyle:
@@ -3233,7 +3233,7 @@ const emptyCardStyle:
 const emptyTitleStyle:
   React.CSSProperties = {
   margin: 0,
-  color: "#5F4377",
+  color: "#111827",
   fontSize: "17px",
 };
 

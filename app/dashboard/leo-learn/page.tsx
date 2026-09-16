@@ -544,7 +544,7 @@ const eyebrowStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const descriptionStyle: React.CSSProperties = {
@@ -621,7 +621,7 @@ const workspaceHeaderStyle: React.CSSProperties = {
 
 const workspaceTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const workspaceDescriptionStyle: React.CSSProperties = {
@@ -676,7 +676,7 @@ const panelStyle: React.CSSProperties = {
 
 const panelTitleStyle: React.CSSProperties = {
   margin: "0 0 14px",
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "16px",
 };
 
@@ -751,7 +751,7 @@ const intelligenceLabelStyle: React.CSSProperties = {
 
 const intelligenceNextStepStyle: React.CSSProperties = {
   margin: "0 0 10px",
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "13px",
   lineHeight: 1.5,
 };

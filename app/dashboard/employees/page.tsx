@@ -3097,7 +3097,10 @@ const eyebrowStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   margin: "5px 0 6px",
   fontSize: "30px",
-  color: "#5F4377",
+  lineHeight: 1.12,
+  letterSpacing: "-0.025em",
+  fontWeight: 600,
+  color: "#6E5084",
 };
 
 const subtitleStyle: CSSProperties = {
@@ -3282,9 +3285,9 @@ const resultsHeaderStyle: CSSProperties = {
 };
 
 const resultsTitleStyle: CSSProperties = {
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "18px",
-  fontWeight: 900,
+  fontWeight: 600,
 };
 
 const resultsSupportingStyle: CSSProperties = {
@@ -3339,8 +3342,9 @@ const employeeCardBodyStyle: CSSProperties = {
 
 const employeeNameStyle: CSSProperties = {
   margin: 0,
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "19px",
+  fontWeight: 600,
 };
 
 const employeeRoleStyle: CSSProperties = {
@@ -3367,7 +3371,7 @@ const employeeInformationItemStyle: CSSProperties = {
 };
 
 const employeeInformationLabelStyle: CSSProperties = {
-  color: "#817985",
+  color: "#6E5084",
   fontSize: "10px",
   fontWeight: 800,
   textTransform: "uppercase",
@@ -3375,7 +3379,7 @@ const employeeInformationLabelStyle: CSSProperties = {
 };
 
 const employeeInformationValueStyle: CSSProperties = {
-  color: "#3A3040",
+  color: "#6E5084",
   fontSize: "12px",
   fontWeight: 800,
   marginTop: "5px",

@@ -351,7 +351,7 @@ const conversationPromptStyle: React.CSSProperties = {
 };
 
 const promptTitleStyle: React.CSSProperties = {
-  color: "#5F4377",
+  color: "#111827",
   fontSize: "17px",
   fontWeight: 800,
   marginBottom: "7px",

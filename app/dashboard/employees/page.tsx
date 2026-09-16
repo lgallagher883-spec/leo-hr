@@ -1966,8 +1966,9 @@ function EmployeeInformation({
   label: string;
   value: string;
 }) {
+  const isEmail = label === "Email";
   return (
-    <div style={employeeInformationItemStyle}>
+    <div style={isEmail ? employeeEmailInformationItemStyle : employeeInformationItemStyle}>
       <div style={employeeInformationLabelStyle}>{label}</div>
       <div style={employeeInformationValueStyle}>{value}</div>
     </div>
@@ -3367,6 +3368,11 @@ const employeeInformationItemStyle: CSSProperties = {
   minWidth: 0,
 };
 
+const employeeEmailInformationItemStyle: CSSProperties = {
+  ...employeeInformationItemStyle,
+  gridColumn: "1 / -1",
+};
+
 const employeeInformationLabelStyle: CSSProperties = {
   color: "#6E5084",
   fontSize: "10px",
@@ -3378,7 +3384,8 @@ const employeeInformationValueStyle: CSSProperties = {
   fontSize: "12px",
   fontWeight: 800,
   marginTop: "5px",
-  overflowWrap: "anywhere",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
 };
 
 const employeeCardFooterStyle: CSSProperties = {

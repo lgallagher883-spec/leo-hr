@@ -473,6 +473,7 @@ function NewMatterPageContent() {
         style={{
           fontSize: "26px",
           fontWeight: 700,
+          color: "#5F4377",
         }}
       >
         Create New Matter

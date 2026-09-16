@@ -691,9 +691,9 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  color: "var(--leo-heading)",
+  color: "#6E5084",
   fontSize: "26px",
-  fontWeight: 700,
+  fontWeight: 600,
 };
 
 const subtitleStyle: React.CSSProperties = {
@@ -741,7 +741,7 @@ const summaryLabelStyle: React.CSSProperties = {
 };
 
 const summaryValueStyle: React.CSSProperties = {
-  color: "var(--leo-heading)",
+  color: "#6E5084",
   fontSize: "24px",
   fontWeight: 700,
 };

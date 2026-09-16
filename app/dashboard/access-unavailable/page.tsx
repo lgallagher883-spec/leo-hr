@@ -33,7 +33,7 @@ export default function AccessUnavailablePage() {
         <h1
           style={{
             margin: 0,
-            color: "#2F2635",
+            color: "#5F4377",
             fontSize: "30px",
             lineHeight: 1.2,
             fontWeight: 700,

@@ -85,9 +85,7 @@ export default function LeoTalentPage() {
     <div style={pageStyle}>
       <header style={headerStyle}>
         <div>
-          <div style={eyebrowStyle}>LEO TALENT</div>
-
-          <h1 style={titleStyle}>Talent</h1>
+<h1 style={titleStyle}>Talent</h1>
 
         </div>
 
@@ -459,7 +457,8 @@ const eyebrowStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--leo-heading)",
+  color: "#6E5084",
+  fontWeight: 600,
 };
 
 const descriptionStyle: CSSProperties = {
@@ -546,7 +545,7 @@ const workspaceHeaderStyle: CSSProperties = {
 
 const workspaceTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--leo-heading)",
+  color: "#6E5084",
 };
 
 const workspaceDescriptionStyle: CSSProperties = {
@@ -603,7 +602,7 @@ const panelStyle: CSSProperties = {
 
 const panelTitleStyle: CSSProperties = {
   margin: "0 0 14px",
-  color: "var(--leo-heading)",
+  color: "#6E5084",
   fontSize: 16,
 };
 

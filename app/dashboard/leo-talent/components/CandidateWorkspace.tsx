@@ -3208,7 +3208,7 @@ const workspaceHeaderStyle: CSSProperties = {
 
 const workspaceTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
 };
 
 const workspaceDescriptionStyle: CSSProperties = {

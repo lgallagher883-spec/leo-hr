@@ -1025,8 +1025,7 @@ export default function EmployeesPage() {
     <div style={pageStyle}>
       <header style={headerStyle}>
         <div>
-          <div style={eyebrowStyle}>Workforce</div>
-          <h1 style={titleStyle}>Employees</h1>
+<h1 style={titleStyle}>Employees</h1>
           <p style={subtitleStyle}>
             Manage the organisation’s employee records, employment status and
             workforce entry into Leo.
@@ -1967,8 +1966,9 @@ function EmployeeInformation({
   label: string;
   value: string;
 }) {
+  const isEmail = label === "Email";
   return (
-    <div style={employeeInformationItemStyle}>
+    <div style={isEmail ? employeeEmailInformationItemStyle : employeeInformationItemStyle}>
       <div style={employeeInformationLabelStyle}>{label}</div>
       <div style={employeeInformationValueStyle}>{value}</div>
     </div>
@@ -3097,7 +3097,10 @@ const eyebrowStyle: CSSProperties = {
 const titleStyle: CSSProperties = {
   margin: "5px 0 6px",
   fontSize: "30px",
-  color: "#2D2433",
+  lineHeight: 1.12,
+  letterSpacing: "-0.025em",
+  fontWeight: 600,
+  color: "#6E5084",
 };
 
 const subtitleStyle: CSSProperties = {
@@ -3268,7 +3271,7 @@ const inputStyle: CSSProperties = {
   borderRadius: "10px",
   padding: "10px 11px",
   background: "#FFFFFF",
-  color: "#302638",
+  color: "#6E5084",
   fontFamily: "inherit",
   fontSize: "13px",
 };
@@ -3282,9 +3285,9 @@ const resultsHeaderStyle: CSSProperties = {
 };
 
 const resultsTitleStyle: CSSProperties = {
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "18px",
-  fontWeight: 900,
+  fontWeight: 600,
 };
 
 const resultsSupportingStyle: CSSProperties = {
@@ -3339,15 +3342,14 @@ const employeeCardBodyStyle: CSSProperties = {
 
 const employeeNameStyle: CSSProperties = {
   margin: 0,
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "19px",
+  fontWeight: 600,
 };
 
 const employeeRoleStyle: CSSProperties = {
   color: "#746C78",
   fontSize: "12px",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
   marginTop: "5px",
 };
 
@@ -3366,20 +3368,24 @@ const employeeInformationItemStyle: CSSProperties = {
   minWidth: 0,
 };
 
+const employeeEmailInformationItemStyle: CSSProperties = {
+  ...employeeInformationItemStyle,
+  gridColumn: "1 / -1",
+};
+
 const employeeInformationLabelStyle: CSSProperties = {
-  color: "#817985",
+  color: "#6E5084",
   fontSize: "10px",
-  fontWeight: 800,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  fontWeight: 600,
 };
 
 const employeeInformationValueStyle: CSSProperties = {
-  color: "#3A3040",
+  color: "#6E5084",
   fontSize: "12px",
   fontWeight: 800,
   marginTop: "5px",
-  overflowWrap: "anywhere",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
 };
 
 const employeeCardFooterStyle: CSSProperties = {
@@ -3415,7 +3421,7 @@ const panelHeadingStyle: CSSProperties = {
 
 const panelTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "18px",
 };
 
@@ -3499,7 +3505,7 @@ const modalHeaderStyle: CSSProperties = {
 
 const modalTitleStyle: CSSProperties = {
   margin: "5px 0 6px",
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "24px",
 };
 
@@ -3598,7 +3604,7 @@ const actionCardStyle: CSSProperties = {
 
 const actionCardTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#3A3040",
+  color: "#6E5084",
   fontSize: "15px",
 };
 
@@ -3691,7 +3697,7 @@ const uploadedFileStyle: CSSProperties = {
 };
 
 const uploadedFileNameStyle: CSSProperties = {
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "14px",
   fontWeight: 900,
 };
@@ -3830,7 +3836,7 @@ const pageStateStyle: CSSProperties = {
 
 const pageStateTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "20px",
 };
 

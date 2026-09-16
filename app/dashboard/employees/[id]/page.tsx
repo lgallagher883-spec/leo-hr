@@ -1708,13 +1708,15 @@ const backButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "7px",
-  border: "none",
-  background: "transparent",
+  border: "1px solid #D8CCDE",
+  background: "#FFFFFF",
+  borderRadius: "10px",
   cursor: "pointer",
-  color: "#6B7280",
-  fontWeight: 700,
-  padding: "0",
+  color: "#6E5084",
+  fontWeight: 600,
+  padding: "9px 13px",
   marginBottom: "16px",
+  boxShadow: "0 1px 2px rgba(73, 52, 86, 0.04)",
 };
 
 const headerStyle: CSSProperties = {
@@ -1746,7 +1748,7 @@ const headerTitleRowStyle: CSSProperties = {
 
 const employeeNameStyle: CSSProperties = {
   margin: "4px 0 0",
-  color: "#241B2B",
+  color: "#6E5084",
   fontSize: "30px",
   lineHeight: 1.15,
 };
@@ -1780,9 +1782,9 @@ const headerMetaLabelStyle: CSSProperties = {
 };
 
 const headerMetaValueStyle: CSSProperties = {
-  color: "#2F2636",
+  color: "#6E5084",
   fontSize: "14px",
-  fontWeight: 800,
+  fontWeight: 600,
   overflowWrap: "anywhere",
 };
 
@@ -1874,7 +1876,7 @@ const bannerEyebrowStyle: CSSProperties = {
 
 const bannerTitleStyle: CSSProperties = {
   margin: "5px 0 7px",
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "20px",
 };
 
@@ -1909,9 +1911,9 @@ const navigationHeadingStyle: CSSProperties = {
 };
 
 const navigationTitleStyle: CSSProperties = {
-  color: "#2D2433",
+  color: "#6E5084",
   fontSize: "14px",
-  fontWeight: 800,
+  fontWeight: 600,
 };
 
 const navigationSubtitleStyle: CSSProperties = {
@@ -1944,8 +1946,8 @@ const activeNavigationButtonStyle: CSSProperties = {
 
 const navigationButtonTitleStyle: CSSProperties = {
   display: "block",
-  color: "#3A3040",
-  fontWeight: 800,
+  color: "#6E5084",
+  fontWeight: 600,
   fontSize: "13px",
 };
 
@@ -2058,8 +2060,9 @@ const panelHeadingStyle: CSSProperties = {
 
 const panelTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#2D2433",
+  color: "#6E5084",
   fontSize: "18px",
+  fontWeight: 600,
 };
 
 const panelDescriptionStyle: CSSProperties = {
@@ -2121,8 +2124,8 @@ const informationLabelStyle: CSSProperties = {
 };
 
 const informationValueStyle: CSSProperties = {
-  color: "#312738",
-  fontWeight: 800,
+  color: "#6E5084",
+  fontWeight: 600,
   fontSize: "14px",
   marginTop: "5px",
   overflowWrap: "anywhere",
@@ -2186,7 +2189,7 @@ const timelineCategoryStyle: CSSProperties = {
 
 const timelineTitleStyle: CSSProperties = {
   margin: "4px 0 0",
-  color: "#312738",
+  color: "#6E5084",
   fontSize: "15px",
 };
 
@@ -2240,7 +2243,7 @@ const archiveInformationLabelStyle: CSSProperties = {
 };
 
 const archiveInformationValueStyle: CSSProperties = {
-  color: "#352B3B",
+  color: "#6E5084",
   fontSize: "13px",
   fontWeight: 700,
 };
@@ -2283,7 +2286,7 @@ const pageStateCardStyle: CSSProperties = {
 
 const pageStateTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#302638",
+  color: "#6E5084",
   fontSize: "24px",
 };
 

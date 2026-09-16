@@ -1183,6 +1183,7 @@ const styles = `
 
   h1 {
     margin-bottom: 8px;
+    color: #5F4377;
     font-size: clamp(30px, 4vw, 42px);
     line-height: 1.05;
     letter-spacing: -0.035em;

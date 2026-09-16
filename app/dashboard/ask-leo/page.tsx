@@ -1577,9 +1577,11 @@ const headerStyle: React.CSSProperties =
 const titleStyle: React.CSSProperties =
   {
     margin: 0,
-    fontSize: "26px",
-    fontWeight: 700,
-    color: "var(--leo-heading)",
+    fontSize: "30px",
+    lineHeight: 1.12,
+    letterSpacing: "-0.025em",
+    fontWeight: 600,
+    color: "#6E5084",
   };
 
 const subtitleStyle: React.CSSProperties =

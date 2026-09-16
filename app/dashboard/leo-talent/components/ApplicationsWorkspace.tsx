@@ -366,7 +366,7 @@ const styles: Record<string, CSSProperties> = {
   },
   title: {
     margin: 0,
-    color: "#302536",
+    color: "#5F4377",
     fontSize: "28px",
     lineHeight: 1.2,
     fontWeight: 780,

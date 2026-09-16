@@ -60,7 +60,7 @@ export default function NewEmployeePage() {
         ← All employees
       </button>
 
-      <h1 style={{ margin: 0 }}>Add employee</h1>
+      <h1 style={{ margin: 0, color: "#5F4377" }}>Add employee</h1>
       <p style={{ color: "#6B7280", marginTop: "8px" }}>
         Create an employee record so employment information, Matters and documents can be linked to the correct person.
       </p>

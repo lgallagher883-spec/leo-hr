@@ -2767,7 +2767,7 @@ const titleStyle:
   fontSize: "30px",
   fontWeight: 800,
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
 };
 
 const subtitleStyle:

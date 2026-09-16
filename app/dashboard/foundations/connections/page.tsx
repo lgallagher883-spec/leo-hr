@@ -2947,7 +2947,7 @@ const pageHeaderStyle: React.CSSProperties = {
 
 const pageTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "30px",
   fontWeight: 800,
 };
@@ -3062,7 +3062,7 @@ const categoryHeaderStyle: React.CSSProperties = {
 
 const categoryTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "18px",
 };
 
@@ -3097,7 +3097,7 @@ const providerCardStyle: React.CSSProperties = {
 
 const providerCardTitleStyle: React.CSSProperties = {
   margin: "9px 0 0",
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "17px",
 };
 
@@ -3155,7 +3155,7 @@ const providerHeaderStyle: React.CSSProperties = {
 
 const providerTitleStyle: React.CSSProperties = {
   margin: "10px 0 0",
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "26px",
 };
 
@@ -3244,7 +3244,7 @@ const sectionHeadingStyle: React.CSSProperties = {
 
 const sectionHeadingTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "20px",
 };
 
@@ -3391,7 +3391,7 @@ const providerActionPanelStyle: React.CSSProperties = {
 
 const providerActionTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "15px",
 };
 
@@ -3422,7 +3422,7 @@ const capabilityGroupStyle: React.CSSProperties = {
 
 const capabilityGroupTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "16px",
 };
 
@@ -3485,7 +3485,7 @@ const twoColumnWorkspaceStyle: React.CSSProperties = {
 
 const subsectionTitleStyle: React.CSSProperties = {
   margin: "0 0 12px",
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "16px",
 };
 
@@ -3518,7 +3518,7 @@ const eyebrowStyle: React.CSSProperties = {
 
 const cardTitleStyle: React.CSSProperties = {
   margin: "4px 0 0",
-  color: "#111827",
+  color: "#5F4377",
   fontSize: "15px",
 };
 
@@ -3661,7 +3661,7 @@ const emptyIconStyle: React.CSSProperties = {
 
 const emptyTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5F4377",
 };
 
 const emptyDescriptionStyle: React.CSSProperties = {

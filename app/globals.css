@@ -5,7 +5,9 @@
 :root {
   --leo-bg: #F7F1FC;
   --leo-primary: #6E5084;
-  --leo-text: #111827;
+  --leo-text: #34283B;
+  --leo-heading: #493456;
+  --leo-strong: #3E3444;
   --leo-muted: #6b7280;
 }
 
@@ -17,7 +19,7 @@ body {
   max-width: 100%;
   background: var(--leo-bg);
   color: var(--leo-text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: Inter, "Aptos", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -86,4 +88,34 @@ body {
   .back-link {
     display: none !important;
   }
+}
+
+
+/* Leo workspace typography refresh */
+.dashboard-workspace,
+[data-leo-workspace] {
+  color: var(--leo-strong);
+}
+
+/* Keep page and section headings recognisably Leo without harsh near-black. */
+main h1,
+main h2,
+main h3,
+main h4 {
+  color: var(--leo-heading);
+  font-family: inherit;
+  letter-spacing: -0.025em;
+}
+
+main h1 { font-weight: 650; }
+main h2 { font-weight: 640; }
+main h3,
+main h4 { font-weight: 620; }
+
+/* Form and data copy should inherit the softer workspace text colour. */
+main input,
+main textarea,
+main select,
+main button {
+  font-family: inherit;
 }

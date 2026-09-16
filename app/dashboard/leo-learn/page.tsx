@@ -110,9 +110,7 @@ export default function LeoLearnPage() {
     <div style={pageStyle}>
       <div style={headerStyle}>
         <div>
-          <div style={eyebrowStyle}>LEO LEARN</div>
-
-          <h1 style={titleStyle}>
+<h1 style={titleStyle}>
             Learning and Development
           </h1>
 
@@ -544,7 +542,8 @@ const eyebrowStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  color: "var(--leo-heading)",
+  color: "#6E5084",
+  fontWeight: 600,
 };
 
 const descriptionStyle: React.CSSProperties = {
@@ -621,7 +620,7 @@ const workspaceHeaderStyle: React.CSSProperties = {
 
 const workspaceTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "var(--leo-heading)",
+  color: "#6E5084",
 };
 
 const workspaceDescriptionStyle: React.CSSProperties = {
@@ -676,7 +675,7 @@ const panelStyle: React.CSSProperties = {
 
 const panelTitleStyle: React.CSSProperties = {
   margin: "0 0 14px",
-  color: "var(--leo-heading)",
+  color: "#6E5084",
   fontSize: "16px",
 };
 
@@ -751,7 +750,7 @@ const intelligenceLabelStyle: React.CSSProperties = {
 
 const intelligenceNextStepStyle: React.CSSProperties = {
   margin: "0 0 10px",
-  color: "var(--leo-heading)",
+  color: "#6E5084",
   fontSize: "13px",
   lineHeight: 1.5,
 };

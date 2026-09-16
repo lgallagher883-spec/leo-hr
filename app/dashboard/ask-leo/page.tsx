@@ -1579,7 +1579,7 @@ const titleStyle: React.CSSProperties =
     margin: 0,
     fontSize: "26px",
     fontWeight: 700,
-    color: "#111827",
+    color: "var(--leo-heading)",
   };
 
 const subtitleStyle: React.CSSProperties =
@@ -1643,7 +1643,7 @@ const contextEyebrowStyle: React.CSSProperties =
 
 const contextTitleStyle: React.CSSProperties =
   {
-    color: "#111827",
+    color: "var(--leo-heading)",
     fontSize: "16px",
     fontWeight: 700,
   };
@@ -1684,7 +1684,7 @@ const contextItemLabelStyle: React.CSSProperties =
 
 const contextItemValueStyle: React.CSSProperties =
   {
-    color: "#111827",
+    color: "var(--leo-heading)",
     fontSize: "12px",
     fontWeight: 700,
     wordBreak: "break-word",
@@ -1742,7 +1742,7 @@ const leoMessageStyle: React.CSSProperties =
   {
     alignSelf: "flex-start",
     background: "#F3F4F6",
-    color: "#111827",
+    color: "var(--leo-heading)",
   };
 
 const leoMessageRowStyle: React.CSSProperties =

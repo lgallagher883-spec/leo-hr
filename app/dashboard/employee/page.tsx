@@ -450,7 +450,7 @@ const summaryLabelStyle: CSSProperties = {
   fontSize: "17px",
   lineHeight: 1.35,
   fontWeight: 700,
-  color: "#111827",
+  color: "#6E5084",
   marginTop: "4px",
 };
 
@@ -460,7 +460,7 @@ const summaryWordStyle: CSSProperties = {
   lineHeight: 1,
   fontWeight: 700,
   letterSpacing: "-0.03em",
-  color: "#6E5084",
+  color: "#7D7D7D",
 };
 
 const summaryDescriptionStyle: CSSProperties = {

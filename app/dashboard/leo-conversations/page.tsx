@@ -187,7 +187,7 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "26px",
   lineHeight: 1.2,
-  color: "#111827",
+  color: "var(--leo-heading)",
 };
 
 const subtitleStyle: React.CSSProperties = {
@@ -262,7 +262,7 @@ const rowHeaderStyle: React.CSSProperties = {
 };
 
 const rowTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "var(--leo-heading)",
   fontSize: "15px",
 };
 

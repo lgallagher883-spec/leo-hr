@@ -30,3 +30,9 @@ Employer Support reuses Leo authentication, organisation infrastructure and the 
 Stripe payment confirmation is the authority to provision exactly one Matter. Webhook processing must be idempotent.
 
 The Matter Bundle excludes the Ask Leo working transcript. Matter deletion must purge linked messages, documents, storage and other Matter data without deleting the persistent employer account or unrelated Matters.
+
+## Launch Pricing
+
+Ask Leo Employer Support launches at **£99 per Matter** as a one-off payment with no subscription required. This is a launch price intended to reduce the barrier to trying a new service and build trust through the quality of the completed Matter experience.
+
+Do not present a crossed-out higher price or make an unsupported saving claim. Existing purchased Matters retain the price paid. Review pricing for future new Matters using real conversion, Matter duration, AI cost, interaction/document volume, completion and full-Leo conversion data. Price changes must never alter an already purchased Matter.

@@ -155,7 +155,12 @@ function ResetPasswordContent() {
       setSuccess(true);
 
       window.setTimeout(() => {
-        router.push("/login?password-reset=success");
+        const requestedNext = searchParams.get("next");
+        const destination =
+          requestedNext === "/employer-support/sign-in"
+            ? "/employer-support/sign-in?password-reset=success"
+            : "/login?password-reset=success";
+        router.push(destination);
         router.refresh();
       }, 1200);
     } catch (caughtError: unknown) {

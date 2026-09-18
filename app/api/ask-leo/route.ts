@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getEmployerSupportAccess, requireEmployerSupportMatter } from "@/lib/auth/employerSupportAccess";
 
 import { runAuthorityEngine } from "@/leo/authority/router";
 import { researchLiveAuthority } from "@/leo/authority/liveAuthority";
@@ -188,10 +189,57 @@ export async function POST(req: Request) {
       body.requestId
     );
 
-    const matterContext = normaliseMatterContext(
+    let matterContext = normaliseMatterContext(
       body.matter,
       activeMatterId
     );
+
+    /*
+     * Employer Support uses the same professional Ask Leo engine, but only
+     * inside a separately purchased Matter. Never trust client supplied Matter
+     * context for this product and never allow another Matter to enter context.
+     */
+    const employerSupportAccess = await getEmployerSupportAccess();
+    const isEmployerSupportMatterRequest =
+      employerSupportAccess !== null &&
+      contextType === "matter" &&
+      activeMatterId !== null;
+
+    if (isEmployerSupportMatterRequest) {
+      const gate = await requireEmployerSupportMatter(activeMatterId);
+
+      if (!gate.ok || gate.access.organisationId !== String(organisationId)) {
+        return NextResponse.json(
+          { error: "This Employer Support Matter could not be accessed." },
+          { status: gate.ok ? 403 : gate.status }
+        );
+      }
+
+      const { data: purchasedMatter, error: purchasedMatterError } =
+        await (supabase as any)
+          .from("matters")
+          .select("id,title,description,status,matter_type,subject,product_source")
+          .eq("id", activeMatterId)
+          .eq("organisation_id", gate.access.organisationId)
+          .eq("product_source", "employer_support")
+          .maybeSingle();
+
+      if (purchasedMatterError || !purchasedMatter) {
+        return NextResponse.json(
+          { error: "This Employer Support Matter could not be accessed." },
+          { status: 404 }
+        );
+      }
+
+      matterContext = {
+        id: purchasedMatter.id,
+        title: purchasedMatter.title || "",
+        description: purchasedMatter.description || "",
+        status: purchasedMatter.status || "",
+        matterType: purchasedMatter.matter_type || "",
+        subject: purchasedMatter.subject || "",
+      };
+    }
 
     const contextSummary =
       typeof body.contextSummary === "string"
@@ -418,11 +466,11 @@ export async function POST(req: Request) {
 
       organisationKnowledge,
 
-      previousMatters: Array.isArray(
-        body.previousMatters
-      )
-        ? body.previousMatters
-        : [],
+      previousMatters: isEmployerSupportMatterRequest
+        ? []
+        : Array.isArray(body.previousMatters)
+          ? body.previousMatters
+          : [],
     });
 
     const promptContext =

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { sendNewAccessAdminAlert } from "@/lib/notifications/newAccessAdminAlert";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
+import { provisionEmployerSupportMatterFromPurchase } from "@/lib/employer-support/purchases";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -393,6 +394,53 @@ async function synchroniseInvoice(
   }
 }
 
+async function processEmployerSupportCheckout(
+  session: Stripe.Checkout.Session,
+) {
+  if (session.metadata?.leo_product !== "employer_support") return;
+
+  const purchaseId = session.metadata.employer_support_purchase_id;
+  if (!purchaseId) throw new Error("Employer Support checkout is missing its purchase reference.");
+  if (session.payment_status !== "paid") return;
+
+  const admin = createAdminClient();
+  const paymentIntentId = stripeId(session.payment_intent);
+
+  const { data: existing, error: existingError } = await (admin as any)
+    .from("leo_employer_support_purchases")
+    .select("id,status,matter_id,stripe_checkout_session_id")
+    .eq("id", purchaseId)
+    .maybeSingle();
+
+  if (existingError || !existing) {
+    throw new Error("Employer Support purchase could not be resolved from Stripe.");
+  }
+
+  if (existing.stripe_checkout_session_id && existing.stripe_checkout_session_id !== session.id) {
+    throw new Error("Stripe checkout session does not match the Employer Support purchase.");
+  }
+
+  if (existing.status === "provisioned" && existing.matter_id) return;
+
+  const { error: paidError } = await (admin as any)
+    .from("leo_employer_support_purchases")
+    .update({
+      status: "paid",
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: paymentIntentId,
+      amount_minor: session.amount_total ?? 9900,
+      currency: session.currency ?? "gbp",
+      purchased_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", purchaseId)
+    .in("status", ["pending", "paid"]);
+
+  if (paidError) throw paidError;
+
+  await provisionEmployerSupportMatterFromPurchase(purchaseId);
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -434,6 +482,11 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed": {
+        await processEmployerSupportCheckout(event.data.object as Stripe.Checkout.Session);
+        break;
+      }
+
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {

@@ -4,6 +4,7 @@ export type RegistrationIntentKind =
   | "free_trial"
   | "paid_subscription"
   | "pilot_programme"
+  | "employer_support"
   | "unknown";
 
 export type RegistrationIntent = {
@@ -66,6 +67,15 @@ export function resolveRegistrationIntent(
       planCode,
       pendingPlanKey: null,
       allowsPlatformTrialAccess: true,
+    };
+  }
+
+  if (planCode === "employer_support") {
+    return {
+      kind: "employer_support",
+      planCode,
+      pendingPlanKey: null,
+      allowsPlatformTrialAccess: false,
     };
   }
 

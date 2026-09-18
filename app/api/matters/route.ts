@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const matterSelect =
-  "id, title, status, description, employee_id, matter_type, subject, matter_lead, created_at";
+  "id, organisation_id, title, status, description, employee_id, matter_type, subject, matter_lead, created_at";
 
 type CreateMatterBody = {
   title?: unknown;
@@ -118,6 +118,7 @@ export async function GET() {
     supabase
       .from("matters")
       .select(matterSelect)
+      .eq("organisation_id", organisationId)
       .order("created_at", { ascending: false }),
 
     supabase
@@ -253,6 +254,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("matters")
     .insert({
+      organisation_id: organisationId,
       title,
       status: "Open",
       description,

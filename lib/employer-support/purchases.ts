@@ -33,51 +33,25 @@ export async function createPendingEmployerSupportPurchase(input: {
 }
 
 export async function provisionEmployerSupportMatterFromPurchase(purchaseId: string) {
-  const admin = createAdminClient();
-  const { data: purchase, error: purchaseError } = await (admin as any)
-    .from("leo_employer_support_purchases")
-    .select("id,organisation_id,account_id,matter_id,status,initial_issue,purchased_by")
-    .eq("id", purchaseId)
-    .maybeSingle();
-  if (purchaseError || !purchase) throw new Error("Employer Support purchase could not be loaded.");
-  if (purchase.status === "provisioned" && purchase.matter_id) return purchase.matter_id;
-  if (purchase.status !== "paid") throw new Error("Employer Support Matter cannot be provisioned before payment is confirmed.");
-
-  const issue=(purchase.initial_issue || "").trim();
-  if(!issue) throw new Error("Employer Support purchase has no initial issue to provision.");
-
-  // Re-check immediately before insertion so a normal Stripe retry cannot create a second Matter.
-  const { data: latest } = await (admin as any)
-    .from("leo_employer_support_purchases")
-    .select("matter_id,status")
-    .eq("id", purchase.id)
-    .maybeSingle();
-
-  if (latest?.status === "provisioned" && latest?.matter_id) {
-    return latest.matter_id;
+  const numericPurchaseId = Number(purchaseId);
+  if (!Number.isSafeInteger(numericPurchaseId) || numericPurchaseId <= 0) {
+    throw new Error("Employer Support purchase reference is invalid.");
   }
 
-  const { data: matter, error: matterError } = await (admin as any)
-    .from("matters")
-    .insert({
-      organisation_id: purchase.organisation_id,
-      product_source: "employer_support",
-      title: "Employer Support Matter",
-      subject: "Employee relations issue",
-      matter_type: "Employer Support",
-      description: issue,
-      status: "Open",
-      workflow_stage: "Initial Assessment",
-    })
-    .select("id")
-    .single();
-  if (matterError || !matter) throw new Error(`Employer Support Matter could not be created: ${matterError?.message ?? "unknown error"}`);
+  const admin = createAdminClient();
+  const { data, error } = await (admin as any).rpc(
+    "leo_provision_employer_support_matter",
+    { p_purchase_id: numericPurchaseId },
+  );
 
-  const { error: linkError } = await (admin as any)
-    .from("leo_employer_support_purchases")
-    .update({ matter_id:matter.id,status:"provisioned",provisioned_at:new Date().toISOString() })
-    .eq("id", purchase.id)
-    .eq("status", "paid");
-  if(linkError) throw new Error(`Employer Support purchase could not be linked to its Matter: ${linkError.message}`);
-  return matter.id as number;
+  if (error) {
+    throw new Error(`Employer Support Matter could not be provisioned: ${error.message}`);
+  }
+
+  const matterId = Number(data);
+  if (!Number.isSafeInteger(matterId) || matterId <= 0) {
+    throw new Error("Employer Support Matter provisioning returned an invalid Matter reference.");
+  }
+
+  return matterId;
 }

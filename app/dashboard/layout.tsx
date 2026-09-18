@@ -246,6 +246,22 @@ export default async function DashboardLayout({
   const requestHeaders = await headers();
   const pathname = requestHeaders.get("x-leo-pathname") ?? "/dashboard";
 
+  const registrationIntent = resolveRegistrationIntent(user.user_metadata);
+
+  /*
+   * Employer Support is a separate product boundary. An Employer Support-only
+   * account must not fall through to the normal Leo billing/dashboard shell.
+   * A later full Leo trial, subscription or entitlement deliberately overrides
+   * this redirect so the same identity can upgrade without migration.
+   */
+  if (
+    registrationIntent.kind === "employer_support" &&
+    !billingGuard.hasPlatformAccess &&
+    !isPlatformAdministrator
+  ) {
+    redirect("/employer-support");
+  }
+
   if (!billingGuard.hasPlatformAccess) {
     const isBillingAdministrator =
       activeRole === "owner" || activeRole === "senior";

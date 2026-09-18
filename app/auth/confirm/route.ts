@@ -140,7 +140,9 @@ export async function GET(request: Request) {
   });
 
   const defaultRedirectPath =
-    registrationIntent.pendingPlanKey &&
+    registrationIntent.kind === "employer_support"
+      ? "/employer-support/setup"
+      : registrationIntent.pendingPlanKey &&
     resolvedRole?.roleKey === "owner" &&
     registrationIntent.kind === "paid_subscription"
       ? `/checkout/prepare?plan=${registrationIntent.pendingPlanKey}`

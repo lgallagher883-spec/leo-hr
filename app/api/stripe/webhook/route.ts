@@ -401,7 +401,11 @@ async function processEmployerSupportCheckout(
 
   const purchaseId = session.metadata.employer_support_purchase_id;
   if (!purchaseId) throw new Error("Employer Support checkout is missing its purchase reference.");
+  if (session.mode !== "payment") throw new Error("Employer Support checkout was not a one-off payment.");
   if (session.payment_status !== "paid") return;
+  if (session.amount_total !== 9900 || session.currency?.toLowerCase() !== "gbp") {
+    throw new Error("Employer Support checkout amount or currency does not match the £99 launch product.");
+  }
 
   const admin = createAdminClient();
   const paymentIntentId = stripeId(session.payment_intent);
@@ -428,8 +432,8 @@ async function processEmployerSupportCheckout(
       status: "paid",
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: paymentIntentId,
-      amount_minor: session.amount_total ?? 9900,
-      currency: session.currency ?? "gbp",
+      amount_minor: 9900,
+      currency: "gbp",
       purchased_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

@@ -4,12 +4,19 @@ import { FormEvent, useState } from "react";
 import styles from "../employer-support-portal.module.css";
 
 export default function MatterSetupForm(){
- const [employeeName,setEmployeeName]=useState("");const [jobTitle,setJobTitle]=useState("");const [startDate,setStartDate]=useState("");const [manager,setManager]=useState("");const [matterType,setMatterType]=useState("");const [summary,setSummary]=useState("");
- function submit(e:FormEvent){e.preventDefault();}
- return <form className={styles.setupForm} onSubmit={submit}>
-  <div className={styles.formSection}><h2>Employee Details</h2><p>Give Leo enough information to identify who this Matter relates to. This does not create a full employee record.</p><label>Employee Name<input value={employeeName} onChange={e=>setEmployeeName(e.target.value)} required/></label><div className={styles.formGrid}><label>Job Title<input value={jobTitle} onChange={e=>setJobTitle(e.target.value)}/></label><label>Employment Start Date<input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></label></div><label>Manager Or Relevant Contact<input value={manager} onChange={e=>setManager(e.target.value)}/></label></div>
-  <div className={styles.formSection}><h2>What Has Happened?</h2><label>Type Of Issue<select value={matterType} onChange={e=>setMatterType(e.target.value)} required><option value="">Select</option><option>Grievance</option><option>Disciplinary</option><option>Capability Or Performance</option><option>Sickness Or Absence</option><option>Probation</option><option>Conduct Concern</option><option>Flexible Working</option><option>Other Employee Issue</option></select></label><label>Tell Leo What Has Happened<textarea rows={7} value={summary} onChange={e=>setSummary(e.target.value)} required placeholder="Explain the issue in your own words. Include important dates or events if you know them."/></label></div>
-  <div className={styles.formSection}><h2>Relevant Documents</h2><p>You will be able to add the contract, relevant policy, complaint or grievance, emails, notes and other evidence securely to the Matter. We will not ask you to upload documents that are not relevant.</p></div>
-  <div className={styles.checkoutHold}><strong>Review Before Payment</strong><p>Nothing will be charged from this screen while Employer Support is being built and tested. The final journey will let you review this information before the one-off Matter purchase.</p><button className={styles.primaryButton} disabled>Continue To Review</button></div>
- </form>
+ const [issue,setIssue]=useState("");const [assessment,setAssessment]=useState("");const [loading,setLoading]=useState(false);const [error,setError]=useState("");
+ async function submit(e:FormEvent){e.preventDefault();if(loading)return;setLoading(true);setError("");setAssessment("");
+  try{const response=await fetch("/api/employer-support/assessment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({issue})});const payload=await response.json();if(!response.ok)throw new Error(payload.error||"Assessment failed");setAssessment(payload.assessment);}
+  catch(err){setError(err instanceof Error?err.message:"Leo could not assess the issue just now.");}finally{setLoading(false)}
+ }
+ return <div className={styles.setupForm}>
+  <form className={styles.formSection} onSubmit={submit}>
+   <h2>What Is Happening?</h2>
+   <p>You do not need to know which HR process applies. Tell Leo briefly what has happened and what you are concerned about. No Matter is created at this stage.</p>
+   <label>Tell Leo About The Situation<textarea rows={8} value={issue} onChange={e=>setIssue(e.target.value)} required minLength={20} maxLength={6000} placeholder="For example, an employee has raised a grievance against their manager and I have not dealt with one before."/></label>
+   <button className={styles.primaryButton} disabled={loading||issue.trim().length<20}>{loading?"Leo Is Looking At This...":"See How Leo Can Help"}</button>
+  </form>
+  {error?<p className={styles.chatError}>{error}</p>:null}
+  {assessment?<section className={styles.assessmentCard}><p className={styles.eyebrow}>How Ask Leo Can Help</p><h2>Support For Your Situation</h2><div className={styles.assessmentText}>{assessment}</div><div className={styles.assessmentIncluded}><span>One Matter</span><span>Guidance From Start To Finish</span><span>Letters And Documents Included</span></div><button className={styles.primaryButton} disabled>Get Ask Leo Support For This Matter</button><p className={styles.paymentNote}>The next step will be the secure one-off payment. Your Matter will only be created after payment is confirmed.</p></section>:null}
+ </div>
 }

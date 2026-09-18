@@ -3,6 +3,7 @@ import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolv
 import { ensureFreeTrialProvisioning } from "@/lib/billing/freeTrialProvisioning";
 import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
 import { createClient } from "@/lib/supabase/server";
+import { ensureEmployerSupportAccount } from "@/lib/employer-support/provisioning";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,6 +132,17 @@ export async function GET(request: Request) {
       email: data.user.email ?? null,
       name: registrantName || null,
     });
+  }
+
+  if (registrationIntent.kind === "employer_support") {
+    try {
+      await ensureEmployerSupportAccount(organisationId, data.user.id);
+    } catch (provisioningError) {
+      console.error("Employer Support account provisioning failed:", provisioningError);
+      return NextResponse.redirect(
+        new URL("/login?error=employer_support_setup_failed", requestUrl.origin),
+      );
+    }
   }
 
   const resolvedRole = await resolveAuthoritativeUserRole(supabase as any, {

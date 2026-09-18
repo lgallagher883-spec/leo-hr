@@ -63,6 +63,13 @@ type FoundationsResponse = {
   facts?: FoundationFact[];
 };
 
+type LeoAttention = {
+  id: number;
+  name: string;
+  start_date: string | null;
+  attentionCount: number;
+};
+
 type DashboardPriority = {
   summary: string;
   actionLabel: string;
@@ -92,6 +99,28 @@ type ReminderItem = {
     status_band?: string;
   };
 };
+
+function requiresEmployerAttention(item: {
+  key?: unknown;
+  status?: unknown;
+  detail?: unknown;
+}): boolean {
+  const key = typeof item.key === "string" ? item.key : "";
+  const status = typeof item.status === "string" ? item.status : "";
+  const detail = typeof item.detail === "string" ? item.detail : "";
+
+  if (status === "complete" || status === "not_required") return false;
+
+  if (["starter_details", "manager", "right_to_work", "dbs", "future_start_date"].includes(key)) {
+    return true;
+  }
+
+  if (key === "contract") return detail.includes("Confirm:");
+  if (key === "portal_invitation") return detail.toLowerCase().includes("email");
+
+  return false;
+}
+
 
 function normalisePath(path: string | undefined): string | null {
   if (!path) return null;
@@ -249,6 +278,8 @@ function DashboardPageContent() {
     useState<ComplianceIntelligence | null>(null);
 
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [newStarterAttention, setNewStarterAttention] = useState<LeoAttention[]>([]);
+  const [agenticAttention, setAgenticAttention] = useState<LeoAttention[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [reminderActionInProgress, setReminderActionInProgress] = useState<string | null>(null);
 
@@ -419,6 +450,125 @@ function DashboardPageContent() {
   useEffect(() => {
     let active = true;
 
+    async function loadLeoAttention() {
+      try {
+        const response = await fetch("/api/employees", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+        const payload = await response.json().catch(() => null);
+        const employees = Array.isArray(payload?.employees) ? payload.employees : [];
+        const starters = employees
+          .filter((employee: any) => {
+            const status = String(employee.status || "").trim().toLowerCase();
+            if (status === "archived" || status === "former employee") return false;
+            if (status === "new starter" || status === "new_starter") return true;
+            if (!employee.start_date) return false;
+
+            const start = new Date(`${employee.start_date}T12:00:00`);
+            if (Number.isNaN(start.getTime())) return false;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+            return start.getTime() >= today.getTime();
+          })
+          .slice(0, 5);
+
+        const checks = await Promise.all(
+          starters.map(async (employee: any) => {
+            let check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
+              method: "POST",
+              cache: "no-store",
+              credentials: "include",
+            });
+
+            if (check.status === 403) {
+              check = await fetch(`/api/employees/${employee.id}/new-starter-readiness`, {
+                method: "GET",
+                cache: "no-store",
+                credentials: "include",
+              });
+            }
+
+            const result = await check.json().catch(() => null);
+            if (!check.ok || !result?.success) return null;
+
+            const attentionCount = Array.isArray(result.readiness?.items)
+              ? result.readiness.items.filter(requiresEmployerAttention).length
+              : 0;
+
+            return {
+              id: employee.id,
+              name: employee.name,
+              start_date: employee.start_date ?? null,
+              attentionCount,
+            } as LeoAttention;
+          })
+        );
+
+        if (active) {
+          setNewStarterAttention(
+            (checks.filter(Boolean) as LeoAttention[]).filter(
+              (starter) => starter.attentionCount > 0,
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("New starter attention could not be loaded:", error);
+        if (active) setNewStarterAttention([]);
+      }
+    }
+
+    void loadLeoAttention();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAgenticAttention() {
+      try {
+        const response = await fetch("/api/agentic/attention", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || "Agentic attention could not be loaded.");
+        }
+
+        const grouped = new Map<number, LeoAttention>();
+
+        for (const item of Array.isArray(payload.items) ? payload.items : []) {
+          const employeeId = Number(item?.employeeId);
+          if (!Number.isInteger(employeeId) || employeeId <= 0) continue;
+
+          const current = grouped.get(employeeId);
+          grouped.set(employeeId, {
+            id: employeeId,
+            name: String(item?.employeeName || current?.name || "Employee"),
+            start_date: current?.start_date ?? null,
+            attentionCount: (current?.attentionCount ?? 0) + 1,
+          });
+        }
+
+        if (active) setAgenticAttention(Array.from(grouped.values()));
+      } catch (error) {
+        console.error("Agentic attention could not be loaded:", error);
+        if (active) setAgenticAttention([]);
+      }
+    }
+
+    void loadAgenticAttention();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
     async function loadReminders() {
       setRemindersLoading(true);
 
@@ -542,23 +692,6 @@ function DashboardPageContent() {
 
     return [
       {
-        id: "employees",
-        label: "Employees",
-        value: employeeCount === null ? "—" : employeeCount,
-        actionLabel: "View Employees",
-        onClick: () => router.push("/dashboard/employees"),
-        priorityRank: liveMatters > 0 ? 2 : 1,
-      },
-      {
-        id: "matters",
-        label: "Live Matters",
-        value: liveMatters,
-        actionLabel: "View Matters",
-        onClick: () => router.push("/dashboard/matters"),
-        priorityRank:
-          urgentMatters > 0 ? 6 : staleMatters > 0 ? 5 : liveMatters > 0 ? 4 : 2,
-      },
-      {
         id: "recent-conversations",
         label: "Recent Conversations",
         value: "View",
@@ -566,7 +699,23 @@ function DashboardPageContent() {
         onClick: () => router.push("/dashboard/leo-conversations"),
         priorityRank: 3,
       },
-    ].sort((a, b) => b.priorityRank - a.priorityRank);
+      {
+        id: "employees",
+        label: "Employees",
+        value: employeeCount === null ? "—" : employeeCount,
+        actionLabel: "View Employees",
+        onClick: () => router.push("/dashboard/employees"),
+        priorityRank: 2,
+      },
+      {
+        id: "matters",
+        label: "Live Matters",
+        value: liveMatters,
+        actionLabel: "View Matters",
+        onClick: () => router.push("/dashboard/matters"),
+        priorityRank: 1,
+      },
+    ];
   }, [
     complianceIntelligence,
     employeeCount,
@@ -623,6 +772,22 @@ function DashboardPageContent() {
     ],
     [employeeCount, foundationFacts.length, foundationSections],
   );
+
+  const leoAttention = useMemo(() => {
+    const grouped = new Map<number, LeoAttention>();
+
+    for (const item of [...newStarterAttention, ...agenticAttention]) {
+      const current = grouped.get(item.id);
+      grouped.set(item.id, {
+        id: item.id,
+        name: item.name || current?.name || "Employee",
+        start_date: item.start_date ?? current?.start_date ?? null,
+        attentionCount: (current?.attentionCount ?? 0) + item.attentionCount,
+      });
+    }
+
+    return Array.from(grouped.values()).filter((item) => item.attentionCount > 0);
+  }, [agenticAttention, newStarterAttention]);
 
   const setupComplete = setupSteps.every((step) => step.complete);
   const completedSetupSteps = setupSteps.filter((step) => step.complete).length;
@@ -740,6 +905,14 @@ function DashboardPageContent() {
             onClick={shortcut.onClick}
           />
         ))}
+
+        {leoAttention.length > 0 ? (
+          <LeoNeedsHelpCard
+            starters={leoAttention}
+            onOpenStarter={(employeeId) => router.push(`/dashboard/employees/${employeeId}`)}
+            onOpenEmployees={() => router.push("/dashboard/employees")}
+          />
+        ) : null}
       </section>
 
       <section style={remindersSectionStyle} aria-label="In-app reminders">
@@ -804,6 +977,52 @@ function DashboardPageContent() {
         )}
       </section>
     </main>
+  );
+}
+
+function LeoNeedsHelpCard({
+  starters,
+  onOpenStarter,
+  onOpenEmployees,
+}: {
+  starters: LeoAttention[];
+  onOpenStarter: (employeeId: number) => void;
+  onOpenEmployees: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const needsHelp = starters.some((starter) => starter.attentionCount > 0);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (starters.length > 0) {
+          onOpenStarter(starters[0].id);
+          return;
+        }
+        onOpenEmployees();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      style={{
+        ...summaryCardStyle,
+        ...(hovered ? summaryCardHoverStyle : {}),
+      }}
+      aria-label="Review items where Leo needs employer help"
+    >
+      <span style={summaryLabelStyle}>Leo Needs Your Help</span>
+
+      <span style={summaryHelpSymbolStyle} aria-hidden="true">
+        {needsHelp ? "✦" : "✓"}
+      </span>
+
+      <span style={summaryActionStyle}>
+        {needsHelp ? "Review actions" : "View employees"}
+        <span aria-hidden="true">→</span>
+      </span>
+    </button>
   );
 }
 
@@ -1135,6 +1354,14 @@ const summaryNumberStyle: CSSProperties = {
   lineHeight: 1,
   fontWeight: 700,
   letterSpacing: "-0.03em",
+  color: "#6E5084",
+};
+
+const summaryHelpSymbolStyle: CSSProperties = {
+  display: "block",
+  fontSize: "46px",
+  lineHeight: 1,
+  fontWeight: 700,
   color: "#6E5084",
 };
 

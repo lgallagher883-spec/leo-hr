@@ -10,6 +10,27 @@ const matterBundle = read("app/api/matters/[id]/bundle/route.ts");
 const leave = read("app/api/my-employment/leave/route.ts");
 const knowledgeHealth = read("app/api/knowledge/health/route.ts");
 const secureResources = read("app/api/knowledge/resources/file/route.ts");
+const employeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
+const agenticLeaveWorkflow = read("lib/agentic/leaveWorkflow.ts");
+const agenticAbsenceWorkflow = read("lib/agentic/absenceWorkflow.ts");
+const agenticProbationWorkflow = read("lib/agentic/probationWorkflow.ts");
+const agenticCheckCoordination = read("lib/agentic/checkCoordination.ts");
+const agenticRecruitmentWorkflow = read("lib/agentic/recruitmentWorkflow.ts");
+const agenticComplianceReconciliation = read("lib/agentic/complianceReconciliation.ts");
+const agenticPerformanceReview = read("lib/agentic/performanceReviewWorkflow.ts");
+const agenticMatterWorkflow = read("lib/agentic/matterWorkflow.ts");
+const agenticMatterPlanRoute = read("app/api/matters/[id]/agentic-plan/route.ts");
+const matterDocumentsRoute = read("app/api/matters/[id]/documents/route.ts");
+const agenticOffboardingWorkflow = read("lib/agentic/offboardingWorkflow.ts");
+const employeeEmploymentRoute = read("app/api/employees/[id]/employment/route.ts");
+const employeeLeaveRoute = read("app/api/my-employment/leave/route.ts");
+const managedEmployeeLeaveRoute = read("app/api/employees/[id]/leave/route.ts");
+const probationRoute = read("app/api/employees/[id]/probation/route.ts");
+const careCheckRtwRoute = read("app/api/talent/due-diligence/[id]/carecheck-rtw/route.ts");
+const careCheckDbsRoute = read("app/api/talent/due-diligence/[id]/carecheck/route.ts");
+const talentOfferRoute = read("app/api/talent/offers/[id]/route.ts");
+const talentOnboardingRoute = read("app/api/talent/onboarding/[id]/route.ts");
+const complianceIntelligenceRoute = read("app/api/compliance/intelligence/route.ts");
 
 test("Ask Leo enforces the explicit product permission", () => {
   assert.match(askLeo, /target_permission_key:\s*"ask_leo\.use"/);
@@ -75,4 +96,755 @@ test("ChatGPT MCP accepts legacy read-only tool names", () => {
   assert.match(mcpRoute, /leo_list_employees:\s*"leo_search_employees"/);
   assert.match(mcpRoute, /leo_attention:\s*"leo_get_attention_summary"/);
   assert.match(mcpRoute, /legacyToolAliases\[requestedToolName\] \|\| requestedToolName/);
+});
+
+
+const onboardingTemplates = read("lib/onboarding/templates.ts");
+const talentOnboarding = read("app/api/talent/onboarding/route.ts");
+const newStarterReadiness = read("lib/onboarding/newStarterReadiness.ts");
+const newStarterReadinessApi = read("app/api/employees/[id]/new-starter-readiness/route.ts");
+
+test("Talent and direct employee readiness share one onboarding template source", () => {
+  assert.match(talentOnboarding, /@\/lib\/onboarding\/templates/);
+  assert.match(talentOnboarding, /getOnboardingTemplates/);
+  assert.match(onboardingTemplates, /right_to_work/);
+  assert.match(onboardingTemplates, /contract_issue/);
+  assert.match(onboardingTemplates, /mandatory_learning/);
+});
+
+test("new starter readiness is deterministic and organisation scoped", () => {
+  assert.match(newStarterReadiness, /\.eq\("organisation_id", organisationId\)/);
+  assert.match(newStarterReadiness, /employee_right_to_work/);
+  assert.match(newStarterReadiness, /employee_dbs_checks/);
+  assert.match(newStarterReadiness, /employee_probations/);
+  assert.match(newStarterReadiness, /organisation_invitations/);
+  assert.doesNotMatch(newStarterReadiness, /OpenAI|chat\.completions|responses\.create/);
+});
+
+test("new starter readiness API requires workforce view permission and blocks employee accounts", () => {
+  assert.match(newStarterReadinessApi, /employees\.view/);
+  assert.match(newStarterReadinessApi, /role === "employee"/);
+  assert.match(newStarterReadinessApi, /leo_current_organisation_id/);
+});
+
+const newStarterPlan = read("lib/onboarding/newStarterPlan.ts");
+const newStarterAgent = read("lib/onboarding/newStarterAgent.ts");
+const newStarterAutoActions = read("lib/onboarding/newStarterAutoActions.ts");
+const promptBuilder = read("leo/prompt/builder™.ts");
+
+test("new starter action planning stays deterministic and keeps consequential actions gated", () => {
+  assert.doesNotMatch(newStarterPlan, /OpenAI|chat\.completions|responses\.create/);
+  assert.match(newStarterPlan, /Prepare probation schedule/);
+  assert.match(newStarterPlan, /kind: "automatic"/);
+  assert.match(newStarterPlan, /employee portal invitation/);
+  assert.match(newStarterPlan, /standard Employee portal invitation automatically/);
+  assert.match(newStarterPlan, /must not infer whether DBS is required/);
+});
+
+const employeeProfilePage = read("app/dashboard/employees/[id]/page.tsx");
+const employeeDashboardPage = read("app/dashboard/employee/page.tsx");
+const employeeDocumentsRoute = read("app/api/employees/[id]/documents/route.ts");
+const agenticDocumentWorkflow = read("lib/agentic/documentWorkflow.ts");
+const agenticDocumentText = read("lib/agentic/documentText.ts");
+const agenticDocumentFacts = read("lib/agentic/documentFacts.ts");
+const agenticEmployeeChangeWorkflow = read("lib/agentic/employeeChangeWorkflow.ts");
+const agenticAttentionRoute = read("app/api/agentic/attention/route.ts");
+const employmentRoute = read("app/api/employees/[id]/employment/route.ts");
+const askLeoPage = read("app/dashboard/ask-leo/page.tsx");
+const dashboardPage = read("app/dashboard/page.tsx");
+
+test("new starter readiness is surfaced consistently without bypassing the server readiness API", () => {
+  assert.match(employeeProfilePage, /new-starter-readiness/);
+  assert.doesNotMatch(employeeProfilePage, /Ask Leo to get/);
+  assert.match(employeeProfilePage, /Leo needs your help/);
+  assert.match(dashboardPage, /new-starter-readiness/);
+  assert.match(dashboardPage, /Leo Needs Your Help/);
+  assert.match(dashboardPage, /Review actions/);
+});
+
+
+test("future-dated active employees are treated as upcoming starters", () => {
+  assert.match(employeeProfilePage, /isUpcomingStarter/);
+  assert.match(employeeProfilePage, /start_date/);
+  assert.match(dashboardPage, /employee\.start_date/);
+  assert.match(dashboardPage, /former employee/);
+  assert.match(dashboardPage, /archived/);
+});
+
+
+test("new starter workflow starts deterministically and avoids an unnecessary model call", () => {
+  assert.doesNotMatch(newStarterAgent, /OpenAI|chat\.completions|responses\.create/);
+  assert.match(newStarterAgent, /When you have that information, let me know so I can continue getting/);
+  assert.match(askLeo, /contextType === "new_starter"/);
+  assert.match(askLeo, /newStarterWorkflowStart/);
+  assert.match(askLeo, /buildNewStarterWorkflowStartReply/);
+});
+
+test("new starter AI follow-up is constrained to the readiness workflow", () => {
+  assert.match(promptBuilder, /AGENTIC NEW STARTER WORKFLOW/);
+  assert.match(promptBuilder, /Do not invent a separate onboarding checklist/);
+  assert.match(promptBuilder, /Always end the response/);
+  assert.match(askLeoPage, /contextType: sarContext/);
+  assert.match(askLeoPage, /"new_starter"/);
+});
+
+test("completed starter work disappears and generic lifecycle AI panels are removed", () => {
+  assert.match(employeeProfilePage, /requiresEmployerAttention/);
+  assert.match(dashboardPage, /starter\.attentionCount > 0/);
+  const employeeLifecycleFiles = [
+    "app/dashboard/employees/[id]/components/EmploymentDetails.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeDocuments.tsx",
+    "app/dashboard/employees/[id]/components/LeaveAbsence.tsx",
+    "app/dashboard/employees/[id]/components/ComplianceSummary.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeMatters.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeNotes.tsx",
+    "app/dashboard/employees/[id]/components/EmployeeWarnings.tsx",
+  ];
+  for (const file of employeeLifecycleFiles) {
+    assert.doesNotMatch(read(file), /EmployeeLifecycleIntelligence/);
+  }
+});
+
+
+test("learning stays out of new starter readiness", () => {
+  assert.doesNotMatch(newStarterReadiness, /mandatory_learning/);
+  assert.doesNotMatch(newStarterReadiness, /employee_training_logs/);
+});
+
+test("Leo automatically handles probation, employee invitation and contract preparation context", () => {
+  assert.match(newStarterAutoActions, /employee_probations/);
+  assert.match(newStarterAutoActions, /probation_reviews/);
+  assert.match(newStarterAutoActions, /role: "employee"/);
+  assert.match(newStarterAutoActions, /inviteUserByEmail/);
+  assert.match(newStarterAutoActions, /company_documents/);
+  assert.match(newStarterAutoActions, /organisation_foundations/);
+  assert.match(newStarterAutoActions, /Contract Preparation/);
+  assert.match(askLeo, /runNewStarterAutomaticActions/);
+  assert.match(newStarterAutoActions, /missing_fields/);
+});
+
+test("Leo Needs Your Help uses a symbol rather than an action count", () => {
+  assert.match(dashboardPage, /summaryHelpSymbolStyle/);
+  assert.match(dashboardPage, /needsHelp \? "✦" : "✓"/);
+  assert.doesNotMatch(dashboardPage, /\{totalActions\}/);
+});
+
+
+test("new starter updates accept verified passport wording without inferring British nationality", () => {
+  const employerUpdate = read("lib/onboarding/newStarterEmployerUpdate.ts");
+  assert.match(employerUpdate, /extractVerifiedPassportRtw/);
+  assert.match(employerUpdate, /hasPassport/);
+  assert.match(employerUpdate, /isBritishPassport/);
+  assert.match(employerUpdate, /existingNationality \|\| "Not specified"/);
+  assert.match(employerUpdate, /nationality,/);
+});
+
+test("shared emergency contact email can satisfy both supplied contacts", () => {
+  const employerUpdate = read("lib/onboarding/newStarterEmployerUpdate.ts");
+  assert.match(employerUpdate, /sharedEmail/);
+  assert.match(employerUpdate, /for \(const contact of contacts\) contact\.email = contact\.email \|\| sharedEmail/);
+});
+
+
+test("new starter automation is decoupled from Ask Leo UI", () => {
+  assert.doesNotMatch(employeeProfilePage, /dashboard\/ask-leo\?employeeId/);
+  assert.doesNotMatch(employeeProfilePage, /Ask Leo to get/);
+  assert.match(employeeProfilePage, /method: "POST"/);
+  assert.match(dashboardPage, /attentionCount/);
+});
+
+test("contract gaps are surfaced as explicit employer confirmations", () => {
+  assert.match(newStarterAutoActions, /Salary \/ pay/);
+  assert.match(newStarterAutoActions, /Contracted hours/);
+  assert.match(newStarterAutoActions, /Place of work/);
+  assert.match(newStarterReadiness, /Confirm:/);
+  assert.match(employeeProfilePage, /Contract information to confirm/);
+});
+
+
+test("employee self-service work stays out of employer help", () => {
+  assert.doesNotMatch(
+    employeeProfilePage,
+    /"starter_details", "manager", "right_to_work", "dbs", "emergency_contact"/,
+  );
+  assert.doesNotMatch(
+    dashboardPage,
+    /"starter_details", "manager", "right_to_work", "dbs", "emergency_contact"/,
+  );
+  assert.match(employeeDashboardPage, /Complete your emergency contact/);
+  assert.match(employeeDashboardPage, /\/api\/my-employment\/emergency-contacts/);
+  assert.match(employeeDashboardPage, /Add emergency contact/);
+});
+
+
+test("agentic document handling stays silent and evidence-safe", () => {
+  assert.match(employeeDocumentsRoute, /classifyEmployeeDocument/);
+  assert.match(employeeDocumentsRoute, /Agentic Document Handling/);
+  assert.match(employeeDocumentsRoute, /source_module: "Agentic Leo"/);
+  assert.doesNotMatch(employeeDocumentsRoute, /dashboard\/ask-leo/);
+  assert.match(agenticDocumentWorkflow, /receiving it does not itself verify right to work/);
+  assert.match(agenticDocumentWorkflow, /suitability and verification remain human-controlled/);
+  assert.match(agenticDocumentWorkflow, /canAdvanceWorkflow: false/);
+});
+
+
+test("document filing advances safe workflow continuity", () => {
+  assert.match(employeeDocumentsRoute, /canonicalDocumentType/);
+  assert.match(employeeDocumentsRoute, /Absence Evidence Linked/);
+  assert.match(employeeDocumentsRoute, /No medical judgement was made/);
+  assert.match(newStarterReadiness, /Right to work evidence is already on file/);
+  assert.match(newStarterReadiness, /DBS evidence is already on file/);
+  assert.match(newStarterReadiness, /authorised person still needs to verify/);
+});
+
+
+test("document classification prefers deterministic extraction before AI", () => {
+  assert.match(agenticDocumentText, /mammoth\.extractRawText/);
+  assert.match(agenticDocumentText, /TextDecoder/);
+  assert.match(employeeDocumentsRoute, /extractEmployeeDocumentText/);
+  assert.match(employeeDocumentsRoute, /contentText: extracted\.text/);
+  assert.doesNotMatch(agenticDocumentText, /OpenAI|chat\.completions|responses\.create/);
+});
+
+
+test("approved employee changes prepare downstream administration silently", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /detectApprovedEmploymentChanges/);
+  assert.match(agenticEmployeeChangeWorkflow, /contract_variation/);
+  assert.match(agenticEmployeeChangeWorkflow, /payroll_change_pack/);
+  assert.match(agenticEmployeeChangeWorkflow, /role_assignments_review/);
+  assert.match(employmentRoute, /Agentic Employee Change/);
+  assert.match(employmentRoute, /ask_leo_involved: false/);
+  assert.doesNotMatch(agenticEmployeeChangeWorkflow, /OpenAI|chat\.completions|responses\.create/);
+});
+
+
+test("labelled document facts remain non-destructive", () => {
+  assert.match(agenticDocumentFacts, /extractDocumentFacts/);
+  assert.match(agenticDocumentFacts, /certificate_issue_date/);
+  assert.match(agenticDocumentFacts, /document_expiry/);
+  assert.match(employeeDocumentsRoute, /agentic_extracted_facts/);
+  assert.doesNotMatch(agenticDocumentFacts, /\.from\(|insert\(|update\(/);
+});
+
+test("change-it-once prepares reusable downstream packs without external submission", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /buildEmployeeChangePacks/);
+  assert.match(employmentRoute, /Contract Variation Prepared/);
+  assert.match(employmentRoute, /Payroll Change Pack Prepared/);
+  assert.match(employmentRoute, /submission_status: "not_submitted"/);
+  assert.match(employmentRoute, /issue_status: "not_issued"/);
+  assert.match(employmentRoute, /employer_reentry_required: false/);
+});
+
+
+test("Agentic Leo exceptions derive from current records and stay out of Ask Leo", () => {
+  assert.match(agenticAttentionRoute, /source_module", "Agentic Leo"/);
+  assert.match(agenticAttentionRoute, /status", "Needs Review"/);
+  assert.match(agenticAttentionRoute, /employee_right_to_work/);
+  assert.match(agenticAttentionRoute, /employee_dbs_checks/);
+  assert.match(agenticAttentionRoute, /employee_driving_checks/);
+  assert.doesNotMatch(agenticAttentionRoute, /ask-leo|Ask Leo/);
+  assert.match(dashboardPage, /\/api\/agentic\/attention/);
+  assert.match(employeeProfilePage, /AgenticAttentionBanner/);
+  assert.match(employeeProfilePage, /Leo needs your help/);
+});
+
+
+test("Agentic probation only reschedules untouched standard schedules", () => {
+  assert.match(newStarterAutoActions, /Agentic Probation Created/);
+  assert.match(newStarterAutoActions, /syncAgenticProbationToApprovedStartDate/);
+  assert.match(newStarterAutoActions, /Probation was not created by Agentic Leo/);
+  assert.match(newStarterAutoActions, /A probation review has already progressed/);
+  assert.match(newStarterAutoActions, /extension_end_date \|\| probation\.data\.final_outcome/);
+  assert.match(employmentRoute, /probationSync/);
+  assert.match(newStarterAutoActions, /approved employee start date changed/);
+});
+
+
+test("Agentic probation manager sync only touches untouched reviews", () => {
+  assert.match(newStarterAutoActions, /syncAgenticProbationManager/);
+  assert.match(newStarterAutoActions, /There are no untouched probation reviews to update/);
+  assert.match(newStarterAutoActions, /review\.completed_date/);
+  assert.match(newStarterAutoActions, /\["Scheduled", "Pending", ""\]/);
+  assert.match(newStarterAutoActions, /Agentic Probation Manager Updated/);
+  assert.match(employmentRoute, /probationManagerSync/);
+  assert.match(newStarterAutoActions, /approved line-manager change/);
+});
+
+
+test("Agentic contract preparation refreshes only while unissued", () => {
+  assert.match(newStarterAutoActions, /refreshUnissuedAgenticContractPreparation/);
+  assert.match(newStarterAutoActions, /issue_status !== "not_issued"/);
+  assert.match(newStarterAutoActions, /contract preparation is no longer unissued/);
+  assert.match(newStarterAutoActions, /refreshed_by: "agentic_leo_change_it_once"/);
+  assert.match(newStarterAutoActions, /Agentic Contract Preparation Refreshed/);
+  assert.match(employmentRoute, /contractPreparationRefresh/);
+  assert.match(employmentRoute, /refreshUnissuedAgenticContractPreparation/);
+});
+
+
+test("approved leave configuration propagates without a duplicate balance write", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /part_year_worker/);
+  assert.match(agenticEmployeeChangeWorkflow, /holiday_year_start_month/);
+  assert.match(agenticEmployeeChangeWorkflow, /leave_entitlement_basis/);
+  assert.match(agenticEmployeeChangeWorkflow, /bank_holiday_treatment/);
+  assert.match(employmentRoute, /Agentic Leave Configuration Updated/);
+  assert.match(employmentRoute, /separate_balance_write_required: false/);
+  assert.match(employmentRoute, /leave workspace will use the updated configuration automatically/);
+});
+
+
+test("approved role changes assign only explicit published mandatory pathways", () => {
+  assert.match(agenticEmployeeChangeWorkflow, /syncPublishedMandatoryRolePathways/);
+  assert.match(agenticEmployeeChangeWorkflow, /\.eq\("status", "Published"\)/);
+  assert.match(agenticEmployeeChangeWorkflow, /\.eq\("assignment_type", "Mandatory"\)/);
+  assert.match(agenticEmployeeChangeWorkflow, /\.ilike\("target_role", targetRole\)/);
+  assert.match(agenticEmployeeChangeWorkflow, /without duplicating existing active assignments/);
+  assert.match(agenticEmployeeChangeWorkflow, /assignment_source: "Agentic Leo - approved role"/);
+  assert.match(employmentRoute, /mandatoryRolePathways/);
+  assert.match(employmentRoute, /syncPublishedMandatoryRolePathways/);
+});
+
+
+test("Agentic new starter portal invitation avoids existing organisation access", () => {
+  assert.match(newStarterAutoActions, /organisation_memberships/);
+  assert.match(newStarterAutoActions, /getUserById/);
+  assert.match(newStarterAutoActions, /already has organisation access/);
+  assert.match(newStarterAutoActions, /Agentic Portal Invitation Sent/);
+  assert.match(newStarterAutoActions, /role: "employee"/);
+  assert.match(newStarterAutoActions, /ask_leo_involved: false/);
+});
+
+
+test("received contracts close only matching unissued Agentic preparation", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "contract"/);
+  assert.match(employeeDocumentsRoute, /event_type", "Contract Preparation"/);
+  assert.match(employeeDocumentsRoute, /preparationMetadata\.issue_status === "not_issued"/);
+  assert.match(employeeDocumentsRoute, /issue_status: "received"/);
+  assert.match(employeeDocumentsRoute, /Agentic Contract Workflow Completed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});
+
+
+test("qualification uploads create unverified records without claiming validity", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "qualification"/);
+  assert.match(employeeDocumentsRoute, /verification_status: "Unverified"/);
+  assert.match(employeeDocumentsRoute, /Validity and equivalence still require human verification/);
+  assert.match(employeeDocumentsRoute, /qualification_evidence/);
+  assert.match(employeeDocumentsRoute, /Agentic Qualification Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});
+
+
+test("driving licence evidence never becomes automatic driving authorisation", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "driving"/);
+  assert.match(employeeDocumentsRoute, /authorised_to_drive: "No"/);
+  assert.match(employeeDocumentsRoute, /dvla_check_completed: "No"/);
+  assert.match(employeeDocumentsRoute, /DVLA verification and authority to drive remain separate decisions/);
+  assert.match(employeeDocumentsRoute, /Agentic Driving Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});
+
+
+test("DBS certificate evidence never becomes an automatic suitability decision", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "dbs"/);
+  assert.match(employeeDocumentsRoute, /Agentic DBS Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /suitability_decision_recorded: false/);
+  assert.match(employeeDocumentsRoute, /update_service_verified: false/);
+  assert.match(employeeDocumentsRoute, /Suitability, certificate level and any Update Service verification remain separate decisions/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});
+
+
+test("right to work evidence never becomes automatic statutory verification", () => {
+  assert.match(employeeDocumentsRoute, /classification\.category === "right_to_work"/);
+  assert.match(employeeDocumentsRoute, /check_completed_date: null/);
+  assert.match(employeeDocumentsRoute, /right_to_work_expiry: null/);
+  assert.match(employeeDocumentsRoute, /right_to_work_expiry_set_from_document: false/);
+  assert.match(employeeDocumentsRoute, /has not been treated as completion of the statutory right to work check/);
+  assert.match(employeeDocumentsRoute, /Agentic Right To Work Evidence Filed/);
+  assert.match(employeeDocumentsRoute, /ask_leo_involved: false/);
+});
+
+
+test("Agentic evidence attention self clears when the human verification is complete", () => {
+  assert.match(employeeDocumentsRoute, /classification: "qualification"/);
+  assert.match(employeeDocumentsRoute, /classification: "driving"/);
+  assert.match(employeeDocumentsRoute, /classification: "dbs"/);
+  assert.match(employeeDocumentsRoute, /classification: "right_to_work"/);
+  assert.match(agenticAttentionRoute, /classification === "qualification"/);
+  assert.match(agenticAttentionRoute, /verification_status/);
+  assert.match(agenticAttentionRoute, /toLowerCase\(\) !== "verified"/);
+});
+
+
+test("Agentic attention follows the exact evidence record and requires the real decision", () => {
+  assert.match(agenticAttentionRoute, /employee_dbs_check_id/);
+  assert.match(agenticAttentionRoute, /employee_driving_check_id/);
+  assert.match(agenticAttentionRoute, /dbs_level/);
+  assert.match(agenticAttentionRoute, /suitabilityConfirmed/);
+  assert.match(agenticAttentionRoute, /authorised_to_drive/);
+  assert.match(agenticAttentionRoute, /dvla_check_completed/);
+});
+
+
+test("approved start date changes flow through Agentic contract and payroll preparation", () => {
+  assert.match(employeeChangeWorkflow, /start_date: "Employment start date"/);
+  assert.match(employeeChangeWorkflow, /\["role", "start_date", "status", "email"\]/);
+  assert.match(employeeChangeWorkflow, /const contractFields = \[\s*"role",\s*"start_date"/);
+  assert.match(employeeChangeWorkflow, /const payrollFields = \[\s*"role",\s*"start_date"/);
+});
+
+
+test("start date changes create the same downstream actions as their prepared packs", () => {
+  const startDateChange = [{ field: "start_date", label: "Employment start date", previousValue: "2026-09-21", newValue: "2026-09-28" }];
+  assert.match(employeeChangeWorkflow, /fields\.has\("start_date"\)/);
+  assert.match(employeeChangeWorkflow, /key: "contract_variation"/);
+  assert.match(employeeChangeWorkflow, /key: "payroll_change_pack"/);
+  assert.match(employeeChangeWorkflow, /start_date/);
+  assert.equal(startDateChange[0].field, "start_date");
+});
+
+
+test("role changes match only explicit organisation compliance resources without faking acknowledgement", () => {
+  assert.match(employeeChangeWorkflow, /reconcileRoleComplianceResources/);
+  assert.match(employeeChangeWorkflow, /notes\.includes\(roleNeedle\)/);
+  assert.match(employeeChangeWorkflow, /acknowledgement_status: "not_recorded"/);
+  assert.match(employeeChangeWorkflow, /automatic_acknowledgement: false/);
+  assert.match(employeeChangeWorkflow, /ask_leo_involved: false/);
+});
+
+
+test("role compliance reconciliation is idempotent for the same role and resource versions", () => {
+  assert.match(employeeChangeWorkflow, /Agentic Role Compliance Resources Matched/);
+  assert.match(employeeChangeWorkflow, /matchedIds/);
+  assert.match(employeeChangeWorkflow, /alreadyRecorded/);
+  assert.match(employeeChangeWorkflow, /current role-based compliance resource match is already recorded/);
+});
+
+
+test("role policy reconciliation only treats already shared company documents as employee available", () => {
+  assert.match(employeeChangeWorkflow, /from\("company_documents"\)/);
+  assert.match(employeeChangeWorkflow, /\.eq\("access_level", "everyone"\)/);
+  assert.match(employeeChangeWorkflow, /available_to_employee: availableResourceIds/);
+  assert.match(employeeChangeWorkflow, /acknowledgement_status: "not_recorded"/);
+  assert.match(employeeChangeWorkflow, /only resources already shared with employees are treated as available/);
+});
+
+
+test("routine leave automation requires explicit delegation and confirmed safe inputs", () => {
+  assert.match(agenticLeaveWorkflow, /delegatedAutoApproval/);
+  assert.match(agenticLeaveWorkflow, /Annual Leave/);
+  assert.match(agenticLeaveWorkflow, /workingPatternKnown/);
+  assert.match(agenticLeaveWorkflow, /available annual leave balance/);
+  assert.match(agenticLeaveWorkflow, /overlaps another active leave record/);
+  assert.match(agenticLeaveWorkflow, /canAutoApprove: reasons\.length === 0/);
+});
+
+
+test("employee leave only auto approves after explicit organisation delegation", () => {
+  assert.match(agenticLeaveWorkflow, /explicitlyDelegates && !explicitBlock/);
+  assert.match(employeeLeaveRoute, /readDelegatedRoutineLeaveApproval/);
+  assert.match(employeeLeaveRoute, /assessRoutineAnnualLeave/);
+  assert.match(employeeLeaveRoute, /resolvedStatus = routineAssessment\.canAutoApprove/);
+  assert.match(employeeLeaveRoute, /agentic_auto_approved: resolvedStatus === "Approved"/);
+  assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
+});
+
+
+test("Agentic leave decisions persist their basis without Ask Leo", () => {
+  assert.match(employeeLeaveRoute, /agenticAutoApproved: resolvedStatus === "Approved"/);
+  assert.match(employeeLeaveRoute, /agenticDecisionReasons: routineAssessment\.reasons/);
+  assert.match(employeeLeaveRoute, /agentic_decision_reasons: routineAssessment\.reasons/);
+  assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
+});
+
+
+test("routine Agentic cancellation only reverses leave Leo itself safely approved", () => {
+  assert.match(agenticLeaveWorkflow, /shouldAutoCancelRoutineAnnualLeave/);
+  assert.match(agenticLeaveWorkflow, /wasAgenticAutoApproved/);
+  assert.match(agenticLeaveWorkflow, /only reverses leave that it previously approved automatically/);
+  assert.match(agenticLeaveWorkflow, /leaveHasStarted/);
+  assert.match(agenticLeaveWorkflow, /canAutoCancel: reasons\.length === 0/);
+});
+
+
+test("employee self service only auto cancels future leave Leo previously auto approved", () => {
+  assert.match(employeeLeaveRoute, /shouldAutoCancelRoutineAnnualLeave/);
+  assert.match(employeeLeaveRoute, /wasAgenticAutoApproved/);
+  assert.match(employeeLeaveRoute, /requiresHumanReview: true/);
+  assert.match(employeeLeaveRoute, /status: "Cancelled"/);
+  assert.match(employeeLeaveRoute, /balance_restored_by_status: true/);
+  assert.match(employeeLeaveRoute, /ask_leo_involved: false/);
+});
+
+
+test("absence administration prepares routine work but never decides welfare or adjustments", () => {
+  assert.match(agenticAbsenceWorkflow, /prepareReturnToWork/);
+  assert.match(agenticAbsenceWorkflow, /preparePayrollInput/);
+  assert.match(agenticAbsenceWorkflow, /welfareConcernRecorded/);
+  assert.match(agenticAbsenceWorkflow, /adjustmentNeedRecorded/);
+  assert.match(agenticAbsenceWorkflow, /recordDisputed/);
+  assert.match(agenticAbsenceWorkflow, /needsHumanReview/);
+});
+
+
+test("live sickness records prepare Agentic RTW and payroll admin without Ask Leo", () => {
+  assert.match(managedEmployeeLeaveRoute, /planAbsenceAdministration/);
+  assert.match(managedEmployeeLeaveRoute, /Agentic Absence Administration Prepared/);
+  assert.match(managedEmployeeLeaveRoute, /prepare_return_to_work/);
+  assert.match(managedEmployeeLeaveRoute, /prepare_payroll_input/);
+  assert.match(managedEmployeeLeaveRoute, /No welfare, adjustment or attendance judgement has been made/);
+  assert.match(managedEmployeeLeaveRoute, /ask_leo_involved: false/);
+});
+
+
+test("Agentic sickness admin links the existing RTW resource and prepares neutral payroll inputs", () => {
+  assert.match(managedEmployeeLeaveRoute, /resource_id: "return-to-work-form"/);
+  assert.match(managedEmployeeLeaveRoute, /route: "\/dashboard\/policies\/forms\/return-to-work-form"/);
+  assert.match(managedEmployeeLeaveRoute, /employee_name: employee\.name/);
+  assert.match(managedEmployeeLeaveRoute, /payroll_input/);
+  assert.match(managedEmployeeLeaveRoute, /payroll_decision: "not_made"/);
+});
+
+
+test("probation automation requires a manager decision and blocks dismissal execution", () => {
+  assert.match(agenticProbationWorkflow, /decisionRecordedByManager/);
+  assert.match(agenticProbationWorkflow, /needsHumanDecision/);
+  assert.match(agenticProbationWorkflow, /implementRecordedOutcome: outcomeRecorded && outcome !== "Terminate Contract"/);
+  assert.match(agenticProbationWorkflow, /dismissalExecutionBlocked: outcome === "Terminate Contract"/);
+  assert.match(agenticProbationWorkflow, /createExtensionMilestone/);
+});
+
+
+test("recorded probation outcomes trigger admin while termination execution stays blocked", () => {
+  assert.match(probationRoute, /planProbationAdministration/);
+  assert.match(probationRoute, /decisionRecordedByManager: true/);
+  assert.match(probationRoute, /Agentic Probation Administration Prepared/);
+  assert.match(probationRoute, /Dismissal execution remains blocked/);
+  assert.match(probationRoute, /dismissal_execution_blocked/);
+  assert.match(probationRoute, /ask_leo_involved: false/);
+});
+
+
+test("Agentic probation outcomes prepare the existing approved correspondence resources", () => {
+  assert.match(probationRoute, /resource_id: "probation-passed"/);
+  assert.match(probationRoute, /resource_id: "probation-extension"/);
+  assert.match(probationRoute, /resource_id: "probation-termination"/);
+  assert.match(probationRoute, /status: "Prepared only - dismissal execution blocked"/);
+});
+
+
+test("RTW and DBS automation reuses verified evidence but preserves verification and suitability decisions", () => {
+  assert.match(agenticCheckCoordination, /existingVerifiedEvidence/);
+  assert.match(agenticCheckCoordination, /providerAvailable/);
+  assert.match(agenticCheckCoordination, /consentRecorded/);
+  assert.match(agenticCheckCoordination, /needsHumanVerification/);
+  assert.match(agenticCheckCoordination, /needsHumanSuitabilityDecision/);
+  assert.match(agenticCheckCoordination, /checkType === "dbs" && args\.discrepancyRecorded/);
+});
+
+
+test("CareCheck RTW planning checks existing evidence and consent before provider work", () => {
+  assert.match(careCheckRtwRoute, /planWorkforceCheck/);
+  assert.match(careCheckRtwRoute, /existingVerifiedEvidence/);
+  assert.match(careCheckRtwRoute, /consentRecorded/);
+  assert.match(careCheckRtwRoute, /discrepancyRecorded/);
+  assert.match(careCheckRtwRoute, /action === "agentic_plan"/);
+  assert.match(careCheckRtwRoute, /askLeoInvolved: false/);
+});
+
+
+test("CareCheck DBS planning reuses clear evidence and preserves suitability review", () => {
+  assert.match(careCheckDbsRoute, /planWorkforceCheck/);
+  assert.match(careCheckDbsRoute, /checkType: "dbs"/);
+  assert.match(careCheckDbsRoute, /existingResultPosition/);
+  assert.match(careCheckDbsRoute, /further_review_required/);
+  assert.match(careCheckDbsRoute, /consentRecorded/);
+  assert.match(careCheckDbsRoute, /action === "agentic_plan"/);
+  assert.match(careCheckDbsRoute, /askLeoInvolved: false/);
+});
+
+
+test("accepted offers prepare onboarding automatically without making recruitment decisions", () => {
+  assert.match(agenticRecruitmentWorkflow, /offerAccepted/);
+  assert.match(agenticRecruitmentWorkflow, /appointmentDecisionAllowsProgression/);
+  assert.match(agenticRecruitmentWorkflow, /ensureOnboardingAppointment/);
+  assert.match(agenticRecruitmentWorkflow, /reuseRecruitmentData/);
+  assert.match(agenticRecruitmentWorkflow, /prepareDueDiligence/);
+  assert.match(agenticRecruitmentWorkflow, /createEmployeeNow/);
+  assert.match(agenticRecruitmentWorkflow, /nonStandardTermsRecorded/);
+});
+
+
+test("accepted offer handoff invokes Agentic onboarding planning without Ask Leo", () => {
+  assert.match(talentOfferRoute, /planAcceptedOfferAdministration/);
+  assert.match(talentOfferRoute, /agentic_offer_plan/);
+  assert.match(talentOfferRoute, /requiredChecksSatisfied: false/);
+  assert.match(talentOfferRoute, /ask_leo_involved: false/);
+  assert.match(talentOfferRoute, /askLeoInvolved: false/);
+});
+
+
+test("Agentic onboarding readiness ignores optional learning and requires actual admin completion", () => {
+  assert.match(talentOnboardingRoute, /action === "agentic_readiness"/);
+  assert.match(talentOnboardingRoute, /item\.item_category !== "learning"/);
+  assert.match(talentOnboardingRoute, /requiredChecksSatisfied = incompleteRequired\.length === 0/);
+  assert.match(talentOnboardingRoute, /readyForEmployeeCreation/);
+  assert.match(talentOnboardingRoute, /learning_excluded_from_required_readiness: true/);
+  assert.match(talentOnboardingRoute, /ask_leo_involved: false/);
+});
+
+
+test("compliance reconciliation closes only gaps backed by current verified matching evidence", () => {
+  assert.match(agenticComplianceReconciliation, /evidenceState === "verified"/);
+  assert.match(agenticComplianceReconciliation, /evidenceMatchesEmployee/);
+  assert.match(agenticComplianceReconciliation, /evidenceCurrent/);
+  assert.match(agenticComplianceReconciliation, /closeAdministrativeGap: verifiedUsable/);
+  assert.match(agenticComplianceReconciliation, /present_unverified/);
+  assert.match(agenticComplianceReconciliation, /contradictory/);
+  assert.match(agenticComplianceReconciliation, /needsHumanReview/);
+});
+
+
+test("live compliance intelligence reconciles RTW evidence deterministically without Ask Leo", () => {
+  assert.match(complianceIntelligenceRoute, /planComplianceReconciliation/);
+  assert.match(complianceIntelligenceRoute, /requirement: "right_to_work"/);
+  assert.match(complianceIntelligenceRoute, /repairedFromVerifiedEvidence/);
+  assert.match(complianceIntelligenceRoute, /needsEvidenceOrReview/);
+  assert.match(complianceIntelligenceRoute, /askLeoInvolved: false/);
+});
+
+
+test("live compliance reconciliation respects whether DBS actually applies", () => {
+  assert.match(complianceIntelligenceRoute, /requirement: "dbs"/);
+  assert.match(complianceIntelligenceRoute, /dbsRequired/);
+  assert.match(complianceIntelligenceRoute, /requirementApplies: dbsRequired/);
+  assert.match(complianceIntelligenceRoute, /evidenceState: dbsEvidenceRow \? "verified" : "missing"/);
+});
+
+
+test("driving compliance only applies to employees who actually drive for work", () => {
+  assert.match(complianceIntelligenceRoute, /requirement: "driving_for_work"/);
+  assert.match(complianceIntelligenceRoute, /drivesForWork/);
+  assert.match(complianceIntelligenceRoute, /requirementApplies: drivesForWork/);
+  assert.match(complianceIntelligenceRoute, /business_insurance_expiry_date/);
+  assert.match(complianceIntelligenceRoute, /mot_expiry_date/);
+});
+
+
+test("performance review automation prepares administration but preserves manager judgement", () => {
+  assert.match(agenticPerformanceReview, /prepareReview/);
+  assert.match(agenticPerformanceReview, /carryForwardOpenActions/);
+  assert.match(agenticPerformanceReview, /prepareDevelopmentAssignments/);
+  assert.match(agenticPerformanceReview, /managerAssessmentRecorded/);
+  assert.match(agenticPerformanceReview, /blockPayOrPromotionDecision/);
+  assert.match(agenticPerformanceReview, /blockFormalCapabilityDecision/);
+});
+
+
+test("performance review pack accepts traceable evidence without inventing assessments", () => {
+  assert.match(agenticPerformanceReview, /PerformanceReviewEvidence/);
+  assert.match(agenticPerformanceReview, /source: "employee_timeline" \| "learning" \| "probation" \| "manager"/);
+  assert.match(agenticPerformanceReview, /reviewPack/);
+  assert.match(agenticPerformanceReview, /prepareTraceableEvidence/);
+  assert.match(agenticPerformanceReview, /item\.label\.trim\(\)/);
+  assert.match(agenticPerformanceReview, /seen\.has\(key\)/);
+  assert.match(agenticPerformanceReview, /needsHumanAssessment/);
+});
+
+
+test("Matter automation advances administration while preserving HR judgement", () => {
+  assert.match(agenticMatterWorkflow, /maintainChronology/);
+  assert.match(agenticMatterWorkflow, /indexNewEvidence/);
+  assert.match(agenticMatterWorkflow, /prepareApprovedTemplates/);
+  assert.match(agenticMatterWorkflow, /refreshMatterBundle/);
+  assert.match(agenticMatterWorkflow, /administrativePrerequisitesSatisfied/);
+  assert.match(agenticMatterWorkflow, /blockFindingOrCredibilityAssessment/);
+  assert.match(agenticMatterWorkflow, /blockSensitiveCorrespondence/);
+  assert.match(agenticMatterWorkflow, /blockProcessOutcome/);
+  assert.match(agenticMatterWorkflow, /blockDismissalExecution/);
+});
+
+
+test("Matter administration uses traceable evidence and raises missing prerequisites", () => {
+  assert.match(agenticMatterWorkflow, /MatterAdministrationEvidence/);
+  assert.match(agenticMatterWorkflow, /prepareTraceableMatterEvidence/);
+  assert.match(agenticMatterWorkflow, /proceduralInformationComplete/);
+  assert.match(agenticMatterWorkflow, /needsHumanInput/);
+  assert.match(agenticMatterWorkflow, /Dismissal execution is blocked/);
+});
+
+
+test("live Matter administration planning is permissioned and organisation scoped", () => {
+  assert.match(agenticMatterPlanRoute, /leo_current_organisation_id/);
+  assert.match(agenticMatterPlanRoute, /target_permission_key: "matters\.view"/);
+  assert.match(agenticMatterPlanRoute, /\.from\("matters"\)/);
+  assert.match(agenticMatterPlanRoute, /\.eq\("id", matterId\)/);
+  assert.match(agenticMatterPlanRoute, /The Matter could not be found or accessed/);
+});
+
+
+test("live Matter planning uses existing evidence without inventing process completion", () => {
+  assert.match(agenticMatterPlanRoute, /\.from\("matter_timeline"\)/);
+  assert.match(agenticMatterPlanRoute, /\.from\("matter_documents"\)/);
+  assert.match(agenticMatterPlanRoute, /administrativePrerequisitesSatisfied: false/);
+  assert.match(agenticMatterPlanRoute, /planMatterAdministration/);
+  assert.match(agenticMatterPlanRoute, /askLeoInvolved: false/);
+});
+
+
+test("new Matter documents maintain chronology without claiming verification", () => {
+  assert.match(matterDocumentsRoute, /recordDocumentChronology/);
+  assert.match(matterDocumentsRoute, /event_type: "matter_document_added"/);
+  assert.match(matterDocumentsRoute, /evidence_verified: false/);
+  assert.match(matterDocumentsRoute, /The source document remains the/);
+  assert.doesNotMatch(matterDocumentsRoute, /evidence_verified: true/);
+});
+
+
+test("offboarding automation requires an authorised confirmed departure", () => {
+  assert.match(agenticOffboardingWorkflow, /departureAuthorised/);
+  assert.match(agenticOffboardingWorkflow, /finalDateConfirmed/);
+  assert.match(agenticOffboardingWorkflow, /departureDisputed/);
+  assert.match(agenticOffboardingWorkflow, /confirmedDeparture/);
+  assert.match(agenticOffboardingWorkflow, /blockInferredDeparture/);
+});
+
+
+test("offboarding prepares administration but preserves consequential decisions", () => {
+  assert.match(agenticOffboardingWorkflow, /prepareHandoverPack/);
+  assert.match(agenticOffboardingWorkflow, /prepareAssetReturnPack/);
+  assert.match(agenticOffboardingWorkflow, /calculateProvisionalLeaveReconciliation/);
+  assert.match(agenticOffboardingWorkflow, /preparePayrollInputs/);
+  assert.match(agenticOffboardingWorkflow, /scheduleApprovedAccessChanges/);
+  assert.match(agenticOffboardingWorkflow, /prepareRetentionWorkflow/);
+  assert.match(agenticOffboardingWorkflow, /blockFinalPayOrDeductionDecision/);
+  assert.match(agenticOffboardingWorkflow, /blockUnauthorisedAccessRemoval/);
+  assert.match(agenticOffboardingWorkflow, /routeHumanInputToNeedsHelp/);
+});
+
+
+test("offboarding human intervention stays explicit and non-agentic", () => {
+  assert.match(agenticOffboardingWorkflow, /routeHumanInputToNeedsHelp/);
+  assert.match(agenticOffboardingWorkflow, /reasons: string\[\]/);
+  assert.match(employeeEmploymentRoute, /destination: "Leo Needs Your Help"/);
+  assert.match(employeeEmploymentRoute, /reasons: offboardingPlan\.reasons/);
+  assert.match(employeeEmploymentRoute, /final_pay_decision: "not_made"/);
+  assert.match(employeeEmploymentRoute, /access_removal_status: "not_authorised"/);
+  assert.match(employeeEmploymentRoute, /ask_leo_involved: false/);
+});
+
+
+test("an authorised final-date change prepares live offboarding without ending employment", () => {
+  assert.match(employeeEmploymentRoute, /planOffboardingAdministration/);
+  assert.match(employeeEmploymentRoute, /authorisedDepartureRecorded/);
+  assert.match(employeeEmploymentRoute, /change\.field === "employment_end_date"/);
+  assert.match(employeeEmploymentRoute, /Agentic Offboarding Prepared/);
+  assert.match(employeeEmploymentRoute, /employee-exit-checklist/);
+  assert.match(employeeEmploymentRoute, /employment_status_changed: false/);
+  assert.match(employeeEmploymentRoute, /final_pay_decision: "not_made"/);
+  assert.match(employeeEmploymentRoute, /access_removal_status: "not_authorised"/);
+  assert.match(employeeEmploymentRoute, /human_intervention: offboardingPlan\.routeHumanInputToNeedsHelp/);
+  assert.match(employeeEmploymentRoute, /destination: "Leo Needs Your Help"/);
+  assert.match(employeeEmploymentRoute, /ask_leo_involved: false/);
 });

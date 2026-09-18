@@ -39,6 +39,7 @@ export default function EmployeeDashboardPage() {
 
   const [firstName, setFirstName] = useState<string | null>(null);
   const [loadingName, setLoadingName] = useState(true);
+  const [needsEmergencyContact, setNeedsEmergencyContact] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -86,6 +87,54 @@ export default function EmployeeDashboardPage() {
     }
 
     void loadEmployeeIdentity();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSelfServiceNeeds() {
+      try {
+        const response = await fetch("/api/my-employment/emergency-contacts", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              employeeLinked?: boolean;
+              contacts?: Array<{
+                full_name?: string | null;
+                relationship?: string | null;
+                phone?: string | null;
+                email?: string | null;
+              }>;
+            }
+          | null;
+
+        if (!active || !response.ok || !payload?.success || !payload.employeeLinked) {
+          return;
+        }
+
+        const hasUsableContact = (payload.contacts ?? []).some(
+          (contact) =>
+            Boolean(contact.full_name?.trim()) &&
+            Boolean(contact.relationship?.trim()) &&
+            (Boolean(contact.phone?.trim()) || Boolean(contact.email?.trim())),
+        );
+
+        setNeedsEmergencyContact(!hasUsableContact);
+      } catch (error) {
+        console.error("Employee self-service needs could not be loaded:", error);
+      }
+    }
+
+    void loadSelfServiceNeeds();
 
     return () => {
       active = false;
@@ -184,6 +233,22 @@ export default function EmployeeDashboardPage() {
         <header className={styles.mobileEmployeeHeading}>
           <h1>Welcome back{!loadingName && firstName ? `, ${firstName}` : ""}</h1>
         </header>
+        {needsEmergencyContact ? (
+          <button
+            type="button"
+            className={styles.mobileEmployeeCard}
+            onClick={() => router.push("/dashboard/my-employment/emergency-contacts")}
+          >
+            <span className={styles.mobileEmployeeCardIcon} aria-hidden>
+              <ContactRound size={21} strokeWidth={1.8} />
+            </span>
+            <span className={styles.mobileEmployeeCardTitleRow}>
+              <span>Complete your emergency contact</span>
+              <ChevronRight size={18} strokeWidth={1.8} aria-hidden />
+            </span>
+          </button>
+        ) : null}
+
         <div className={styles.mobileEmployeeCardGrid}>
           {mobileCards.map(({ title, href, icon: Icon, opensMore }) => {
             const content = (
@@ -240,6 +305,25 @@ export default function EmployeeDashboardPage() {
         </div>
 
       </header>
+
+      {needsEmergencyContact ? (
+        <section style={employeeActionCardStyle} aria-label="Action needed">
+          <div>
+            <p style={employeeActionEyebrowStyle}>Complete your details</p>
+            <h2 style={employeeActionTitleStyle}>Emergency contact</h2>
+            <p style={employeeActionTextStyle}>
+              Add at least one emergency contact so your employer has a reliable contact if it is ever needed.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/my-employment/emergency-contacts")}
+            style={employeeActionButtonStyle}
+          >
+            Add emergency contact
+          </button>
+        </section>
+      ) : null}
 
       <section aria-labelledby="employee-services-heading">
         <div style={summaryGridStyle}>
@@ -329,6 +413,52 @@ function EmployeeCard({
     </button>
   );
 }
+
+const employeeActionCardStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "18px",
+  marginBottom: "22px",
+  padding: "18px 20px",
+  border: "1px solid #DCCCE7",
+  borderRadius: "16px",
+  background: "#F7F1FC",
+};
+
+const employeeActionEyebrowStyle: CSSProperties = {
+  margin: "0 0 4px",
+  color: "#6E5084",
+  fontSize: "11px",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
+const employeeActionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#2F2635",
+  fontSize: "19px",
+};
+
+const employeeActionTextStyle: CSSProperties = {
+  margin: "5px 0 0",
+  color: "#6B7280",
+  fontSize: "14px",
+  lineHeight: 1.5,
+};
+
+const employeeActionButtonStyle: CSSProperties = {
+  border: "1px solid #6E5084",
+  borderRadius: "10px",
+  background: "#6E5084",
+  color: "#FFFFFF",
+  padding: "10px 14px",
+  fontSize: "13px",
+  fontWeight: 700,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
 
 const pageStyle: CSSProperties = {
   width: "100%",

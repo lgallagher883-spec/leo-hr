@@ -305,6 +305,43 @@ async function createDocumentRecord(args: {
     .single();
 }
 
+async function recordDocumentChronology(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matterId: number,
+  document: unknown,
+) {
+  const record =
+    document && typeof document === "object"
+      ? (document as Record<string, unknown>)
+      : {};
+  const documentId = Number(record.id);
+  const versionNumber = Number(record.version_number);
+  const documentTitle = readOptionalText(record.title);
+  const documentType = readOptionalText(record.document_type);
+  const documentStatus = readOptionalText(record.status);
+
+  const { error } = await supabase.from("matter_timeline").insert({
+    matter_id: matterId,
+    event_type: "matter_document_added",
+    title: "Matter document added",
+    description: `${documentTitle || documentType || "A document"} was added to the Matter record.`,
+    created_by: "System",
+    metadata: {
+      document_id: Number.isInteger(documentId) ? documentId : null,
+      document_type: documentType,
+      document_status: documentStatus,
+      version_number: Number.isInteger(versionNumber) ? versionNumber : null,
+      evidence_verified: false,
+    },
+  });
+
+  if (error) {
+    // Keep the document save successful. The source document remains the
+    // authoritative evidence and the chronology can be reconciled later.
+    console.error("Matter document chronology could not be recorded:", error);
+  }
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
   const matterId = readMatterId(id);
@@ -473,6 +510,8 @@ export async function POST(request: Request, context: RouteContext) {
         );
       }
 
+      await recordDocumentChronology(supabase, matterId, data);
+
       return NextResponse.json(
         {
           success: true,
@@ -574,6 +613,8 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 500 },
       );
     }
+
+    await recordDocumentChronology(supabase, matterId, data);
 
     return NextResponse.json(
       {

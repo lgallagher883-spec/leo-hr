@@ -37,6 +37,7 @@ create table if not exists public.leo_employer_support_purchases (
     check (status in ('pending','paid','provisioned','refunded','cancelled')),
   currency text not null default 'gbp',
   amount_minor integer null check (amount_minor is null or amount_minor >= 0),
+  initial_issue text null,
   stripe_checkout_session_id text null,
   stripe_payment_intent_id text null,
   purchased_by uuid not null references auth.users(id) on delete restrict,
@@ -99,6 +100,9 @@ comment on table public.leo_employer_support_accounts is
 
 comment on table public.leo_employer_support_purchases is
   'One-off Employer Support Matter purchases. One successful purchase provisions at most one Matter.';
+
+comment on column public.leo_employer_support_purchases.initial_issue is
+  'Pre-purchase issue description carried into the paid Matter only after payment is confirmed.';
 
 comment on column public.matters.organisation_id is
   'Explicit tenant owner for Matter isolation. Employer Support Matters must always populate this value.';

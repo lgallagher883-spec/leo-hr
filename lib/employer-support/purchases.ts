@@ -46,7 +46,18 @@ export async function provisionEmployerSupportMatterFromPurchase(purchaseId: str
   const issue=(purchase.initial_issue || "").trim();
   if(!issue) throw new Error("Employer Support purchase has no initial issue to provision.");
 
-  // Re-check immediately before insertion so a normal Stripe retry cannot create a second Matter.\n  const { data: latest } = await (admin as any)\n    .from("leo_employer_support_purchases")\n    .select("matter_id,status")\n    .eq("id", purchase.id)\n    .maybeSingle();\n  if (latest?.status === "provisioned" && latest?.matter_id) return latest.matter_id;\n\n  const { data: matter, error: matterError } = await (admin as any)
+  // Re-check immediately before insertion so a normal Stripe retry cannot create a second Matter.
+  const { data: latest } = await (admin as any)
+    .from("leo_employer_support_purchases")
+    .select("matter_id,status")
+    .eq("id", purchase.id)
+    .maybeSingle();
+
+  if (latest?.status === "provisioned" && latest?.matter_id) {
+    return latest.matter_id;
+  }
+
+  const { data: matter, error: matterError } = await (admin as any)
     .from("matters")
     .insert({
       organisation_id: purchase.organisation_id,

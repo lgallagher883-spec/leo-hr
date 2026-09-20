@@ -29,16 +29,16 @@ export default function MatterSetupForm(){
       <div className={styles.matterVisual} aria-hidden="true"><span>Issue</span><i>→</i><span>Guidance</span><i>→</i><span>Outcome</span></div>
     </div>
     <div className={styles.assessmentColumns}>
-      <div className={styles.assessmentSummary}><p className={styles.eyebrow}>What Leo Has Identified</p><div className={styles.assessmentText}>{summary}</div></div>
-      <div className={styles.supportPlan}><p className={styles.eyebrow}>What You Get</p><h3>Leo stays with the Matter.</h3>
-       <div className={styles.supportItem}><b>01</b><span><strong>Clear next steps</strong><small>Know what to do, when to do it and what to consider.</small></span></div>
-       <div className={styles.supportItem}><b>02</b><span><strong>Letters & documents</strong><small>Draft the practical paperwork needed as the Matter develops.</small></span></div>
-       <div className={styles.supportItem}><b>03</b><span><strong>Process & risk guidance</strong><small>Spot procedural issues before they become bigger problems.</small></span></div>
-       <div className={styles.supportItem}><b>04</b><span><strong>One organised workspace</strong><small>Keep the guidance, evidence and progress together through to outcome.</small></span></div>
+      <div className={styles.assessmentSummary}><p className={styles.eyebrow}>Leo's Initial View</p><div className={styles.assessmentText}>{summary}</div><div className={styles.reassuranceStrip}><strong>You stay in control.</strong><span>Leo keeps you clear on the process, paperwork and next step.</span></div></div>
+      <div className={styles.supportPlan}><p className={styles.eyebrow}>How Leo Can Help You</p><h3>Practical support, right through to the outcome.</h3>
+       <div className={styles.supportItem}><b>01</b><span><strong>Know your next move</strong><small>Leo turns the situation into clear, manageable next steps.</small></span></div>
+       <div className={styles.supportItem}><b>02</b><span><strong>Have the paperwork prepared</strong><small>Get the letters and practical documents you need as the Matter develops.</small></span></div>
+       <div className={styles.supportItem}><b>03</b><span><strong>Handle it with confidence</strong><small>Leo highlights process and risk points at the stage they matter.</small></span></div>
+       <div className={styles.supportItem}><b>04</b><span><strong>Keep everything together</strong><small>Your guidance, evidence, documents and progress stay with the Matter.</small></span></div>
       </div>
     </div>
     <div className={styles.purchasePanel}>
-      <div><p className={styles.eyebrow}>One Matter · One Payment</p><div className={styles.launchPrice}><strong>£99</strong><span>launch price</span></div><p>No subscription. Support, guidance, letters and documents through to completion.</p></div>
+      <div><p className={styles.eyebrow}>One Matter · One Payment</p><div className={styles.launchPrice}><strong>£99</strong><span>launch price</span></div><p>One employee Matter, supported from where you are now through to a documented outcome. No subscription.</p></div>
       <div className={styles.purchaseAction}><button className={styles.primaryButton} onClick={checkout} disabled={checkoutLoading}>{checkoutLoading?"Preparing Secure Payment...":"Get Support With This Matter — £99"}</button><small>Your Matter is created only after secure payment is confirmed.</small></div>
     </div>
    </section>:null}

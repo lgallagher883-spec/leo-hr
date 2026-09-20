@@ -25,7 +25,7 @@ export default function MatterSetupForm(){
   {error?<p className={styles.chatError}>{error}</p>:null}
   {assessment?<section className={styles.assessmentExperience}>
     <div className={styles.assessmentHero}>
-      <div><p className={styles.eyebrow}>Leo understands the issue</p><h2>You don't have to handle this alone</h2><p className={styles.assessmentIntro}>Leo can guide this employee matter from the next step through to a documented outcome, while you stay in control of the decisions.</p></div>
+      <div><p className={styles.eyebrow}>Leo understands your situation</p><h2>You don't have to handle this alone</h2><p className={styles.assessmentIntro}>Leo can guide this employee matter from the next step through to a documented outcome, while you stay in control of the decisions.</p></div>
       <div className={styles.matterVisual} aria-hidden="true"><div className={styles.visualOrbit}><strong>YOUR<br/>MATTER</strong><span className={styles.orbitOne}>Understand</span><span className={styles.orbitTwo}>Prepare</span><span className={styles.orbitThree}>Act</span><span className={styles.orbitFour}>Outcome</span></div></div>
     </div>
     <div className={styles.assessmentColumns}>

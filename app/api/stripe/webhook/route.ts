@@ -446,11 +446,19 @@ async function processEmployerSupportCheckout(
 }
 
 export async function POST(request: Request) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret =
+    process.env.VERCEL_ENV === "preview"
+      ? process.env.STRIPE_EMPLOYER_SUPPORT_WEBHOOK_SECRET
+      : process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
     return NextResponse.json(
-      { error: "Stripe webhook is not configured." },
+      {
+        error:
+          process.env.VERCEL_ENV === "preview"
+            ? "Employer Support preview Stripe webhook is not configured."
+            : "Stripe webhook is not configured.",
+      },
       { status: 500 },
     );
   }

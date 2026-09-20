@@ -128,3 +128,5 @@
 .panelHeading h2,.completionCard h2{font-size:21px}
 .workspaceCard h2{font-size:20px}
 .askHeading h2{font-size:20px!important}
+
+.completionForm{margin-top:18px;max-width:650px}.completionForm label{display:block;margin-bottom:7px;color:#60466E;font-size:12px;font-weight:700}.completionForm textarea{display:block;width:100%;min-height:118px;padding:14px 15px;border:1px solid #DCCDE6;border-radius:13px;background:#fff;color:#4F4652;font:inherit;font-size:13px;line-height:1.55;resize:vertical;box-sizing:border-box;outline:none}.completionForm textarea:focus{border-color:#9B7AAD;box-shadow:0 0 0 3px rgba(110,80,132,.08)}.completionFormActions{display:flex;gap:9px;margin-top:10px}.completionFormActions button{padding:10px 15px;border:1px solid transparent;border-radius:11px;background:#6E5084;color:#fff;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.completionFormActions button:disabled{opacity:.5;cursor:not-allowed}.completionFormActions .secondaryButton{border-color:rgba(110,80,132,.16);background:#fff;color:#6E5084}

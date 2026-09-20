@@ -40,12 +40,14 @@ export default function EmployerSupportSignUpPage() {
 
     setLoading(true);
     try {
-      const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
       const currentOrigin = window.location.origin;
-      const appOrigin = configuredOrigin ||
-        (currentOrigin === "https://leohr.co.uk" || currentOrigin === "https://www.leohr.co.uk"
+      // Keep Employer Support confirmation on the exact host where sign-up began.
+      // This is especially important for preview/test deployments and leaves the
+      // existing Leo HR registration/login flow untouched.
+      const appOrigin =
+        currentOrigin === "https://leohr.co.uk" || currentOrigin === "https://www.leohr.co.uk"
           ? "https://app.leohr.co.uk"
-          : currentOrigin);
+          : currentOrigin;
       const confirmationRedirectTo =
         `${appOrigin}/auth/confirm?next=${encodeURIComponent("/employer-support/setup")}`;
 

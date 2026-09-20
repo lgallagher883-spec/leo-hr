@@ -19,6 +19,8 @@ export default function EmployerSupportSignInPage() {
       const supabase=createClient();
       const {error:signInError}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password});
       if(signInError){setError("We could not sign you in with those details.");return;}
+      const response=await fetch("/api/employer-support/access",{cache:"no-store",credentials:"include"});
+      if(!response.ok){await supabase.auth.signOut();setError("This account does not have active Ask Leo Employer Support access.");return;}
       window.location.assign("/employer-support");
     }catch{setError("Sign in is temporarily unavailable. Please try again.");}
     finally{setLoading(false);}

@@ -23,23 +23,23 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
  if(!matter)notFound();
  const openActions=(actions??[]).filter((a:any)=>a.status==="open");
  return <EmployerSupportShell><main className={styles.content}>
-  <Link href="/employer-support" className={styles.back}>← Back to your Matters</Link>
-  <div className={styles.matterHero}><div><p className={styles.eyebrow}>Matter MAT-{String(matter.id).padStart(6,"0")}</p><h1>{matter.title||matter.subject||"Employee Matter"}</h1><p>{matter.matter_type||"Employer Support Matter"} · {matter.status||"In progress"}</p></div><div className={styles.stagePill}><span>Where you are now</span><strong>{matter.workflow_stage||"Initial assessment"}</strong></div></div>
-  <div className={styles.matterPulse}><div><span>Next step</span><strong>{openActions[0]?.title||"Continue with Leo"}</strong><small>{openActions[0]?.detail||"Tell Leo what has happened since the Matter began and Leo will guide the next appropriate step."}</small></div><div><span>Actions</span><strong>{openActions.length}</strong><small>{openActions.length===1?"open action":"open actions"}</small></div><div><span>Documents</span><strong>{documents?.length??0}</strong><small>in this Matter</small></div></div>
+  <Link href="/employer-support" className={styles.back}>← Back to your matters</Link>
+  <div className={styles.matterHero}><div><p className={styles.eyebrow}>Matter MAT-{String(matter.id).padStart(6,"0")}</p><h1>{matter.title||matter.subject||"Employee matter"}</h1><p>{matter.matter_type||"Employer support matter"} · {matter.status||"In progress"}</p></div><div className={styles.stagePill}><span>Where you are now</span><strong>{matter.workflow_stage||"Initial assessment"}</strong></div></div>
+  <div className={styles.matterPulse}><div><span>Next step</span><strong>{openActions[0]?.title||"Continue with Leo"}</strong><small>{openActions[0]?.detail||"Tell Leo what has changed, or ask what you should do next."}</small></div><div><span>Actions</span><strong>{openActions.length}</strong><small>{openActions.length===1?"open action":"open actions"}</small></div><div><span>Documents</span><strong>{documents?.length??0}</strong><small>in this matter</small></div></div>
   <MatterTools matterId={matter.id}/><section className={styles.matterLayout}><div className={styles.matterMain}>
    <MatterActions matterId={matter.id} initialActions={actions??[]}/>
    <MatterDocuments documents={documents??[]}/>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
    <MatterCompletion matterId={matter.id} status={matter.status||"Open"}/>
   </div><aside className={styles.matterAside}>
-   <div className={styles.workspaceCard}><p className={styles.eyebrow}>Your workspace</p><h2>Everything for this Matter</h2>
-    <div className={styles.workspaceLink}><span>✓</span><div><strong>Actions & next steps</strong><small>{openActions.length?openActions[0]?.title:"Leo will add clear actions as the Matter develops."}</small></div></div>
-    <div className={styles.workspaceLink}><span>↥</span><div><strong>Documents & evidence</strong><small>{documents?.length?documents[0]?.title:"Keep relevant evidence and documents with the Matter."}</small></div></div>
+   <div className={styles.workspaceCard}><p className={styles.eyebrow}>Your workspace</p><h2>Everything for this matter</h2>
+    <div className={styles.workspaceLink}><span>✓</span><div><strong>Actions and next steps</strong><small>{openActions.length?openActions[0]?.title:"Actions you agree with Leo will appear here."}</small></div></div>
+    <div className={styles.workspaceLink}><span>↥</span><div><strong>Documents and evidence</strong><small>{documents?.length?documents[0]?.title:"Keep relevant evidence and documents with this matter."}</small></div></div>
     <div className={styles.workspaceLink}><span>✎</span><div><strong>Letters prepared by Leo</strong><small>Draft correspondence will stay here for review.</small></div></div>
-    <div className={styles.workspaceLink}><span>◷</span><div><strong>Matter record</strong><small>{timeline?.length?timeline[0]?.title:"A clear record builds as the Matter progresses."}</small></div></div>
+    <div className={styles.workspaceLink}><span>◷</span><div><strong>Matter record</strong><small>{timeline?.length?timeline[0]?.title:"Key activity is recorded here as the matter progresses."}</small></div></div>
    </div>
-   <div className={styles.recordCard}><p className={styles.eyebrow}>Recent activity</p>{timeline?.length?<div className={styles.recordList}>{timeline.map((event:any)=><div key={event.id}><i></i><span><strong>{event.title}</strong><small>{event.description||new Date(event.event_date||event.created_at).toLocaleDateString("en-GB")}</small></span></div>)}</div>:<p className={styles.recordEmpty}>Activity will build here as you work through the Matter.</p>}</div>
-   <div className={styles.safeNote}><strong>Private Matter workspace</strong><p>Guidance, documents and progress stay together. You remain responsible for conversations and final decisions.</p></div>
+   <div className={styles.recordCard}><p className={styles.eyebrow}>Recent activity</p>{timeline?.length?<div className={styles.recordList}>{timeline.map((event:any)=><div key={event.id}><i></i><span><strong>{event.title}</strong><small>{event.description||new Date(event.event_date||event.created_at).toLocaleDateString("en-GB")}</small></span></div>)}</div>:<p className={styles.recordEmpty}>Key activity will appear here as you work through the matter.</p>}</div>
+   <div className={styles.safeNote}><strong>Private matter workspace</strong><p>Your guidance, documents and activity are kept together here. You remain responsible for conversations and final decisions.</p></div>
   </aside></section>
  </main></EmployerSupportShell>;
 }

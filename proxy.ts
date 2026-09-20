@@ -6,6 +6,12 @@ import { updateSession } from "./lib/supabase/middleware";
 export async function proxy(request: NextRequest, _event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
 
+  // Stripe webhooks are server-to-server requests. They must reach the route
+  // untouched by the Supabase session-refresh proxy.
+  if (pathname === "/api/stripe/webhook") {
+    return NextResponse.next();
+  }
+
   // Redirect the app homepage immediately, before checking Supabase.
   if (pathname === "/") {
     return NextResponse.redirect(new URL("/register", request.url));

@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     // Employer Support is being tested on preview before launch. A preview
     // deployment must never be able to create a live Stripe Checkout session.
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
     const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
     if (isPreviewDeployment && !stripeSecretKey.startsWith("sk_test_")) {
       console.error("Blocked Employer Support checkout: preview deployment is not using a Stripe test key.");
@@ -40,7 +40,11 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const appUrl = getAppUrl(request.url);
+    // Keep preview checkout and its return URLs on the exact preview origin.
+    // Production retains the configured canonical application URL.
+    const appUrl = isPreviewDeployment
+      ? new URL(request.url).origin
+      : getAppUrl(request.url);
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       client_reference_id: String(purchase.id),

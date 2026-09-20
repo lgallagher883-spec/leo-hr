@@ -7,9 +7,9 @@ import styles from "./employer-support-portal.module.css";
 
 const links = [
   { href: "/employer-support", label: "Your Matters" },
-  { href: "/employer-support/start", label: "Start A New Matter" },
-  { href: "/employer-support/help", label: "Help & Support" },
-  { href: "/employer-support/account", label: "My Account" },
+  { href: "/employer-support/start", label: "Start a new Matter" },
+  { href: "/employer-support/help", label: "Help & support" },
+  { href: "/employer-support/account", label: "My account" },
 ];
 
 export default function EmployerSupportShell({ children }: { children: ReactNode }) {
@@ -18,7 +18,7 @@ export default function EmployerSupportShell({ children }: { children: ReactNode
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <Link href="/employer-support" className={styles.brand}>Leo HR</Link>
-        <div className={styles.product}>Ask Leo Employer Support</div>
+        <div className={styles.product}>Ask Leo <span>Employer Support</span></div>
         <nav className={styles.nav} aria-label="Employer Support">
           {links.map((link) => {
             const active = link.href === "/employer-support"

@@ -17,9 +17,10 @@ export default function EmployerSupportAskLeo({matterId,matter}:{matterId:number
    if(!save.ok)throw new Error("save failed");
    const response=await fetch("/api/ask-leo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({latestMessage:text,contextType:"matter",activeMatterId:matterId,matter,conversation:[...messages,userMessage].map(m=>({role:m.role,content:m.content})),previousMatters:[]})});
    if(!response.ok||!response.body)throw new Error("Leo unavailable");
-   const reader=response.body.getReader();const decoder=new TextDecoder();let leoText="";
+   const reader=response.body.getReader();const decoder=new TextDecoder();let leoText="";let buffer="";
    setMessages(current=>[...current,{role:"leo",content:""}]);
-   while(true){const {done,value}=await reader.read();if(done)break;leoText+=decoder.decode(value,{stream:true});setMessages(current=>{const copy=[...current];copy[copy.length-1]={role:"leo",content:leoText};return copy})}
+   while(true){const {done,value}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const lines=buffer.split("\n");buffer=done?"":lines.pop()||"";for(const line of lines){if(!line.trim())continue;try{const event=JSON.parse(line);if(event.type==="delta"&&typeof event.delta==="string")leoText+=event.delta;if(event.type==="error")throw new Error(event.error||"Leo unavailable");}catch(parseError){if(parseError instanceof SyntaxError)continue;throw parseError;}}setMessages(current=>{const copy=[...current];copy[copy.length-1]={role:"leo",content:leoText};return copy});if(done)break;}
+   if(buffer.trim()){try{const event=JSON.parse(buffer);if(event.type==="delta"&&typeof event.delta==="string")leoText+=event.delta;}catch{}}
    if(leoText.trim()){const leoSave=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"leo",content:leoText.trim()})});if(!leoSave.ok)throw new Error("Leo response could not be saved");}
   }catch{setError("Leo could not complete that message. Your Matter has not been changed outside this conversation.");}
   finally{setSending(false)}

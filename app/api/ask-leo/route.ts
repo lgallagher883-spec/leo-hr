@@ -118,6 +118,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const employerSupportAccess = await getEmployerSupportAccess();
+
     const {
       data: canUseAskLeo,
       error: askLeoPermissionError,
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
       }
     );
 
-    if (askLeoPermissionError || !canUseAskLeo) {
+    if ((askLeoPermissionError || !canUseAskLeo) && !employerSupportAccess) {
       return NextResponse.json(
         {
           error: askLeoPermissionError
@@ -199,7 +201,6 @@ export async function POST(req: Request) {
      * inside a separately purchased Matter. Never trust client supplied Matter
      * context for this product and never allow another Matter to enter context.
      */
-    const employerSupportAccess = await getEmployerSupportAccess();
     const isEmployerSupportMatterRequest =
       employerSupportAccess !== null &&
       contextType === "matter" &&

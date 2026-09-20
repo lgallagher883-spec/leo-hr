@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureEmployerSupportAccount } from "@/lib/employer-support/provisioning";
+import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+async function findOrganisationId(supabase: any, userId: string) {
+  const profile = await supabase.from("user_profiles").select("organisation_id").eq("user_id", userId).maybeSingle();
+  if (profile.data?.organisation_id) return profile.data.organisation_id;
+
+  const membership = await supabase.from("organisation_memberships").select("organisation_id").eq("user_id", userId).in("membership_status", ["active", "accepted"]).order("is_default_organisation", { ascending: false }).order("created_at", { ascending: true }).limit(1).maybeSingle();
+  if (membership.data?.organisation_id) return membership.data.organisation_id;
+
+  const identityMembership = await supabase.from("identity_organisation_memberships").select("organisation_id").eq("user_id", userId).eq("membership_status", "active").order("is_default_organisation", { ascending: false }).order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return identityMembership.data?.organisation_id ?? null;
+}
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -21,17 +33,19 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/employer-support/sign-in?error=verification_failed", requestUrl.origin));
   }
 
-  const { data: profile } = await supabase.from("user_profiles").select("organisation_id").eq("user_id", data.user.id).maybeSingle();
-  const organisationId = profile?.organisation_id ?? null;
+  if (resolveRegistrationIntent(data.user.user_metadata).kind !== "employer_support") {
+    return NextResponse.redirect(new URL("/employer-support/sign-in?error=verification_failed", requestUrl.origin));
+  }
 
+  const organisationId = await findOrganisationId(supabase, data.user.id);
   if (!organisationId) {
     return NextResponse.redirect(new URL("/employer-support/sign-in?error=account_setup_incomplete", requestUrl.origin));
   }
 
   try {
     await ensureEmployerSupportAccount(organisationId, data.user.id);
-  } catch (error) {
-    console.error("Employer Support confirmation provisioning failed:", error);
+  } catch (provisioningError) {
+    console.error("Employer Support confirmation provisioning failed:", provisioningError);
     return NextResponse.redirect(new URL("/employer-support/sign-in?error=account_setup_failed", requestUrl.origin));
   }
 

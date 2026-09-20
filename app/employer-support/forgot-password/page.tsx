@@ -11,7 +11,11 @@ export default function EmployerSupportForgotPasswordPage(){
   const current=window.location.origin;
   const origin=current==="https://leohr.co.uk"||current==="https://www.leohr.co.uk"?"https://app.leohr.co.uk":current;
   const supabase=createClient();const {error:resetError}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:`${origin}/employer-support/reset-password`});
-  if(resetError)throw resetError;setSent(true);
- }catch{setError("We could not send the reset email. Please try again.");}finally{setLoading(false);}}
+  if(resetError){
+    console.error("Employer Support password reset request failed:", resetError.message);
+    if(resetError.status === 429){setError("Too many reset requests have been made. Please wait a little while before trying again.");return;}
+    setError("We could not send the reset email. Please try again.");return;
+  }setSent(true);
+ }catch(caughtError){console.error("Employer Support password reset request failed:", caughtError);setError("We could not send the reset email. Please try again.");}finally{setLoading(false);}}
  return <main className={styles.page}><section className={styles.panel}><Link className={styles.brand} href="/">Leo HR</Link><p className={styles.eyebrow}>Ask Leo Employer Support</p><h1>{sent?"Check Your Email":"Reset Your Password"}</h1>{sent?<div className={styles.confirmation}><p>If an account is registered for that email address, a secure password reset link has been sent.</p><Link className={styles.primaryLink} href="/employer-support/sign-in">Back To Sign In</Link></div>:<><p className={styles.intro}>Enter the work email address for your Employer Support account.</p><form className={styles.form} onSubmit={submit}><label>Work Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></label>{error?<p className={styles.error} role="alert">{error}</p>:null}<button className={styles.primary} disabled={loading}>{loading?"Sending...":"Send Reset Link"}</button></form><p className={styles.switch}><Link href="/employer-support/sign-in">Back To Sign In</Link></p></>}</section><aside className={styles.aside}><p className={styles.eyebrow}>Secure Account Recovery</p><h2>Get Back To Your Matter Safely</h2><p>The reset link is sent to your registered email address. Your Matter information is not included in the email.</p></aside></main>;
 }

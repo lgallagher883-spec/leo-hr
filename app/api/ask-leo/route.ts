@@ -120,6 +120,29 @@ export async function POST(req: Request) {
 
     const employerSupportAccess = await getEmployerSupportAccess();
 
+    const body = (await req.json()) as AskLeoRequestBody;
+
+    const requestedContextType =
+      typeof body.contextType === "string"
+        ? body.contextType.trim().toLowerCase()
+        : "general";
+    const requestedMatterId = readMatterId(body.activeMatterId);
+
+    // Employer Support may bypass the normal Ask Leo permission only for an
+    // Employer Support Matter that this user is actually entitled to access.
+    // Merely owning an Employer Support account must never unlock general Ask Leo.
+    let verifiedEmployerSupportMatterAccess = false;
+    if (
+      employerSupportAccess &&
+      requestedContextType === "matter" &&
+      requestedMatterId !== null
+    ) {
+      const supportGate = await requireEmployerSupportMatter(requestedMatterId);
+      verifiedEmployerSupportMatterAccess =
+        supportGate.ok &&
+        supportGate.access.organisationId === String(organisationId);
+    }
+
     const {
       data: canUseAskLeo,
       error: askLeoPermissionError,
@@ -132,7 +155,10 @@ export async function POST(req: Request) {
       }
     );
 
-    if ((askLeoPermissionError || !canUseAskLeo) && !employerSupportAccess) {
+    if (
+      (askLeoPermissionError || !canUseAskLeo) &&
+      !verifiedEmployerSupportMatterAccess
+    ) {
       return NextResponse.json(
         {
           error: askLeoPermissionError
@@ -144,8 +170,6 @@ export async function POST(req: Request) {
         }
       );
     }
-
-    const body = (await req.json()) as AskLeoRequestBody;
 
     const latestMessage =
       typeof body.latestMessage === "string"

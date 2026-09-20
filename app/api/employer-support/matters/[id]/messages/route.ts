@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireEmployerSupportMatter } from "@/lib/auth/employerSupportAccess";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -18,7 +18,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const gate = await requireEmployerSupportMatter(matterId);
   if (!gate.ok) return NextResponse.json({ success:false, error:"Matter unavailable." }, { status:gate.status });
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data:matter } = await (supabase as any).from("matters").select("id,description")
     .eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle();
   if (!matter) return NextResponse.json({ success:false, error:"Matter unavailable." }, { status:404 });
@@ -45,7 +45,7 @@ export async function POST(request: Request, context: RouteContext) {
   const gate = await requireEmployerSupportMatter(matterId);
   if (!gate.ok) return NextResponse.json({ success:false, error:"Matter unavailable." }, { status:gate.status });
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data:matter } = await (supabase as any).from("matters").select("id").eq("id",matterId)
     .eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle();
   if(!matter) return NextResponse.json({success:false,error:"Matter unavailable."},{status:404});

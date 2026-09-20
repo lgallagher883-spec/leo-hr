@@ -142,6 +142,24 @@ export async function POST(req: Request) {
       verifiedEmployerSupportMatterAccess =
         supportGate.ok &&
         supportGate.access.organisationId === String(organisationId);
+
+      if (verifiedEmployerSupportMatterAccess) {
+        const admin = createAdminClient();
+        const { data: supportMatter } = await (admin as any)
+          .from("matters")
+          .select("status")
+          .eq("id", requestedMatterId)
+          .eq("organisation_id", supportGate.ok ? supportGate.access.organisationId : "")
+          .eq("product_source", "employer_support")
+          .maybeSingle();
+
+        if (String(supportMatter?.status || "").toLowerCase() === "completed") {
+          return NextResponse.json(
+            { error: "This matter is closed. The Ask Leo conversation is now read-only." },
+            { status: 409 },
+          );
+        }
+      }
     }
 
     const {

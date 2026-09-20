@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ensureEmployerSupportAccount } from "@/lib/employer-support/provisioning";
+import { ensureEmployerSupportOrganisation } from "@/lib/employer-support/accountProvisioning";
 import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
 
 export const runtime = "nodejs";
@@ -37,13 +37,25 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/employer-support/sign-in?error=verification_failed", requestUrl.origin));
   }
 
-  const organisationId = await findOrganisationId(supabase, data.user.id);
-  if (!organisationId) {
+  const organisationName =
+    typeof data.user.user_metadata?.organisation_name === "string"
+      ? data.user.user_metadata.organisation_name.trim()
+      : "";
+  const employeeCountBand =
+    typeof data.user.user_metadata?.employee_count_band === "string"
+      ? data.user.user_metadata.employee_count_band.trim()
+      : null;
+
+  if (!organisationName) {
     return NextResponse.redirect(new URL("/employer-support/sign-in?error=account_setup_incomplete", requestUrl.origin));
   }
 
   try {
-    await ensureEmployerSupportAccount(organisationId, data.user.id);
+    await ensureEmployerSupportOrganisation({
+      userId: data.user.id,
+      organisationName,
+      employeeCountBand,
+    });
   } catch (provisioningError) {
     console.error("Employer Support confirmation provisioning failed:", provisioningError);
     return NextResponse.redirect(new URL("/employer-support/sign-in?error=account_setup_failed", requestUrl.origin));

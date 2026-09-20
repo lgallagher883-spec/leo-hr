@@ -115,3 +115,16 @@
 
 .supportHero{max-width:780px;margin-bottom:26px;padding:30px;border-radius:25px;background:linear-gradient(125deg,#F4EAF9,#fff 52%,#EAF9F1);box-shadow:0 16px 45px rgba(78,55,92,.07)}.supportHero h1{margin:5px 0 10px;color:#60466E;font-size:34px;letter-spacing:-.045em}.supportHero>p:last-child{margin:0;max-width:690px;color:#747074;font-size:13px;line-height:1.65}.supportGrid,.accountGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:900px}.supportChoice{display:flex;gap:16px;padding:24px;border:1px solid rgba(110,80,132,.08);border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(78,55,92,.06);text-decoration:none;transition:transform .18s ease,box-shadow .18s ease}.supportChoice:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(78,55,92,.1)}.supportChoice>span{display:grid;place-items:center;flex:0 0 42px;height:42px;border-radius:13px;background:#EEE2F5;color:#6E5084;font-size:17px;font-weight:900}.supportChoice:nth-child(2)>span{background:#E5F7ED;color:#537361}.supportChoice strong,.supportChoice b{display:block;color:#60466E}.supportChoice strong{font-size:14px}.supportChoice p{margin:7px 0 12px;color:#7D7D7D;font-size:11px;line-height:1.55}.supportChoice b{font-size:10px}.privacyCallout,.accountNotice{max-width:900px;margin-top:17px;padding:18px 21px;border-radius:16px;background:#F8F4FA;color:#66556F}.privacyCallout strong,.accountNotice strong{font-size:12px}.privacyCallout p,.accountNotice p{margin:5px 0 0;font-size:10px;line-height:1.55;color:#7D747F}.accountCard{display:flex;flex-direction:column;min-height:145px;padding:24px;border-radius:20px;background:#fff;box-shadow:0 12px 34px rgba(78,55,92,.06)}.accountCard>span{color:#8B7B91;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.09em}.accountCard>strong{margin:13px 0 7px;color:#60466E;font-size:22px}.accountCard>small{margin-top:4px;color:#7D7D7D;font-size:10px}.completeBadge{padding:6px 9px;border-radius:999px;background:#E4F7EC;color:#52715F;font-size:9px;font-weight:800}
 @media(max-width:720px){.supportGrid,.accountGrid{grid-template-columns:1fr}.supportHero{padding:23px}.supportHero h1{font-size:28px}}
+
+
+/* Employer Support typography refinement */
+.matterHero h1,.panelHeading h2,.workspaceCard h2,.askHeading h2,.completionCard h2,.documentPanel h2,.actionPanel h2{
+  letter-spacing:-.018em;
+  font-weight:700;
+}
+.matterHero h1{font-size:clamp(31px,3.5vw,43px)}
+.eyebrow{text-transform:none;letter-spacing:.035em;font-size:11px}
+.userMessage strong,.leoMessage strong{text-transform:none;letter-spacing:.025em}
+.panelHeading h2,.completionCard h2{font-size:21px}
+.workspaceCard h2{font-size:20px}
+.askHeading h2{font-size:20px!important}

@@ -8,6 +8,7 @@ import EmployerSupportAskLeo from "./EmployerSupportAskLeo";
 import MatterTools from "./MatterTools";
 import MatterActions from "./MatterActions";
 import MatterDocuments from "./MatterDocuments";
+import MatterCompletion from "./MatterCompletion";
 
 export default async function EmployerSupportMatterPage({params}:{params:Promise<{id:string}>}){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId)||matterId<=0)notFound();
@@ -29,6 +30,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
    <MatterActions matterId={matter.id} initialActions={actions??[]}/>
    <MatterDocuments documents={documents??[]}/>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
+   <MatterCompletion matterId={matter.id} status={matter.status||"Open"}/>
   </div><aside className={styles.matterAside}>
    <div className={styles.workspaceCard}><p className={styles.eyebrow}>Your workspace</p><h2>Everything for this Matter</h2>
     <div className={styles.workspaceLink}><span>✓</span><div><strong>Actions & next steps</strong><small>{openActions.length?openActions[0]?.title:"Leo will add clear actions as the Matter develops."}</small></div></div>

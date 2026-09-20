@@ -8,6 +8,7 @@ import styles from "../employer-support-auth.module.css";
 export default function EmployerSupportSignInPage() {
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
+  const [showPassword,setShowPassword]=useState(false);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
 
@@ -34,7 +35,7 @@ export default function EmployerSupportSignInPage() {
       <p className={styles.intro}>Sign in to continue an existing Matter or start a new one.</p>
       <form onSubmit={submit} className={styles.form}>
         <label>Work Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></label>
-        <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/></label>
+        <label>Password<input type={showPassword?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/><button type="button" onClick={()=>setShowPassword(current=>!current)}>{showPassword?"Hide password":"Show password"}</button></label>
         <div className={styles.formActions}><Link href="/employer-support/forgot-password">Forgotten your password?</Link></div>
         {error?<p className={styles.error} role="alert">{error}</p>:null}
         <button className={styles.primary} disabled={loading}>{loading?"Signing In...":"Sign In"}</button>

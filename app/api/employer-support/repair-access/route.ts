@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ensureEmployerSupportAccount } from "@/lib/employer-support/provisioning";
 import { resolveRegistrationIntent } from "@/lib/billing/registrationIntent";
+import { ensureEmployerSupportOrganisation } from "@/lib/employer-support/accountProvisioning";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +14,25 @@ export async function POST() {
     return NextResponse.json({ ok: false }, { status: 403 });
   }
 
-  const membership = await (supabase as any).from("organisation_memberships").select("organisation_id").eq("user_id", user.id).in("membership_status", ["active", "accepted"]).order("is_default_organisation", { ascending: false }).order("created_at", { ascending: true }).limit(1).maybeSingle();
-  let organisationId = membership.data?.organisation_id ?? null;
+  const organisationName =
+    typeof user.user_metadata?.organisation_name === "string"
+      ? user.user_metadata.organisation_name.trim()
+      : "";
+  const employeeCountBand =
+    typeof user.user_metadata?.employee_count_band === "string"
+      ? user.user_metadata.employee_count_band.trim()
+      : null;
 
-  if (!organisationId) {
-    const profile = await supabase.from("user_profiles").select("organisation_id").eq("user_id", user.id).maybeSingle();
-    organisationId = profile.data?.organisation_id ?? null;
+  if (!organisationName) {
+    return NextResponse.json({ ok: false }, { status: 409 });
   }
 
-  if (!organisationId) return NextResponse.json({ ok: false }, { status: 409 });
-
   try {
-    await ensureEmployerSupportAccount(organisationId, user.id);
+    await ensureEmployerSupportOrganisation({
+      userId: user.id,
+      organisationName,
+      employeeCountBand,
+    });
     return NextResponse.json({ ok: true });
   } catch (provisioningError) {
     console.error("Employer Support account repair failed:", provisioningError);

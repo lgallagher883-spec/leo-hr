@@ -256,10 +256,20 @@ export default async function DashboardLayout({
    */
   if (
     registrationIntent.kind === "employer_support" &&
-    !billingGuard.hasPlatformAccess &&
     !isPlatformAdministrator
   ) {
-    redirect("/employer-support");
+    const employerSupportAccountResult = organisationId
+      ? await (supabase as any)
+          .from("leo_employer_support_accounts")
+          .select("id, status")
+          .eq("organisation_id", organisationId)
+          .eq("status", "active")
+          .maybeSingle()
+      : { data: null, error: null };
+
+    if (employerSupportAccountResult.data) {
+      redirect("/employer-support");
+    }
   }
 
   if (!billingGuard.hasPlatformAccess) {

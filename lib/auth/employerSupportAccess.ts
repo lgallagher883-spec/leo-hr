@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type EmployerSupportAccess = {
   userId: string;
@@ -103,10 +104,15 @@ export async function requireEmployerSupportMatter(
   const access = await getEmployerSupportAccess();
   if (!access) return { ok: false, status: 403 };
 
-  const { data: purchase, error } = await (supabase as any)
+  // Authentication and Employer Support account access have already been
+  // verified above. Product purchases are intentionally read server-side so
+  // normal Leo organisation RLS does not hide an otherwise valid paid Matter.
+  const admin = createAdminClient();
+  const { data: purchase, error } = await (admin as any)
     .from("leo_employer_support_purchases")
     .select("id")
     .eq("organisation_id", access.organisationId)
+    .eq("account_id", access.accountId)
     .eq("matter_id", matterId)
     .eq("status", "provisioned")
     .maybeSingle();

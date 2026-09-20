@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import EmployerSupportShell from "../../EmployerSupportShell";
 import styles from "../../employer-support-portal.module.css";
 import EmployerSupportAskLeo from "./EmployerSupportAskLeo";
+import MatterTools from "./MatterTools";
 
 export default async function EmployerSupportMatterPage({params}:{params:Promise<{id:string}>}){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId)||matterId<=0)notFound();
@@ -22,7 +23,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
   <Link href="/employer-support" className={styles.back}>← Back to your Matters</Link>
   <div className={styles.matterHero}><div><p className={styles.eyebrow}>Matter MAT-{String(matter.id).padStart(6,"0")}</p><h1>{matter.title||matter.subject||"Employee Matter"}</h1><p>{matter.matter_type||"Employer Support Matter"} · {matter.status||"In progress"}</p></div><div className={styles.stagePill}><span>Where you are now</span><strong>{matter.workflow_stage||"Initial assessment"}</strong></div></div>
   <div className={styles.matterPulse}><div><span>Next step</span><strong>{openActions[0]?.title||"Continue with Leo"}</strong><small>{openActions[0]?.detail||"Tell Leo what has happened since the Matter began and Leo will guide the next appropriate step."}</small></div><div><span>Actions</span><strong>{openActions.length}</strong><small>{openActions.length===1?"open action":"open actions"}</small></div><div><span>Documents</span><strong>{documents?.length??0}</strong><small>in this Matter</small></div></div>
-  <section className={styles.matterLayout}><div className={styles.matterMain}>
+  <MatterTools matterId={matter.id}/><section className={styles.matterLayout}><div className={styles.matterMain}>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
   </div><aside className={styles.matterAside}>
    <div className={styles.workspaceCard}><p className={styles.eyebrow}>Your workspace</p><h2>Everything for this Matter</h2>

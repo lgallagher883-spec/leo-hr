@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireEmployerSupportMatter } from "@/lib/auth/employerSupportAccess";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import EmployerSupportShell from "../../EmployerSupportShell";
 import styles from "../../employer-support-portal.module.css";
 import EmployerSupportAskLeo from "./EmployerSupportAskLeo";
@@ -13,7 +13,7 @@ import MatterCompletion from "./MatterCompletion";
 export default async function EmployerSupportMatterPage({params}:{params:Promise<{id:string}>}){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId)||matterId<=0)notFound();
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok){if(gate.status===401)redirect("/employer-support/sign-in");notFound();}
- const supabase=await createClient();
+ const supabase=createAdminClient();
  const [{data:matter},{data:actions},{data:documents},{data:timeline}]=await Promise.all([
   (supabase as any).from("matters").select("id,title,status,matter_type,subject,description,workflow_stage,created_at").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle(),
   (supabase as any).from("leo_employer_support_actions").select("id,title,detail,status,due_at").eq("matter_id",matterId).eq("organisation_id",gate.access.organisationId).order("created_at",{ascending:true}),

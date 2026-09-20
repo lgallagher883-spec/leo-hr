@@ -8,8 +8,8 @@ import styles from "../employer-support-auth.module.css";
 export default function EmployerSupportForgotPasswordPage(){
  const[email,setEmail]=useState("");const[loading,setLoading]=useState(false);const[error,setError]=useState("");const[sent,setSent]=useState(false);
  async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setError("");if(!email.trim()||!email.includes("@")){setError("Enter your work email address.");return;}setLoading(true);try{
-  const configured=process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/,"");const current=window.location.origin;
-  const origin=configured||(current==="https://leohr.co.uk"||current==="https://www.leohr.co.uk"?"https://app.leohr.co.uk":current);
+  const current=window.location.origin;
+  const origin=current==="https://leohr.co.uk"||current==="https://www.leohr.co.uk"?"https://app.leohr.co.uk":current;
   const supabase=createClient();const {error:resetError}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:`${origin}/reset-password?next=${encodeURIComponent("/employer-support/sign-in")}`});
   if(resetError)throw resetError;setSent(true);
  }catch{setError("We could not send the reset email. Please try again.");}finally{setLoading(false);}}

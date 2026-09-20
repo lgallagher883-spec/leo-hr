@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         quantity: 1,
       }],
       billing_address_collection: "required",
-      success_url: `${appUrl}/employer-support?payment=processing`,
+      success_url: `${appUrl}/employer-support?payment=processing&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/employer-support/start?payment=cancelled`,
       metadata: {
         leo_product: "employer_support",

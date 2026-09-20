@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import EmployerSupportShell from "./EmployerSupportShell";
 import PaymentConfirmation from "./PaymentConfirmation";
 import styles from "./employer-support-portal.module.css";
@@ -15,7 +15,10 @@ export default async function EmployerSupportHomePage({ searchParams }: { search
   const paymentSessionId = params.payment === "processing" && typeof params.session_id === "string" ? params.session_id : null;
   if (!access) redirect("/employer-support/sign-in");
 
-  const supabase = await createClient();
+  // Access has already been verified above. Use the server-only admin client for
+  // product records so Employer Support visibility does not depend on the normal
+  // Leo organisation RLS/session context.
+  const supabase = createAdminClient();
   const { data: purchases } = await (supabase as any).from("leo_employer_support_purchases")
     .select("matter_id").eq("organisation_id", access.organisationId).eq("account_id", access.accountId)
     .eq("status", "provisioned").not("matter_id", "is", null);

@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import styles from "../employer-support-auth.module.css";
 
-export default function EmployerSupportResetPasswordPage() {
+function EmployerSupportResetPasswordContent() {
   const searchParams = useSearchParams();
   const [password,setPassword]=useState("");
   const [confirm,setConfirm]=useState("");
@@ -47,4 +47,9 @@ export default function EmployerSupportResetPasswordPage() {
     </form>:null}
     {!ready&&error?<p className={styles.switch}><Link href="/employer-support/forgot-password">Request A New Link</Link></p>:null}</>}
   </section><aside className={styles.aside}><p className={styles.eyebrow}>Secure Account Recovery</p><h2>Employer Support Stays Separate</h2><p>This recovery journey returns you only to your Ask Leo Employer Support workspace.</p></aside></main>;
+}
+
+
+export default function EmployerSupportResetPasswordPage() {
+  return <Suspense fallback={<main className={styles.page}><section className={styles.panel}><p>Loading secure recovery...</p></section></main>}><EmployerSupportResetPasswordContent /></Suspense>;
 }

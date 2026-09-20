@@ -7,6 +7,7 @@ import styles from "../../employer-support-portal.module.css";
 import EmployerSupportAskLeo from "./EmployerSupportAskLeo";
 import MatterTools from "./MatterTools";
 import MatterActions from "./MatterActions";
+import MatterDocuments from "./MatterDocuments";
 
 export default async function EmployerSupportMatterPage({params}:{params:Promise<{id:string}>}){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId)||matterId<=0)notFound();
@@ -15,7 +16,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
  const [{data:matter},{data:actions},{data:documents},{data:timeline}]=await Promise.all([
   (supabase as any).from("matters").select("id,title,status,matter_type,subject,description,workflow_stage,created_at").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle(),
   (supabase as any).from("leo_employer_support_actions").select("id,title,detail,status,due_at").eq("matter_id",matterId).eq("organisation_id",gate.access.organisationId).order("created_at",{ascending:true}),
-  (supabase as any).from("matter_documents").select("id,title,document_type,status,file_name,created_at").eq("matter_id",matterId).order("created_at",{ascending:false}).limit(6),
+  (supabase as any).from("matter_documents").select("id,title,document_type,status,file_name,created_at").eq("matter_id",matterId).order("created_at",{ascending:false}),
   (supabase as any).from("matter_timeline").select("id,title,description,event_date,created_at").eq("matter_id",matterId).order("event_date",{ascending:false}).limit(6)
  ]);
  if(!matter)notFound();
@@ -26,6 +27,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
   <div className={styles.matterPulse}><div><span>Next step</span><strong>{openActions[0]?.title||"Continue with Leo"}</strong><small>{openActions[0]?.detail||"Tell Leo what has happened since the Matter began and Leo will guide the next appropriate step."}</small></div><div><span>Actions</span><strong>{openActions.length}</strong><small>{openActions.length===1?"open action":"open actions"}</small></div><div><span>Documents</span><strong>{documents?.length??0}</strong><small>in this Matter</small></div></div>
   <MatterTools matterId={matter.id}/><section className={styles.matterLayout}><div className={styles.matterMain}>
    <MatterActions matterId={matter.id} initialActions={actions??[]}/>
+   <MatterDocuments documents={documents??[]}/>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
   </div><aside className={styles.matterAside}>
    <div className={styles.workspaceCard}><p className={styles.eyebrow}>Your workspace</p><h2>Everything for this Matter</h2>

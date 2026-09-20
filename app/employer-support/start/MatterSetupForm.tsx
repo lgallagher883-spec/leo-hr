@@ -26,7 +26,7 @@ export default function MatterSetupForm(){
   {assessment?<section className={styles.assessmentExperience}>
     <div className={styles.assessmentHero}>
       <div><p className={styles.eyebrow}>Leo Understands The Issue</p><h2>You Do Not Have To Handle This Alone</h2><p className={styles.assessmentIntro}>Leo can guide this employee matter from the next step through to a documented outcome, while you stay in control of the decisions.</p></div>
-      <div className={styles.matterVisual} aria-hidden="true"><span>Issue</span><i>→</i><span>Guidance</span><i>→</i><span>Outcome</span></div>
+      <div className={styles.matterVisual} aria-hidden="true"><div className={styles.visualOrbit}><strong>YOUR<br/>MATTER</strong><span className={styles.orbitOne}>Understand</span><span className={styles.orbitTwo}>Prepare</span><span className={styles.orbitThree}>Act</span><span className={styles.orbitFour}>Outcome</span></div></div>
     </div>
     <div className={styles.assessmentColumns}>
       <div className={styles.assessmentSummary}><p className={styles.eyebrow}>Leo's Initial View</p><div className={styles.assessmentText}>{summary}</div><div className={styles.reassuranceStrip}><strong>You stay in control.</strong><span>Leo keeps you clear on the process, paperwork and next step.</span></div></div>
@@ -37,7 +37,7 @@ export default function MatterSetupForm(){
        <div className={styles.supportItem}><b>04</b><span><strong>Keep everything together</strong><small>Your guidance, evidence, documents and progress stay with the Matter.</small></span></div>
       </div>
     </div>
-    <div className={styles.purchasePanel}>
+    <div className={styles.journeySection}><p className={styles.eyebrow}>From Issue To Outcome</p><h3>A clear path through the Matter</h3><div className={styles.journeyTrack}><div><b>1</b><strong>Understand</strong><span>Leo helps you make sense of what has happened.</span></div><i>→</i><div><b>2</b><strong>Plan</strong><span>Know the right process and what needs doing next.</span></div><i>→</i><div><b>3</b><strong>Prepare</strong><span>Get ready for conversations, meetings and paperwork.</span></div><i>→</i><div><b>4</b><strong>Progress</strong><span>Keep the Matter moving with guidance at each stage.</span></div><i>→</i><div><b>5</b><strong>Conclude</strong><span>Reach and record a properly documented outcome.</span></div></div></div><div className={styles.purchasePanel}>
       <div><p className={styles.eyebrow}>One Matter · One Payment</p><div className={styles.launchPrice}><strong>£99</strong><span>launch price</span></div><p>One employee Matter, supported from where you are now through to a documented outcome. No subscription.</p></div>
       <div className={styles.purchaseAction}><button className={styles.primaryButton} onClick={checkout} disabled={checkoutLoading}>{checkoutLoading?"Preparing Secure Payment...":"Get Support With This Matter — £99"}</button><small>Your Matter is created only after secure payment is confirmed.</small></div>
     </div>

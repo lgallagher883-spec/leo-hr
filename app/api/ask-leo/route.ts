@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getEmployerSupportAccess, requireEmployerSupportMatter } from "@/lib/auth/employerSupportAccess";
 
 import { runAuthorityEngine } from "@/leo/authority/router";
@@ -240,8 +241,12 @@ export async function POST(req: Request) {
         );
       }
 
+      // The paid Matter has already passed the strict Employer Support
+      // purchase/account gate above. Read the product Matter server-side so
+      // normal Leo organisation RLS cannot hide it from Ask Leo.
+      const admin = createAdminClient();
       const { data: purchasedMatter, error: purchasedMatterError } =
-        await (supabase as any)
+        await (admin as any)
           .from("matters")
           .select("id,title,description,status,matter_type,subject,product_source")
           .eq("id", activeMatterId)

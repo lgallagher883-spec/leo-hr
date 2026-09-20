@@ -48,8 +48,7 @@ export default function EmployerSupportSignUpPage() {
         currentOrigin === "https://leohr.co.uk" || currentOrigin === "https://www.leohr.co.uk"
           ? "https://app.leohr.co.uk"
           : currentOrigin;
-      const confirmationRedirectTo =
-        `${appOrigin}/auth/confirm?next=${encodeURIComponent("/employer-support/setup")}`;
+      const confirmationRedirectTo = `${appOrigin}/employer-support/auth/confirm`;
 
       const supabase = createClient();
       const { data, error: signUpError } = await supabase.auth.signUp({

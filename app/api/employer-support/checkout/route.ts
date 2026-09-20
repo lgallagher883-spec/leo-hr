@@ -27,6 +27,18 @@ export async function POST(request: Request) {
       initialIssue: issue,
     });
 
+    // Employer Support is being tested on preview before launch. A preview
+    // deployment must never be able to create a live Stripe Checkout session.
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
+    const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
+    if (isPreviewDeployment && !stripeSecretKey.startsWith("sk_test_")) {
+      console.error("Blocked Employer Support checkout: preview deployment is not using a Stripe test key.");
+      return NextResponse.json(
+        { error: "Test checkout is not safely configured on this preview yet." },
+        { status: 503 },
+      );
+    }
+
     const stripe = getStripe();
     const appUrl = getAppUrl(request.url);
     const session = await stripe.checkout.sessions.create({

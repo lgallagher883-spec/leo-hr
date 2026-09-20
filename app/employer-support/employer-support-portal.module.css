@@ -40,3 +40,21 @@
 .journeySection{padding:38px 44px}.journeySection h3{font-size:25px;letter-spacing:-.025em}
 .journeyTrack>div{min-height:118px}.purchasePanel{padding:32px 44px}
 @media(max-width:900px){.assessmentHero,.assessmentSummary,.supportPlan,.journeySection,.purchasePanel{padding-left:26px;padding-right:26px}.assessmentColumns{grid-template-columns:1fr}}
+
+/* Supreme sales-page finish */
+.assessmentExperience{border:0;background:#fff;box-shadow:0 28px 80px rgba(77,54,91,.12)}
+.assessmentHero{background:linear-gradient(125deg,#F3E9FA 0%,#FAF7FC 44%,#EEFBF4 100%);border-bottom:1px solid rgba(110,80,132,.08)}
+.assessmentHero:before{content:"";position:absolute;left:48%;bottom:-55px;width:190px;height:190px;border-radius:50%;background:rgba(255,255,255,.42);filter:blur(2px)}
+.assessmentHero h2{color:#684A7B}
+.assessmentColumns{background:linear-gradient(90deg,#FFF 0 58%,#FBF7FD 58% 100%)}
+.assessmentSummary{background:linear-gradient(145deg,#fff 60%,#F8F3FB 100%);border-right:0}
+.supportPlan{background:linear-gradient(155deg,#F7F0FB 0%,#FCF9FD 58%,#F2FCF6 100%)}
+.supportItem{border-top-color:rgba(110,80,132,.11)}.supportItem b{background:#EEDFF6;box-shadow:inset 0 0 0 1px rgba(110,80,132,.06)}
+.reassuranceStrip{background:linear-gradient(100deg,#EEDFF6 0%,#F8F1FB 42%,#E8F8EF 100%);border:0;box-shadow:0 8px 24px rgba(110,80,132,.07)}
+.journeySection{background:linear-gradient(180deg,#FDFBFE 0%,#F5EFF9 100%);border-top:0}
+.journeyTrack>div{border:0;background:rgba(255,255,255,.9);box-shadow:0 12px 32px rgba(92,65,108,.09)}
+.journeyTrack>div:nth-of-type(2),.journeyTrack>div:nth-of-type(4){background:linear-gradient(145deg,#fff,#F1FAF5)}
+.journeyTrack b{background:#EEDFF6}
+.purchasePanel{background:linear-gradient(105deg,#EAF9F1 0%,#F5FFF9 50%,#F2E8F8 100%);border-top:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.purchaseAction .primaryButton{background:linear-gradient(110deg,#6E5084,#79558E);box-shadow:0 14px 30px rgba(110,80,132,.24)}
+.assessmentExperience .eyebrow{text-transform:none;letter-spacing:.025em;font-size:12px;font-weight:800;color:#76558B}

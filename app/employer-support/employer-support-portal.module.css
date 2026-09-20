@@ -76,3 +76,16 @@
 .purchasePanel{padding-top:38px;padding-bottom:38px;background:linear-gradient(110deg,#DFF6E9 0%,#F4FFF8 42%,#EADCF4 100%)}
 .purchasePanel .launchPrice strong{font-size:48px;letter-spacing:-.045em}.purchaseAction .primaryButton{padding:17px 24px;border-radius:14px;font-size:15px}
 @media(max-width:900px){.assessmentHero{min-height:auto;padding-top:38px;padding-bottom:38px}.assessmentHero h2{font-size:clamp(36px,8vw,50px)}.matterVisual{transform:none}}
+
+/* Employer Support product-wide premium shell */
+.sidebar{background:linear-gradient(180deg,#fff 0%,#FCF9FD 56%,#F0FBF5 100%);box-shadow:8px 0 30px rgba(86,62,101,.045)}
+.product{color:#7D7D7D;line-height:1.4}.product span{display:block;color:#6E5084;font-weight:750}
+.nav a{transition:transform .18s ease,background .18s ease,box-shadow .18s ease}.nav a:hover{transform:translateX(3px);background:#F7F1FC}.active{background:linear-gradient(100deg,#F1E5F8,#F7F1FC)!important;box-shadow:0 8px 20px rgba(110,80,132,.07)}
+.sidebarNote{background:linear-gradient(135deg,#ECFAF3,#F7FFF9);border:1px solid #E2F3E9}
+.content{background:radial-gradient(circle at 88% 5%,rgba(238,223,246,.45),transparent 24%),linear-gradient(180deg,#FBF9FC 0%,#FAF8FB 56%,#F6FBF8 100%);min-height:100vh}
+.pageHeader{padding:8px 0 28px}.pageHeader h1{letter-spacing:-.04em}.pageHeader>div>p:last-child{font-size:15px;line-height:1.65}
+.empty{position:relative;overflow:hidden;padding:54px 58px;background:linear-gradient(125deg,#fff 0%,#FBF6FD 58%,#EAF9F1 100%);border:0;border-radius:28px;box-shadow:0 24px 70px rgba(76,53,90,.1)}
+.empty:after{content:"";position:absolute;right:-60px;top:-80px;width:270px;height:270px;border-radius:50%;border:48px solid rgba(110,80,132,.045)}
+.emptyVisual{position:relative;width:110px;height:110px;margin-bottom:28px;border-radius:30px;background:linear-gradient(145deg,#6E5084,#86649A);box-shadow:0 18px 42px rgba(110,80,132,.22);display:grid;place-items:center;color:#fff}.emptyVisual span{font-size:30px}.emptyVisual i{position:absolute;width:34px;height:3px;background:#C8EED8;right:-18px;top:54px;border-radius:5px}.emptyVisual b{position:absolute;right:-78px;top:37px;padding:9px 13px;border-radius:999px;background:#EAF9F1;color:#486555;font-size:11px;box-shadow:0 8px 20px rgba(71,101,85,.08)}
+.empty h2{font-size:32px;letter-spacing:-.035em;margin:0 0 10px}.empty p{max-width:620px;font-size:15px;line-height:1.65}
+.grid{gap:22px}.card{border:0;border-radius:22px;background:linear-gradient(145deg,#fff,#FBF7FD);box-shadow:0 18px 45px rgba(76,53,90,.09);transition:transform .18s ease,box-shadow .18s ease}.card:hover{transform:translateY(-3px);box-shadow:0 24px 55px rgba(76,53,90,.13)}

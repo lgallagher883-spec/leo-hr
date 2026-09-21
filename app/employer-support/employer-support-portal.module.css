@@ -146,3 +146,5 @@
 @media(max-width:720px){.content{padding-left:18px;padding-right:18px}.pageHeader{align-items:flex-start}.pageHeader .primary{width:100%;box-sizing:border-box;text-align:center}.panelHeading{align-items:flex-start;flex-direction:column}.panelControls{width:100%;justify-content:space-between}.documentRow{grid-template-columns:38px minmax(0,1fr)}.documentRow em{grid-column:2;justify-self:start}.actionPanel,.documentPanel,.completionCard{padding:19px}.matterTools{gap:9px}.toolButton{width:100%}.paymentPreparing,.paymentProblem,.checkoutCancelled{padding:13px}}
 
 .closeHint{display:block;max-width:210px;color:#857d88;font-size:10px;line-height:1.4;text-align:center}
+
+.documentActions{display:flex;align-items:center;gap:7px}.documentActions button{padding:6px 9px;border:1px solid rgba(110,80,132,.14);border-radius:8px;background:#fff;color:#6e5084;font:inherit;font-size:9px;font-weight:800;cursor:pointer}.documentActions button:hover{background:#f7f1fc}.documentActions button:disabled{opacity:.55;cursor:wait}@media(max-width:720px){.documentActions{grid-column:2;justify-content:flex-start}}

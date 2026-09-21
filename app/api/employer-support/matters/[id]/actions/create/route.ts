@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {requireEmployerSupportMatter} from "@/lib/auth/employerSupportAccess";
 import {createClient} from "@/lib/supabase/server";
+import {createAdminClient} from "@/lib/supabase/admin";
 type Ctx={params:Promise<{id:string}>};
 export async function POST(request:Request,{params}:Ctx){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId))return NextResponse.json({error:"Invalid Matter."},{status:400});

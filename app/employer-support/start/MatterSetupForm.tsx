@@ -7,7 +7,7 @@ function cleanAssessment(value:string){
  return value.replace(/\*\*/g,"").replace(/^#{1,6}\s*/gm,"").trim();
 }
 
-export default function matterSetupForm(){
+export default function MatterSetupForm(){
  const [issue,setIssue]=useState("");const [assessment,setAssessment]=useState("");const [loading,setLoading]=useState(false);const [checkoutLoading,setCheckoutLoading]=useState(false);const [error,setError]=useState("");
  const summary=useMemo(()=>cleanAssessment(assessment),[assessment]);
  async function submit(e:FormEvent){e.preventDefault();if(loading)return;setLoading(true);setError("");setAssessment("");

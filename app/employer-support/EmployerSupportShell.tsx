@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import styles from "./employer-support-portal.module.css";
 
@@ -14,6 +16,9 @@ const links = [
 
 export default function EmployerSupportShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [signingOut,setSigningOut]=useState(false);
+  async function signOut(){setSigningOut(true);try{const supabase=createClient();await supabase.auth.signOut();router.replace("/employer-support/sign-in");router.refresh();}finally{setSigningOut(false)}}
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -27,7 +32,7 @@ export default function EmployerSupportShell({ children }: { children: ReactNode
             return <Link key={link.href} href={link.href} className={active ? styles.active : styles.navLink}>{link.label}</Link>;
           })}
         </nav>
-        <div className={styles.sidebarNote}>One secure employer account. Each Matter is kept separate.</div>
+        <div className={styles.sidebarNote}>One secure employer account. Each Matter is kept separate.</div><button type="button" className={styles.signOutButton} onClick={signOut} disabled={signingOut}>{signingOut?"Signing out…":"Sign out"}</button>
       </aside>
       <div className={styles.main}>
         <header className={styles.mobileHeader}><Link href="/employer-support" className={styles.brand}>Leo HR</Link><span>Employer Support</span></header>

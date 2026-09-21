@@ -26,9 +26,9 @@ export default function PaymentConfirmation({ sessionId }: { sessionId: string }
           return;
         }
         setError(true);
-        setMessage(data.error || "Your payment is confirmed, but your matter is still being prepared. Please try again shortly.");
+        setMessage(data.error || "We could not finish preparing your matter just now. Please try again shortly. You will not be asked to pay again from this screen.");
       }catch{
-        if(!cancelled){setError(true);setMessage("We could not finish preparing your matter just now. Your payment will not be taken again. Please try again shortly.");}
+        if(!cancelled){setError(true);setMessage("We could not finish preparing your matter just now. Please try again shortly. You will not be asked to pay again from this screen.");}
       }
     }
     void confirm();

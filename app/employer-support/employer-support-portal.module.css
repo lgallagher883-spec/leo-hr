@@ -144,3 +144,5 @@
 
 .checkoutCancelled{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;padding:14px 16px;border:1px solid rgba(110,80,132,.12);border-radius:14px;background:#fbf8fd}.checkoutCancelled>span{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;background:#eee2f5;color:#6e5084;font-weight:800}.checkoutCancelled strong{display:block;color:#5b4863;font-size:13px}.checkoutCancelled p{margin:4px 0 0;color:#766f78;font-size:11px;line-height:1.5}
 @media(max-width:720px){.content{padding-left:18px;padding-right:18px}.pageHeader{align-items:flex-start}.pageHeader .primary{width:100%;box-sizing:border-box;text-align:center}.panelHeading{align-items:flex-start;flex-direction:column}.panelControls{width:100%;justify-content:space-between}.documentRow{grid-template-columns:38px minmax(0,1fr)}.documentRow em{grid-column:2;justify-self:start}.actionPanel,.documentPanel,.completionCard{padding:19px}.matterTools{gap:9px}.toolButton{width:100%}.paymentPreparing,.paymentProblem,.checkoutCancelled{padding:13px}}
+
+.closeHint{display:block;max-width:210px;color:#857d88;font-size:10px;line-height:1.4;text-align:center}

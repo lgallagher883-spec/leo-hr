@@ -46,9 +46,10 @@ export async function POST(request: Request, context: RouteContext) {
   if (!gate.ok) return NextResponse.json({ success:false, error:"Matter unavailable." }, { status:gate.status });
 
   const supabase = createAdminClient();
-  const { data:matter } = await (supabase as any).from("matters").select("id").eq("id",matterId)
+  const { data:matter } = await (supabase as any).from("matters").select("id,status").eq("id",matterId)
     .eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle();
   if(!matter) return NextResponse.json({success:false,error:"Matter unavailable."},{status:404});
+  if(String(matter.status).toLowerCase()==="completed") return NextResponse.json({success:false,error:"This matter is closed and its conversation is read-only."},{status:409});
 
   const body=await request.json().catch(()=>null) as {role?:unknown;content?:unknown}|null;
   const role=body?.role==="leo"?"leo":body?.role==="user"?"user":null;

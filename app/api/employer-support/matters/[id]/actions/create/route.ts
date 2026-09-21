@@ -5,6 +5,7 @@ type Ctx={params:Promise<{id:string}>};
 export async function POST(request:Request,{params}:Ctx){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId))return NextResponse.json({error:"Invalid Matter."},{status:400});
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok)return NextResponse.json({error:"Matter unavailable."},{status:gate.status});
+ const guard=createAdminClient();const {data:matter}=await (guard as any).from("matters").select("status").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle();if(!matter)return NextResponse.json({error:"Matter unavailable."},{status:404});if(String(matter.status).toLowerCase()==="completed")return NextResponse.json({error:"This matter is closed and cannot be changed."},{status:409});
  const body=await request.json().catch(()=>null) as {title?:unknown;detail?:unknown}|null;const title=typeof body?.title==="string"?body.title.trim().slice(0,180):"";const detail=typeof body?.detail==="string"?body.detail.trim().slice(0,1000):"";
  if(!title)return NextResponse.json({error:"An action title is required."},{status:400});
  const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();

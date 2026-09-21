@@ -27,8 +27,12 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     const purchaseId = Number(session.metadata?.employer_support_purchase_id ?? session.client_reference_id);
 
+    const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+    const expectedLiveMode = !isPreviewDeployment && stripeSecretKey.startsWith("sk_live_");
+
     if (
-      session.livemode ||
+      session.livemode !== expectedLiveMode ||
       session.metadata?.leo_product !== "employer_support" ||
       session.mode !== "payment" ||
       session.payment_status !== "paid" ||
@@ -87,6 +91,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ matterId });
   } catch (error) {
     console.error("Employer Support payment confirmation failed:", error);
-    return NextResponse.json({ error: "Payment was received but the Matter is still being prepared. Please refresh shortly." }, { status: 500 });
+    return NextResponse.json({ error: "We could not finish preparing your matter just now. Please refresh shortly." }, { status: 500 });
   }
 }

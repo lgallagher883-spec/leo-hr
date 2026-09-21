@@ -30,7 +30,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
    <MatterActions matterId={matter.id} initialActions={actions??[]}/>
    <MatterDocuments documents={documents??[]}/>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
-   <MatterCompletion matterId={matter.id} status={matter.status||"Open"}/>
+   <MatterCompletion matterId={matter.id} status={matter.status||"Open"} openActionCount={openActions.length}/>
   </div><aside className={styles.matterAside}>
    <div className={styles.workspaceCard}><h2>Matter overview</h2>
     <div className={styles.workspaceLink}><span>✓</span><div><strong>Actions and next steps</strong><small>{openActions.length?openActions[0]?.title:"Actions you agree with Leo will appear here."}</small></div></div>

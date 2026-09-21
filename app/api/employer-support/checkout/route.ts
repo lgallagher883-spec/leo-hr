@@ -20,15 +20,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const purchase = await createPendingEmployerSupportPurchase({
-      organisationId: access.organisationId,
-      accountId: access.accountId,
-      userId: access.userId,
-      initialIssue: issue,
-    });
-
-    // Employer Support is being tested on preview before launch. A preview
-    // deployment must never be able to create a live Stripe Checkout session.
+    // Safety first: validate the Stripe environment before creating any
+    // purchase row, so a blocked preview checkout cannot leave orphaned
+    // pending purchases behind.
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
     const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
     if (isPreviewDeployment && !stripeSecretKey.startsWith("sk_test_")) {
@@ -38,6 +32,13 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
+
+    const purchase = await createPendingEmployerSupportPurchase({
+      organisationId: access.organisationId,
+      accountId: access.accountId,
+      userId: access.userId,
+      initialIssue: issue,
+    });
 
     const stripe = getStripe();
     // Keep preview checkout and its return URLs on the exact preview origin.

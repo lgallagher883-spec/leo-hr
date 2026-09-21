@@ -2,7 +2,7 @@
 import {useState} from "react";
 import styles from "../../employer-support-portal.module.css";
 
-export default function MatterCompletion({matterId,status}:{matterId:number;status:string}){
+export default function MatterCompletion({matterId,status,openActionCount=0}:{matterId:number;status:string;openActionCount?:number}){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [showForm,setShowForm]=useState(false);
@@ -39,7 +39,7 @@ export default function MatterCompletion({matterId,status}:{matterId:number;stat
   </div>
   <div className={styles.completionActions}>
    {complete?<a className={styles.bundleButton} href={"/api/employer-support/matters/"+matterId+"/bundle"}>Download matter bundle</a>:null}
-   {!complete&&!showForm?<button type="button" onClick={()=>setShowForm(true)}>Close this matter</button>:null}
+   {!complete&&!showForm?<><button type="button" onClick={()=>setShowForm(true)} disabled={openActionCount>0}>Close this matter</button>{openActionCount>0?<small className={styles.closeHint}>Complete the remaining {openActionCount} open action{openActionCount===1?"":"s"} first.</small>:null}</>:null}
   </div>
  </section>;
 }

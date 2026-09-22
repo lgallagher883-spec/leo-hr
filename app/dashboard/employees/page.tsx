@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import * as XLSX from "xlsx";
+import shellStyles from "../DashboardShell.module.css";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1022,8 +1023,8 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div style={pageStyle}>
-      <header style={headerStyle}>
+    <div style={pageStyle} className={shellStyles.managementEmployeesPage}>
+      <header style={headerStyle} className={shellStyles.managementEmployeesHeader}>
         <div>
 <h1 style={titleStyle}>Employees</h1>
           <p style={subtitleStyle}>
@@ -1032,7 +1033,7 @@ export default function EmployeesPage() {
           </p>
         </div>
 
-        <div style={headerActionsStyle}>
+        <div style={headerActionsStyle} className={shellStyles.managementEmployeesDesktopActions}>
           {canExport && (
             <button
               type="button"
@@ -1065,7 +1066,7 @@ export default function EmployeesPage() {
         </div>
       </header>
 
-      <div style={summaryGridStyle}>
+      <div style={summaryGridStyle} className={shellStyles.managementEmployeesSummary}>
         <SummaryCard
           label="New starters"
           value={newStarterCount}
@@ -1111,8 +1112,8 @@ export default function EmployeesPage() {
         <MessageBox tone={pageMessageTone}>{pageMessage}</MessageBox>
       )}
 
-      <section style={searchPanelStyle}>
-        <div style={searchRowStyle}>
+      <section style={searchPanelStyle} className={shellStyles.managementEmployeesSearch}>
+        <div style={searchRowStyle} className={shellStyles.managementEmployeesSearchRow}>
           <label style={searchContainerStyle}>
             <span style={fieldLabelStyle}>Search employees</span>
 
@@ -1121,6 +1122,7 @@ export default function EmployeesPage() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search name, role, email, manager, status or reference..."
               style={searchInputStyle}
+              className={shellStyles.managementEmployeesSearchInput}
             />
           </label>
 
@@ -1225,7 +1227,7 @@ export default function EmployeesPage() {
         )}
       </section>
 
-      <div style={resultsHeaderStyle}>
+      <div style={resultsHeaderStyle} className={shellStyles.managementEmployeesResultsHeader}>
         <div>
           <div style={resultsTitleStyle}>
             {viewModeLabel(viewMode)}
@@ -1270,7 +1272,7 @@ export default function EmployeesPage() {
           }
         />
       ) : (
-        <div style={employeeGridStyle}>
+        <div style={employeeGridStyle} className={shellStyles.managementEmployeesGrid}>
           {visibleEmployees.map((employee) => {
             const status = normaliseEmployeeStatus(employee.status);
 
@@ -1282,6 +1284,7 @@ export default function EmployeesPage() {
                   router.push(`/dashboard/employees/${employee.id}`)
                 }
                 style={employeeCardStyle}
+                className={shellStyles.managementEmployeeCard}
               >
                 <div style={employeeCardHeaderStyle}>
                   <div style={employeeInitialStyle}>
@@ -1298,7 +1301,7 @@ export default function EmployeesPage() {
                     {employee.role || "Role not set"}
                   </div>
 
-                  <div style={employeeInformationGridStyle}>
+                  <div style={employeeInformationGridStyle} className={shellStyles.managementEmployeeInfoGrid}>
                     <EmployeeInformation
                       label="Employee reference"
                       value={String(employee.id)}

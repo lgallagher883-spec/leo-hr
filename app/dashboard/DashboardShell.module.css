@@ -1228,3 +1228,31 @@
     color: #6e5084 !important;
   }
 }
+
+
+/* Restore document scrolling on phone layouts while fixed navigation stays in place. */
+@media (max-width: 767px) {
+  html,
+  body {
+    height: auto !important;
+    min-height: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .shell {
+    height: auto !important;
+    min-height: 100dvh;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  .dashboardContent {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+    touch-action: pan-y pinch-zoom;
+  }
+}

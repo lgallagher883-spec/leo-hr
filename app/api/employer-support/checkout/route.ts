@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
+import { EmployerSupportAccessLookupError, getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
 import { createPendingEmployerSupportPurchase } from "@/lib/employer-support/purchases";
 import { getAppUrl, getStripe } from "@/lib/stripe";
 
@@ -10,7 +10,15 @@ export const dynamic = "force-dynamic";
 const EMPLOYER_SUPPORT_LAUNCH_PRICE_PENCE = 9900;
 
 export async function POST(request: Request) {
-  const access = await getEmployerSupportAccess();
+  let access;
+  try {
+    access = await getEmployerSupportAccess();
+  } catch (error) {
+    if (error instanceof EmployerSupportAccessLookupError) {
+      return NextResponse.json({ error: "Your Employer Support access could not be checked just now. Please try again." }, { status: 503 });
+    }
+    throw error;
+  }
   if (!access) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
 
   const body = await request.json().catch(() => null) as { issue?: unknown } | null;

@@ -239,16 +239,33 @@ function FoundationCard({
   onClick?: () => void;
   featured?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div style={featured ? featuredCardStyle : cardStyle}>
       <div>
-        <div style={featured ? featuredCardTitleStyle : cardTitleStyle}>
-          {title}
+        <div style={cardHeadingRowStyle}>
+          <div>
+            <div style={featured ? featuredCardTitleStyle : cardTitleStyle}>
+              {title}
+            </div>
+            <p style={cardDescriptionStyle}>{description}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+            style={expandButtonStyle}
+            aria-expanded={expanded}
+          >
+            {expanded ? "Hide details" : "View details"}
+            <span aria-hidden="true" style={chevronStyle}>
+              {expanded ? "⌃" : "⌄"}
+            </span>
+          </button>
         </div>
 
-        <p style={cardDescriptionStyle}>{description}</p>
-
-        <div style={detailBoxStyle}>{detail}</div>
+        {expanded ? <div style={detailBoxStyle}>{detail}</div> : null}
       </div>
 
       {buttonLabel ? (
@@ -362,7 +379,7 @@ const featuredCardStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
   borderRadius: "18px",
   padding: "20px",
-  minHeight: "160px",
+  minHeight: "118px",
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
@@ -373,7 +390,7 @@ const cardStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
   borderRadius: "18px",
   padding: "18px",
-  minHeight: "190px",
+  minHeight: "145px",
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
@@ -389,6 +406,33 @@ const featuredCardTitleStyle: React.CSSProperties = {
   fontSize: "20px",
   fontWeight: 800,
   color: "#6E5084",
+};
+
+const cardHeadingRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "14px",
+};
+
+const expandButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  border: "1px solid #E5E7EB",
+  background: "#FFFFFF",
+  color: "#6E5084",
+  borderRadius: "999px",
+  padding: "7px 10px",
+  fontSize: "11px",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const chevronStyle: React.CSSProperties = {
+  fontSize: "14px",
+  lineHeight: 1,
 };
 
 const cardDescriptionStyle: React.CSSProperties = {

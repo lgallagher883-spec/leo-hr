@@ -2209,7 +2209,7 @@ function AbsenceNextAction({
 
   return (
     <div style={absenceAgentCardStyle}>
-      <div style={absenceAgentEyebrowStyle}>LEO NEEDS YOUR HELP · ABSENCE WORKFLOW</div>
+      <div style={absenceAgentEyebrowStyle}>Leo · Absence next step</div>
       <div style={absenceAgentTitleStyle}>Return-to-work follow-up</div>
       <p style={absenceAgentTextStyle}>
         Leo detected a sickness absence that ended on {formatDate(endDate)}. A return-to-work discussion should now be considered and recorded rather than leaving the absence as a historic entry only.

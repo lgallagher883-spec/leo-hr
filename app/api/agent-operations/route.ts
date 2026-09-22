@@ -99,7 +99,6 @@ export async function GET() {
     const proactiveCreated = logs.filter((row: any) => row.action === "reminder_milestone_emitted").length;
     const matterAgentActions = logs.filter((row: any) => row.action === "matter_agent_action_completed").length;
     const proactiveAcknowledged = logs.filter((row: any) => row.action === "reminder_acknowledged").length;
-    const workflowAdvances = logs.filter((row: any) => row.action === "workflow_stage_advanced").length;
     const escalationsRaised = logs.filter((row: any) => row.action === "matter_escalated_to_management").length;
 
     const escalations = notifications
@@ -132,10 +131,9 @@ export async function GET() {
       usage: {
         proactiveTasksCreated: proactiveCreated,
         proactiveTasksAcknowledged: proactiveAcknowledged,
-        workflowStagesAdvanced: workflowAdvances,
         managementEscalationsRaised: escalationsRaised,
         matterAgentActionsCompleted: matterAgentActions,
-        trackedAutomationEvents: proactiveCreated + proactiveAcknowledged + workflowAdvances + escalationsRaised + matterAgentActions,
+        trackedAutomationEvents: proactiveCreated + proactiveAcknowledged + escalationsRaised + matterAgentActions,
       },
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -184,7 +182,7 @@ export async function POST(request: Request) {
 
       const recipients = (membershipResult.data ?? []).filter((row: any) => row.user_id && row.user_id !== user.id);
 
-      if (recipients.length === 0 && !["owner", "senior"].includes(roleKey)) {
+      if (recipients.length === 0) {
         return NextResponse.json({ success: false, error: "No active Owner or Senior user is available to receive this escalation." }, { status: 409 });
       }
 

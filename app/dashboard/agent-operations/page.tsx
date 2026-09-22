@@ -95,7 +95,7 @@ export default function AgentOperationsPage() {
     void loadData();
   }, []);
 
-  async function runMatterAction(action: "advance_workflow" | "escalate", matterId: number) {
+  async function runMatterAction(action: "escalate", matterId: number) {
     const key = `${action}:${matterId}`;
     setBusy(key);
     setNotice("");
@@ -108,9 +108,7 @@ export default function AgentOperationsPage() {
         body: JSON.stringify({
           action,
           matterId,
-          reason: action === "escalate"
-            ? "Leo has routed this Matter for authorised management review before the workflow continues."
-            : undefined,
+          reason: "Leo has routed this Matter for authorised management review before the workflow continues.",
         }),
       });
       const result = await response.json().catch(() => null);
@@ -118,9 +116,7 @@ export default function AgentOperationsPage() {
         throw new Error(result?.error || "The action could not be completed.");
       }
 
-      setNotice(action === "escalate"
-        ? `Escalation created and routed to ${result.recipientCount || 0} management recipient(s).`
-        : `Workflow advanced to ${result.status}.`);
+      setNotice(`Escalation created and routed to ${result.recipientCount || 0} management recipient(s).`);
       await loadData();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "The action could not be completed.");
@@ -188,7 +184,7 @@ export default function AgentOperationsPage() {
         <SectionHeading
           kicker="Workflow Automation"
           title="Predefined Matter workflows"
-          description="Leo moves Matters through a controlled multi-step workflow and records every stage transition."
+          description="Leo identifies the next step in each Matter, links the employer to the required action and records completed workflow activity."
           badge={String(openMatters.length)}
         />
         {openMatters.length === 0 ? (
@@ -220,15 +216,14 @@ export default function AgentOperationsPage() {
                 </div>
                 <div style={actionRowStyle}>
                   <span style={mutedStyle}>
-                    {matter.nextStage ? `Next automated stage: ${matter.nextStage}` : "Workflow complete"}
+                    {matter.nextStage ? `Next workflow stage: ${matter.nextStage}` : "Workflow complete"}
                   </span>
                   <button
                     type="button"
                     style={primaryButtonStyle}
-                    disabled={!matter.nextStage || busy === `advance_workflow:${matter.id}`}
-                    onClick={() => void runMatterAction("advance_workflow", matter.id)}
+                    onClick={() => router.push(`/dashboard/matters/${matter.id}`)}
                   >
-                    {busy === `advance_workflow:${matter.id}` ? "Advancing..." : "Advance workflow"}
+                    Open Leo next actions
                   </button>
                 </div>
               </article>

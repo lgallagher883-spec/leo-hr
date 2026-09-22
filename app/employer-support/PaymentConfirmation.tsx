@@ -6,7 +6,7 @@ import styles from "./employer-support-portal.module.css";
 
 export default function PaymentConfirmation({ sessionId }: { sessionId: string }) {
   const router = useRouter();
-  const [message, setMessage] = useState("Payment received. Preparing your matter…");
+  const [message, setMessage] = useState("We’re securely checking your payment and preparing your matter…");
   const [error,setError]=useState(false);
 
   useEffect(() => {
@@ -37,6 +37,6 @@ export default function PaymentConfirmation({ sessionId }: { sessionId: string }
 
   return <section className={error?styles.paymentProblem:styles.paymentPreparing} role="status" aria-live="polite">
     <span aria-hidden="true">{error?"!":"✦"}</span>
-    <div><strong>{error?"Your matter is still being prepared":"Secure payment received"}</strong><p>{message}</p>{error?<button type="button" onClick={()=>window.location.reload()}>Try again</button>:null}</div>
+    <div><strong>{error?"Your matter is still being prepared":"Preparing your matter"}</strong><p>{message}</p>{error?<button type="button" onClick={()=>window.location.reload()}>Try again</button>:null}</div>
   </section>;
 }

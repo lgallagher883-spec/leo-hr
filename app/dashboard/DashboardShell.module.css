@@ -1165,3 +1165,66 @@
     display: block;
   }
 }
+
+
+/* Preview review refinements */
+@media (max-width: 767px) {
+  .managementAttentionSection {
+    padding: 13px !important;
+  }
+
+  .managementReminderCard {
+    padding: 10px !important;
+  }
+
+  .managementReminderCard p {
+    margin-top: 5px !important;
+    margin-bottom: 5px !important;
+    line-height: 1.4 !important;
+  }
+
+  .managementAskLeoPage {
+    padding-bottom: 84px;
+  }
+
+  .managementAskLeoComposer {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+  }
+
+  .managementEmployeesSummary {
+    grid-template-columns: repeat(5, minmax(98px, 1fr)) !important;
+  }
+
+  .managementEmployeesSummary > button {
+    min-height: 92px !important;
+    padding: 10px !important;
+  }
+
+  .managementEmployeesSummary > button span {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .managementDashboard,
+  .managementAskLeoPage,
+  .managementMattersPage,
+  .managementEmployeesPage {
+    color: #7d7d7d;
+  }
+
+  .managementDashboard h1,
+  .managementDashboard h2,
+  .managementDashboard h3,
+  .managementAskLeoPage h1,
+  .managementAskLeoPage h2,
+  .managementAskLeoPage h3,
+  .managementMattersPage h1,
+  .managementMattersPage h2,
+  .managementMattersPage h3,
+  .managementEmployeesPage h1,
+  .managementEmployeesPage h2,
+  .managementEmployeesPage h3 {
+    color: #6e5084 !important;
+  }
+}

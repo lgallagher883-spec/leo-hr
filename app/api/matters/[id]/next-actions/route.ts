@@ -167,7 +167,13 @@ export async function POST(request: Request, context: RouteContext) {
     created_by: "Leo",
   });
 
-  if (error) return NextResponse.json({ success: false, error: "The workflow task could not be recorded." }, { status: 500 });
+  if (error) {
+    console.error("Matter workflow task could not be recorded:", error);
+    return NextResponse.json({
+      success: false,
+      error: error.message || "The workflow task could not be recorded.",
+    }, { status: 500 });
+  }
 
   const { error: auditError } = await supabase.from("audit_logs").insert({
     organisation_id: organisationId,

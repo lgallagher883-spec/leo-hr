@@ -1,8 +1,7 @@
 export default function ProfileSection({
-  title,
   children,
 }: {
-  title: string;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -17,7 +16,6 @@ export default function ProfileSection({
         boxSizing: "border-box",
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: "12px", color: "#5E456C", fontFamily: "inherit" }}>{title}</div>
       {children}
     </div>
   );

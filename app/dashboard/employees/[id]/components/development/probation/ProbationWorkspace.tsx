@@ -570,7 +570,7 @@ function ProbationNextAction({
 
   return (
     <div style={probationAgentCardStyle}>
-      <div style={probationAgentEyebrowStyle}>LEO · PROBATION NEXT STEP</div>
+      <div style={probationAgentEyebrowStyle}>Leo · Probation next step</div>
       <div style={probationAgentTitleStyle}>
         {overdue ? `${target.review.review_type} is overdue` : `${target.review.review_type} is coming up`}
       </div>

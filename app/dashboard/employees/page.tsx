@@ -3161,7 +3161,11 @@ const summaryCardStyle: CSSProperties = {
   background: "#FFFFFF",
   border: "1px solid #E7E1EA",
   borderRadius: "14px",
-  padding: "16px",
+  padding: "18px 18px 16px",
+  minHeight: "154px",
+  display: "grid",
+  gridTemplateRows: "22px 36px 1fr",
+  alignContent: "start",
   cursor: "pointer",
   fontFamily: "inherit",
 };
@@ -3176,20 +3180,24 @@ const summaryLabelStyle: CSSProperties = {
   color: "#79717E",
   fontSize: "12px",
   fontWeight: 700,
+  lineHeight: "18px",
+  display: "flex",
+  alignItems: "center",
 };
 
 const summaryValueStyle: CSSProperties = {
   color: "#6E5084",
   fontSize: "24px",
   fontWeight: 900,
-  marginTop: "7px",
+  lineHeight: "30px",
 };
 
 const summaryDetailStyle: CSSProperties = {
   color: "#746C78",
   fontSize: "11px",
   lineHeight: 1.5,
-  marginTop: "6px",
+  marginTop: "4px",
+  alignSelf: "start",
 };
 
 const summaryMetricStyle: CSSProperties = {

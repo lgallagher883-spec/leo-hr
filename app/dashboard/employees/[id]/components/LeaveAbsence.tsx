@@ -1258,6 +1258,10 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
         defaultPrompt="Draft a leave or absence case update that confirms status, timelines, operational cover and fair next steps without medical detail."
       />
 
+      {!isEmployeeView ? (
+        <AbsenceNextAction records={records} employeeId={employeeId} />
+      ) : null}
+
       <div style={headerRowStyle}>
         <div>
           <p style={introStyle}>
@@ -2174,6 +2178,54 @@ function Panel({
 
       {children}
     </section>
+  );
+}
+
+function AbsenceNextAction({
+  records,
+  employeeId,
+}: {
+  records: ParsedLeaveRecord[];
+  employeeId: number;
+}) {
+  const sickness = records
+    .filter((record) => record.leave_type === "Sickness Absence")
+    .filter((record) => record.normalisedStatus !== "Cancelled" && record.normalisedStatus !== "Declined")
+    .filter((record) => Boolean(record.end_date || record.start_date))
+    .sort((a, b) => String(b.end_date || b.start_date).localeCompare(String(a.end_date || a.start_date)));
+
+  const latest = sickness[0];
+  if (!latest) return null;
+
+  const endDate = latest.end_date || latest.start_date;
+  if (!endDate || !isPastDate(endDate)) return null;
+
+  const askLeoPrompt = [
+    "An employee has returned from sickness absence.",
+    `Employee record: ${employeeId}.`,
+    `Absence ended: ${endDate}.`,
+    "Help me prepare for a fair return-to-work discussion. Do not infer or disclose medical details that are not recorded.",
+  ].join("\n");
+
+  return (
+    <div style={absenceAgentCardStyle}>
+      <div style={absenceAgentEyebrowStyle}>LEO NEEDS YOUR HELP · ABSENCE WORKFLOW</div>
+      <div style={absenceAgentTitleStyle}>Return-to-work follow-up</div>
+      <p style={absenceAgentTextStyle}>
+        Leo detected a sickness absence that ended on {formatDate(endDate)}. A return-to-work discussion should now be considered and recorded rather than leaving the absence as a historic entry only.
+      </p>
+      <div style={absenceAgentActionsStyle}>
+        <a href="/dashboard/policies/forms/return-to-work-form" style={absenceAgentPrimaryLinkStyle}>
+          Open return-to-work form
+        </a>
+        <a
+          href={`/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}&resourceTitle=${encodeURIComponent("Return-to-work follow-up")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
+          style={absenceAgentSecondaryLinkStyle}
+        >
+          Ask Leo to prepare
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -3437,3 +3489,10 @@ const informationMessageStyle: CSSProperties = {
   marginBottom: "16px",
   fontSize: "13px",
 };
+const absenceAgentCardStyle: CSSProperties = { margin: "18px 0", padding: "18px", border: "1px solid #dce9e1", borderRadius: "16px", background: "linear-gradient(135deg, #f5fff9 0%, #ffffff 100%)" };
+const absenceAgentEyebrowStyle: CSSProperties = { color: "#668173", fontSize: "11px", fontWeight: 800, letterSpacing: "0.08em" };
+const absenceAgentTitleStyle: CSSProperties = { marginTop: "6px", color: "#6E5084", fontSize: "18px", fontWeight: 700 };
+const absenceAgentTextStyle: CSSProperties = { margin: "7px 0 12px", color: "#64748b", fontSize: "13px", lineHeight: 1.55 };
+const absenceAgentActionsStyle: CSSProperties = { display: "flex", gap: "10px", flexWrap: "wrap" };
+const absenceAgentPrimaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", minHeight: "38px", padding: "0 13px", borderRadius: "10px", background: "#6E5084", color: "#fff", textDecoration: "none", fontSize: "12px", fontWeight: 700 };
+const absenceAgentSecondaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", minHeight: "38px", padding: "0 13px", borderRadius: "10px", border: "1px solid #d8c8e2", background: "#fff", color: "#6E5084", textDecoration: "none", fontSize: "12px", fontWeight: 700 };

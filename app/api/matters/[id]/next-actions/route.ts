@@ -25,9 +25,14 @@ function lower(value: unknown) {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
-async function requireMatter(supabase: Awaited<ReturnType<typeof createClient>>, matterId: number) {
+async function requireMatter(supabase: Awaited<ReturnType<typeof createClient>>, matterId: number, userId: string) {
+  const { data: organisationId, error: organisationError } = await supabase.rpc("leo_current_organisation_id");
+  if (organisationError || !organisationId) return { error: "Your active organisation could not be resolved.", status: 403 };
+
   const { data: allowed } = await (supabase as any).rpc("leo_has_permission", {
+    target_organisation_id: organisationId,
     target_permission_key: "matters.view",
+    target_user_id: userId,
   });
 
   if (!allowed) return { error: "You do not have permission to view this Matter.", status: 403 };
@@ -51,7 +56,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ success: false, error: "You must be signed in." }, { status: 401 });
 
-  const resolved = await requireMatter(supabase, matterId);
+  const resolved = await requireMatter(supabase, matterId, user.id);
   if ("error" in resolved) return NextResponse.json({ success: false, error: resolved.error }, { status: resolved.status });
 
   const matter = resolved.matter;
@@ -144,8 +149,13 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ success: false, error: "Unsupported action." }, { status: 400 });
   }
 
+  const { data: organisationId, error: organisationError } = await supabase.rpc("leo_current_organisation_id");
+  if (organisationError || !organisationId) return NextResponse.json({ success: false, error: "Your active organisation could not be resolved." }, { status: 403 });
+
   const { data: allowed } = await (supabase as any).rpc("leo_has_permission", {
+    target_organisation_id: organisationId,
     target_permission_key: "matters.update",
+    target_user_id: user.id,
   });
   if (!allowed) return NextResponse.json({ success: false, error: "You do not have permission to update this Matter." }, { status: 403 });
 

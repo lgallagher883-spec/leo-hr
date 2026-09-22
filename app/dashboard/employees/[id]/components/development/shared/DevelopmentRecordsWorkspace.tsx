@@ -782,12 +782,12 @@ const workspaceHeaderStyle: React.CSSProperties = {
 
 const workspaceTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5E456C",
 };
 
 const workspaceDescriptionStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
@@ -814,7 +814,7 @@ const secondaryButtonStyle: React.CSSProperties = {
 
 const archiveButtonStyle: React.CSSProperties = {
   background: "#FFFFFF",
-  color: "#6B7280",
+  color: "#5E456C",
   border: "1px solid #D1D5DB",
   borderRadius: "10px",
   padding: "10px 14px",
@@ -844,7 +844,7 @@ const formTitleStyle: React.CSSProperties = {
 const closeButtonStyle: React.CSSProperties = {
   background: "transparent",
   border: "none",
-  color: "#6B7280",
+  color: "#5E456C",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -862,7 +862,7 @@ const formFieldStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   display: "block",
-  color: "#374151",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
   marginBottom: "6px",
@@ -937,7 +937,7 @@ const emptyStateStyle: React.CSSProperties = {
   background: "#F9FAFB",
   border: "1px dashed #D1D5DB",
   borderRadius: "12px",
-  color: "#6B7280",
+  color: "#5E456C",
   textAlign: "center",
 };
 
@@ -961,19 +961,19 @@ const recordCardStyle: React.CSSProperties = {
 };
 
 const recordTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontWeight: 800,
 };
 
 const recordMetaStyle: React.CSSProperties = {
   marginTop: "4px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
 };
 
 const recordSummaryStyle: React.CSSProperties = {
   marginTop: "8px",
-  color: "#4B5563",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.5,
 };

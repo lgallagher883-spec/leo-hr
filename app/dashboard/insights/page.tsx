@@ -908,7 +908,8 @@ export default function InsightsPage() {
       ...formatBriefItems(executiveBrief.earlyInterventions),
     ];
 
-    const blob = new Blob([lines.join("\r\n")], {
+    const utf8Bom = "\uFEFF";
+    const blob = new Blob([utf8Bom, lines.join("\r\n")], {
       type: "text/plain;charset=utf-8",
     });
 

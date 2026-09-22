@@ -2200,29 +2200,54 @@ function AbsenceNextAction({
   const endDate = latest.end_date || latest.start_date;
   if (!endDate || !isPastDate(endDate)) return null;
 
+  const latestEnd = parseDateOnly(endDate);
+  const twelveMonthsAgo = latestEnd
+    ? new Date(latestEnd.getFullYear() - 1, latestEnd.getMonth(), latestEnd.getDate(), 12)
+    : null;
+
+  const recentSickness = sickness.filter((record) => {
+    const recordEnd = parseDateOnly(record.end_date || record.start_date || "");
+    return Boolean(recordEnd && twelveMonthsAgo && recordEnd >= twelveMonthsAgo && recordEnd <= latestEnd!);
+  });
+
+  const recentDays = recentSickness.reduce(
+    (total, record) => total + (Number(record.days_taken || 0) || 0),
+    0
+  );
+  const repeatedAbsence = recentSickness.length >= 3;
+
   const askLeoPrompt = [
     "An employee has returned from sickness absence.",
     `Employee record: ${employeeId}.`,
     `Absence ended: ${endDate}.`,
-    "Help me prepare for a fair return-to-work discussion. Do not infer or disclose medical details that are not recorded.",
+    `Leo has already reviewed the recorded sickness history: ${recentSickness.length} sickness period(s) and ${formatDays(recentDays)} recorded in the previous 12 months.`,
+    repeatedAbsence
+      ? "There is a repeated-absence pattern in the recorded history. Help me prepare a supportive return-to-work discussion and identify proportionate follow-up questions."
+      : "Help me prepare for a fair return-to-work discussion.",
+    "Do not infer or disclose medical details that are not recorded. Flag disability, reasonable-adjustment or formal attendance considerations only where the known facts make them relevant.",
   ].join("\n");
 
   return (
     <div style={absenceAgentCardStyle}>
-      <div style={absenceAgentEyebrowStyle}>Leo · Absence next step</div>
-      <div style={absenceAgentTitleStyle}>Return-to-work follow-up</div>
+      <div style={absenceAgentEyebrowStyle}>Leo · Working in the background</div>
+      <div style={absenceAgentTitleStyle}>Return-to-work follow-up prepared</div>
       <p style={absenceAgentTextStyle}>
-        Leo detected a sickness absence that ended on {formatDate(endDate)}. A return-to-work discussion should now be considered and recorded rather than leaving the absence as a historic entry only.
+        Leo noticed the sickness absence ended on {formatDate(endDate)} and has already checked the recorded absence history. There {recentSickness.length === 1 ? "has" : "have"} been {recentSickness.length} sickness {recentSickness.length === 1 ? "period" : "periods"} totalling {formatDays(recentDays)} in the previous 12 months.
+      </p>
+      <p style={absenceAgentTextStyle}>
+        {repeatedAbsence
+          ? "The record shows a repeated-absence pattern, so Leo has included that context in the return-to-work preparation. No medical conclusion or formal outcome has been assumed."
+          : "Nothing in the recorded frequency alone currently needs escalating. The return-to-work discussion is the next useful step."}
       </p>
       <div style={absenceAgentActionsStyle}>
         <a href="/dashboard/policies/forms/return-to-work-form" style={absenceAgentPrimaryLinkStyle}>
-          Open return-to-work form
+          Record return-to-work
         </a>
         <a
           href={`/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}&resourceTitle=${encodeURIComponent("Return-to-work follow-up")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
           style={absenceAgentSecondaryLinkStyle}
         >
-          Ask Leo to prepare
+          Review Leo&apos;s preparation
         </a>
       </div>
     </div>

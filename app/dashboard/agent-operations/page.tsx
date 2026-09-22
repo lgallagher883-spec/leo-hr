@@ -152,7 +152,7 @@ export default function AgentOperationsPage() {
       <section style={sectionStyle}>
         <SectionHeading
           kicker="Proactive Tasking"
-          title="Leo Needs Your Help"
+          title="Leo Needs Your Attention"
           description="A small operational view of significant proactive items. Routine next steps stay inside the relevant employee or Matter workspace."
           badge={String(reminders.length)}
         />

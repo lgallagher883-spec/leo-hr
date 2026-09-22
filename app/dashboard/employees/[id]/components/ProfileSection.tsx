@@ -17,7 +17,7 @@ export default function ProfileSection({
         boxSizing: "border-box",
       }}
     >
-      <div style={{ fontWeight: 800, marginBottom: "12px" }}>{title}</div>
+      <div style={{ fontWeight: 700, marginBottom: "12px", color: "#5E456C", fontFamily: "inherit" }}>{title}</div>
       {children}
     </div>
   );

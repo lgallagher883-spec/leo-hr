@@ -89,7 +89,7 @@ export async function GET(_request: Request, context: RouteContext) {
       detail: "Leo can take you straight to the correct invitation so you can prepare it, or you can confirm it has already been sent. The Matter chronology will record your confirmation.",
       primaryLabel: "Prepare invitation",
       primaryHref: "/dashboard/policies/letters/invitation-to-disciplinary-hearing",
-      secondaryLabel: "Yes — mark as sent",
+      secondaryLabel: "Mark as sent",
       secondaryAction: "confirm_sent",
       category: "Proactive Tasking",
     });

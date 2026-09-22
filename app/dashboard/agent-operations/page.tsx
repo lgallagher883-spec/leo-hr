@@ -139,7 +139,7 @@ export default function AgentOperationsPage() {
           <div style={eyebrowStyle}>LEO AGENT OPERATIONS</div>
           <h1 style={titleStyle}>AI HR Operations</h1>
           <p style={subtitleStyle}>
-            Leo proactively identifies work, runs predefined HR workflows, routes decisions to authorised people and records automation activity.
+            Leo quietly monitors HR activity, supports contextual workflows, routes significant decisions to authorised people and records automation activity.
           </p>
         </div>
         <button type="button" style={secondaryButtonStyle} onClick={() => void loadData()} disabled={loading}>
@@ -153,14 +153,14 @@ export default function AgentOperationsPage() {
         <SectionHeading
           kicker="Proactive Tasking"
           title="Leo Needs Your Help"
-          description="Tasks are generated from live HR records and deadlines without waiting for a user prompt."
+          description="A small operational view of significant proactive items. Routine next steps stay inside the relevant employee or Matter workspace."
           badge={String(reminders.length)}
         />
         {reminders.length === 0 ? (
           <EmptyState text="No proactive tasks currently require attention." />
         ) : (
           <div style={cardGridStyle}>
-            {reminders.slice(0, 6).map((reminder) => (
+            {reminders.slice(0, 3).map((reminder) => (
               <article key={reminder.id} style={cardStyle}>
                 <div style={pillRowStyle}>
                   <Pill>{String(reminder.metadata?.module || "HR")}</Pill>
@@ -185,8 +185,8 @@ export default function AgentOperationsPage() {
       <section style={sectionStyle}>
         <SectionHeading
           kicker="Workflow Automation"
-          title="Predefined Matter workflows"
-          description="Leo identifies the next step in each Matter, links the employer to the required action and records completed workflow activity."
+          title="Matter workflow activity"
+          description="Matter-specific next steps are handled in context. This view shows active Matter lifecycle activity without turning it into another task queue."
           badge={String(openMatters.length)}
         />
         {openMatters.length === 0 ? (

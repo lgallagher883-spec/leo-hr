@@ -3,7 +3,7 @@ import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolv
 import { createClient } from "@/lib/supabase/server";
 
 type RoleKey = "owner" | "senior" | "manager" | "employee";
-type ReminderModule = "compliance" | "sar" | "learn";
+type ReminderModule = "compliance" | "sar" | "learn" | "absence";
 type ReminderMilestone = `T-${number}` | "T0";
 
 type ReminderCandidate = {
@@ -567,6 +567,72 @@ async function buildComplianceCandidates(args: {
   return candidates;
 }
 
+async function buildAbsenceCandidates(args: {
+  admin: ReturnType<typeof createAdminClient>;
+  employeeIds: number[];
+  scopedEmployees: Map<number, { id: number; name: string | null }>;
+}) {
+  const { admin, employeeIds, scopedEmployees } = args;
+  if (employeeIds.length === 0) return [] as ReminderCandidate[];
+
+  const { data } = await (admin as any)
+    .from("employee_leave_records")
+    .select("id,employee_id,leave_type,status,start_date,end_date,notes")
+    .in("employee_id", employeeIds)
+    .eq("leave_type", "Sickness Absence");
+
+  const candidates: ReminderCandidate[] = [];
+
+  for (const row of (data ?? []) as any[]) {
+    const status = text(row.status).toLowerCase();
+    if (status === "cancelled" || status === "declined") continue;
+
+    const notes = text(row.notes);
+    if (!notes.startsWith("LEO_LEAVE_V1:")) continue;
+
+    let metadata: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(notes.slice("LEO_LEAVE_V1:".length));
+      metadata = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      continue;
+    }
+
+    if (!metadata.returnToWorkCompletedAt || !metadata.followUpNeeded) continue;
+
+    const dueDate = text(metadata.followUpDueDate);
+    if (!dueDate) continue;
+
+    const days = daysUntil(dueDate);
+    if (days === null || days > 7) continue;
+
+    const milestone: ReminderMilestone = days <= 0 ? "T0" : "T-7";
+    const employeeId = Number(row.employee_id);
+    const employeeName = scopedEmployees.get(employeeId)?.name ?? null;
+    const band = statusBand(dueDate);
+    const reason = text(metadata.followUpReason);
+
+    candidates.push({
+      module: "absence",
+      sourceType: "absence_support_follow_up",
+      sourceId: String(row.id),
+      employeeId,
+      employeeName,
+      dueDate,
+      milestone,
+      title: "Absence support review",
+      message: employeeName
+        ? `The support agreed with ${employeeName} at return-to-work is ${band === "expired" ? "overdue for review" : band === "due" ? "due for review today" : "approaching its review date"}.${reason ? ` ${reason}` : ""}`
+        : `An agreed return-to-work support review is ${band === "expired" ? "overdue" : band === "due" ? "due today" : "approaching"}.`,
+      actionUrl: `/dashboard/employees/${employeeId}?section=leave_absence`,
+      statusBand: band,
+      fingerprint: fingerprint(["absence-support", row.id, dueDate, reason]),
+    });
+  }
+
+  return candidates;
+}
+
 async function buildSarCandidates(args: {
   admin: ReturnType<typeof createAdminClient>;
   employeeIds: number[];
@@ -765,6 +831,16 @@ async function generateAndPersist(args: {
   });
 
   const candidates: ReminderCandidate[] = [];
+
+  if (roleKey === "owner" || roleKey === "senior" || roleKey === "manager") {
+    candidates.push(
+      ...(await buildAbsenceCandidates({
+        admin,
+        employeeIds,
+        scopedEmployees: scopedEmployeeMap as any,
+      })),
+    );
+  }
 
   if (canUseCompliance(roleKey, permissionKeys)) {
     candidates.push(

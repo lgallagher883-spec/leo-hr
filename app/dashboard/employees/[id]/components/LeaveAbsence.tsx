@@ -53,6 +53,14 @@ type LeaveMetadata = {
   manuallyAdjusted: boolean;
   source: "Employee" | "Manager" | "Senior" | "Owner" | "Legacy";
   futureCalendarSync: boolean;
+  returnToWorkCompletedAt: string | null;
+  returnToWorkCompletedBy: string | null;
+  returnToWorkNotes: string;
+  followUpNeeded: boolean;
+  followUpReason: string;
+  followUpDueDate: string | null;
+  sicknessReturnConfirmedAt: string | null;
+  sicknessReturnConfirmedBy: string | null;
 };
 
 type LeaveRecord = {
@@ -614,6 +622,84 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     leaveHistory,
   ]);
 
+  async function confirmSicknessReturn(record: ParsedLeaveRecord) {
+    if (actionInProgress === record.id) return false;
+
+    const metadata: LeaveMetadata = {
+      ...record.metadata,
+      sicknessReturnConfirmedAt: new Date().toISOString(),
+      sicknessReturnConfirmedBy: currentUserId,
+    };
+
+    setActionInProgress(record.id);
+    const response = await fetch(`/api/employees/${employeeId}/leave`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        action: "confirm_sickness_return",
+        recordId: record.id,
+        notes: serialiseLeaveMetadata(metadata),
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as LeaveApiResponse | null;
+    if (!response.ok || !result?.success) {
+      showMessage(result?.error || "The return could not be confirmed.", "error");
+      setActionInProgress(null);
+      return false;
+    }
+    showMessage("Return confirmed. Leo has prepared the return-to-work follow-up.", "success");
+    setActionInProgress(null);
+    await loadRecords();
+    return true;
+  }
+
+  async function recordReturnToWork(record: ParsedLeaveRecord, notes: string, followUpNeeded: boolean, followUpReason: string, followUpDueDate: string) {
+    if (actionInProgress === record.id) return false;
+
+    const metadata: LeaveMetadata = {
+      ...record.metadata,
+      returnToWorkCompletedAt: new Date().toISOString(),
+      returnToWorkCompletedBy: currentUserId,
+      returnToWorkNotes: notes.trim(),
+      followUpNeeded,
+      followUpReason: followUpNeeded ? followUpReason.trim() : "",
+      followUpDueDate: followUpNeeded && followUpDueDate ? followUpDueDate : null,
+    };
+
+    setActionInProgress(record.id);
+
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: "return_to_work",
+          recordId: record.id,
+          notes: serialiseLeaveMetadata(metadata),
+        }),
+      }
+    );
+
+    const result = (await response.json().catch(() => null)) as LeaveApiResponse | null;
+
+    if (!response.ok || !result?.success) {
+      showMessage(result?.error || "The return-to-work record could not be saved.", "error");
+      setActionInProgress(null);
+      return false;
+    }
+
+    showMessage("Return-to-work follow-up recorded. Leo has closed this absence action.", "success");
+    setActionInProgress(null);
+    await loadRecords();
+    return true;
+  }
+
   function showMessage(text: string, tone: MessageTone) {
     setMessage(text);
     setMessageTone(tone);
@@ -788,6 +874,14 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       manuallyAdjusted: form.useManualDays,
       source: platformRole,
       futureCalendarSync: false,
+      returnToWorkCompletedAt: null,
+      returnToWorkCompletedBy: null,
+      returnToWorkNotes: "",
+      followUpNeeded: false,
+      followUpReason: "",
+      followUpDueDate: null,
+      sicknessReturnConfirmedAt: null,
+      sicknessReturnConfirmedBy: null,
     };
 
     const response = await fetch(
@@ -1259,7 +1353,16 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       />
 
       {!isEmployeeView ? (
-        <AbsenceNextAction records={records} employeeId={employeeId} />
+        <>
+          <AbsenceNextAction
+            records={records}
+            employeeId={employeeId}
+            actionInProgress={actionInProgress}
+            onConfirmReturn={confirmSicknessReturn}
+            onRecordReturnToWork={recordReturnToWork}
+          />
+          <AbsenceSupportFollowUp records={records} employeeId={employeeId} />
+        </>
       ) : null}
 
       <div style={headerRowStyle}>
@@ -2184,47 +2287,209 @@ function Panel({
 function AbsenceNextAction({
   records,
   employeeId,
+  actionInProgress,
+  onConfirmReturn,
+  onRecordReturnToWork,
 }: {
   records: ParsedLeaveRecord[];
   employeeId: number;
+  actionInProgress: number | null;
+  onConfirmReturn: (record: ParsedLeaveRecord) => Promise<boolean>;
+  onRecordReturnToWork: (record: ParsedLeaveRecord, notes: string, followUpNeeded: boolean, followUpReason: string, followUpDueDate: string) => Promise<boolean>;
 }) {
+  const [showRecordForm, setShowRecordForm] = useState(false);
+  const [returnToWorkNotes, setReturnToWorkNotes] = useState("");
+  const [followUpNeeded, setFollowUpNeeded] = useState(false);
+  const [followUpReason, setFollowUpReason] = useState("");
+  const [followUpDueDate, setFollowUpDueDate] = useState("");
+
   const sickness = records
     .filter((record) => record.leave_type === "Sickness Absence")
     .filter((record) => record.normalisedStatus !== "Cancelled" && record.normalisedStatus !== "Declined")
     .filter((record) => Boolean(record.end_date || record.start_date))
     .sort((a, b) => String(b.end_date || b.start_date).localeCompare(String(a.end_date || a.start_date)));
 
-  const latest = sickness[0];
+  const latest = sickness.find(
+    (record) => !record.metadata.returnToWorkCompletedAt
+  );
   if (!latest) return null;
 
   const endDate = latest.end_date || latest.start_date;
-  if (!endDate || !isPastDate(endDate)) return null;
+  if (!endDate || !isPastDate(endDate) || latest.metadata.returnToWorkCompletedAt) return null;
+
+  const returnConfirmed = Boolean(latest.metadata.sicknessReturnConfirmedAt);
+
+  const latestEnd = parseDateOnly(endDate);
+  const twelveMonthsAgo = latestEnd
+    ? new Date(latestEnd.getFullYear() - 1, latestEnd.getMonth(), latestEnd.getDate(), 12)
+    : null;
+
+  const recentSickness = sickness.filter((record) => {
+    const recordEnd = parseDateOnly(record.end_date || record.start_date || "");
+    return Boolean(recordEnd && twelveMonthsAgo && latestEnd && recordEnd >= twelveMonthsAgo && recordEnd <= latestEnd);
+  });
+
+  const recentDays = recentSickness.reduce(
+    (total, record) => total + (Number(record.days_taken || 0) || 0),
+    0
+  );
+  const repeatedAbsence = recentSickness.length >= 3;
 
   const askLeoPrompt = [
     "An employee has returned from sickness absence.",
     `Employee record: ${employeeId}.`,
     `Absence ended: ${endDate}.`,
-    "Help me prepare for a fair return-to-work discussion. Do not infer or disclose medical details that are not recorded.",
+    `Leo has already reviewed the recorded sickness history: ${recentSickness.length} sickness period(s) and ${formatDays(recentDays)} recorded in the previous 12 months.`,
+    repeatedAbsence
+      ? "There is a repeated-absence pattern in the recorded history. Help me prepare a supportive return-to-work discussion and identify proportionate follow-up questions."
+      : "Help me prepare for a fair return-to-work discussion.",
+    "Do not infer or disclose medical details that are not recorded. Flag disability, reasonable-adjustment or formal attendance considerations only where the known facts make them relevant.",
   ].join("\n");
 
   return (
     <div style={absenceAgentCardStyle}>
-      <div style={absenceAgentEyebrowStyle}>Leo · Absence next step</div>
-      <div style={absenceAgentTitleStyle}>Return-to-work follow-up</div>
+      <div style={absenceAgentEyebrowStyle}>Leo · Working in the background</div>
+      <div style={absenceAgentTitleStyle}>{returnConfirmed ? "Return-to-work follow-up prepared" : "Sickness absence has reached its expected end date"}</div>
       <p style={absenceAgentTextStyle}>
-        Leo detected a sickness absence that ended on {formatDate(endDate)}. A return-to-work discussion should now be considered and recorded rather than leaving the absence as a historic entry only.
+        Leo noticed the recorded sickness absence reached its expected end date on {formatDate(endDate)} and has already checked the recorded absence history. There {recentSickness.length === 1 ? "has" : "have"} been {recentSickness.length} sickness {recentSickness.length === 1 ? "period" : "periods"} totalling {formatDays(recentDays)} in the previous 12 months.
+      </p>
+      <p style={absenceAgentTextStyle}>
+        {repeatedAbsence
+          ? "The record shows a repeated-absence pattern, so Leo has included that context in the preparation. No medical conclusion or formal outcome has been assumed."
+          : "Nothing in the recorded frequency alone currently needs escalating. The return-to-work discussion is the next useful step."}
       </p>
       <div style={absenceAgentActionsStyle}>
-        <a href="/dashboard/policies/forms/return-to-work-form" style={absenceAgentPrimaryLinkStyle}>
-          Open return-to-work form
-        </a>
+        {!returnConfirmed ? (
+          <button
+            type="button"
+            disabled={actionInProgress === latest.id}
+            onClick={() => void onConfirmReturn(latest)}
+            style={absenceAgentPrimaryLinkStyle}
+          >
+            {actionInProgress === latest.id ? "Saving..." : "Confirm returned"}
+          </button>
+        ) : (
+          <button type="button" onClick={() => setShowRecordForm((current) => !current)} style={absenceAgentPrimaryLinkStyle}>
+            {showRecordForm ? "Close record" : "Record return-to-work"}
+          </button>
+        )}
         <a
           href={`/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}&resourceTitle=${encodeURIComponent("Return-to-work follow-up")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
           style={absenceAgentSecondaryLinkStyle}
         >
-          Ask Leo to prepare
+          Review Leo&apos;s preparation
         </a>
       </div>
+      {showRecordForm && returnConfirmed ? (
+        <div style={{ marginTop: 14 }}>
+          <textarea
+            rows={3}
+            value={returnToWorkNotes}
+            onChange={(event) => setReturnToWorkNotes(event.target.value)}
+            placeholder="Briefly record the discussion, fitness to return, support agreed or follow-up needed. Avoid unnecessary medical detail."
+            style={textareaStyle}
+          />
+          <label style={{ ...checkboxLabelStyle, marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={followUpNeeded}
+              onChange={(event) => setFollowUpNeeded(event.target.checked)}
+            />
+            Follow-up or support has been agreed
+          </label>
+          {followUpNeeded ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              <input
+                value={followUpReason}
+                onChange={(event) => setFollowUpReason(event.target.value)}
+                placeholder="What needs following up?"
+                style={inputStyle}
+              />
+              <label style={formFieldStyle}>
+                <span style={formLabelStyle}>Review date</span>
+                <input
+                  type="date"
+                  value={followUpDueDate}
+                  onChange={(event) => setFollowUpDueDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+          ) : null}
+          <div style={{ ...absenceAgentActionsStyle, marginTop: 10 }}>
+            <button
+              type="button"
+              disabled={actionInProgress === latest.id}
+              onClick={async () => {
+                const saved = await onRecordReturnToWork(latest, returnToWorkNotes, followUpNeeded, followUpReason, followUpDueDate);
+                if (saved) {
+                  setReturnToWorkNotes("");
+                  setShowRecordForm(false);
+                  setFollowUpNeeded(false);
+                  setFollowUpReason("");
+                  setFollowUpDueDate("");
+                }
+              }}
+              style={absenceAgentPrimaryLinkStyle}
+            >
+              {actionInProgress === latest.id ? "Saving..." : "Save and close follow-up"}
+            </button>
+            <a href="/dashboard/policies/forms/return-to-work-form" style={absenceAgentSecondaryLinkStyle}>
+              Open full form
+            </a>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
+function AbsenceSupportFollowUp({
+  records,
+  employeeId,
+}: {
+  records: ParsedLeaveRecord[];
+  employeeId: number;
+}) {
+  const today = toDateOnlyValue(new Date());
+  const followUps = records
+    .filter((record) => record.leave_type === "Sickness Absence")
+    .filter((record) => record.metadata.returnToWorkCompletedAt && record.metadata.followUpNeeded)
+    .filter((record) => record.metadata.followUpDueDate)
+    .sort((a, b) => String(a.metadata.followUpDueDate).localeCompare(String(b.metadata.followUpDueDate)));
+
+  const next = followUps[0];
+  if (!next || !next.metadata.followUpDueDate) return null;
+
+  const due = next.metadata.followUpDueDate;
+  const daysUntil = Math.ceil((new Date(`${due}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 86400000);
+  if (daysUntil > 14) return null;
+
+  const prompt = [
+    "A sickness return-to-work discussion has already been completed.",
+    `Employee record: ${employeeId}.`,
+    `A follow-up was agreed for ${due}.`,
+    next.metadata.followUpReason ? `Recorded follow-up: ${next.metadata.followUpReason}.` : "",
+    "Help me review the agreed support proportionately. Do not assume a medical condition or recommend formal action solely because a review date has arrived.",
+  ].filter(Boolean).join("\n");
+
+  return (
+    <div style={{ ...absenceAgentCardStyle, marginTop: 10 }}>
+      <div style={absenceAgentEyebrowStyle}>Leo · Follow-up remembered</div>
+      <div style={absenceAgentTitleStyle}>
+        {daysUntil < 0 ? "Agreed support review is overdue" : daysUntil === 0 ? "Agreed support review is due today" : "Agreed support review is approaching"}
+      </div>
+      <p style={absenceAgentTextStyle}>
+        Leo retained the follow-up from the return-to-work discussion so you did not need to create another task. Review date: {formatDate(due)}.
+        {next.metadata.followUpReason ? ` ${next.metadata.followUpReason}` : ""}
+      </p>
+      <a
+        href={`/dashboard/ask-leo?prompt=${encodeURIComponent(prompt)}&resourceTitle=${encodeURIComponent("Absence support review")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
+        style={absenceAgentSecondaryLinkStyle}
+      >
+        Review support
+      </a>
     </div>
   );
 }
@@ -2449,6 +2714,14 @@ function createDefaultMetadata(
     manuallyAdjusted: false,
     source: "Legacy",
     futureCalendarSync: false,
+    returnToWorkCompletedAt: null,
+    returnToWorkCompletedBy: null,
+    returnToWorkNotes: "",
+    followUpNeeded: false,
+    followUpReason: "",
+    followUpDueDate: null,
+    sicknessReturnConfirmedAt: null,
+    sicknessReturnConfirmedBy: null,
   };
 }
 
@@ -2559,6 +2832,38 @@ function parseLeaveMetadata(
         typeof parsed.futureCalendarSync === "boolean"
           ? parsed.futureCalendarSync
           : false,
+      returnToWorkCompletedAt:
+        typeof parsed.returnToWorkCompletedAt === "string"
+          ? parsed.returnToWorkCompletedAt
+          : null,
+      returnToWorkCompletedBy:
+        typeof parsed.returnToWorkCompletedBy === "string"
+          ? parsed.returnToWorkCompletedBy
+          : null,
+      returnToWorkNotes:
+        typeof parsed.returnToWorkNotes === "string"
+          ? parsed.returnToWorkNotes
+          : "",
+      followUpNeeded:
+        typeof parsed.followUpNeeded === "boolean"
+          ? parsed.followUpNeeded
+          : false,
+      followUpReason:
+        typeof parsed.followUpReason === "string"
+          ? parsed.followUpReason
+          : "",
+      followUpDueDate:
+        typeof parsed.followUpDueDate === "string"
+          ? parsed.followUpDueDate
+          : null,
+      sicknessReturnConfirmedAt:
+        typeof parsed.sicknessReturnConfirmedAt === "string"
+          ? parsed.sicknessReturnConfirmedAt
+          : null,
+      sicknessReturnConfirmedBy:
+        typeof parsed.sicknessReturnConfirmedBy === "string"
+          ? parsed.sicknessReturnConfirmedBy
+          : null,
     };
   } catch (error) {
     console.warn(

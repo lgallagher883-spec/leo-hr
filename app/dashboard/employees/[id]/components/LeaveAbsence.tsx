@@ -59,6 +59,8 @@ type LeaveMetadata = {
   followUpNeeded: boolean;
   followUpReason: string;
   followUpDueDate: string | null;
+  sicknessReturnConfirmedAt: string | null;
+  sicknessReturnConfirmedBy: string | null;
 };
 
 type LeaveRecord = {
@@ -620,6 +622,38 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     leaveHistory,
   ]);
 
+  async function confirmSicknessReturn(record: ParsedLeaveRecord) {
+    if (actionInProgress === record.id) return false;
+
+    const metadata: LeaveMetadata = {
+      ...record.metadata,
+      sicknessReturnConfirmedAt: new Date().toISOString(),
+      sicknessReturnConfirmedBy: currentUserId,
+    };
+
+    setActionInProgress(record.id);
+    const response = await fetch(`/api/employees/${employeeId}/leave`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        action: "confirm_sickness_return",
+        recordId: record.id,
+        notes: serialiseLeaveMetadata(metadata),
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as LeaveApiResponse | null;
+    if (!response.ok || !result?.success) {
+      showMessage(result?.error || "The return could not be confirmed.", "error");
+      setActionInProgress(null);
+      return false;
+    }
+    showMessage("Return confirmed. Leo has prepared the return-to-work follow-up.", "success");
+    setActionInProgress(null);
+    await loadRecords();
+    return true;
+  }
+
   async function recordReturnToWork(record: ParsedLeaveRecord, notes: string, followUpNeeded: boolean, followUpReason: string, followUpDueDate: string) {
     if (actionInProgress === record.id) return false;
 
@@ -846,6 +880,8 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       followUpNeeded: false,
       followUpReason: "",
       followUpDueDate: null,
+      sicknessReturnConfirmedAt: null,
+      sicknessReturnConfirmedBy: null,
     };
 
     const response = await fetch(
@@ -1322,6 +1358,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
             records={records}
             employeeId={employeeId}
             actionInProgress={actionInProgress}
+            onConfirmReturn={confirmSicknessReturn}
             onRecordReturnToWork={recordReturnToWork}
           />
           <AbsenceSupportFollowUp records={records} employeeId={employeeId} />
@@ -2251,11 +2288,13 @@ function AbsenceNextAction({
   records,
   employeeId,
   actionInProgress,
+  onConfirmReturn,
   onRecordReturnToWork,
 }: {
   records: ParsedLeaveRecord[];
   employeeId: number;
   actionInProgress: number | null;
+  onConfirmReturn: (record: ParsedLeaveRecord) => Promise<boolean>;
   onRecordReturnToWork: (record: ParsedLeaveRecord, notes: string, followUpNeeded: boolean, followUpReason: string, followUpDueDate: string) => Promise<boolean>;
 }) {
   const [showRecordForm, setShowRecordForm] = useState(false);
@@ -2274,7 +2313,7 @@ function AbsenceNextAction({
   if (!latest) return null;
 
   const endDate = latest.end_date || latest.start_date;
-  if (!endDate || !isPastDate(endDate) || latest.metadata.returnToWorkCompletedAt) return null;
+  if (!endDate || !isPastDate(endDate) || latest.metadata.returnToWorkCompletedAt) return null;\n\n  const returnConfirmed = Boolean(latest.metadata.sicknessReturnConfirmedAt);
 
   const latestEnd = parseDateOnly(endDate);
   const twelveMonthsAgo = latestEnd
@@ -2306,9 +2345,9 @@ function AbsenceNextAction({
   return (
     <div style={absenceAgentCardStyle}>
       <div style={absenceAgentEyebrowStyle}>Leo · Working in the background</div>
-      <div style={absenceAgentTitleStyle}>Return-to-work follow-up prepared</div>
+      <div style={absenceAgentTitleStyle}>{returnConfirmed ? "Return-to-work follow-up prepared" : "Sickness absence has reached its expected end date"}</div>
       <p style={absenceAgentTextStyle}>
-        Leo noticed the sickness absence ended on {formatDate(endDate)} and has already checked the recorded absence history. There {recentSickness.length === 1 ? "has" : "have"} been {recentSickness.length} sickness {recentSickness.length === 1 ? "period" : "periods"} totalling {formatDays(recentDays)} in the previous 12 months.
+        Leo noticed the recorded sickness absence reached its expected end date on {formatDate(endDate)} and has already checked the recorded absence history. There {recentSickness.length === 1 ? "has" : "have"} been {recentSickness.length} sickness {recentSickness.length === 1 ? "period" : "periods"} totalling {formatDays(recentDays)} in the previous 12 months.
       </p>
       <p style={absenceAgentTextStyle}>
         {repeatedAbsence
@@ -2316,9 +2355,20 @@ function AbsenceNextAction({
           : "Nothing in the recorded frequency alone currently needs escalating. The return-to-work discussion is the next useful step."}
       </p>
       <div style={absenceAgentActionsStyle}>
-        <button type="button" onClick={() => setShowRecordForm((current) => !current)} style={absenceAgentPrimaryLinkStyle}>
-          {showRecordForm ? "Close record" : "Record return-to-work"}
-        </button>
+        {!returnConfirmed ? (
+          <button
+            type="button"
+            disabled={actionInProgress === latest.id}
+            onClick={() => void onConfirmReturn(latest)}
+            style={absenceAgentPrimaryLinkStyle}
+          >
+            {actionInProgress === latest.id ? "Saving..." : "Confirm returned"}
+          </button>
+        ) : (
+          <button type="button" onClick={() => setShowRecordForm((current) => !current)} style={absenceAgentPrimaryLinkStyle}>
+            {showRecordForm ? "Close record" : "Record return-to-work"}
+          </button>
+        )}
         <a
           href={`/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}&resourceTitle=${encodeURIComponent("Return-to-work follow-up")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
           style={absenceAgentSecondaryLinkStyle}
@@ -2326,7 +2376,7 @@ function AbsenceNextAction({
           Review Leo&apos;s preparation
         </a>
       </div>
-      {showRecordForm ? (
+      {showRecordForm && returnConfirmed ? (
         <div style={{ marginTop: 14 }}>
           <textarea
             rows={3}
@@ -2666,6 +2716,8 @@ function createDefaultMetadata(
     followUpNeeded: false,
     followUpReason: "",
     followUpDueDate: null,
+    sicknessReturnConfirmedAt: null,
+    sicknessReturnConfirmedBy: null,
   };
 }
 
@@ -2799,6 +2851,14 @@ function parseLeaveMetadata(
       followUpDueDate:
         typeof parsed.followUpDueDate === "string"
           ? parsed.followUpDueDate
+          : null,
+      sicknessReturnConfirmedAt:
+        typeof parsed.sicknessReturnConfirmedAt === "string"
+          ? parsed.sicknessReturnConfirmedAt
+          : null,
+      sicknessReturnConfirmedBy:
+        typeof parsed.sicknessReturnConfirmedBy === "string"
+          ? parsed.sicknessReturnConfirmedBy
           : null,
     };
   } catch (error) {

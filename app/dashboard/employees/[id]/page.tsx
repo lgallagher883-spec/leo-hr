@@ -721,28 +721,6 @@ export default function EmployeeProfilePage() {
                 </div>
               </Panel>
 
-              <Panel
-                title="Employee record"
-                description="Core information held against this employee."
-              >
-                <div style={informationGridStyle}>
-                  <Info label="Name" value={employee.name} />
-                  <Info
-                    label="Email"
-                    value={employee.email || "Not set"}
-                  />
-                  <Info
-                    label="Role"
-                    value={employee.role || "Not set"}
-                  />
-                  <Info label="Status" value={employeeStatus} />
-                  <Info label="Start date" value={startDateLabel} />
-                  <Info
-                    label="Employee reference"
-                    value={String(employee.id)}
-                  />
-                </div>
-              </Panel>
             </div>
           )}
 
@@ -2013,6 +1991,10 @@ const summaryGridStyle: CSSProperties = {
 
 const summaryCardStyle: CSSProperties = {
   background: "#FFFFFF",
+  minHeight: "132px",
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column",
   border: "1px solid #E7E1EA",
   borderRadius: "14px",
   padding: "17px",
@@ -2041,9 +2023,10 @@ const summaryCardValueStyle: CSSProperties = {
 
 const summaryCardSupportingTextStyle: CSSProperties = {
   color: "#746C78",
+  marginTop: "auto",
   fontSize: "12px",
   lineHeight: 1.5,
-  marginTop: "7px",
+  paddingTop: "7px",
 };
 
 const panelStyle: CSSProperties = {

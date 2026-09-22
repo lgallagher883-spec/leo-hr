@@ -56,6 +56,9 @@ type LeaveMetadata = {
   returnToWorkCompletedAt: string | null;
   returnToWorkCompletedBy: string | null;
   returnToWorkNotes: string;
+  followUpNeeded: boolean;
+  followUpReason: string;
+  followUpDueDate: string | null;
 };
 
 type LeaveRecord = {
@@ -617,7 +620,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     leaveHistory,
   ]);
 
-  async function recordReturnToWork(record: ParsedLeaveRecord, notes: string) {
+  async function recordReturnToWork(record: ParsedLeaveRecord, notes: string, followUpNeeded: boolean, followUpReason: string, followUpDueDate: string) {
     if (actionInProgress === record.id) return false;
 
     const metadata: LeaveMetadata = {
@@ -625,6 +628,9 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       returnToWorkCompletedAt: new Date().toISOString(),
       returnToWorkCompletedBy: currentUserId,
       returnToWorkNotes: notes.trim(),
+      followUpNeeded,
+      followUpReason: followUpNeeded ? followUpReason.trim() : "",
+      followUpDueDate: followUpNeeded && followUpDueDate ? followUpDueDate : null,
     };
 
     setActionInProgress(record.id);
@@ -2236,10 +2242,13 @@ function AbsenceNextAction({
   records: ParsedLeaveRecord[];
   employeeId: number;
   actionInProgress: number | null;
-  onRecordReturnToWork: (record: ParsedLeaveRecord, notes: string) => Promise<boolean>;
+  onRecordReturnToWork: (record: ParsedLeaveRecord, notes: string, followUpNeeded: boolean, followUpReason: string, followUpDueDate: string) => Promise<boolean>;
 }) {
   const [showRecordForm, setShowRecordForm] = useState(false);
   const [returnToWorkNotes, setReturnToWorkNotes] = useState("");
+  const [followUpNeeded, setFollowUpNeeded] = useState(false);
+  const [followUpReason, setFollowUpReason] = useState("");
+  const [followUpDueDate, setFollowUpDueDate] = useState("");
 
   const sickness = records
     .filter((record) => record.leave_type === "Sickness Absence")
@@ -2312,15 +2321,45 @@ function AbsenceNextAction({
             placeholder="Briefly record the discussion, fitness to return, support agreed or follow-up needed. Avoid unnecessary medical detail."
             style={textareaStyle}
           />
+          <label style={{ ...checkboxLabelStyle, marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={followUpNeeded}
+              onChange={(event) => setFollowUpNeeded(event.target.checked)}
+            />
+            Follow-up or support has been agreed
+          </label>
+          {followUpNeeded ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              <input
+                value={followUpReason}
+                onChange={(event) => setFollowUpReason(event.target.value)}
+                placeholder="What needs following up?"
+                style={inputStyle}
+              />
+              <label style={fieldLabelStyle}>
+                Review date
+                <input
+                  type="date"
+                  value={followUpDueDate}
+                  onChange={(event) => setFollowUpDueDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+          ) : null}
           <div style={{ ...absenceAgentActionsStyle, marginTop: 10 }}>
             <button
               type="button"
               disabled={actionInProgress === latest.id}
               onClick={async () => {
-                const saved = await onRecordReturnToWork(latest, returnToWorkNotes);
+                const saved = await onRecordReturnToWork(latest, returnToWorkNotes, followUpNeeded, followUpReason, followUpDueDate);
                 if (saved) {
                   setReturnToWorkNotes("");
                   setShowRecordForm(false);
+                  setFollowUpNeeded(false);
+                  setFollowUpReason("");
+                  setFollowUpDueDate("");
                 }
               }}
               style={absenceAgentPrimaryLinkStyle}
@@ -2560,6 +2599,9 @@ function createDefaultMetadata(
     returnToWorkCompletedAt: null,
     returnToWorkCompletedBy: null,
     returnToWorkNotes: "",
+    followUpNeeded: false,
+    followUpReason: "",
+    followUpDueDate: null,
   };
 }
 
@@ -2682,6 +2724,18 @@ function parseLeaveMetadata(
         typeof parsed.returnToWorkNotes === "string"
           ? parsed.returnToWorkNotes
           : "",
+      followUpNeeded:
+        typeof parsed.followUpNeeded === "boolean"
+          ? parsed.followUpNeeded
+          : false,
+      followUpReason:
+        typeof parsed.followUpReason === "string"
+          ? parsed.followUpReason
+          : "",
+      followUpDueDate:
+        typeof parsed.followUpDueDate === "string"
+          ? parsed.followUpDueDate
+          : null,
     };
   } catch (error) {
     console.warn(

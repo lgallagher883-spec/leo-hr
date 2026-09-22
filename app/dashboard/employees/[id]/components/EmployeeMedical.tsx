@@ -240,7 +240,7 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
             borderRadius: "12px",
             padding: "14px",
             background: "#F9FAFB",
-            color: "#6B7280",
+            color: "#5E456C",
             fontSize: "14px",
             lineHeight: 1.5,
           }}
@@ -255,7 +255,7 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
 
   return (
     <ProfileSection title="Medical">
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+      <p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
         Record relevant workplace medical context and reasonable adjustments.
         This information is sensitive and should only be used where it is
         relevant to employment, welfare, adjustments or HR risk.
@@ -295,7 +295,7 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
       </SaveButton>
 
       {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+        <div style={{ marginTop: "10px", color: "#5E456C", fontSize: "14px" }}>
           {message}
         </div>
       )}
@@ -306,9 +306,9 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading medical records...</div>
+          <div style={{ color: "#5E456C" }}>Loading medical records...</div>
         ) : records.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No medical records yet.</div>
+          <div style={{ color: "#5E456C" }}>No medical records yet.</div>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {records.map((record) => (
@@ -378,7 +378,7 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
 
                     <div
                       style={{
-                        color: "#6B7280",
+                        color: "#5E456C",
                         fontSize: "13px",
                         marginTop: "4px",
                       }}
@@ -401,7 +401,7 @@ export default function EmployeeMedical({ employeeId }: EmployeeMedicalProps) {
 
                     <div
                       style={{
-                        color: "#6B7280",
+                        color: "#5E456C",
                         fontSize: "12px",
                         marginTop: "10px",
                       }}
@@ -441,7 +441,7 @@ const smallDarkButtonStyle: React.CSSProperties = {
 const smallLightButtonStyle: React.CSSProperties = {
   marginTop: "10px",
   background: "#fff",
-  color: "#374151",
+  color: "#5E456C",
   border: "1px solid #e5e7eb",
   padding: "7px 10px",
   borderRadius: "8px",

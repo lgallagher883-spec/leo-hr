@@ -1383,7 +1383,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
                     style={{
                       marginTop: "4px",
                       fontSize: "13px",
-                      color: "#4B5563",
+                      color: "#5E456C",
                     }}
                   >
                     {formatDate(holiday.date)}
@@ -1393,7 +1393,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
                       marginTop: "6px",
                       fontSize: "12px",
                       lineHeight: 1.45,
-                      color: "#6B7280",
+                      color: "#5E456C",
                     }}
                   >
                     {!fallsOnWorkingDay
@@ -3080,7 +3080,7 @@ const headerActionsStyle: CSSProperties = {
 
 const introStyle: CSSProperties = {
   margin: 0,
-  color: "#6F6773",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
   maxWidth: "760px",
@@ -3108,7 +3108,7 @@ const emphasizedSummaryCardStyle: CSSProperties = {
 };
 
 const summaryCardLabelStyle: CSSProperties = {
-  color: "#79717E",
+  color: "#5E456C",
   fontSize: "12px",
   fontWeight: 700,
 };
@@ -3121,7 +3121,7 @@ const summaryCardValueStyle: CSSProperties = {
 };
 
 const summaryCardSupportingStyle: CSSProperties = {
-  color: "#746C78",
+  color: "#5E456C",
   fontSize: "11px",
   lineHeight: 1.5,
   marginTop: "6px",
@@ -3147,7 +3147,7 @@ const panelTitleStyle: CSSProperties = {
 
 const panelDescriptionStyle: CSSProperties = {
   margin: "6px 0 0",
-  color: "#746C78",
+  color: "#5E456C",
   fontSize: "13px",
   lineHeight: 1.55,
 };
@@ -3228,7 +3228,7 @@ const requestPreviewStyle: CSSProperties = {
 };
 
 const previewLabelStyle: CSSProperties = {
-  color: "#7B737F",
+  color: "#5E456C",
   fontSize: "11px",
   fontWeight: 800,
 };
@@ -3364,7 +3364,7 @@ const recordTitleStyle: CSSProperties = {
 };
 
 const recordMetaStyle: CSSProperties = {
-  color: "#746D78",
+  color: "#5E456C",
   fontSize: "12px",
   marginTop: "6px",
 };
@@ -3391,10 +3391,10 @@ const recordInformationItemStyle: CSSProperties = {
 };
 
 const recordInformationLabelStyle: CSSProperties = {
-  color: "#807885",
+  color: "#5E456C",
   fontSize: "10px",
   fontWeight: 800,
-  textTransform: "uppercase",
+  
   letterSpacing: "0.05em",
 };
 
@@ -3446,7 +3446,7 @@ const decisionHeadingStyle: CSSProperties = {
 const emptyStateStyle: CSSProperties = {
   padding: "24px",
   textAlign: "center",
-  color: "#746D78",
+  color: "#5E456C",
   background: "#FBF9FC",
   border: "1px dashed #DCCFE3",
   borderRadius: "12px",

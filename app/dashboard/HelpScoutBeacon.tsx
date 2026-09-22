@@ -1,8 +1,24 @@
 "use client";
 
 import Script from "next/script";
+import { useEffect } from "react";
 
 export default function HelpScoutBeacon() {
+  useEffect(() => {
+    const syncMobileBeacon = () => {
+      if (typeof window.Beacon !== "function") return;
+      if (window.matchMedia("(max-width: 767px)").matches) {
+        window.Beacon("config", { display: { style: "manual" } });
+      }
+    };
+    const timer = window.setTimeout(syncMobileBeacon, 1200);
+    window.addEventListener("resize", syncMobileBeacon);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", syncMobileBeacon);
+    };
+  }, []);
+
   return (
     <>
       <Script id="helpscout-loader" strategy="afterInteractive">
@@ -39,7 +55,8 @@ export default function HelpScoutBeacon() {
           window.Beacon &&
           window.Beacon('init', {
             beaconId: '2408e0d2-0d5c-4dde-9ef4-71280211d75d',
-            hideFABOnMobile: true
+            hideFABOnMobile: true,
+            display: { style: window.matchMedia('(max-width: 767px)').matches ? 'manual' : 'icon' }
           });
         `}
       </Script>

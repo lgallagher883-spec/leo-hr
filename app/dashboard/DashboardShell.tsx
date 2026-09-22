@@ -33,7 +33,6 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
-  Workflow,
   X,
   Users,
 } from "lucide-react";
@@ -119,11 +118,6 @@ const managementMainLinks: NavigationLink[] = [
     label: "Insights",
     href: "/dashboard/insights",
     icon: Sparkles,
-  },
-  {
-    label: "AI HR Operations",
-    href: "/dashboard/agent-operations",
-    icon: Workflow,
   },
   {
     label: "Audit Logs",

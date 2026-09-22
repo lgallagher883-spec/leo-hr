@@ -570,14 +570,14 @@ function ProbationNextAction({
 
   return (
     <div style={probationAgentCardStyle}>
-      <div style={probationAgentEyebrowStyle}>LEO NEEDS YOUR HELP · PROACTIVE TASK</div>
+      <div style={probationAgentEyebrowStyle}>LEO · PROBATION NEXT STEP</div>
       <div style={probationAgentTitleStyle}>
         {overdue ? `${target.review.review_type} is overdue` : `${target.review.review_type} is coming up`}
       </div>
       <p style={probationAgentTextStyle}>
         {overdue
           ? `This review was scheduled for ${formatDate(target.review.scheduled_date)}. Leo has identified it from the live probation schedule and it still needs to be completed.`
-          : `This review is scheduled for ${formatDate(target.review.scheduled_date)}${days === 0 ? " today" : ` in ${days} day${days === 1 ? "" : "s"}`}. Leo is surfacing it now so the probation process stays on track.`}
+          : `This review is scheduled for ${formatDate(target.review.scheduled_date)}${days === 0 ? " today" : ` in ${days} day${days === 1 ? "" : "s"}`}. It is now close enough to the scheduled date to be useful to review.`}
       </p>
       {finalDays !== null && finalDays <= 14 ? (
         <p style={probationAgentRiskStyle}>

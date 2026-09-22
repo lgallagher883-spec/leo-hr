@@ -382,6 +382,14 @@ export default function ProbationWorkspace({
           </div>
 
           {canManageProbation ? (
+            <ProbationNextAction
+              reviews={reviews}
+              finalDecisionDeadline={probation.final_decision_deadline}
+              onOpenReview={(review) => setSelectedReview(review)}
+            />
+          ) : null}
+
+          {canManageProbation ? (
             <div style={{ display: "flex", justifyContent: "flex-end", margin: "18px 0 12px" }}>
               <button type="button" onClick={() => setShowAdHocForm((current) => !current)} style={secondaryButtonStyle}>
                 {showAdHocForm ? "Cancel ad-hoc review" : "+ Add ad-hoc review"}
@@ -526,6 +534,60 @@ export default function ProbationWorkspace({
 ) : null}
         </>
       )}
+    </div>
+  );
+}
+
+function ProbationNextAction({
+  reviews,
+  finalDecisionDeadline,
+  onOpenReview,
+}: {
+  reviews: ProbationReview[];
+  finalDecisionDeadline: string;
+  onOpenReview: (review: ProbationReview) => void;
+}) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  const incomplete = reviews
+    .filter((review) => String(review.status || "").toLowerCase() !== "completed")
+    .map((review) => ({ review, date: new Date(review.scheduled_date + "T12:00:00") }))
+    .filter((item) => !Number.isNaN(item.date.getTime()))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const overdue = incomplete.find((item) => item.date.getTime() < today.getTime());
+  const upcoming = incomplete.find((item) => item.date.getTime() >= today.getTime());
+  const target = overdue || upcoming;
+
+  if (!target) return null;
+
+  const days = Math.ceil((target.date.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  const finalDeadline = new Date(finalDecisionDeadline + "T12:00:00");
+  const finalDays = Number.isNaN(finalDeadline.getTime())
+    ? null
+    : Math.ceil((finalDeadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+
+  return (
+    <div style={probationAgentCardStyle}>
+      <div style={probationAgentEyebrowStyle}>LEO NEEDS YOUR HELP · PROACTIVE TASK</div>
+      <div style={probationAgentTitleStyle}>
+        {overdue ? `${target.review.review_type} is overdue` : `${target.review.review_type} is coming up`}
+      </div>
+      <p style={probationAgentTextStyle}>
+        {overdue
+          ? `This review was scheduled for ${formatDate(target.review.scheduled_date)}. Leo has identified it from the live probation schedule and it still needs to be completed.`
+          : `This review is scheduled for ${formatDate(target.review.scheduled_date)}${days === 0 ? " today" : ` in ${days} day${days === 1 ? "" : "s"}`}. Leo is surfacing it now so the probation process stays on track.`}
+      </p>
+      {finalDays !== null && finalDays <= 14 ? (
+        <p style={probationAgentRiskStyle}>
+          Final probation decision deadline: {formatDate(finalDecisionDeadline)}
+          {finalDays < 0 ? " — overdue." : finalDays === 0 ? " — today." : ` — ${finalDays} day${finalDays === 1 ? "" : "s"} remaining.`}
+        </p>
+      ) : null}
+      <button type="button" onClick={() => onOpenReview(target.review)} style={primaryButtonStyle}>
+        {overdue ? "Complete review" : "Open review"}
+      </button>
     </div>
   );
 }
@@ -1909,3 +1971,14 @@ const askLeoLinkStyle: React.CSSProperties = {
   fontWeight: 700,
   textDecoration: "none",
 };
+const probationAgentCardStyle: React.CSSProperties = {
+  margin: "18px 0",
+  padding: "18px",
+  border: "1px solid #e3d6eb",
+  borderRadius: "16px",
+  background: "linear-gradient(135deg, #fbf8fd 0%, #ffffff 100%)",
+};
+const probationAgentEyebrowStyle: React.CSSProperties = { color: "#8a6a9e", fontSize: "11px", fontWeight: 800, letterSpacing: "0.08em" };
+const probationAgentTitleStyle: React.CSSProperties = { marginTop: "6px", color: "#6E5084", fontSize: "18px", fontWeight: 700 };
+const probationAgentTextStyle: React.CSSProperties = { margin: "7px 0 12px", color: "#64748b", fontSize: "13px", lineHeight: 1.55 };
+const probationAgentRiskStyle: React.CSSProperties = { margin: "0 0 12px", color: "#9a6700", fontSize: "12px", fontWeight: 650, lineHeight: 1.5 };

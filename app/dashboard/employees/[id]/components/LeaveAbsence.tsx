@@ -10,7 +10,6 @@ import {
 } from "react";
 
 import ProfileSection from "./ProfileSection";
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 type LeaveAbsenceProps = {
   employeeId: number;
@@ -1252,13 +1251,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
 
   return (
     <ProfileSection title="Leave & Absence">
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="absence"
-        defaultPrompt="Draft a leave or absence case update that confirms status, timelines, operational cover and fair next steps without medical detail."
-      />
-
-      {!isEmployeeView ? (
+{!isEmployeeView ? (
         <AbsenceNextAction records={records} employeeId={employeeId} />
       ) : null}
 

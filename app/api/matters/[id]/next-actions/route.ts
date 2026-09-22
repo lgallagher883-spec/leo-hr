@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -161,19 +160,13 @@ export async function POST(request: Request, context: RouteContext) {
   });
   if (!allowed) return NextResponse.json({ success: false, error: "You do not have permission to update this Matter." }, { status: 403 });
 
-  // Permission and Matter scope are checked above with the signed-in client.
-  // Persist the approved server-side workflow event with the admin client because
-  // matter_timeline intentionally does not allow direct user inserts.
-  const admin = createAdminClient();
-  const { error } = await admin.from("matter_timeline").insert({
-    matter_id: matterId,
-    event_type: "workflow_task_completed",
-    title: "Disciplinary hearing invitation sent",
-    description: "The employer confirmed that the disciplinary hearing invitation has been sent. Leo recorded the completed workflow task.",
-    created_by: "Leo",
+  const { data: recorded, error } = await (supabase as any).rpc("leo_record_matter_workflow_task", {
+    target_matter_id: matterId,
+    target_title: "Disciplinary hearing invitation sent",
+    target_description: "The employer confirmed that the disciplinary hearing invitation has been sent. Leo recorded the completed workflow task.",
   });
 
-  if (error) {
+  if (error || recorded !== true) {
     console.error("Matter workflow task could not be recorded:", error);
     return NextResponse.json({
       success: false,
@@ -181,7 +174,7 @@ export async function POST(request: Request, context: RouteContext) {
     }, { status: 500 });
   }
 
-  const { error: auditError } = await admin.from("audit_logs").insert({
+  const { error: auditError } = await supabase.from("audit_logs").insert({
     organisation_id: organisationId,
     user_id: user.id,
     action: "matter_agent_action_completed",

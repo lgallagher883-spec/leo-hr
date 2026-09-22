@@ -31,6 +31,12 @@ type MatterMessageRecord = {
   content: string;
 };
 
+type TimelineRecord = {
+  event_type: string;
+  title: string;
+  description: string | null;
+};
+
 function readMatterId(id: string): number | null {
   const matterId = Number(id);
   return Number.isInteger(matterId) && matterId > 0 ? matterId : null;
@@ -163,6 +169,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const conversation = (messages ?? []) as MatterMessageRecord[];
 
+  const { data: timeline } = await supabase
+    .from("matter_timeline")
+    .select("event_type, title, description")
+    .eq("matter_id", matterId)
+    .order("event_date", { ascending: true });
+
+  const timelineRecords = (timeline ?? []) as TimelineRecord[];
+
   let employee: EmployeeRecord | null = null;
 
   if (matter.employee_id) {
@@ -184,15 +198,19 @@ export async function GET(_request: Request, context: RouteContext) {
     : "";
 
   const transcript = conversation
-    .filter((message) => message.role === "user" && message.content?.trim())
-    .map((message) => `Employer: ${message.content.trim()}`)
+    .filter((message) => message.content?.trim())
+    .map((message) => `${message.role === "user" ? "Employer" : "Leo"}: ${message.content.trim()}`)
     .join("\n\n");
+
+  const timelineText = timelineRecords
+    .map((event) => `Matter record: ${event.title}${event.description ? ` — ${event.description}` : ""}`)
+    .join("\n");
 
   // The description is only included separately when it hasn't already been
   // seeded into matter_messages, to avoid feeding the same facts in twice.
   const narrative = transcript || matter.description?.trim() || "";
 
-  const analysisText = [matterIdentifiers, employeeLine, narrative]
+  const analysisText = [matterIdentifiers, employeeLine, narrative, timelineText]
     .filter(Boolean)
     .join("\n\n")
     .trim();
@@ -218,15 +236,27 @@ export async function GET(_request: Request, context: RouteContext) {
     reasoningResult.professionalReality ||
     `This appears to be a ${String(coreResult.intent).replace(/[_-]+/g, " ").toLowerCase()} matter.`;
 
-  const nextStep =
-    reasoningResult.decisionFramework.nextQuestion ||
-    reasoningResult.decisionFramework.proportionateRecommendation ||
-    reasoningResult.immediateNextStep;
+  const lowerEvidence = analysisText.toLowerCase();
+  const investigationComplete =
+    /investigation (is |has been )?(complete|completed|concluded)|case to answer|proceed to (a )?disciplinary hearing/.test(lowerEvidence);
+  const disciplinary =
+    String(matter.matter_type || "").toLowerCase().includes("disciplin") ||
+    lowerEvidence.includes("disciplin");
+
+  const nextStep = disciplinary && investigationComplete
+    ? "The investigation is recorded as complete and a case to answer has been identified. The next procedural step is to arrange the disciplinary hearing and ensure the employee receives the appropriate written invitation and information."
+    : reasoningResult.decisionFramework.nextQuestion ||
+      reasoningResult.decisionFramework.proportionateRecommendation ||
+      reasoningResult.immediateNextStep;
+
+  const contextualUnderstanding = disciplinary && investigationComplete
+    ? "The recorded investigation has been completed and the available information indicates that the employer has identified a case to answer. The Matter can now move from investigation into the formal disciplinary hearing stage; no disciplinary outcome has been determined."
+    : understanding;
 
   return NextResponse.json({
     success: true,
     assessment: {
-      understanding,
+      understanding: contextualUnderstanding,
       risk: coreResult.risk.overall,
       nextStep,
     },

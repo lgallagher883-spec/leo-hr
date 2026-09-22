@@ -895,6 +895,7 @@ async function generateAndPersist(args: {
         source_id: entry.candidate.sourceId,
         source_fingerprint: entry.candidate.fingerprint,
         employee_id: entry.candidate.employeeId,
+        employee_name: entry.candidate.employeeName,
         status_band: entry.candidate.statusBand,
       },
       is_read: false,
@@ -914,7 +915,7 @@ async function generateAndPersist(args: {
           organisationId,
           userId,
           action: "reminder_milestone_emitted",
-          description: "A milestone reminder was emitted in-app.",
+          description: "A milestone reminder was emitted in-app only; this event does not trigger email delivery.",
           metadata: {
             reminder_id: row.id,
             reminder_title: row.title,

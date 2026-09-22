@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { downloadBrandedWordFromElement, openBrandedPdfFromElement } from "@/lib/documents/browserExport";
@@ -26,6 +26,8 @@ const askLeoHref =
 
 export default function InvitationToDisciplinaryHearingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl");
   const [added, setAdded] = useState(false);
 
   async function openPdf() {
@@ -68,6 +70,13 @@ export default function InvitationToDisciplinaryHearingPage() {
 
         .back-link:hover {
           text-decoration: underline;
+        }
+
+        .matter-return {
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          padding: 0;
         }
 
         .page-header {
@@ -348,6 +357,11 @@ export default function InvitationToDisciplinaryHearingPage() {
       `}</style>
 
       <div className="page-shell">
+        {returnUrl?.startsWith("/dashboard/matters/") ? (
+          <button type="button" className="back-link matter-return" onClick={() => router.push(returnUrl)}>
+            ← Back to Matter
+          </button>
+        ) : null}
         <Link
           className="back-link"
           href="/dashboard/policies/letters"

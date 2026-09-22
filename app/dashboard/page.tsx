@@ -90,6 +90,8 @@ type ReminderItem = {
     module?: string;
     milestone?: string;
     status_band?: string;
+    source_type?: string;
+    employee_name?: string;
   };
 };
 
@@ -445,7 +447,26 @@ function DashboardPageContent() {
 
         if (!active) return;
 
-        setReminders(Array.isArray(payload.reminders) ? payload.reminders : []);
+        const priorityReminders = (Array.isArray(payload.reminders) ? payload.reminders : [])
+          .filter((reminder) => {
+            const band = String(reminder.metadata?.status_band || "").toLowerCase();
+            const source = String(reminder.metadata?.source_type || "").toLowerCase();
+            return source === "sar_deadline" || band === "expired" || band === "due";
+          })
+          .sort((a, b) => {
+            const rank = (reminder: ReminderItem) => {
+              const band = String(reminder.metadata?.status_band || "").toLowerCase();
+              const source = String(reminder.metadata?.source_type || "").toLowerCase();
+              if (source === "sar_deadline" && (band === "expired" || band === "due")) return 0;
+              if (band === "expired") return 1;
+              if (band === "due") return 2;
+              return 3;
+            };
+            return rank(a) - rank(b);
+          })
+          .slice(0, 3);
+
+        setReminders(priorityReminders);
       } catch (error) {
         console.error("Dashboard reminders could not be loaded:", error);
         if (!active) return;
@@ -742,9 +763,9 @@ function DashboardPageContent() {
         ))}
       </section>
 
-      <section style={remindersSectionStyle} aria-label="In-app reminders">
+      <section style={remindersSectionStyle} aria-label="Proactive HR tasks">
         <div style={remindersHeaderStyle}>
-          <h2 style={remindersTitleStyle}>Reminder & Expiry Intelligence</h2>
+          <div><div style={setupEyebrowStyle}>Proactive Tasking</div><h2 style={remindersTitleStyle}>Leo Needs Your Attention</h2><p style={reminderIntroStyle}>Leo quietly monitors live HR records and surfaces only the most relevant next questions here. Routine actions stay in their own workspace so the dashboard does not become a task list.</p></div>
           <span style={remindersCountStyle}>{reminders.length}</span>
         </div>
 
@@ -757,13 +778,22 @@ function DashboardPageContent() {
             {reminders.map((reminder) => (
               <article key={reminder.id} style={reminderCardStyle}>
                 <div style={reminderMetaStyle}>
-                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.module || "General")}</span>
-                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.milestone || "")}</span>
-                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.status_band || "")}</span>
+                  <span style={reminderBadgeStyle}>
+                    {String(reminder.metadata?.status_band || "").toLowerCase() === "expired"
+                      ? "Expired"
+                      : String(reminder.metadata?.status_band || "").toLowerCase() === "due"
+                        ? "Due today"
+                        : "Needs attention"}
+                  </span>
                 </div>
 
                 <h3 style={reminderTitleStyle}>{reminder.title}</h3>
                 <p style={reminderMessageStyle}>{reminder.message}</p>
+                <p style={reminderAgentReasonStyle}>
+                  {reminder.metadata?.source_type
+                    ? `Leo detected this from the live ${String(reminder.metadata.source_type).replaceAll("_", " ")} record${reminder.metadata.employee_name ? ` for ${reminder.metadata.employee_name}` : ""}.`
+                    : "Leo detected this from your live HR records."}
+                </p>
 
                 <div style={reminderActionsStyle}>
                   {reminder.actionUrl ? (
@@ -776,7 +806,17 @@ function DashboardPageContent() {
                       }}
                       disabled={Boolean(reminderActionInProgress)}
                     >
-                      Open
+                      {reminder.metadata?.source_type === "right_to_work"
+                        ? "Review Right to Work"
+                        : reminder.metadata?.source_type === "dbs_check"
+                          ? "Review DBS"
+                          : reminder.metadata?.source_type === "training_refresh"
+                            ? "Review training"
+                            : reminder.metadata?.source_type === "sar_deadline"
+                              ? "Open SAR"
+                              : reminder.metadata?.source_type === "qualification_expiry"
+                                ? "Review qualification"
+                                : "Review record"}
                     </button>
                   ) : null}
 
@@ -854,6 +894,8 @@ function DashboardCard({
     </button>
   );
 }
+
+const reminderIntroStyle: CSSProperties = { margin: "4px 0 0", color: "#6B7280", fontSize: "12px", lineHeight: 1.45, maxWidth: "720px" };
 
 const pageStyle: CSSProperties = {
   width: "100%",
@@ -1235,6 +1277,13 @@ const reminderMessageStyle: CSSProperties = {
   color: "#4B5563",
   fontSize: "13px",
   lineHeight: 1.5,
+};
+
+const reminderAgentReasonStyle: CSSProperties = {
+  margin: "6px 0 0",
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.45,
 };
 
 const reminderActionsStyle: CSSProperties = {

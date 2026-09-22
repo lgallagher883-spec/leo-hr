@@ -1528,6 +1528,58 @@ export default function OnboardingWorkspace() {
   );
 }
 
+function OnboardingNextAction({
+  appointment,
+  items,
+  onSectionChange,
+}: {
+  appointment: AppointmentView;
+  items: OnboardingItem[];
+  onSectionChange: (section: OnboardingSection) => void;
+}) {
+  const outstanding = items
+    .filter((item) => !["complete", "not_required"].includes(item.status))
+    .sort((a, b) => {
+      const aBlocked = a.status === "blocked" ? 0 : 1;
+      const bBlocked = b.status === "blocked" ? 0 : 1;
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+      const aOverdue = isPast(a.due_date) ? 0 : 1;
+      const bOverdue = isPast(b.due_date) ? 0 : 1;
+      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+      return (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999");
+    });
+
+  const next = outstanding[0];
+  if (!next) return null;
+
+  const blocked = next.status === "blocked";
+  const overdue = isPast(next.due_date);
+  const section: OnboardingSection =
+    next.item_category === "documents" ? "documents" :
+    next.item_category === "safer_recruitment" ? "due_diligence" :
+    next.item_category === "payroll" ? "payroll" :
+    next.item_category === "equipment" ? "equipment" :
+    next.item_category === "learning" ? "learning" : "tasks";
+
+  return (
+    <div style={onboardingAgentCardStyle}>
+      <div style={onboardingAgentEyebrowStyle}>Leo · Onboarding next step</div>
+      <div style={onboardingAgentTitleStyle}>
+        {blocked ? "Blocked onboarding action" : overdue ? "Overdue onboarding action" : "Next onboarding action"}
+      </div>
+      <p style={onboardingAgentTextStyle}>
+        <strong>{next.item_name}</strong>
+        {next.due_date ? ` · due ${formatDate(next.due_date)}` : ""}. Leo selected this from {appointment.fullName}&apos;s live onboarding checklist
+        {blocked ? " because it is currently blocked." : overdue ? " because it is overdue." : " as the next outstanding action."}
+      </p>
+      {next.description ? <p style={onboardingAgentDetailStyle}>{next.description}</p> : null}
+      <button type="button" style={primaryButtonStyle} onClick={() => onSectionChange(section)}>
+        Open action
+      </button>
+    </div>
+  );
+}
+
 function OnboardingCard({
   appointment,
   items,
@@ -1645,6 +1697,7 @@ function OnboardingCard({
 
       {expanded ? (
         <div style={expandedAreaStyle}>
+          <OnboardingNextAction appointment={appointment} items={items} onSectionChange={onSectionChange} />
           <div style={starterOverviewGridStyle}>
             <InformationPanel title="Starter Information">
               <InformationRow
@@ -3081,3 +3134,8 @@ const modalActionsStyle: CSSProperties = {
   paddingTop: "16px",
   borderTop: "1px solid #E5E7EB",
 };
+const onboardingAgentCardStyle: CSSProperties = { marginBottom: "18px", padding: "18px", border: "1px solid #e3d6eb", borderRadius: "16px", background: "linear-gradient(135deg, #fbf8fd 0%, #ffffff 100%)" };
+const onboardingAgentEyebrowStyle: CSSProperties = { color: "#8a6a9e", fontSize: "11px", fontWeight: 800, letterSpacing: "0.08em" };
+const onboardingAgentTitleStyle: CSSProperties = { marginTop: "6px", color: "#6e5084", fontSize: "18px", fontWeight: 700 };
+const onboardingAgentTextStyle: CSSProperties = { margin: "7px 0 5px", color: "#475569", fontSize: "13px", lineHeight: 1.55 };
+const onboardingAgentDetailStyle: CSSProperties = { margin: "0 0 12px", color: "#64748b", fontSize: "12px", lineHeight: 1.5 };

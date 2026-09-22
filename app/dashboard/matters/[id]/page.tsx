@@ -24,6 +24,18 @@ type MatterAssessment = {
   nextStep: string;
 };
 
+type MatterNextAction = {
+  id: string;
+  title: string;
+  prompt: string;
+  detail: string;
+  primaryLabel: string;
+  primaryHref?: string;
+  secondaryLabel?: string;
+  secondaryAction?: "confirm_sent" | "escalate";
+  category: "Proactive Tasking" | "Workflow Automation" | "Escalation Management";
+};
+
 type TimelineEvent = {
   id: number;
   event_type: string;
@@ -63,6 +75,9 @@ function MatterDetailPageContent() {
   const [bundleFormat, setBundleFormat] = useState<"docx" | "pdf">("docx");
   const [generatingBundle, setGeneratingBundle] = useState(false);
   const [bundleMessage, setBundleMessage] = useState("");
+  const [nextActions, setNextActions] = useState<MatterNextAction[]>([]);
+  const [nextActionBusy, setNextActionBusy] = useState<string | null>(null);
+  const [nextActionMessage, setNextActionMessage] = useState("");
   const [openWorkspace, setOpenWorkspace] = useState<
     "documents" | "chronology" | "bundle" | "status" | "details" | null
   >(null);
@@ -76,6 +91,7 @@ function MatterDetailPageContent() {
     loadConversation();
     loadTimeline();
     loadAssessment();
+    loadNextActions();
     // ensureMatterCreatedTimelineEvent();
   }, [matter?.id]);
 
@@ -107,6 +123,74 @@ function MatterDetailPageContent() {
       setAssessment(null);
     } finally {
       setLoadingAssessment(false);
+    }
+  }
+
+  async function loadNextActions() {
+    if (!matter) return;
+    try {
+      const response = await fetch(`/api/matters/${matter.id}/next-actions`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const result = await response.json().catch(() => null);
+      setNextActions(response.ok && result?.success && Array.isArray(result.actions) ? result.actions : []);
+    } catch {
+      setNextActions([]);
+    }
+  }
+
+  async function handleNextAction(action: MatterNextAction, secondary = false) {
+    if (!matter) return;
+
+    if (!secondary && action.primaryHref) {
+      router.push(`${action.primaryHref}?returnUrl=${encodeURIComponent(`/dashboard/matters/${matter.id}`)}`);
+      return;
+    }
+
+    if (secondary && action.secondaryAction === "escalate") {
+      setNextActionBusy(action.id);
+      try {
+        const response = await fetch("/api/agent-operations", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "escalate",
+            matterId: matter.id,
+            reason: "Leo identified this Matter as requiring authorised management review before the workflow continues.",
+          }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) throw new Error(result?.error || "Escalation failed.");
+        setNextActionMessage("Matter routed for authorised management review.");
+        await Promise.all([loadTimeline(), loadNextActions()]);
+      } catch (error) {
+        setConversationError(error instanceof Error ? error.message : "The Matter could not be escalated.");
+      } finally {
+        setNextActionBusy(null);
+      }
+      return;
+    }
+
+    if (secondary && action.secondaryAction === "confirm_sent") {
+      setNextActionBusy(action.id);
+      try {
+        const response = await fetch(`/api/matters/${matter.id}/next-actions`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "confirm_sent" }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) throw new Error(result?.error || "The task could not be recorded.");
+        setNextActionMessage("Recorded in the Matter chronology.");
+        await Promise.all([loadTimeline(), loadNextActions()]);
+      } catch (error) {
+        setConversationError(error instanceof Error ? error.message : "The task could not be recorded.");
+      } finally {
+        setNextActionBusy(null);
+      }
     }
   }
 
@@ -441,6 +525,55 @@ function MatterDetailPageContent() {
           </div>
         </div>
       </section>
+
+      {nextActions.length > 0 && (
+        <section style={agentActionPanelStyle}>
+          <div style={agentActionHeaderStyle}>
+            <div>
+              <div style={assessmentEyebrowStyle}>Leo · Matter next step</div>
+              <div style={agentActionTitleStyle}>Next actions for this Matter</div>
+              <div style={sectionSubtitleStyle}>
+                Leo uses the Matter stage and recorded facts to identify what needs doing next — you stay in control of significant decisions.
+              </div>
+            </div>
+            <div style={agentBadgeStyle}>AI HR workflow</div>
+          </div>
+
+          {nextActionMessage ? <div style={bundleMessageStyle}>{nextActionMessage}</div> : null}
+
+          <div style={agentActionGridStyle}>
+            {nextActions.map((action) => (
+              <div key={action.id} style={agentActionCardStyle}>
+                <div style={agentCategoryStyle}>{action.category}</div>
+                <div style={agentPromptStyle}>{action.prompt}</div>
+                <div style={agentDetailStyle}>{action.detail}</div>
+                <div style={agentButtonRowStyle}>
+{action.primaryHref ? (
+                    <button
+                      type="button"
+                      style={purpleButtonStyle}
+                      onClick={() => void handleNextAction(action)}
+                      disabled={nextActionBusy === action.id}
+                    >
+                      {action.primaryLabel}
+                    </button>
+                  ) : null}
+                  {action.secondaryLabel && action.secondaryAction ? (
+                    <button
+                      type="button"
+                      style={secondaryButtonStyle}
+                      onClick={() => void handleNextAction(action, true)}
+                      disabled={nextActionBusy === action.id}
+                    >
+                      {nextActionBusy === action.id ? "Working..." : action.secondaryLabel}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section style={conversationPanelStyle}>
         <div style={sectionHeaderStyle}>
@@ -1121,4 +1254,72 @@ const secondaryButtonStyle: React.CSSProperties = {
   borderRadius: "9px",
   cursor: "pointer",
   fontWeight: 700,
+};
+
+const agentActionPanelStyle: React.CSSProperties = {
+  marginTop: "16px",
+  padding: "18px",
+  border: "1px solid #DCCCE7",
+  borderRadius: "16px",
+  background: "#FCFAFD",
+  boxShadow: "0 8px 22px rgba(110,80,132,0.06)",
+};
+const agentActionHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "16px",
+  flexWrap: "wrap",
+  marginBottom: "14px",
+};
+const agentActionTitleStyle: React.CSSProperties = {
+  marginTop: "4px",
+  color: "#2F2635",
+  fontSize: "18px",
+  fontWeight: 700,
+};
+const agentBadgeStyle: React.CSSProperties = {
+  padding: "5px 9px",
+  borderRadius: "999px",
+  background: "#F7F1FC",
+  color: "#6E5084",
+  fontSize: "11px",
+  fontWeight: 800,
+};
+const agentActionGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
+  gap: "10px",
+};
+const agentActionCardStyle: React.CSSProperties = {
+  padding: "14px",
+  border: "1px solid #E9E3ED",
+  borderRadius: "12px",
+  background: "#FFFFFF",
+};
+const agentCategoryStyle: React.CSSProperties = {
+  color: "#6E5084",
+  fontSize: "10px",
+  fontWeight: 800,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+};
+const agentPromptStyle: React.CSSProperties = {
+  marginTop: "7px",
+  color: "#2F2635",
+  fontSize: "14px",
+  fontWeight: 700,
+  lineHeight: 1.45,
+};
+const agentDetailStyle: React.CSSProperties = {
+  marginTop: "6px",
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.5,
+};
+const agentButtonRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+  marginTop: "12px",
 };

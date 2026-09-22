@@ -26,9 +26,19 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Run ESLint
-        run: npx eslint $(git diff --name-only --diff-filter=ACMR origin/master...HEAD -- '*.js' '*.jsx' '*.ts' '*.tsx' | tr '\n' ' ')
-        # Existing repository-wide lint debt is tracked separately; this gate prevents new/changed files from introducing lint errors.
+      - name: Fetch production base for changed-file lint
+        run: git fetch --no-tags --depth=1 origin master
+      - name: Run ESLint on changed application files
+        shell: bash
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR origin/master...HEAD -- '*.js' '*.jsx' '*.ts' '*.tsx')
+          if (( ${#files[@]} == 0 )); then
+            echo "No changed JavaScript/TypeScript application files to lint."
+            exit 0
+          fi
+          printf 'Linting %s changed application files.\n' "${#files[@]}"
+          npx eslint "${files[@]}"
+        # Existing repository-wide lint debt is tracked separately; this gate prevents changed application files from introducing lint errors.
 
   typecheck:
     name: TypeCheck

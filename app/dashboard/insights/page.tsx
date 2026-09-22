@@ -1127,6 +1127,28 @@ export default function InsightsPage() {
           ) : null}
 
           <Section
+            title="AI HR Operations"
+            subtitle="Proactive tasking, Matter workflow activity, management escalation and Leo automation usage."
+            accent
+          >
+            <div style={aiOperationsPanelStyle}>
+              <div>
+                <h3 style={aiOperationsTitleStyle}>Leo automation & workflow insights</h3>
+                <p style={aiOperationsTextStyle}>
+                  Review the operational activity Leo is monitoring and supporting across your organisation, including proactive actions, workflow progress, authorised escalation and tracked automation events.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/agent-operations")}
+                style={primaryActionButtonStyle}
+              >
+                Open AI HR Operations
+              </button>
+            </div>
+          </Section>
+
+          <Section
             title="Executive overview"
             subtitle={`Current organisation position. Period-based measures use ${periodLabel.toLowerCase()}.`}
           >
@@ -2520,6 +2542,28 @@ function getMetricToneStyle(
     borderColor: "#E5E7EB",
   };
 }
+
+const aiOperationsPanelStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "24px",
+  flexWrap: "wrap",
+};
+
+const aiOperationsTitleStyle: React.CSSProperties = {
+  margin: "0 0 8px",
+  fontSize: "18px",
+  fontWeight: 700,
+  color: "#3F3148",
+};
+
+const aiOperationsTextStyle: React.CSSProperties = {
+  margin: 0,
+  maxWidth: "760px",
+  color: "#6F6574",
+  lineHeight: 1.6,
+};
 
 const pageStyle: React.CSSProperties = {
   width: "100%",

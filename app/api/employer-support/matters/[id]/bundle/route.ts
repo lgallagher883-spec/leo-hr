@@ -10,7 +10,7 @@ export async function GET(_r:Request,{params}:Ctx){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId))return NextResponse.json({error:"Invalid matter."},{status:400});
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok)return NextResponse.json({error:"Matter unavailable."},{status:gate.status});
  const db=createAdminClient();
- const [{data:matter,error:matterError},{data:timeline,error:timelineError},{data:documents,error:documentsError},{data:actions,error:actionsError},{data:org},{data:profile}]=await Promise.all([
+ const [{data:matter,error:matterError},{data:timeline,error:timelineError},{data:documents,error:documentsError},{data:actions,error:actionsError},{data:org,error:orgError},{data:profile,error:profileError}]=await Promise.all([
   (db as any).from("matters").select("id,title,subject,description,status,matter_type,workflow_stage,created_at,completed_at").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").single(),
   (db as any).from("matter_timeline").select("title,description,event_date,created_at").eq("matter_id",matterId).order("event_date",{ascending:true}),
   (db as any).from("matter_documents").select("title,document_type,description,status,file_name,content,include_in_bundle,created_at").eq("matter_id",matterId).eq("include_in_bundle",true).order("created_at",{ascending:true}),
@@ -19,7 +19,7 @@ export async function GET(_r:Request,{params}:Ctx){
   (db as any).from("organisation_public_profiles").select("display_name,primary_colour,secondary_colour").eq("organisation_id",gate.access.organisationId).maybeSingle()
  ]);
  if(matterError||!matter)return NextResponse.json({error:"Matter unavailable."},{status:404});
- if(timelineError||documentsError||actionsError)return NextResponse.json({error:"The matter bundle could not be prepared completely."},{status:500});
+ if(timelineError||documentsError||actionsError||orgError||profileError)return NextResponse.json({error:"The matter bundle could not be prepared completely."},{status:500});
  const organisationName=profile?.display_name||org?.name||"Employer";
  const primary=(profile?.primary_colour||"#6E5084").replace("#","").toUpperCase();
  const colour=/^[0-9A-F]{6}$/.test(primary)?primary:"6E5084";

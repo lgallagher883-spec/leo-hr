@@ -2704,7 +2704,7 @@ const periodSelectStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
   borderRadius: "10px",
   background: "#FFFFFF",
-  color: "#374151",
+  color: "#3F3148",
   fontSize: "13px",
 };
 
@@ -2736,7 +2736,7 @@ const sectionHeaderStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "17px",
   fontWeight: 700,
 };
@@ -2763,14 +2763,14 @@ const briefHeaderStyle: React.CSSProperties = {
 
 const briefTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "18px",
   fontWeight: 700,
 };
 
 const briefHeadlineStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  color: "#4B5563",
+  color: "#5E456C",
   fontSize: "13px",
   lineHeight: 1.65,
   maxWidth: "78ch",
@@ -2808,7 +2808,7 @@ const briefCountLabelStyle: React.CSSProperties = {
 const briefCountValueStyle: React.CSSProperties = {
   display: "block",
   marginTop: "8px",
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "18px",
 };
 
@@ -2828,7 +2828,7 @@ const briefListSectionStyle: React.CSSProperties = {
 
 const briefListTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "13px",
   fontWeight: 700,
 };
@@ -2845,7 +2845,7 @@ const briefListItemStyle: React.CSSProperties = {
 };
 
 const briefItemTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "12px",
 };
 
@@ -2891,7 +2891,7 @@ const metricLabelStyle: React.CSSProperties = {
 };
 
 const metricValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "18px",
   fontWeight: 700,
 };
@@ -2922,7 +2922,7 @@ const smallMetricLabelStyle: React.CSSProperties = {
 };
 
 const smallMetricValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "14px",
   fontWeight: 700,
   lineHeight: 1.4,
@@ -2945,7 +2945,7 @@ const insightContentStyle: React.CSSProperties = {
 };
 
 const insightTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "13px",
   fontWeight: 700,
 };
@@ -2979,7 +2979,7 @@ const observationCardStyle: React.CSSProperties = {
 };
 
 const observationTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#3F3148",
   fontSize: "13px",
   fontWeight: 700,
 };
@@ -3001,7 +3001,7 @@ const breakdownStyle: React.CSSProperties = {
 
 const breakdownTitleStyle: React.CSSProperties = {
   marginBottom: "12px",
-  color: "#374151",
+  color: "#3F3148",
   fontSize: "12px",
   fontWeight: 700,
 };
@@ -3020,7 +3020,7 @@ const breakdownHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: "10px",
-  color: "#4B5563",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
@@ -3053,7 +3053,7 @@ const secondaryButtonStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
   borderRadius: "9px",
   background: "#FFFFFF",
-  color: "#4B5563",
+  color: "#5E456C",
   padding: "8px 11px",
   fontSize: "11px",
   fontWeight: 600,

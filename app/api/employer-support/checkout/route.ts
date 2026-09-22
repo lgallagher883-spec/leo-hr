@@ -25,6 +25,14 @@ export async function POST(request: Request) {
     // pending purchases behind.
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
     const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
+    const isProductionDeployment = process.env.VERCEL_ENV === "production";
+    if (isProductionDeployment && !stripeSecretKey.startsWith("sk_live_")) {
+      console.error("Blocked Employer Support checkout: production deployment is not using a Stripe live key.");
+      return NextResponse.json(
+        { error: "Employer Support payments are not configured for live checkout yet." },
+        { status: 503 },
+      );
+    }
     if (isPreviewDeployment && !stripeSecretKey.startsWith("sk_test_")) {
       console.error("Blocked Employer Support checkout: preview deployment is not using a Stripe test key.");
       return NextResponse.json(

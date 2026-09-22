@@ -974,7 +974,7 @@ function SectionShell({
   action,
   children,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   action?: ReactNode;
@@ -1000,7 +1000,7 @@ function SectionHeading({
   description,
   action,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   action?: ReactNode;
@@ -1008,7 +1008,7 @@ function SectionHeading({
   return (
     <div style={sectionHeadingStyle}>
       <div style={sectionHeadingContentStyle}>
-        <div style={eyebrowStyle}>{eyebrow}</div>
+        {eyebrow ? <div style={eyebrowStyle}>{eyebrow}</div> : null}
         <h2 style={sectionTitleStyle}>{title}</h2>
         <p style={sectionDescriptionStyle}>{description}</p>
       </div>

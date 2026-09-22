@@ -213,7 +213,7 @@ const titleStyle: React.CSSProperties = {
 
 const descriptionStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
@@ -252,7 +252,7 @@ const navigationTitleStyle: React.CSSProperties = {
 };
 
 const navigationDescriptionStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "13px",
   lineHeight: 1.5,
 };
@@ -272,7 +272,7 @@ const subNavigationStyle: React.CSSProperties = {
 
 const subNavigationButtonStyle: React.CSSProperties = {
   background: "#FFFFFF",
-  color: "#6B7280",
+  color: "#5E456C",
   border: "1px solid #D1D5DB",
   borderRadius: "10px",
   padding: "9px 13px",

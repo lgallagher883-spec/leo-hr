@@ -1273,6 +1273,13 @@ const reminderMessageStyle: CSSProperties = {
   lineHeight: 1.5,
 };
 
+const reminderAgentReasonStyle: CSSProperties = {
+  margin: "6px 0 0",
+  color: "#6B7280",
+  fontSize: "12px",
+  lineHeight: 1.45,
+};
+
 const reminderActionsStyle: CSSProperties = {
   display: "flex",
   gap: "8px",

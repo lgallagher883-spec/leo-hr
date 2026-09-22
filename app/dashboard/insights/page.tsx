@@ -908,9 +908,73 @@ export default function InsightsPage() {
       ...formatBriefItems(executiveBrief.earlyInterventions),
     ];
 
-    const utf8Bom = "\uFEFF";
-    const blob = new Blob([utf8Bom, lines.join("\r\n")], {
-      type: "text/plain;charset=utf-8",
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const sections = [
+      ["Headline summary", [executiveBrief.headlineSummary]],
+      [
+        "Supporting counts",
+        executiveBrief.supportingCounts.map(
+          (item) => `${item.label}: ${item.value}`
+        ),
+      ],
+      ["Key risks", formatBriefItems(executiveBrief.risks)],
+      ["Notable trends", formatBriefItems(executiveBrief.trends)],
+      [
+        "Priority recommendations",
+        formatBriefItems(executiveBrief.recommendations),
+      ],
+      [
+        "Early interventions",
+        formatBriefItems(executiveBrief.earlyInterventions),
+      ],
+    ];
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(executiveBrief.title)}</title>
+<style>
+body{font-family:Arial,sans-serif;color:#403545;margin:40px;line-height:1.5}
+h1{color:#6E5084;font-size:24px;margin:0 0 8px}
+.meta{color:#746C78;font-size:12px;margin-bottom:28px}
+h2{color:#5E456C;font-size:16px;margin:24px 0 8px}
+p{margin:0 0 8px}
+ul{margin:0;padding-left:22px}
+li{margin:0 0 6px}
+</style>
+</head>
+<body>
+<h1>${escapeHtml(executiveBrief.title)}</h1>
+<div class="meta">Generated: ${escapeHtml(
+      briefGeneratedAt.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    )}<br>Reporting period: ${escapeHtml(periodLabel)}</div>
+${sections
+  .map(
+    ([heading, items]) =>
+      `<section><h2>${escapeHtml(String(heading))}</h2><ul>${(
+        items as string[]
+      )
+        .map((item) => `<li>${escapeHtml(item.replace(/^[-•]\\s*/, ""))}</li>`)
+        .join("")}</ul></section>`
+  )
+  .join("")}
+</body>
+</html>`;
+
+    const blob = new Blob([html], {
+      type: "application/msword",
     });
 
     const url = URL.createObjectURL(blob);
@@ -918,7 +982,7 @@ export default function InsightsPage() {
     anchor.href = url;
     anchor.download = `leo-executive-insight-brief-${period}-${toDateStamp(
       briefGeneratedAt
-    )}.txt`;
+    )}.doc`;
     anchor.click();
     URL.revokeObjectURL(url);
 
@@ -929,7 +993,7 @@ export default function InsightsPage() {
         period,
         period_label: periodLabel,
         generated_at: briefGeneratedAt.toISOString(),
-        export_format: "txt",
+        export_format: "doc",
       },
     });
 

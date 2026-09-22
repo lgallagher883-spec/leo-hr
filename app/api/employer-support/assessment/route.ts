@@ -1,13 +1,21 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-import { getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
+import { EmployerSupportAccessLookupError, getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
 import { buildEmployerSupportPrePurchasePrompt } from "@/lib/employer-support/prePurchasePrompt";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: Request) {
-  const access = await getEmployerSupportAccess();
+  let access;
+  try {
+    access = await getEmployerSupportAccess();
+  } catch (error) {
+    if (error instanceof EmployerSupportAccessLookupError) {
+      return NextResponse.json({success:false,error:"Your Employer Support access could not be checked just now. Please try again."},{status:503});
+    }
+    throw error;
+  }
   if (!access) return NextResponse.json({ success:false,error:"Please sign in to continue." },{status:401});
 
   const body=await request.json().catch(()=>null) as {issue?:unknown}|null;

@@ -97,6 +97,7 @@ export async function GET() {
     const notifications = notificationResult.data ?? [];
 
     const proactiveCreated = logs.filter((row: any) => row.action === "reminder_milestone_emitted").length;
+    const matterAgentActions = logs.filter((row: any) => row.action === "matter_agent_action_completed").length;
     const proactiveAcknowledged = logs.filter((row: any) => row.action === "reminder_acknowledged").length;
     const workflowAdvances = logs.filter((row: any) => row.action === "workflow_stage_advanced").length;
     const escalationsRaised = logs.filter((row: any) => row.action === "matter_escalated_to_management").length;
@@ -133,7 +134,8 @@ export async function GET() {
         proactiveTasksAcknowledged: proactiveAcknowledged,
         workflowStagesAdvanced: workflowAdvances,
         managementEscalationsRaised: escalationsRaised,
-        trackedAutomationEvents: proactiveCreated + proactiveAcknowledged + workflowAdvances + escalationsRaised,
+        matterAgentActionsCompleted: matterAgentActions,
+        trackedAutomationEvents: proactiveCreated + proactiveAcknowledged + workflowAdvances + escalationsRaised + matterAgentActions,
       },
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

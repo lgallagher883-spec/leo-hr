@@ -895,6 +895,7 @@ async function generateAndPersist(args: {
         source_id: entry.candidate.sourceId,
         source_fingerprint: entry.candidate.fingerprint,
         employee_id: entry.candidate.employeeId,
+        employee_name: entry.candidate.employeeName,
         status_band: entry.candidate.statusBand,
       },
       is_read: false,

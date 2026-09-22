@@ -72,7 +72,8 @@ export async function GET(_request: Request, context: RouteContext) {
     matter.description,
     ...(timeline ?? []).flatMap((row: any) => [row.event_type, row.title, row.description]),
     ...(messages ?? []).map((row: any) => row.content),
-  ].filter(Boolean).join("\n").toLowerCase();
+  ].filter(Boolean).join("
+").toLowerCase();
 
   const matterType = lower(matter.matter_type);
   const actions: ActionRecord[] = [];
@@ -160,7 +161,11 @@ export async function POST(request: Request, context: RouteContext) {
   });
   if (!allowed) return NextResponse.json({ success: false, error: "You do not have permission to update this Matter." }, { status: 403 });
 
-  // Permission and Matter scope are checked above with the signed-in client.\n  // Persist the approved server-side workflow event with the admin client because\n  // matter_timeline intentionally does not allow direct user inserts.\n  const admin = createAdminClient();\n  const { error } = await admin.from("matter_timeline").insert({
+  // Permission and Matter scope are checked above with the signed-in client.
+  // Persist the approved server-side workflow event with the admin client because
+  // matter_timeline intentionally does not allow direct user inserts.
+  const admin = createAdminClient();
+  const { error } = await admin.from("matter_timeline").insert({
     matter_id: matterId,
     event_type: "workflow_task_completed",
     title: "Disciplinary hearing invitation sent",

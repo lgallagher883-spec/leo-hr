@@ -746,7 +746,7 @@ function DashboardPageContent() {
 
       <section style={remindersSectionStyle} aria-label="Proactive HR tasks">
         <div style={remindersHeaderStyle}>
-          <div><div style={setupEyebrowStyle}>Proactive Tasking</div><h2 style={remindersTitleStyle}>Leo Needs Your Help</h2><p style={reminderIntroStyle}>Leo monitors live HR records and proactively surfaces work that needs attention without waiting for you to ask.</p></div>
+          <div><div style={setupEyebrowStyle}>Proactive Tasking</div><h2 style={remindersTitleStyle}>Leo Needs Your Help</h2><p style={reminderIntroStyle}>Leo quietly monitors live HR records and surfaces only the most relevant next questions here. Routine actions stay in their own workspace so the dashboard does not become a task list.</p></div>
           <span style={remindersCountStyle}>{reminders.length}</span>
         </div>
 

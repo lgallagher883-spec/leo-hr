@@ -1509,9 +1509,7 @@ export default function CompliancePage() {
 <h1 style={titleStyle}>Compliance</h1>
 
           <p style={subtitleStyle}>
-            Review employee checks and learning
-            renewal dates in clear spreadsheet-style
-            registers.
+            See what needs attention across employee checks, renewals and learning without digging through a large register.
           </p>
 
           {lastUpdated && (
@@ -1601,7 +1599,7 @@ export default function CompliancePage() {
               : viewTabStyle
           }
         >
-          Compliance Register
+          Compliance overview
         </button>
 
         <button

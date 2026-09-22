@@ -102,7 +102,7 @@ export async function GET() {
     const escalationsRaised = logs.filter((row: any) => row.action === "matter_escalated_to_management").length;
 
     const escalations = notifications
-      .filter((row: any) => row.metadata?.agent_operation === "management_escalation" && !row.is_dismissed)
+      .filter((row: any) => row.metadata?.agent_operation === "management_escalation" && row.metadata?.recipient_user_id === user.id && !row.is_dismissed)
       .map((row: any) => ({
         id: row.id,
         title: row.title,
@@ -164,6 +164,13 @@ export async function POST(request: Request) {
     }
 
     if (action === "advance_workflow") {
+      return NextResponse.json({
+        success: false,
+        error: "Matter stages are evidence-led. Open the Matter and complete Leo's next action rather than advancing the process manually.",
+      }, { status: 409 });
+    }
+
+    if (action === "legacy_advance_workflow_disabled") {
       const currentIndex = stageIndex(matter.status);
       if (currentIndex >= workflowStages.length - 1) {
         return NextResponse.json({ success: false, error: "This workflow is already complete." }, { status: 400 });

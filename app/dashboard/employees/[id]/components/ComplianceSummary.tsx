@@ -111,7 +111,7 @@ export default function ComplianceSummary({
   return (
     <ProfileSection title="Compliance Summary">
       {loading ? (
-        <div style={{ color: "#6B7280" }}>Checking compliance records...</div>
+        <div style={{ color: "#5E456C" }}>Checking compliance records...</div>
       ) : items.length === 0 ? (
         <div style={okBoxStyle}>
           No immediate compliance items found from the records currently saved.
@@ -152,7 +152,7 @@ function Group({
         {items.map((item, index) => (
           <div key={`${item.title}-${index}`} style={itemStyle}>
             <div style={{ fontWeight: 700 }}>{item.title}</div>
-            <div style={{ color: "#6B7280", fontSize: "13px", marginTop: "3px" }}>
+            <div style={{ color: "#5E456C", fontSize: "13px", marginTop: "3px" }}>
               {item.detail}
             </div>
           </div>
@@ -167,7 +167,7 @@ const okBoxStyle: React.CSSProperties = {
   border: "1px solid #D1FAE5",
   borderRadius: "12px",
   padding: "14px",
-  color: "#374151",
+  color: "#5E456C",
 };
 
 function groupStyle(tone: "review" | "upcoming" | "ok"): React.CSSProperties {

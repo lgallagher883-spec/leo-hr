@@ -447,7 +447,26 @@ function DashboardPageContent() {
 
         if (!active) return;
 
-        setReminders(Array.isArray(payload.reminders) ? payload.reminders : []);
+        const priorityReminders = (Array.isArray(payload.reminders) ? payload.reminders : [])
+          .filter((reminder) => {
+            const band = String(reminder.metadata?.status_band || "").toLowerCase();
+            const source = String(reminder.metadata?.source_type || "").toLowerCase();
+            return source === "sar_deadline" || band === "expired" || band === "due";
+          })
+          .sort((a, b) => {
+            const rank = (reminder: ReminderItem) => {
+              const band = String(reminder.metadata?.status_band || "").toLowerCase();
+              const source = String(reminder.metadata?.source_type || "").toLowerCase();
+              if (source === "sar_deadline" && (band === "expired" || band === "due")) return 0;
+              if (band === "expired") return 1;
+              if (band === "due") return 2;
+              return 3;
+            };
+            return rank(a) - rank(b);
+          })
+          .slice(0, 3);
+
+        setReminders(priorityReminders);
       } catch (error) {
         console.error("Dashboard reminders could not be loaded:", error);
         if (!active) return;

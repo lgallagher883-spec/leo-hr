@@ -164,7 +164,7 @@ export default function EmployeeWarnings({ employeeId }: EmployeeWarningsProps) 
 
   return (
     <ProfileSection title="Warnings">
-<p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+<p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
         Record formal and informal warnings. Keep entries factual and linked to
         the relevant HR process where appropriate.
       </p>
@@ -212,7 +212,7 @@ export default function EmployeeWarnings({ employeeId }: EmployeeWarningsProps) 
       </SaveButton>
 
       {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+        <div style={{ marginTop: "10px", color: "#5E456C", fontSize: "14px" }}>
           {message}
         </div>
       )}
@@ -223,9 +223,9 @@ export default function EmployeeWarnings({ employeeId }: EmployeeWarningsProps) 
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading warnings...</div>
+          <div style={{ color: "#5E456C" }}>Loading warnings...</div>
         ) : warnings.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No warnings recorded.</div>
+          <div style={{ color: "#5E456C" }}>No warnings recorded.</div>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {warnings.map((warning) => (
@@ -304,7 +304,7 @@ export default function EmployeeWarnings({ employeeId }: EmployeeWarningsProps) 
                     </div>
 
                     {warning.outcome && (
-                      <div style={{ marginTop: "8px", color: "#374151" }}>
+                      <div style={{ marginTop: "8px", color: "#5E456C" }}>
                         <strong>Outcome:</strong> {warning.outcome}
                       </div>
                     )}
@@ -338,13 +338,13 @@ const cardStyle: React.CSSProperties = {
 };
 
 const metaStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "13px",
   marginTop: "4px",
 };
 
 const dateStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   marginTop: "10px",
 };
@@ -364,7 +364,7 @@ const smallDarkButtonStyle: React.CSSProperties = {
 const smallLightButtonStyle: React.CSSProperties = {
   marginTop: "10px",
   background: "#fff",
-  color: "#374151",
+  color: "#5E456C",
   border: "1px solid #e5e7eb",
   padding: "7px 10px",
   borderRadius: "8px",

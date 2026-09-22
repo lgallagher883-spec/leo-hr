@@ -912,7 +912,7 @@ export default function EmploymentDetails({
           style={{
             fontSize: "15px",
             fontWeight: 700,
-            color: "#374151",
+            color: "#5E456C",
           }}
         >
           Working &amp; Holiday Pattern
@@ -923,7 +923,7 @@ export default function EmploymentDetails({
             maxWidth: "720px",
             fontSize: "13px",
             lineHeight: 1.5,
-            color: "#6B7280",
+            color: "#5E456C",
           }}
         >
           Record the employee&apos;s normal working arrangement and
@@ -965,7 +965,7 @@ export default function EmploymentDetails({
               maxWidth: "720px",
               fontSize: "12px",
               lineHeight: 1.5,
-              color: "#6B7280",
+              color: "#5E456C",
             }}
           >
             {fixedDaysPattern
@@ -993,7 +993,7 @@ export default function EmploymentDetails({
               maxWidth: "720px",
               fontSize: "12px",
               lineHeight: 1.5,
-              color: "#6B7280",
+              color: "#5E456C",
             }}
           >
             {fixedDaysPattern
@@ -1009,7 +1009,7 @@ export default function EmploymentDetails({
         <div
           style={{
             fontSize: "13px",
-            color: "#6B7280",
+            color: "#5E456C",
             marginBottom: "7px",
           }}
         >
@@ -1041,7 +1041,7 @@ export default function EmploymentDetails({
                   background: selected ? "#F7F1FC" : "#FFFFFF",
                   cursor: "pointer",
                   fontSize: "13px",
-                  color: "#374151",
+                  color: "#5E456C",
                 }}
               >
                 <input
@@ -1061,7 +1061,7 @@ export default function EmploymentDetails({
             maxWidth: "720px",
             fontSize: "12px",
             lineHeight: 1.5,
-            color: "#6B7280",
+            color: "#5E456C",
           }}
         >
           {fixedDaysPattern
@@ -1081,7 +1081,7 @@ export default function EmploymentDetails({
           gap: "9px",
           marginBottom: "16px",
           fontSize: "13px",
-          color: "#374151",
+          color: "#5E456C",
         }}
       >
         <input
@@ -1098,7 +1098,7 @@ export default function EmploymentDetails({
         <div
           style={{
             fontSize: "13px",
-            color: "#6B7280",
+            color: "#5E456C",
             marginBottom: "7px",
           }}
         >
@@ -1180,7 +1180,7 @@ export default function EmploymentDetails({
           style={{
             fontSize: "13px",
             fontWeight: 700,
-            color: "#374151",
+            color: "#5E456C",
             marginBottom: "6px",
           }}
         >
@@ -1192,7 +1192,7 @@ export default function EmploymentDetails({
             style={{
               fontSize: "13px",
               lineHeight: 1.55,
-              color: "#6B7280",
+              color: "#5E456C",
             }}
           >
             This worker requires pay-period holiday accrual using actual
@@ -1206,8 +1206,8 @@ export default function EmploymentDetails({
               style={{
                 fontSize: "12px",
                 fontWeight: 700,
-                color: "#6B7280",
-                textTransform: "uppercase",
+                color: "#5E456C",
+                
                 letterSpacing: "0.04em",
               }}
             >
@@ -1219,7 +1219,7 @@ export default function EmploymentDetails({
                 marginTop: "3px",
                 fontSize: "20px",
                 fontWeight: 700,
-                color: "#374151",
+                color: "#5E456C",
               }}
             >
               {formatDays(statutoryFullYearDays)} days
@@ -1230,7 +1230,7 @@ export default function EmploymentDetails({
                 marginTop: "5px",
                 fontSize: "13px",
                 lineHeight: 1.55,
-                color: "#6B7280",
+                color: "#5E456C",
               }}
             >
               Based on {displayValue(contractedDaysPerWeek)} contracted
@@ -1248,8 +1248,8 @@ export default function EmploymentDetails({
                 style={{
                   fontSize: "12px",
                   fontWeight: 700,
-                  color: "#6B7280",
-                  textTransform: "uppercase",
+                  color: "#5E456C",
+                  
                   letterSpacing: "0.04em",
                 }}
               >
@@ -1264,7 +1264,7 @@ export default function EmploymentDetails({
                       marginTop: "3px",
                       fontSize: "20px",
                       fontWeight: 700,
-                      color: "#374151",
+                      color: "#5E456C",
                     }}
                   >
                     {formatDays(currentYearStatutory.entitlement)} days
@@ -1275,7 +1275,7 @@ export default function EmploymentDetails({
                       marginTop: "5px",
                       fontSize: "12px",
                       lineHeight: 1.5,
-                      color: "#6B7280",
+                      color: "#5E456C",
                     }}
                   >
                     {currentYearStatutory.description}
@@ -1287,7 +1287,7 @@ export default function EmploymentDetails({
                         marginTop: "4px",
                         fontSize: "12px",
                         lineHeight: 1.5,
-                        color: "#6B7280",
+                        color: "#5E456C",
                       }}
                     >
                       Months included in this leave-year entitlement:{" "}
@@ -1301,7 +1301,7 @@ export default function EmploymentDetails({
                         marginTop: "4px",
                         fontSize: "12px",
                         lineHeight: 1.5,
-                        color: "#6B7280",
+                        color: "#5E456C",
                       }}
                     >
                       Calendar days in employment this leave year:{" "}
@@ -1331,7 +1331,7 @@ export default function EmploymentDetails({
                   marginTop: "10px",
                   fontSize: "12px",
                   lineHeight: 1.5,
-                  color: "#6B7280",
+                  color: "#5E456C",
                 }}
               >
                 Bank holidays are marked as additional. Leo does not
@@ -1381,7 +1381,7 @@ export default function EmploymentDetails({
             style={{
               fontSize: "13px",
               lineHeight: 1.55,
-              color: "#6B7280",
+              color: "#5E456C",
             }}
           >
             Select Fixed days and enter Contracted Days Per Week to show
@@ -1408,7 +1408,7 @@ export default function EmploymentDetails({
               maxWidth: "720px",
               fontSize: "12px",
               lineHeight: 1.5,
-              color: "#6B7280",
+              color: "#5E456C",
             }}
           >
             Enter the contractual entitlement that applies to this employee.
@@ -1462,7 +1462,7 @@ export default function EmploymentDetails({
           maxWidth: "720px",
           fontSize: "12px",
           lineHeight: 1.5,
-          color: "#6B7280",
+          color: "#5E456C",
         }}
       >
         Reserved or shutdown days form part of the employee&apos;s
@@ -1486,7 +1486,7 @@ export default function EmploymentDetails({
         <div
           style={{
             marginTop: "10px",
-            color: "#6B7280",
+            color: "#5E456C",
             fontSize: "14px",
           }}
         >

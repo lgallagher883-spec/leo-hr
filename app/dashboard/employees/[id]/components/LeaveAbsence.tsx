@@ -840,6 +840,12 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       manuallyAdjusted: form.useManualDays,
       source: platformRole,
       futureCalendarSync: false,
+      returnToWorkCompletedAt: null,
+      returnToWorkCompletedBy: null,
+      returnToWorkNotes: "",
+      followUpNeeded: false,
+      followUpReason: "",
+      followUpDueDate: null,
     };
 
     const response = await fetch(
@@ -2345,8 +2351,8 @@ function AbsenceNextAction({
                 placeholder="What needs following up?"
                 style={inputStyle}
               />
-              <label style={fieldLabelStyle}>
-                Review date
+              <label style={formFieldStyle}>
+                <span style={formLabelStyle}>Review date</span>
                 <input
                   type="date"
                   value={followUpDueDate}

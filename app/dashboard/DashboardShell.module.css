@@ -1014,3 +1014,84 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+.managementMobileUpload {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .managementEmployeesPage:has(.managementMobileUpload) .managementEmployeesStandardView {
+    display: none;
+  }
+
+  .managementMobileUpload {
+    display: grid;
+    gap: 13px;
+    padding: 15px;
+    border: 1px solid #e7e1ea;
+    border-radius: 14px;
+    background: #ffffff;
+  }
+
+  .managementMobileUpload h1 {
+    margin: 0;
+    color: #6e5084;
+    font-size: 23px;
+    line-height: 1.2;
+  }
+
+  .managementMobileUpload p {
+    margin: 6px 0 0;
+    color: #7d7d7d;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .managementMobileUpload label {
+    display: grid;
+    gap: 6px;
+    color: #5e456c;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .managementMobileUpload input,
+  .managementMobileUpload select {
+    width: 100%;
+    min-height: 46px;
+    box-sizing: border-box;
+    border: 1px solid #d8ccde;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #5e456c;
+    padding: 10px 11px;
+    font: inherit;
+    font-size: 16px;
+  }
+
+  .managementMobileUploadFile input {
+    padding: 8px;
+  }
+
+  .managementMobileUploadFile small {
+    color: #7d7d7d;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .managementMobileUploadButton {
+    min-height: 46px;
+    border: 1px solid #6e5084;
+    border-radius: 10px;
+    background: #6e5084;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 750;
+  }
+
+  .managementMobileUploadButton:disabled {
+    opacity: 0.5;
+  }
+}

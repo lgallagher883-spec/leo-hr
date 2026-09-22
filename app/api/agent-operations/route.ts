@@ -105,14 +105,23 @@ export async function GET() {
     const logs = auditResult.data ?? [];
     const notifications = notificationResult.data ?? [];
 
-    const proactiveCreated = logs.filter((row: any) => row.action === "reminder_milestone_emitted").length;
+    // Reminder notifications are the authoritative persisted proactive-task records.
+    // Older reminders can pre-date audit-event tracking, so analytics must not report
+    // zero while genuine Leo-created reminder records are visibly active.
+    const proactiveReminderRecords = notifications.filter(
+      (row: any) => row.metadata?.phase === "phase1" && row.metadata?.recipient_user_id === user.id,
+    );
+    const auditedProactiveCreated = logs.filter((row: any) => row.action === "reminder_milestone_emitted").length;
+    const proactiveCreated = Math.max(auditedProactiveCreated, proactiveReminderRecords.length);
     // Matter workflow completion is authoritative in the Matter chronology. Audit-log
     // insertion is permission-restricted for many management users, so do not lose
     // genuine completed actions from usage reporting when that secondary write is blocked.
     const auditedMatterAgentActions = logs.filter((row: any) => row.action === "matter_agent_action_completed").length;
     const chronologyMatterAgentActions = (completedMatterResult.data ?? []).length;
     const matterAgentActions = Math.max(auditedMatterAgentActions, chronologyMatterAgentActions);
-    const proactiveAcknowledged = logs.filter((row: any) => row.action === "reminder_acknowledged").length;
+    const auditedProactiveAcknowledged = logs.filter((row: any) => row.action === "reminder_acknowledged").length;
+    const notificationAcknowledged = proactiveReminderRecords.filter((row: any) => row.is_read || row.is_dismissed).length;
+    const proactiveAcknowledged = Math.max(auditedProactiveAcknowledged, notificationAcknowledged);
     const escalationsRaised = logs.filter((row: any) => row.action === "matter_escalated_to_management").length;
 
     const escalations = notifications

@@ -2309,7 +2309,9 @@ function AbsenceNextAction({
     .filter((record) => Boolean(record.end_date || record.start_date))
     .sort((a, b) => String(b.end_date || b.start_date).localeCompare(String(a.end_date || a.start_date)));
 
-  const latest = sickness[0];
+  const latest = sickness.find(
+    (record) => !record.metadata.returnToWorkCompletedAt
+  );
   if (!latest) return null;
 
   const endDate = latest.end_date || latest.start_date;

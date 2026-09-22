@@ -225,7 +225,7 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
 
   return (
     <ProfileSection title="Driving">
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+      <p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
         Record or complete driving information here at any time, including after an employee import. Include licence checks, insurance and authorisation where relevant.
       </p>
 
@@ -396,7 +396,7 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
       </SaveButton>
 
       {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+        <div style={{ marginTop: "10px", color: "#5E456C", fontSize: "14px" }}>
           {message}
         </div>
       )}
@@ -407,9 +407,9 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading driving records...</div>
+          <div style={{ color: "#5E456C" }}>Loading driving records...</div>
         ) : records.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No driving records yet.</div>
+          <div style={{ color: "#5E456C" }}>No driving records yet.</div>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {records.map((record) => (
@@ -430,7 +430,7 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
                 {record.authorised_to_drive && (
                   <div
                     style={{
-                      color: "#6B7280",
+                      color: "#5E456C",
                       fontSize: "13px",
                       marginTop: "4px",
                     }}
@@ -482,7 +482,7 @@ export default function DrivingChecks({ employeeId }: DrivingChecksProps) {
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "12px",
                     marginTop: "10px",
                   }}
@@ -510,7 +510,7 @@ const riskBoxStyle: React.CSSProperties = {
   border: "1px solid #e5e7eb",
   borderRadius: "10px",
   padding: "12px",
-  color: "#374151",
+  color: "#5E456C",
   fontSize: "14px",
   marginBottom: "14px",
 };

@@ -1563,7 +1563,7 @@ function OnboardingNextAction({
 
   return (
     <div style={onboardingAgentCardStyle}>
-      <div style={onboardingAgentEyebrowStyle}>LEO NEEDS YOUR HELP · ONBOARDING WORKFLOW</div>
+      <div style={onboardingAgentEyebrowStyle}>Leo · Onboarding next step</div>
       <div style={onboardingAgentTitleStyle}>
         {blocked ? "Blocked onboarding action" : overdue ? "Overdue onboarding action" : "Next onboarding action"}
       </div>

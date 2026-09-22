@@ -451,14 +451,15 @@ function DashboardPageContent() {
           .filter((reminder) => {
             const band = String(reminder.metadata?.status_band || "").toLowerCase();
             const source = String(reminder.metadata?.source_type || "").toLowerCase();
-            return source === "sar_deadline" || band === "expired" || band === "due";
+            return source === "sar_deadline" || source === "absence_support_follow_up" || band === "expired" || band === "due";
           })
           .sort((a, b) => {
             const rank = (reminder: ReminderItem) => {
               const band = String(reminder.metadata?.status_band || "").toLowerCase();
               const source = String(reminder.metadata?.source_type || "").toLowerCase();
               if (source === "sar_deadline" && (band === "expired" || band === "due")) return 0;
-              if (band === "expired") return 1;
+              if (source === "absence_support_follow_up" && (band === "expired" || band === "due")) return 1;
+              if (band === "expired") return 2;
               if (band === "due") return 2;
               return 3;
             };

@@ -60,9 +60,13 @@ export async function GET(_request: Request, context: RouteContext) {
   if ("error" in resolved) return NextResponse.json({ success: false, error: resolved.error }, { status: resolved.status });
 
   const matter = resolved.matter;
-  const [{ data: timeline }, { data: messages }] = await Promise.all([
+  const [{ data: timeline }, { data: messages }, { data: inviteRecorded }] = await Promise.all([
     supabase.from("matter_timeline").select("event_type,title,description").eq("matter_id", matterId),
     supabase.from("matter_messages").select("role,content").eq("matter_id", matterId).order("created_at", { ascending: true }),
+    (supabase as any).rpc("leo_matter_workflow_task_completed", {
+      target_matter_id: matterId,
+      target_event_type: "workflow_task_completed",
+    }),
   ]);
 
   const evidence = [
@@ -79,7 +83,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const disciplinary = matterType.includes("disciplin") || evidence.includes("disciplin");
   const grievance = matterType.includes("griev") || evidence.includes("griev");
   const investigationComplete = /investigation (is )?(complete|completed|concluded)|case to answer|proceed to (a )?disciplinary hearing/.test(evidence);
-  const inviteSent = /invitation (has been|was|is) sent|invite (has been|was|is) sent|disciplinary invitation sent|hearing invitation sent/.test(evidence);
+  const inviteSent = inviteRecorded === true || /invitation (has been|was|is) sent|invite (has been|was|is) sent|disciplinary invitation sent|hearing invitation sent/.test(evidence);
 
   if (disciplinary && investigationComplete && !inviteSent) {
     actions.push({

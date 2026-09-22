@@ -1112,14 +1112,16 @@ function SummaryCard({
 }: {
   label: string;
   value: string;
-  supportingText: string;
+  supportingText?: string;
   onClick?: () => void;
 }) {
   const content = (
     <>
       <div style={summaryCardLabelStyle}>{label}</div>
       <div style={summaryCardValueStyle}>{value}</div>
-      <div style={summaryCardSupportingTextStyle}>{supportingText}</div>
+      {supportingText ? (
+        <div style={summaryCardSupportingTextStyle}>{supportingText}</div>
+      ) : null}
     </>
   );
 

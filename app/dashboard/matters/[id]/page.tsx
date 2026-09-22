@@ -76,7 +76,8 @@ function MatterDetailPageContent() {
   const [generatingBundle, setGeneratingBundle] = useState(false);
   const [bundleMessage, setBundleMessage] = useState("");
   const [nextActions, setNextActions] = useState<MatterNextAction[]>([]);
-  const [nextActionBusy, setNextActionBusy] = useState<string | null>(null);\n  const [nextActionMessage, setNextActionMessage] = useState("");
+  const [nextActionBusy, setNextActionBusy] = useState<string | null>(null);
+  const [nextActionMessage, setNextActionMessage] = useState("");
   const [openWorkspace, setOpenWorkspace] = useState<
     "documents" | "chronology" | "bundle" | "status" | "details" | null
   >(null);
@@ -163,7 +164,7 @@ function MatterDetailPageContent() {
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.success) throw new Error(result?.error || "Escalation failed.");
         setNextActionMessage("Matter routed for authorised management review.");
-        setNextActionMessage("Recorded in the Matter chronology.");\n        await Promise.all([loadTimeline(), loadNextActions()]);
+        await Promise.all([loadTimeline(), loadNextActions()]);
       } catch (error) {
         setConversationError(error instanceof Error ? error.message : "The Matter could not be escalated.");
       } finally {
@@ -537,7 +538,9 @@ function MatterDetailPageContent() {
             <div style={agentBadgeStyle}>AI HR workflow</div>
           </div>
 
-          {nextActionMessage ? <div style={bundleMessageStyle}>{nextActionMessage}</div> : null}\n\n          <div style={agentActionGridStyle}>
+          {nextActionMessage ? <div style={bundleMessageStyle}>{nextActionMessage}</div> : null}
+
+          <div style={agentActionGridStyle}>
             {nextActions.map((action) => (
               <div key={action.id} style={agentActionCardStyle}>
                 <div style={agentCategoryStyle}>{action.category}</div>

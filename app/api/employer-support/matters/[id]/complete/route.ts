@@ -17,6 +17,10 @@ export async function POST(request:Request,{params}:Ctx){
  const {data:updated,error}=await (supabase as any).from("matters").update({status:"Completed",workflow_stage:"Matter concluded",completed_at:now}).eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").select("id").maybeSingle();
  if(error||!updated)return NextResponse.json({error:"The matter could not be closed."},{status:500});
  const {error:timelineError}=await (supabase as any).from("matter_timeline").insert({matter_id:matterId,event_type:"matter_completed",title:"Matter completed",description:outcome,event_date:now,created_by:"Employer"});
- if(timelineError)return NextResponse.json({error:"The matter was closed but the outcome could not be added to the record."},{status:500});
+ if(timelineError){
+  const {error:rollbackError}=await (supabase as any).from("matters").update({status:current.status,workflow_stage:"Initial Assessment",completed_at:null}).eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").eq("status","Completed").eq("completed_at",now);
+  if(rollbackError)console.error("Employer Support completion rollback failed:",rollbackError);
+  return NextResponse.json({error:rollbackError?"The matter was closed, but part of its completion record could not be saved. Please contact support.":"The completion record could not be saved, so the matter has been left open. Please try again."},{status:500});
+ }
  return NextResponse.json({success:true});
 }

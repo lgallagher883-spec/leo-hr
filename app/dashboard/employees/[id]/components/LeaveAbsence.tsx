@@ -639,7 +639,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          action: "update",
+          action: "return_to_work",
           recordId: record.id,
           notes: serialiseLeaveMetadata(metadata),
         }),

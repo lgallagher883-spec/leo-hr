@@ -169,5 +169,22 @@ export async function POST(request: Request, context: RouteContext) {
 
   if (error) return NextResponse.json({ success: false, error: "The workflow task could not be recorded." }, { status: 500 });
 
+  const { error: auditError } = await supabase.from("audit_logs").insert({
+    organisation_id: organisationId,
+    user_id: user.id,
+    action: "matter_agent_action_completed",
+    action_category: "HR Automation",
+    entity_type: "Matter",
+    entity_name: `Matter #${matterId}`,
+    description: "A proactive Matter workflow task was confirmed complete.",
+    metadata: { matter_id: matterId, task: "disciplinary_hearing_invitation_sent" },
+    source_page: `/dashboard/matters/${matterId}`,
+    ip_address: null,
+  });
+
+  if (auditError) {
+    console.warn("Matter agent action audit event could not be written:", auditError);
+  }
+
   return NextResponse.json({ success: true });
 }

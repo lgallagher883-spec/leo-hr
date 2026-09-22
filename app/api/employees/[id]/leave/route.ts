@@ -943,6 +943,7 @@ export async function PATCH(
       "return",
       "cancel",
       "complete",
+      "return_to_work",
     ]);
 
     if (!allowedActions.has(action)) {
@@ -997,7 +998,7 @@ export async function PATCH(
     let updatePayload: Record<string, unknown>;
     let actionTitle: string;
 
-    if (action === "update") {
+    if (action === "update" || action === "return_to_work") {
       updatePayload = {
         leave_type:
           readOptionalString(body.leaveType) ||
@@ -1019,7 +1020,7 @@ export async function PATCH(
           readOptionalString(body.notes),
         updated_at: now,
       };
-      actionTitle = "Leave record updated";
+      actionTitle = action === "return_to_work" ? "Return-to-work follow-up completed" : "Leave record updated";
     } else {
       const statusByAction: Record<string, string> = {
         approve: "Approved",

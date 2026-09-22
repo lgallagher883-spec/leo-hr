@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useState,
@@ -291,6 +291,7 @@ export default function DashboardShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -501,8 +502,10 @@ export default function DashboardShell({
               {managementMobilePrimaryLinks.map(({ label, href, icon: Icon }) => {
                 const active =
                   label === "Upload"
-                    ? pathname === "/dashboard/employees" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mobileAction") === "upload"
-                    : isActive(href);
+                    ? pathname === "/dashboard/employees" && searchParams.get("mobileAction") === "upload"
+                    : label === "Employees"
+                      ? pathname === "/dashboard/employees" && searchParams.get("mobileAction") !== "upload"
+                      : isActive(href);
                 return (
                   <Link
                     key={label}

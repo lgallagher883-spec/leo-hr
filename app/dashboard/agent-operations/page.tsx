@@ -38,7 +38,6 @@ type Escalation = {
 type Usage = {
   proactiveTasksCreated: number;
   proactiveTasksAcknowledged: number;
-  workflowStagesAdvanced: number;
   managementEscalationsRaised: number;
   matterAgentActionsCompleted: number;
   trackedAutomationEvents: number;
@@ -54,7 +53,6 @@ export default function AgentOperationsPage() {
   const [usage, setUsage] = useState<Usage>({
     proactiveTasksCreated: 0,
     proactiveTasksAcknowledged: 0,
-    workflowStagesAdvanced: 0,
     managementEscalationsRaised: 0,
     matterAgentActionsCompleted: 0,
     trackedAutomationEvents: 0,
@@ -131,6 +129,30 @@ export default function AgentOperationsPage() {
     () => matters.filter((matter) => String(matter.status || "").toLowerCase() !== "closed"),
     [matters],
   );
+  const escalationCandidates = useMemo(
+    () => openMatters.filter((matter) => String(matter.status || "").toLowerCase() === "needs attention"),
+    [openMatters],
+  );
+
+  function reminderStatusLabel(reminder: Reminder) {
+    const raw = String(reminder.metadata?.status_band || "").toLowerCase();
+    if (raw === "due" || raw === "due_today") return "Due today";
+    if (raw === "expired" || raw === "overdue") return "Expired";
+    if (raw.includes("approach") || raw.includes("30")) return "Approaching";
+    return raw ? raw.replaceAll("_", " ") : "Proactive";
+  }
+
+  function reminderActionLabel(reminder: Reminder) {
+    const source = String(reminder.metadata?.source_type || "").toLowerCase();
+    const title = reminder.title.toLowerCase();
+    if (source.includes("right_to_work") || title.includes("right to work")) return "Review Right to Work";
+    if (source.includes("qualification") || title.includes("qualification")) return "Review qualification";
+    if (source.includes("training") || title.includes("training") || title.includes("refresh")) return "Review training";
+    if (source.includes("dbs") || title.includes("dbs")) return "Review DBS";
+    if (source.includes("driving") || title.includes("licence") || title.includes("dvla")) return "Review driving record";
+    if (source.includes("sar") || title.includes("sar")) return "Review SAR";
+    return "Review item";
+  }
 
   return (
     <main style={pageStyle}>
@@ -154,7 +176,7 @@ export default function AgentOperationsPage() {
           kicker="Proactive Tasking"
           title="Leo Needs Your Attention"
           description="A small operational view of significant proactive items. Routine next steps stay inside the relevant employee or Matter workspace."
-          badge={String(reminders.length)}
+          badge={reminders.length > 3 ? `Showing 3 of ${reminders.length}` : String(reminders.length)}
         />
         {reminders.length === 0 ? (
           <EmptyState text="No proactive tasks currently require attention." />
@@ -164,7 +186,7 @@ export default function AgentOperationsPage() {
               <article key={reminder.id} style={cardStyle}>
                 <div style={pillRowStyle}>
                   <Pill>{String(reminder.metadata?.module || "HR")}</Pill>
-                  <Pill>{String(reminder.metadata?.status_band || "proactive")}</Pill>
+                  <Pill>{reminderStatusLabel(reminder)}</Pill>
                 </div>
                 <h3 style={cardTitleStyle}>{reminder.title}</h3>
                 <p style={bodyStyle}>{reminder.message}</p>
@@ -172,7 +194,7 @@ export default function AgentOperationsPage() {
                   <span style={mutedStyle}>Created proactively by Leo</span>
                   {reminder.actionUrl ? (
                     <button type="button" style={linkButtonStyle} onClick={() => router.push(reminder.actionUrl as string)}>
-                      Open task →
+                      {reminderActionLabel(reminder)}
                     </button>
                   ) : null}
                 </div>
@@ -242,7 +264,7 @@ export default function AgentOperationsPage() {
         />
         <div style={twoColumnStyle}>
           <div style={stackStyle}>
-            {openMatters.slice(0, 4).map((matter) => (
+            {escalationCandidates.slice(0, 4).map((matter) => (
               <article key={matter.id} style={compactCardStyle}>
                 <div>
                   <h3 style={compactTitleStyle}>{matter.subject || matter.title}</h3>
@@ -288,13 +310,12 @@ export default function AgentOperationsPage() {
         <div style={metricGridStyle}>
           <Metric label="Proactive tasks created" value={usage.proactiveTasksCreated} detail="Milestone tasks emitted by Leo" />
           <Metric label="Tasks acknowledged" value={usage.proactiveTasksAcknowledged} detail="Proactive tasks opened by users" />
-          <Metric label="Workflow stages advanced" value={usage.workflowStagesAdvanced} detail="Recorded automated transitions" />
           <Metric label="Management escalations" value={usage.managementEscalationsRaised} detail="Matters routed for human review" />
           <Metric label="Matter tasks completed" value={usage.matterAgentActionsCompleted} detail="Proactive HR actions confirmed complete" />
           <Metric label="Tracked automation events" value={usage.trackedAutomationEvents} detail="Total auditable agent activity" />
         </div>
         <div style={analyticsNoteStyle}>
-          Every workflow advance, proactive reminder and management escalation is retained in Leo's audit trail for governance and reporting.
+          Proactive reminders, completed Matter actions and management escalations are retained in Leo's audit trail for governance and reporting.
         </div>
       </section>
     </main>

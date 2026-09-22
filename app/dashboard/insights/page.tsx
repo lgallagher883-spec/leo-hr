@@ -2617,13 +2617,13 @@ const aiOperationsTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
   fontSize: "18px",
   fontWeight: 700,
-  color: "#3F3148",
+  color: "#5E456C",
 };
 
 const aiOperationsTextStyle: React.CSSProperties = {
   margin: 0,
   maxWidth: "760px",
-  color: "#6F6574",
+  color: "#5E456C",
   lineHeight: 1.6,
 };
 
@@ -2650,14 +2650,14 @@ const titleStyle: React.CSSProperties = {
 const subtitleStyle: React.CSSProperties = {
   margin: "7px 0 0",
   maxWidth: "760px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
 
 const updatedStyle: React.CSSProperties = {
   marginTop: "9px",
-  color: "#9CA3AF",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
@@ -2693,7 +2693,7 @@ const secondaryActionButtonStyle: React.CSSProperties = {
 const periodLabelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
   fontWeight: 700,
 };
@@ -2704,7 +2704,7 @@ const periodSelectStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
   borderRadius: "10px",
   background: "#FFFFFF",
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "13px",
 };
 
@@ -2713,7 +2713,7 @@ const loadingStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
   borderRadius: "14px",
   background: "#FFFFFF",
-  color: "#6B7280",
+  color: "#5E456C",
   textAlign: "center",
 };
 
@@ -2736,14 +2736,14 @@ const sectionHeaderStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "17px",
   fontWeight: 700,
 };
 
 const sectionSubtitleStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.55,
 };
@@ -2763,7 +2763,7 @@ const briefHeaderStyle: React.CSSProperties = {
 
 const briefTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "18px",
   fontWeight: 700,
 };
@@ -2801,14 +2801,14 @@ const briefCountCardStyle: React.CSSProperties = {
 
 const briefCountLabelStyle: React.CSSProperties = {
   display: "block",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
 const briefCountValueStyle: React.CSSProperties = {
   display: "block",
   marginTop: "8px",
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "18px",
 };
 
@@ -2828,7 +2828,7 @@ const briefListSectionStyle: React.CSSProperties = {
 
 const briefListTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
 };
@@ -2845,20 +2845,20 @@ const briefListItemStyle: React.CSSProperties = {
 };
 
 const briefItemTitleStyle: React.CSSProperties = {
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "12px",
 };
 
 const briefItemTextStyle: React.CSSProperties = {
   margin: 0,
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.6,
 };
 
 const briefEmptyStyle: React.CSSProperties = {
   margin: "12px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.55,
 };
@@ -2886,19 +2886,19 @@ const metricCardStyle: React.CSSProperties = {
 
 const metricLabelStyle: React.CSSProperties = {
   marginBottom: "8px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
 const metricValueStyle: React.CSSProperties = {
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "18px",
   fontWeight: 700,
 };
 
 const metricDetailStyle: React.CSSProperties = {
   marginTop: "7px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "10px",
   lineHeight: 1.45,
 };
@@ -2917,12 +2917,12 @@ const mutedMetricStyle: React.CSSProperties = {
 
 const smallMetricLabelStyle: React.CSSProperties = {
   marginBottom: "8px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
 const smallMetricValueStyle: React.CSSProperties = {
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "14px",
   fontWeight: 700,
   lineHeight: 1.4,
@@ -2945,14 +2945,14 @@ const insightContentStyle: React.CSSProperties = {
 };
 
 const insightTitleStyle: React.CSSProperties = {
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
 };
 
 const insightDetailStyle: React.CSSProperties = {
   marginTop: "5px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.55,
 };
@@ -2979,14 +2979,14 @@ const observationCardStyle: React.CSSProperties = {
 };
 
 const observationTitleStyle: React.CSSProperties = {
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
 };
 
 const observationDetailStyle: React.CSSProperties = {
   marginTop: "6px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
   lineHeight: 1.55,
 };
@@ -3001,7 +3001,7 @@ const breakdownStyle: React.CSSProperties = {
 
 const breakdownTitleStyle: React.CSSProperties = {
   marginBottom: "12px",
-  color: "#3F3148",
+  color: "#5E456C",
   fontSize: "12px",
   fontWeight: 700,
 };
@@ -3038,7 +3038,7 @@ const barFillStyle: React.CSSProperties = {
 };
 
 const emptyMessageStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
 };
 

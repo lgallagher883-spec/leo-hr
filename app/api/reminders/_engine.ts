@@ -915,7 +915,7 @@ async function generateAndPersist(args: {
           organisationId,
           userId,
           action: "reminder_milestone_emitted",
-          description: "A milestone reminder was emitted in-app.",
+          description: "A milestone reminder was emitted in-app only; this event does not trigger email delivery.",
           metadata: {
             reminder_id: row.id,
             reminder_title: row.title,

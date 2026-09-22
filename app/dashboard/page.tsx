@@ -778,9 +778,13 @@ function DashboardPageContent() {
             {reminders.map((reminder) => (
               <article key={reminder.id} style={reminderCardStyle}>
                 <div style={reminderMetaStyle}>
-                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.module || "General")}</span>
-                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.milestone || "")}</span>
-                  <span style={reminderBadgeStyle}>{String(reminder.metadata?.status_band || "")}</span>
+                  <span style={reminderBadgeStyle}>
+                    {String(reminder.metadata?.status_band || "").toLowerCase() === "expired"
+                      ? "Expired"
+                      : String(reminder.metadata?.status_band || "").toLowerCase() === "due"
+                        ? "Due today"
+                        : "Needs attention"}
+                  </span>
                 </div>
 
                 <h3 style={reminderTitleStyle}>{reminder.title}</h3>
@@ -810,7 +814,9 @@ function DashboardPageContent() {
                             ? "Review training"
                             : reminder.metadata?.source_type === "sar_deadline"
                               ? "Open SAR"
-                              : "Take action"}
+                              : reminder.metadata?.source_type === "qualification_expiry"
+                                ? "Review qualification"
+                                : "Review record"}
                     </button>
                   ) : null}
 

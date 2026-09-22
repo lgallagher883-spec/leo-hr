@@ -40,6 +40,7 @@ type Usage = {
   proactiveTasksAcknowledged: number;
   workflowStagesAdvanced: number;
   managementEscalationsRaised: number;
+  matterAgentActionsCompleted: number;
   trackedAutomationEvents: number;
 };
 
@@ -55,6 +56,7 @@ export default function AgentOperationsPage() {
     proactiveTasksAcknowledged: 0,
     workflowStagesAdvanced: 0,
     managementEscalationsRaised: 0,
+    matterAgentActionsCompleted: 0,
     trackedAutomationEvents: 0,
   });
   const [workflowStages, setWorkflowStages] = useState<string[]>(fallbackStages);
@@ -289,6 +291,7 @@ export default function AgentOperationsPage() {
           <Metric label="Tasks acknowledged" value={usage.proactiveTasksAcknowledged} detail="Proactive tasks opened by users" />
           <Metric label="Workflow stages advanced" value={usage.workflowStagesAdvanced} detail="Recorded automated transitions" />
           <Metric label="Management escalations" value={usage.managementEscalationsRaised} detail="Matters routed for human review" />
+          <Metric label="Matter tasks completed" value={usage.matterAgentActionsCompleted} detail="Proactive HR actions confirmed complete" />
           <Metric label="Tracked automation events" value={usage.trackedAutomationEvents} detail="Total auditable agent activity" />
         </div>
         <div style={analyticsNoteStyle}>

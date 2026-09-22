@@ -5,6 +5,10 @@
   display: none;
 }
 
+.managementDashboard {
+  width: 100%;
+}
+
 @media (max-width: 767px) {
   .shell {
     width: 100%;
@@ -319,5 +323,153 @@
 
   .mobileEmployeeCardTitleRow[data-opens-more="true"] > span {
     padding-right: 22px;
+  }
+}
+
+
+@media (max-width: 767px) {
+  .managementDashboard {
+    display: grid;
+    gap: 14px;
+  }
+
+  .managementDashboardHeader {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .managementDashboardHeader h1 {
+    font-size: 25px !important;
+    line-height: 1.18 !important;
+  }
+
+  .managementDashboardHeader p {
+    margin-top: 4px !important;
+    font-size: 13px !important;
+  }
+
+  .managementNewMatterButton {
+    min-height: 42px;
+    padding: 9px 12px !important;
+    white-space: nowrap;
+  }
+
+  .managementSetupCard,
+  .managementAskLeoCard,
+  .managementAttentionSection {
+    margin: 0 !important;
+    padding: 16px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 5px 16px rgba(47, 38, 53, 0.05) !important;
+  }
+
+  .managementAskLeoCard {
+    display: block !important;
+  }
+
+  .managementAskLeoSparkle {
+    display: none !important;
+  }
+
+  .managementPromptRow {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px !important;
+  }
+
+  .managementPromptInput {
+    width: 100%;
+    min-width: 0 !important;
+    padding: 12px !important;
+    box-sizing: border-box;
+  }
+
+  .managementAskLeoButton {
+    min-height: 44px;
+    padding: 10px 14px !important;
+  }
+
+  .managementSummaryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .managementSummaryCard {
+    min-height: 122px !important;
+    gap: 8px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .managementSummaryCard > span:first-child {
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+
+  .managementSummaryCard > span:nth-child(2) {
+    font-size: 27px !important;
+  }
+
+  .managementSummaryCard > span:last-child {
+    padding-top: 8px !important;
+    font-size: 11px !important;
+  }
+
+  .managementAttentionSection {
+    order: -1;
+  }
+
+  .managementAttentionHeader {
+    align-items: flex-start !important;
+  }
+
+  .managementAttentionHeader h2 {
+    font-size: 18px !important;
+  }
+
+  .managementAttentionHeader p {
+    display: none;
+  }
+
+  .managementReminderCard {
+    padding: 12px !important;
+  }
+
+  .managementReminderActions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .managementReminderActions > button:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 374px) {
+  .managementDashboardHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .managementNewMatterButton {
+    width: 100%;
+  }
+
+  .managementPromptRow {
+    grid-template-columns: 1fr;
+  }
+
+  .managementAskLeoButton {
+    width: 100%;
+  }
+
+  .managementSummaryGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .managementSummaryCard {
+    min-height: 104px !important;
   }
 }

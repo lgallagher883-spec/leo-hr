@@ -1311,7 +1311,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       />
 
       {!isEmployeeView ? (
-        <AbsenceNextAction records={records} employeeId={employeeId} actionInProgress={actionInProgress} onRecordReturnToWork={recordReturnToWork} />
+        <AbsenceNextAction records={records} employeeId={employeeId} actionInProgress={actionInProgress} onRecordReturnToWork={recordReturnToWork} />\n        <AbsenceSupportFollowUp records={records} employeeId={employeeId} />
       ) : null}
 
       <div style={headerRowStyle}>
@@ -2372,6 +2372,56 @@ function AbsenceNextAction({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+
+function AbsenceSupportFollowUp({
+  records,
+  employeeId,
+}: {
+  records: ParsedLeaveRecord[];
+  employeeId: number;
+}) {
+  const today = toDateOnlyValue(new Date());
+  const followUps = records
+    .filter((record) => record.leave_type === "Sickness Absence")
+    .filter((record) => record.metadata.returnToWorkCompletedAt && record.metadata.followUpNeeded)
+    .filter((record) => record.metadata.followUpDueDate)
+    .sort((a, b) => String(a.metadata.followUpDueDate).localeCompare(String(b.metadata.followUpDueDate)));
+
+  const next = followUps[0];
+  if (!next || !next.metadata.followUpDueDate) return null;
+
+  const due = next.metadata.followUpDueDate;
+  const daysUntil = Math.ceil((new Date(`${due}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 86400000);
+  if (daysUntil > 14) return null;
+
+  const prompt = [
+    "A sickness return-to-work discussion has already been completed.",
+    `Employee record: ${employeeId}.`,
+    `A follow-up was agreed for ${due}.`,
+    next.metadata.followUpReason ? `Recorded follow-up: ${next.metadata.followUpReason}.` : "",
+    "Help me review the agreed support proportionately. Do not assume a medical condition or recommend formal action solely because a review date has arrived.",
+  ].filter(Boolean).join("\n");
+
+  return (
+    <div style={{ ...absenceAgentCardStyle, marginTop: 10 }}>
+      <div style={absenceAgentEyebrowStyle}>Leo · Follow-up remembered</div>
+      <div style={absenceAgentTitleStyle}>
+        {daysUntil < 0 ? "Agreed support review is overdue" : daysUntil === 0 ? "Agreed support review is due today" : "Agreed support review is approaching"}
+      </div>
+      <p style={absenceAgentTextStyle}>
+        Leo retained the follow-up from the return-to-work discussion so you did not need to create another task. Review date: {formatDate(due)}.
+        {next.metadata.followUpReason ? ` ${next.metadata.followUpReason}` : ""}
+      </p>
+      <a
+        href={`/dashboard/ask-leo?prompt=${encodeURIComponent(prompt)}&resourceTitle=${encodeURIComponent("Absence support review")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
+        style={absenceAgentSecondaryLinkStyle}
+      >
+        Review support
+      </a>
     </div>
   );
 }

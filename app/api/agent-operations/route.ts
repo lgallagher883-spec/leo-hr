@@ -170,48 +170,6 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
 
-    if (action === "legacy_advance_workflow_disabled") {
-      const currentIndex = stageIndex(matter.status);
-      if (currentIndex >= workflowStages.length - 1) {
-        return NextResponse.json({ success: false, error: "This workflow is already complete." }, { status: 400 });
-      }
-
-      const nextStatus = workflowStages[currentIndex + 1];
-      const updateResult = await (admin as any)
-        .from("matters")
-        .update({ status: nextStatus })
-        .eq("id", matterId)
-        .select("id,status")
-        .maybeSingle();
-
-      if (updateResult.error || !updateResult.data) {
-        return NextResponse.json({ success: false, error: "The workflow could not be advanced." }, { status: 500 });
-      }
-
-      await (admin as any).from("matter_timeline").insert({
-        matter_id: matterId,
-        event_type: "workflow_stage_advanced",
-        title: "Automated workflow advanced",
-        description: `Leo advanced the predefined Matter workflow from ${readText(matter.status) || "Open"} to ${nextStatus}.`,
-        created_by: "Leo",
-      });
-
-      await (admin as any).from("audit_logs").insert({
-        organisation_id: organisationId,
-        user_id: user.id,
-        action: "workflow_stage_advanced",
-        action_category: "Workflow Automation",
-        entity_type: "Matter",
-        entity_name: matter.subject || matter.title || `Matter #${matterId}`,
-        description: `Predefined Matter workflow advanced to ${nextStatus}.`,
-        metadata: { matter_id: matterId, from_stage: matter.status, to_stage: nextStatus, initiated_by_role: roleKey },
-        source_page: "/dashboard/agent-operations",
-        ip_address: null,
-      });
-
-      return NextResponse.json({ success: true, status: nextStatus });
-    }
-
     if (action === "escalate") {
       const reason = readText(body?.reason) || "This Matter requires management review before the workflow continues.";
 

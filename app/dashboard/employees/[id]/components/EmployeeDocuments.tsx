@@ -230,7 +230,7 @@ export default function EmployeeDocuments({
     <ProfileSection title="Documents">
 <p
         style={{
-          color: "#6B7280",
+          color: "#5E456C",
           fontSize: "14px",
           marginTop: 0,
         }}
@@ -266,7 +266,7 @@ export default function EmployeeDocuments({
           style={{
             display: "block",
             fontSize: "13px",
-            color: "#6B7280",
+            color: "#5E456C",
             marginBottom: "5px",
           }}
         >
@@ -290,7 +290,7 @@ export default function EmployeeDocuments({
         <div
           style={{
             marginTop: "10px",
-            color: "#6B7280",
+            color: "#5E456C",
             fontSize: "14px",
           }}
         >
@@ -304,11 +304,11 @@ export default function EmployeeDocuments({
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             Loading documents...
           </div>
         ) : documents.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             No documents uploaded yet.
           </div>
         ) : (
@@ -329,7 +329,7 @@ export default function EmployeeDocuments({
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "13px",
                     marginTop: "4px",
                   }}
@@ -379,7 +379,7 @@ export default function EmployeeDocuments({
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "12px",
                     marginTop: "10px",
                   }}

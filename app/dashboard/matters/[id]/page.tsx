@@ -528,7 +528,7 @@ function MatterDetailPageContent() {
         <section style={agentActionPanelStyle}>
           <div style={agentActionHeaderStyle}>
             <div>
-              <div style={assessmentEyebrowStyle}>LEO IS PROACTIVELY HELPING</div>
+              <div style={assessmentEyebrowStyle}>Leo · Matter next step</div>
               <div style={agentActionTitleStyle}>Next actions for this Matter</div>
               <div style={sectionSubtitleStyle}>
                 Leo uses the Matter stage and recorded facts to identify what needs doing next — you stay in control of significant decisions.

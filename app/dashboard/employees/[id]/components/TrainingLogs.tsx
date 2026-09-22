@@ -242,7 +242,7 @@ export default function TrainingLogs({
     <ProfileSection title="Training Logs">
       <p
         style={{
-          color: "#6B7280",
+          color: "#5E456C",
           fontSize: "14px",
           marginTop: 0,
         }}
@@ -289,7 +289,7 @@ export default function TrainingLogs({
         <div
           style={{
             marginTop: "10px",
-            color: "#6B7280",
+            color: "#5E456C",
             fontSize: "14px",
           }}
         >
@@ -303,11 +303,11 @@ export default function TrainingLogs({
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             Loading training logs...
           </div>
         ) : records.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             No training logs yet.
           </div>
         ) : (
@@ -424,13 +424,13 @@ const cardStyle: React.CSSProperties = {
 };
 
 const metaStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "13px",
   marginTop: "4px",
 };
 
 const dateStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   marginTop: "10px",
 };
@@ -450,7 +450,7 @@ const smallDarkButtonStyle: React.CSSProperties = {
 const smallLightButtonStyle: React.CSSProperties = {
   marginTop: "10px",
   background: "#fff",
-  color: "#374151",
+  color: "#5E456C",
   border: "1px solid #e5e7eb",
   padding: "7px 10px",
   borderRadius: "8px",

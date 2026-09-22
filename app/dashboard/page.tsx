@@ -742,9 +742,9 @@ function DashboardPageContent() {
         ))}
       </section>
 
-      <section style={remindersSectionStyle} aria-label="In-app reminders">
+      <section style={remindersSectionStyle} aria-label="Proactive HR tasks">
         <div style={remindersHeaderStyle}>
-          <h2 style={remindersTitleStyle}>Reminder & Expiry Intelligence</h2>
+          <div><div style={setupEyebrowStyle}>Proactive Tasking</div><h2 style={remindersTitleStyle}>Leo Needs Your Help</h2><p style={reminderIntroStyle}>Leo monitors live HR records and proactively surfaces work that needs attention without waiting for you to ask.</p></div>
           <span style={remindersCountStyle}>{reminders.length}</span>
         </div>
 
@@ -854,6 +854,8 @@ function DashboardCard({
     </button>
   );
 }
+
+const reminderIntroStyle: CSSProperties = { margin: "4px 0 0", color: "#6B7280", fontSize: "12px", lineHeight: 1.45, maxWidth: "720px" };
 
 const pageStyle: CSSProperties = {
   width: "100%",

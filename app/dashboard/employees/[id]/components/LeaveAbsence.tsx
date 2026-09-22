@@ -2313,7 +2313,9 @@ function AbsenceNextAction({
   if (!latest) return null;
 
   const endDate = latest.end_date || latest.start_date;
-  if (!endDate || !isPastDate(endDate) || latest.metadata.returnToWorkCompletedAt) return null;\n\n  const returnConfirmed = Boolean(latest.metadata.sicknessReturnConfirmedAt);
+  if (!endDate || !isPastDate(endDate) || latest.metadata.returnToWorkCompletedAt) return null;
+
+  const returnConfirmed = Boolean(latest.metadata.sicknessReturnConfirmedAt);
 
   const latestEnd = parseDateOnly(endDate);
   const twelveMonthsAgo = latestEnd

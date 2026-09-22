@@ -663,3 +663,112 @@
     padding: 9px 10px !important;
   }
 }
+
+
+@media (max-width: 767px) {
+  .managementMatterDetail {
+    width: 100%;
+    max-width: 100% !important;
+  }
+
+  .managementMatterHero,
+  .managementMatterNextActions,
+  .managementMatterConversation,
+  .managementMatterWorkspace {
+    margin-top: 10px !important;
+    border-radius: 13px !important;
+  }
+
+  .managementMatterHero {
+    margin-top: 0 !important;
+    padding: 13px !important;
+  }
+
+  .managementMatterAssessment {
+    padding: 12px !important;
+  }
+
+  .managementMatterAssessmentGrid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .managementMatterAssessmentGrid > div {
+    padding: 0 !important;
+    border-left: 0 !important;
+  }
+
+  .managementMatterAssessmentGrid > div + div {
+    padding-top: 12px !important;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .managementMatterNextActions {
+    padding: 14px !important;
+  }
+
+  .managementMatterNextActionGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .managementMatterConversation > div:first-child,
+  .managementMatterWorkspace > div:first-child {
+    padding: 12px !important;
+  }
+
+  .managementMatterConversationBody {
+    height: min(46dvh, 390px) !important;
+    min-height: 260px;
+    padding: 12px !important;
+  }
+
+  .managementMatterComposer {
+    position: sticky;
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    background: #ffffff;
+  }
+
+  .managementMatterTextarea {
+    min-height: 56px !important;
+    max-height: 110px !important;
+    resize: none !important;
+    font-size: 16px !important;
+  }
+
+  .managementMatterComposer button {
+    width: 100%;
+    min-height: 44px;
+    background: #6e5084 !important;
+  }
+
+  .managementMatterWorkspaceGrid {
+    grid-template-columns: 1fr !important;
+    padding: 10px !important;
+  }
+
+  .managementMatterWorkspaceGrid > div {
+    min-height: 118px !important;
+  }
+
+  .managementMatterDrawer {
+    width: 100% !important;
+    height: min(88dvh, 760px) !important;
+    margin-top: auto;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -12px 35px rgba(47, 38, 53, 0.18) !important;
+  }
+
+  .managementMatterDrawerHeader {
+    padding: 14px !important;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .managementMatterDrawerContent {
+    padding: 14px !important;
+    padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}

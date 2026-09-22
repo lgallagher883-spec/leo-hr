@@ -1095,3 +1095,73 @@
     opacity: 0.5;
   }
 }
+
+
+/* Final management-mobile regression refinements. These remain below 768px
+   so the established employee mobile and desktop management layouts stay isolated. */
+@media (min-width: 375px) and (max-width: 767px) {
+  .managementSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .managementDashboardHeader {
+    order: -2;
+  }
+
+  .managementAttentionSection {
+    order: -1;
+  }
+
+  .managementDashboard,
+  .managementAskLeoPage,
+  .managementMattersPage,
+  .managementMatterDetail,
+  .managementEmployeesPage,
+  .managementEmployeeProfile {
+    overflow-wrap: anywhere;
+  }
+
+  .managementAskLeoChatBox,
+  .managementMatterConversationBody {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .managementAskLeoComposer,
+  .managementMatterComposer {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .managementMatterDrawer {
+    max-width: 100vw !important;
+    overflow-x: hidden;
+  }
+
+  .managementMatterDrawerContent {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .managementEmployeesSummary,
+  .managementEmployeeSectionNav {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .managementMobileUpload input[type="file"] {
+    max-width: 100%;
+    overflow: hidden;
+  }
+}
+
+@media (min-width: 768px) {
+  .managementMobileUpload {
+    display: none !important;
+  }
+
+  .managementEmployeesStandardView {
+    display: block;
+  }
+}

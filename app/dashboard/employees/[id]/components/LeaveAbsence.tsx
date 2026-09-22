@@ -1311,7 +1311,15 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       />
 
       {!isEmployeeView ? (
-        <AbsenceNextAction records={records} employeeId={employeeId} actionInProgress={actionInProgress} onRecordReturnToWork={recordReturnToWork} />\n        <AbsenceSupportFollowUp records={records} employeeId={employeeId} />
+        <>
+          <AbsenceNextAction
+            records={records}
+            employeeId={employeeId}
+            actionInProgress={actionInProgress}
+            onRecordReturnToWork={recordReturnToWork}
+          />
+          <AbsenceSupportFollowUp records={records} employeeId={employeeId} />
+        </>
       ) : null}
 
       <div style={headerRowStyle}>

@@ -662,7 +662,7 @@ const documentsTitleStyle: React.CSSProperties = {
 
 const documentsDescriptionStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
 };
 
@@ -682,7 +682,7 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "13px",
   fontWeight: 700,
-  color: "#374151",
+  color: "#5E456C",
   marginBottom: "6px",
 };
 
@@ -765,7 +765,7 @@ const messageStyle: React.CSSProperties = {
 };
 
 const mutedTextStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
 };
 
@@ -791,7 +791,7 @@ const documentTitleStyle: React.CSSProperties = {
 
 const documentMetaStyle: React.CSSProperties = {
   marginTop: "4px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
 };
 
@@ -802,7 +802,7 @@ const documentActionsStyle: React.CSSProperties = {
 };
 
 const openButtonStyle: React.CSSProperties = {
-  background: "#111827",
+  background: "#6E5084",
   color: "#FFFFFF",
   border: "none",
   borderRadius: "8px",
@@ -813,7 +813,7 @@ const openButtonStyle: React.CSSProperties = {
 
 const removeButtonStyle: React.CSSProperties = {
   background: "#FFFFFF",
-  color: "#6B7280",
+  color: "#5E456C",
   border: "1px solid #D1D5DB",
   borderRadius: "8px",
   padding: "7px 10px",

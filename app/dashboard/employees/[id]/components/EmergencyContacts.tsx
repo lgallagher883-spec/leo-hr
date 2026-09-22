@@ -238,7 +238,7 @@ export default function EmergencyContacts({
     <ProfileSection title="Emergency Contacts">
       <p
         style={{
-          color: "#6B7280",
+          color: "#5E456C",
           fontSize: "14px",
           marginTop: 0,
         }}
@@ -275,7 +275,7 @@ export default function EmergencyContacts({
         <div
           style={{
             marginTop: "10px",
-            color: "#6B7280",
+            color: "#5E456C",
             fontSize: "14px",
           }}
         >

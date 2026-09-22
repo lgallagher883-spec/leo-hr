@@ -181,7 +181,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
 
   return (
     <ProfileSection title="DBS / Safeguarding">
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+      <p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
         Record DBS checks, review dates and safeguarding training. When a DBS
         certificate issue date is entered, the next check due date is
         automatically set to 11 months later.
@@ -274,7 +274,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
       </SaveButton>
 
       {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+        <div style={{ marginTop: "10px", color: "#5E456C", fontSize: "14px" }}>
           {message}
         </div>
       )}
@@ -285,11 +285,11 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             Loading DBS / safeguarding records...
           </div>
         ) : records.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             No DBS / safeguarding records yet.
           </div>
         ) : (
@@ -311,7 +311,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "13px",
                     marginTop: "4px",
                   }}
@@ -353,7 +353,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "12px",
                     marginTop: "10px",
                   }}

@@ -33,15 +33,6 @@ export default function EmployeeDevelopment({
 
   return (
     <div>
-      <div style={headerStyle}>
-        <h2 style={titleStyle}>Development</h2>
-
-        <p style={descriptionStyle}>
-          Manage probation, employee reviews, regular conversations,
-          support and professional milestones.
-        </p>
-      </div>
-
       <div style={navigationGridStyle}>
         {sections.map((section) => (
           <button
@@ -197,26 +188,6 @@ function getSectionDescription(
       return "Positive contributions and appreciation.";
   }
 }
-
-const headerStyle: React.CSSProperties = {
-  background: "#FFFFFF",
-  border: "1px solid #E5E7EB",
-  borderRadius: "14px",
-  padding: "20px",
-  marginBottom: "18px",
-};
-
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#5F4377",
-};
-
-const descriptionStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  color: "#5E456C",
-  fontSize: "14px",
-  lineHeight: 1.6,
-};
 
 const navigationGridStyle: React.CSSProperties = {
   display: "grid",

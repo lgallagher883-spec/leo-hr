@@ -460,80 +460,65 @@ export default function InsightsPage() {
     );
 
   const executiveBrief = useMemo<ExecutiveBrief>(
-    () => ({
-      title: `Executive Insight Brief · ${periodLabel}`,
-      headlineSummary:
-        insightPayload?.summary ||
-        `${periodLabel} summary: ${periodMatters.length} ${periodMatters.length === 1 ? "matter" : "matters"} were opened, ${openMatters.length} remain open, and ${activeSars.length} active ${activeSars.length === 1 ? "SAR is" : "SARs are"} currently recorded.`,
-      supportingCounts: [
-        {
-          label: "Active employees",
-          value: String(activeEmployees.length),
-        },
-        {
-          label: `Joiners · ${periodLabel}`,
-          value: String(periodJoiners.length),
-        },
-        {
-          label: `New Matters · ${periodLabel}`,
-          value: String(periodMatters.length),
-        },
-        {
-          label: "Open Matters",
-          value: String(openMatters.length),
-        },
-        {
-          label: "Active SARs",
-          value: String(activeSars.length),
-        },
-        {
-          label: "SARs due soon",
-          value: String(sarsDueSoon.length),
-        },
-        {
-          label: "SARs past planned date",
-          value: String(sarsPastDeadline.length),
-        },
-        {
-          label: "HR Resources",
-          value: String(resources.length),
-        },
-        {
-          label: "Knowledge available",
-          value: String(knowledgeSectionCount),
-        },
-      ],
-      risks: (insightPayload?.risks || []).map((risk) => ({
-        title: risk.title,
-        detail: risk.detail,
-      })),
-      trends: (insightPayload?.trends || []).map((trend) => ({
-        title: trend.title,
-        detail: trend.detail,
-      })),
-      recommendations: (insightPayload?.recommendations || []).map((recommendation) => ({
-        title: recommendation.title,
-        detail: recommendation.detail,
-      })),
-      earlyInterventions: (insightPayload?.earlyInterventions || []).map((intervention) => ({
-        title: intervention.title,
-        detail: intervention.detail,
-      })),
-    }),
+    () => {
+      const matterPhrase =
+        periodMatters.length === 0
+          ? `No new workplace Matters were opened during ${periodLabel.toLowerCase()}.`
+          : `${periodMatters.length} new workplace ${periodMatters.length === 1 ? "Matter was" : "Matters were"} opened during ${periodLabel.toLowerCase()}.`;
+      const openPhrase =
+        openMatters.length === 0
+          ? "There are currently no open Matters."
+          : `${openMatters.length} ${openMatters.length === 1 ? "Matter remains" : "Matters remain"} open across the organisation.`;
+      const sarPhrase =
+        activeSars.length === 0
+          ? "There are no active Subject Access Requests recorded."
+          : `${activeSars.length} active Subject Access ${activeSars.length === 1 ? "Request is" : "Requests are"} recorded.`;
+
+      return {
+        title: `Executive Insight Brief · ${periodLabel}`,
+        headlineSummary: `${matterPhrase} ${openPhrase} ${sarPhrase} ${periodJoiners.length > 0 ? `${periodJoiners.length} new ${periodJoiners.length === 1 ? "starter was" : "starters were"} also recorded during the period.` : "No new starters were recorded during the period."}`,
+        supportingCounts: [
+          { label: "Active employees", value: String(activeEmployees.length) },
+          { label: `Joiners · ${periodLabel}`, value: String(periodJoiners.length) },
+          { label: `New Matters · ${periodLabel}`, value: String(periodMatters.length) },
+          { label: "Open Matters", value: String(openMatters.length) },
+          { label: "Active SARs", value: String(activeSars.length) },
+          { label: "SARs due soon", value: String(sarsDueSoon.length) },
+          { label: "SARs past planned date", value: String(sarsPastDeadline.length) },
+        ],
+        risks: (insightPayload?.risks || []).map((risk) => ({
+          title: risk.title,
+          detail: risk.detail,
+        })),
+        trends: (insightPayload?.trends || []).map((trend) => ({
+          title: trend.title,
+          detail: trend.detail,
+        })),
+        recommendations: (insightPayload?.recommendations || []).map(
+          (recommendation) => ({
+            title: recommendation.title,
+            detail: recommendation.detail,
+          })
+        ),
+        earlyInterventions: (insightPayload?.earlyInterventions || []).map(
+          (intervention) => ({
+            title: intervention.title,
+            detail: intervention.detail,
+          })
+        ),
+      };
+    },
     [
       activeEmployees.length,
       activeSars.length,
       insightPayload?.earlyInterventions,
       insightPayload?.recommendations,
       insightPayload?.risks,
-      insightPayload?.summary,
       insightPayload?.trends,
-      knowledgeSectionCount,
       openMatters.length,
       periodJoiners.length,
       periodLabel,
       periodMatters.length,
-      resources.length,
       sarsDueSoon.length,
       sarsPastDeadline.length,
     ]
@@ -915,24 +900,24 @@ export default function InsightsPage() {
         .replace(/>/g, "&gt;");
 
     const sections = [
-      ["Headline summary", [executiveBrief.headlineSummary]],
+      ["Executive summary", [executiveBrief.headlineSummary]],
       [
-        "Supporting counts",
+        "At a glance",
         executiveBrief.supportingCounts.map(
           (item) => `${item.label}: ${item.value}`
         ),
       ],
-      ["Key risks", formatBriefItems(executiveBrief.risks)],
-      ["Notable trends", formatBriefItems(executiveBrief.trends)],
+      ["Areas to review", formatBriefItems(executiveBrief.risks)],
+      ["What changed", formatBriefItems(executiveBrief.trends)],
       [
-        "Priority recommendations",
+        "Recommended priorities",
         formatBriefItems(executiveBrief.recommendations),
       ],
       [
-        "Early interventions",
+        "Suggested early action",
         formatBriefItems(executiveBrief.earlyInterventions),
       ],
-    ];
+    ].filter(([, items]) => (items as string[]).length > 0);
 
     const html = `<!doctype html>
 <html>
@@ -966,7 +951,7 @@ ${sections
       `<section><h2>${escapeHtml(String(heading))}</h2><ul>${(
         items as string[]
       )
-        .map((item) => `<li>${escapeHtml(item.replace(/^[-•]\\s*/, ""))}</li>`)
+        .map((item) => `<li>${escapeHtml(item.replace(/^[-•]\\s*/, "").replace(/^[^:]{1,90}:\\s*/, ""))}</li>`)
         .join("")}</ul></section>`
   )
   .join("")}

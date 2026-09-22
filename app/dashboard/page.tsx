@@ -90,6 +90,8 @@ type ReminderItem = {
     module?: string;
     milestone?: string;
     status_band?: string;
+    source_type?: string;
+    employee_name?: string;
   };
 };
 
@@ -764,6 +766,11 @@ function DashboardPageContent() {
 
                 <h3 style={reminderTitleStyle}>{reminder.title}</h3>
                 <p style={reminderMessageStyle}>{reminder.message}</p>
+                <p style={reminderAgentReasonStyle}>
+                  {reminder.metadata?.source_type
+                    ? `Leo detected this from the live ${String(reminder.metadata.source_type).replaceAll("_", " ")} record${reminder.metadata.employee_name ? ` for ${reminder.metadata.employee_name}` : ""}.`
+                    : "Leo detected this from your live HR records."}
+                </p>
 
                 <div style={reminderActionsStyle}>
                   {reminder.actionUrl ? (
@@ -776,7 +783,15 @@ function DashboardPageContent() {
                       }}
                       disabled={Boolean(reminderActionInProgress)}
                     >
-                      Open
+                      {reminder.metadata?.source_type === "right_to_work"
+                        ? "Review Right to Work"
+                        : reminder.metadata?.source_type === "dbs_check"
+                          ? "Review DBS"
+                          : reminder.metadata?.source_type === "training_refresh"
+                            ? "Review training"
+                            : reminder.metadata?.source_type === "sar_deadline"
+                              ? "Open SAR"
+                              : "Take action"}
                     </button>
                   ) : null}
 

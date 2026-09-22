@@ -929,7 +929,7 @@ body{font-family:Arial,sans-serif;color:#403545;margin:40px;line-height:1.5}
 h1{color:#6E5084;font-size:24px;margin:0 0 8px}
 .meta{color:#746C78;font-size:12px;margin-bottom:28px}
 h2{color:#5E456C;font-size:16px;margin:24px 0 8px}
-p{margin:0 0 8px}
+p{margin:0 0 8px}.summary{font-size:14px;line-height:1.65;max-width:760px}
 ul{margin:0;padding-left:22px}
 li{margin:0 0 6px}
 </style>
@@ -946,14 +946,16 @@ li{margin:0 0 6px}
       })
     )}<br>Reporting period: ${escapeHtml(periodLabel)}</div>
 ${sections
-  .map(
-    ([heading, items]) =>
-      `<section><h2>${escapeHtml(String(heading))}</h2><ul>${(
-        items as string[]
-      )
-        .map((item) => `<li>${escapeHtml(item.replace(/^[-•]\\s*/, "").replace(/^[^:]{1,90}:\\s*/, ""))}</li>`)
-        .join("")}</ul></section>`
-  )
+  .map(([heading, items], sectionIndex) => {
+    const cleanItems = (items as string[]).filter(Boolean);
+    if (sectionIndex === 0) {
+      return `<section><h2>${escapeHtml(String(heading))}</h2><p class="summary">${escapeHtml(cleanItems[0] || "")}</p></section>`;
+    }
+
+    return `<section><h2>${escapeHtml(String(heading))}</h2><ul>${cleanItems
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("")}</ul></section>`;
+  })
   .join("")}
 </body>
 </html>`;
@@ -2525,14 +2527,24 @@ function formatBriefItems(
     detail: string;
   }>
 ) {
-  if (items.length === 0) {
-    return ["- No items recorded."];
-  }
+  return items.map((item) => {
+    const title = item.title.trim().replace(/^[-•]\\s*/, "");
+    const detail = item.detail.trim().replace(/^[-•]\\s*/, "");
 
-  return items.flatMap((item) => [
-    `- ${item.title}`,
-    `  ${item.detail}`,
-  ]);
+    if (!detail) {
+      return title;
+    }
+
+    if (!title) {
+      return detail;
+    }
+
+    const normalisedTitle = title.replace(/[.:;]+$/, "");
+    const normalisedDetail =
+      detail.charAt(0).toLowerCase() + detail.slice(1);
+
+    return `${normalisedTitle}: ${normalisedDetail}`;
+  });
 }
 
 function toDateStamp(date: Date) {

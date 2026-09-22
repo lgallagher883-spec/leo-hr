@@ -3,6 +3,10 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export class EmployerSupportAccessLookupError extends Error {
+  constructor(message = "Employer Support access could not be checked.") { super(message); this.name = "EmployerSupportAccessLookupError"; }
+}
+
 export type EmployerSupportAccess = {
   userId: string;
   organisationId: string;
@@ -53,7 +57,8 @@ export async function getEmployerSupportAccess(): Promise<EmployerSupportAccess 
     .order("is_default_organisation", { ascending: false })
     .order("created_at", { ascending: true });
 
-  if (membershipError || !Array.isArray(memberships)) return null;
+  if (membershipError) throw new EmployerSupportAccessLookupError();
+  if (!Array.isArray(memberships)) throw new EmployerSupportAccessLookupError();
 
   for (const membership of memberships) {
     if (
@@ -72,7 +77,8 @@ export async function getEmployerSupportAccess(): Promise<EmployerSupportAccess 
       .eq("organisation_id", organisationId)
       .maybeSingle();
 
-    if (accountError || !account) continue;
+    if (accountError) throw new EmployerSupportAccessLookupError();
+    if (!account) continue;
 
     const row = account as AccountRow;
     if (row.status !== "active") continue;

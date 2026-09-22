@@ -662,14 +662,13 @@ export default function EmployeeProfilePage() {
                       ? "The employee record is preserved for history."
                       : isNewStarter
                       ? "Pre-employment or onboarding activity is still underway."
-                      : "Current employee record."
+                      : undefined
                   }
                 />
 
                 <SummaryCard
                   label="Current role"
                   value={employee.role || "Not set"}
-                  supportingText="Managed from Employment."
                 />
 
                 <SummaryCard
@@ -685,7 +684,6 @@ export default function EmployeeProfilePage() {
                 <SummaryCard
                   label="Linked Matters"
                   value="View record"
-                  supportingText="Open the Matters tab for connected workplace activity."
                   onClick={
                     hasPermission("Manager")
                       ? () => openSection("Matters")
@@ -721,35 +719,11 @@ export default function EmployeeProfilePage() {
                 </div>
               </Panel>
 
-              <Panel
-                title="Employee record"
-                description="Core information held against this employee."
-              >
-                <div style={informationGridStyle}>
-                  <Info label="Name" value={employee.name} />
-                  <Info
-                    label="Email"
-                    value={employee.email || "Not set"}
-                  />
-                  <Info
-                    label="Role"
-                    value={employee.role || "Not set"}
-                  />
-                  <Info label="Status" value={employeeStatus} />
-                  <Info label="Start date" value={startDateLabel} />
-                  <Info
-                    label="Employee reference"
-                    value={String(employee.id)}
-                  />
-                </div>
-              </Panel>
             </div>
           )}
 
           {activeSection === "Employment" && (
-            <SectionShell
-              eyebrow="Employment"
-              title="Employment details"
+            <SectionShell              title="Employment details"
               description="Maintain the employee’s current employment information and status."
             >
               <EmploymentDetails
@@ -764,9 +738,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Compliance Summary" && (
-            <SectionShell
-              eyebrow="Compliance"
-              title="Compliance summary"
+            <SectionShell              title="Compliance summary"
               description="Review the employee’s current checks, evidence and upcoming renewal dates."
             >
               <ComplianceSummary employeeId={employee.id} />
@@ -774,9 +746,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Development" && (
-            <SectionShell
-              eyebrow="Development"
-              title="Development"
+            <SectionShell              title="Development"
               description="Manage probation, reviews, one-to-ones, support plans, achievements and recognition."
             >
               <EmployeeDevelopment employeeId={employee.id} />
@@ -784,9 +754,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Learning" && (
-            <SectionShell
-              eyebrow="Leo Learn"
-              title="Learning"
+            <SectionShell              title="Learning"
               description="Review training records now and connected Leo Learn activity as the module develops."
             >
               <TrainingLogs employeeId={employee.id} />
@@ -794,9 +762,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Timeline" && (
-            <SectionShell
-              eyebrow="Employee history"
-              title="Timeline"
+            <SectionShell              title="Timeline"
               description="A chronological view of meaningful employment activity across the employee lifecycle."
               action={
                 <button
@@ -817,9 +783,7 @@ export default function EmployeeProfilePage() {
             </SectionShell>
           )}
                     {activeSection === "Documents" && (
-            <SectionShell
-              eyebrow="Documents"
-              title="Employee documents"
+            <SectionShell              title="Employee documents"
               description="Store and review employment, identity, compliance and supporting documents."
             >
               <EmployeeDocuments employeeId={employee.id} />
@@ -827,9 +791,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Matters" && (
-            <SectionShell
-              eyebrow="Matters"
-              title="Employee Matters"
+            <SectionShell              title="Employee Matters"
               description="Review workplace Matters connected to this employee."
             >
               <EmployeeMatters employeeId={employee.id} />
@@ -837,9 +799,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Leave & Absence" && (
-            <SectionShell
-              eyebrow="Leave and absence"
-              title="Leave & Absence"
+            <SectionShell              title="Leave & Absence"
               description="Record and review leave, sickness absence and related workplace activity."
             >
               <LeaveAbsence employeeId={employee.id} />
@@ -847,9 +807,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Warnings" && (
-            <SectionShell
-              eyebrow="Warnings"
-              title="Warning history"
+            <SectionShell              title="Warning history"
               description="Maintain formal warning records, expiry dates and supporting documentation."
             >
               <EmployeeWarnings employeeId={employee.id} />
@@ -857,9 +815,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Right to Work" && (
-            <SectionShell
-              eyebrow="Eligibility"
-              title="Right to Work"
+            <SectionShell              title="Right to Work"
               description="Maintain evidence, review dates and the employee’s current Right to Work position."
             >
               <RightToWork employeeId={employee.id} />
@@ -867,9 +823,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "DBS / Safeguarding" && (
-  <SectionShell
-    eyebrow="Due diligence"
-    title="DBS / Safeguarding"
+  <SectionShell    title="DBS / Safeguarding"
     description="Maintain DBS, Update Service and safeguarding-related employment records."
   >
     <DBSSafeguarding employeeId={employee.id} />
@@ -877,9 +831,7 @@ export default function EmployeeProfilePage() {
 )}
 
           {activeSection === "Driving" && (
-            <SectionShell
-              eyebrow="Driving compliance"
-              title="Driving"
+            <SectionShell              title="Driving"
               description="Maintain driving records, evidence and annual DVLA check history."
             >
               <DrivingChecks employeeId={employee.id} />
@@ -887,9 +839,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Medical" && (
-            <SectionShell
-              eyebrow="Restricted information"
-              title="Medical"
+            <SectionShell              title="Medical"
               description="Maintain authorised employment-related health and occupational information."
             >
               <EmployeeMedical employeeId={employee.id} />
@@ -897,9 +847,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Emergency Contacts" && (
-            <SectionShell
-              eyebrow="Emergency information"
-              title="Emergency contacts"
+            <SectionShell              title="Emergency contacts"
               description="Review and maintain the employee’s emergency contact details."
             >
               <EmergencyContacts employeeId={employee.id} />
@@ -907,9 +855,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Notes" && (
-            <SectionShell
-              eyebrow="Employment notes"
-              title="Notes"
+            <SectionShell              title="Notes"
               description="Record appropriate general employment notes that do not belong within a Matter."
             >
               <EmployeeNotes employeeId={employee.id} />
@@ -917,9 +863,7 @@ export default function EmployeeProfilePage() {
           )}
 
           {activeSection === "Archive" && (
-            <SectionShell
-              eyebrow="Record lifecycle"
-              title={isArchived ? "Archived employee" : "Archive employee"}
+            <SectionShell              title={isArchived ? "Archived employee" : "Archive employee"}
               description={
                 isArchived
                   ? "This employee record remains preserved and can be restored by an authorised user."
@@ -1030,7 +974,7 @@ function SectionShell({
   action,
   children,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   action?: ReactNode;
@@ -1056,7 +1000,7 @@ function SectionHeading({
   description,
   action,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   action?: ReactNode;
@@ -1064,7 +1008,7 @@ function SectionHeading({
   return (
     <div style={sectionHeadingStyle}>
       <div style={sectionHeadingContentStyle}>
-        <div style={eyebrowStyle}>{eyebrow}</div>
+        {eyebrow ? <div style={eyebrowStyle}>{eyebrow}</div> : null}
         <h2 style={sectionTitleStyle}>{title}</h2>
         <p style={sectionDescriptionStyle}>{description}</p>
       </div>
@@ -1136,14 +1080,16 @@ function SummaryCard({
 }: {
   label: string;
   value: string;
-  supportingText: string;
+  supportingText?: string;
   onClick?: () => void;
 }) {
   const content = (
     <>
       <div style={summaryCardLabelStyle}>{label}</div>
       <div style={summaryCardValueStyle}>{value}</div>
-      <div style={summaryCardSupportingTextStyle}>{supportingText}</div>
+      {supportingText ? (
+        <div style={summaryCardSupportingTextStyle}>{supportingText}</div>
+      ) : null}
     </>
   );
 
@@ -1666,7 +1612,7 @@ function getStatusBadgeStyle(status: string): CSSProperties {
       return {
         ...sharedStyle,
         background: "#F3F4F6",
-        color: "#4B5563",
+        color: "#5E456C",
         border: "1px solid #D1D5DB",
       };
 
@@ -1758,7 +1704,7 @@ const eyebrowStyle: CSSProperties = {
   fontSize: "12px",
   fontWeight: 800,
   letterSpacing: "0.08em",
-  textTransform: "uppercase",
+  
 };
 
 const headerMetaGridStyle: CSSProperties = {
@@ -1776,7 +1722,7 @@ const headerMetaItemStyle: CSSProperties = {
 };
 
 const headerMetaLabelStyle: CSSProperties = {
-  color: "#77707B",
+  color: "#5E456C",
   fontSize: "12px",
   marginBottom: "5px",
 };
@@ -1871,7 +1817,7 @@ const bannerEyebrowStyle: CSSProperties = {
   fontSize: "12px",
   fontWeight: 800,
   letterSpacing: "0.08em",
-  textTransform: "uppercase",
+  
 };
 
 const bannerTitleStyle: CSSProperties = {
@@ -1917,7 +1863,7 @@ const navigationTitleStyle: CSSProperties = {
 };
 
 const navigationSubtitleStyle: CSSProperties = {
-  color: "#7C7480",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.5,
   marginTop: "4px",
@@ -1953,7 +1899,7 @@ const navigationButtonTitleStyle: CSSProperties = {
 
 const navigationButtonDescriptionStyle: CSSProperties = {
   display: "block",
-  color: "#807885",
+  color: "#5E456C",
   fontSize: "11px",
   lineHeight: 1.45,
   marginTop: "3px",
@@ -1993,13 +1939,13 @@ const sectionHeadingActionStyle: CSSProperties = {
 
 const sectionTitleStyle: CSSProperties = {
   margin: "5px 0 6px",
-  color: "#2B2231",
+  color: "#5E456C",
   fontSize: "23px",
 };
 
 const sectionDescriptionStyle: CSSProperties = {
   margin: 0,
-  color: "#6F6773",
+  color: "#5E456C",
   lineHeight: 1.6,
   fontSize: "14px",
   maxWidth: "760px",
@@ -2013,6 +1959,10 @@ const summaryGridStyle: CSSProperties = {
 
 const summaryCardStyle: CSSProperties = {
   background: "#FFFFFF",
+  minHeight: "132px",
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column",
   border: "1px solid #E7E1EA",
   borderRadius: "14px",
   padding: "17px",
@@ -2027,7 +1977,7 @@ const summaryCardButtonStyle: CSSProperties = {
 };
 
 const summaryCardLabelStyle: CSSProperties = {
-  color: "#79717E",
+  color: "#5E456C",
   fontSize: "12px",
   fontWeight: 700,
 };
@@ -2040,10 +1990,11 @@ const summaryCardValueStyle: CSSProperties = {
 };
 
 const summaryCardSupportingTextStyle: CSSProperties = {
-  color: "#746C78",
+  color: "#5E456C",
+  marginTop: "auto",
   fontSize: "12px",
   lineHeight: 1.5,
-  marginTop: "7px",
+  paddingTop: "7px",
 };
 
 const panelStyle: CSSProperties = {
@@ -2067,7 +2018,7 @@ const panelTitleStyle: CSSProperties = {
 
 const panelDescriptionStyle: CSSProperties = {
   margin: "6px 0 0",
-  color: "#716A75",
+  color: "#5E456C",
   fontSize: "13px",
   lineHeight: 1.55,
 };
@@ -2079,7 +2030,11 @@ const quickActionGridStyle: CSSProperties = {
 };
 
 const quickActionButtonStyle: CSSProperties = {
-  display: "block",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "flex-start",
+  minHeight: "110px",
+  boxSizing: "border-box",
   width: "100%",
   textAlign: "left",
   background: "#FBF9FC",
@@ -2099,7 +2054,7 @@ const quickActionTitleStyle: CSSProperties = {
 
 const quickActionDescriptionStyle: CSSProperties = {
   display: "block",
-  color: "#746D78",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.5,
   marginTop: "5px",
@@ -2119,7 +2074,7 @@ const informationItemStyle: CSSProperties = {
 };
 
 const informationLabelStyle: CSSProperties = {
-  color: "#7A727E",
+  color: "#5E456C",
   fontSize: "12px",
 };
 
@@ -2184,7 +2139,7 @@ const timelineCategoryStyle: CSSProperties = {
   fontSize: "11px",
   fontWeight: 900,
   letterSpacing: "0.06em",
-  textTransform: "uppercase",
+  
 };
 
 const timelineTitleStyle: CSSProperties = {
@@ -2194,7 +2149,7 @@ const timelineTitleStyle: CSSProperties = {
 };
 
 const timelineDateStyle: CSSProperties = {
-  color: "#7B737F",
+  color: "#5E456C",
   fontSize: "12px",
   whiteSpace: "nowrap",
 };
@@ -2208,7 +2163,7 @@ const timelineDescriptionStyle: CSSProperties = {
 
 const timelineSourceStyle: CSSProperties = {
   marginTop: "7px",
-  color: "#918A95",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
@@ -2217,7 +2172,7 @@ const emptyStateStyle: CSSProperties = {
   border: "1px dashed #DCCFE3",
   borderRadius: "12px",
   padding: "22px",
-  color: "#746D78",
+  color: "#5E456C",
   textAlign: "center",
   fontSize: "13px",
 };
@@ -2237,7 +2192,7 @@ const archiveInformationRowStyle: CSSProperties = {
 };
 
 const archiveInformationLabelStyle: CSSProperties = {
-  color: "#7A727E",
+  color: "#5E456C",
   fontSize: "12px",
   fontWeight: 700,
 };
@@ -2292,7 +2247,7 @@ const pageStateTitleStyle: CSSProperties = {
 
 const pageStateMessageStyle: CSSProperties = {
   margin: "10px 0 18px",
-  color: "#716A75",
+  color: "#5E456C",
   lineHeight: 1.6,
   fontSize: "14px",
 };

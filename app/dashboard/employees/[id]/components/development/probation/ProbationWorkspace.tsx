@@ -1576,7 +1576,7 @@ const workspaceTitleStyle: React.CSSProperties = {
 
 const workspaceDescriptionStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
@@ -1604,7 +1604,7 @@ const secondaryButtonStyle: React.CSSProperties = {
 
 const loadingStyle: React.CSSProperties = {
   padding: "28px",
-  color: "#6B7280",
+  color: "#5E456C",
   textAlign: "center",
 };
 
@@ -1626,19 +1626,19 @@ const formPanelStyle: React.CSSProperties = {
 
 const formTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5E456C",
 };
 
 const formDescriptionStyle: React.CSSProperties = {
   margin: "8px 0 18px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block",
-  color: "#374151",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
   marginBottom: "6px",
@@ -1695,13 +1695,13 @@ const datePreviewItemStyle: React.CSSProperties = {
 };
 
 const datePreviewLabelStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   marginBottom: "5px",
 };
 
 const datePreviewValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "14px",
   fontWeight: 700,
 };
@@ -1729,13 +1729,13 @@ const emptyStateIconStyle: React.CSSProperties = {
 
 const emptyStateTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5E456C",
 };
 
 const emptyStateDescriptionStyle: React.CSSProperties = {
   maxWidth: "560px",
   margin: "10px auto 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
@@ -1756,7 +1756,7 @@ const summaryCardStyle: React.CSSProperties = {
 };
 
 const summaryLabelStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   marginBottom: "6px",
 };
@@ -1800,23 +1800,23 @@ const decisionReviewLabelStyle: React.CSSProperties = {
   fontSize: "11px",
   fontWeight: 800,
   letterSpacing: "0.06em",
-  textTransform: "uppercase",
+  
   marginBottom: "6px",
 };
 
 const reviewTypeStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontWeight: 700,
 };
 
 const finalReviewDescriptionStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "13px",
   marginTop: "5px",
 };
 
 const reviewDateStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "13px",
   marginTop: "5px",
 };
@@ -1863,7 +1863,7 @@ const reviewFormHeaderStyle: React.CSSProperties = {
 
 const closeButtonStyle: React.CSSProperties = {
   background: "transparent",
-  color: "#6B7280",
+  color: "#5E456C",
   border: "none",
   cursor: "pointer",
   fontWeight: 700,
@@ -1881,7 +1881,7 @@ const formFieldStyle: React.CSSProperties = {
 };
 
 const finalReviewIntroStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
   margin: "0 0 18px",
@@ -1905,7 +1905,7 @@ const outcomeInformationStyle: React.CSSProperties = {
   padding: "13px",
   background: "#F7F1FC",
   borderRadius: "10px",
-  color: "#4B5563",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
@@ -1949,7 +1949,7 @@ const recordActionsStyle: React.CSSProperties = {
 
 const signatureHintStyle: React.CSSProperties = {
   flex: "1 1 260px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "13px",
   lineHeight: 1.45,
 };

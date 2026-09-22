@@ -1509,9 +1509,7 @@ export default function CompliancePage() {
 <h1 style={titleStyle}>Compliance</h1>
 
           <p style={subtitleStyle}>
-            Review employee checks and learning
-            renewal dates in clear spreadsheet-style
-            registers.
+            See what needs attention across employee checks, renewals and learning without digging through a large register.
           </p>
 
           {lastUpdated && (
@@ -1582,20 +1580,6 @@ export default function CompliancePage() {
         />
       </div>
 
-      <ComplianceIntelligencePanel
-        loading={intelligenceLoading}
-        error={intelligenceError}
-        intelligence={intelligence}
-        prompt={draftPrompt}
-        onPromptChange={setDraftPrompt}
-        onGenerateDraft={() =>
-          void generateComplianceDraft()
-        }
-        draftLoading={draftLoading}
-        draftError={draftError}
-        draft={draftResult}
-      />
-
 
       {pageMessage && (
         <MessageBox tone={pageMessageTone}>
@@ -1615,7 +1599,7 @@ export default function CompliancePage() {
               : viewTabStyle
           }
         >
-          Compliance Register
+          Compliance overview
         </button>
 
         <button
@@ -1966,347 +1950,125 @@ function ComplianceRegister({
     <section style={registerPanelStyle}>
       <div style={registerHeadingStyle}>
         <div>
-          <h2 style={registerTitleStyle}>
-            Compliance Register
-          </h2>
-
+          <h2 style={registerTitleStyle}>Compliance overview</h2>
           <p style={registerDescriptionStyle}>
-            Select any compliance cell to open the relevant employee
-            record.
+            See what actually needs attention by employee. Current and not-required checks stay out of the way.
           </p>
         </div>
-
         <div style={recordCountStyle}>
-          {rows.length} employee
-          {rows.length === 1 ? "" : "s"}
+          {rows.length} employee{rows.length === 1 ? "" : "s"}
         </div>
       </div>
 
-      <div style={registerTableWrapperStyle}>
-        <table style={registerTableStyle}>
-          <thead>
-            <tr>
-              <th
-                rowSpan={2}
-                style={stickyCheckboxHeaderStyle}
-              >
-                <input
-                  type="checkbox"
-                  checked={allVisibleSelected}
-                  onChange={onToggleAll}
-                  aria-label="Select all visible employees"
-                />
-              </th>
+      <div style={complianceToolbarStyle}>
+        <label style={selectAllStyle}>
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={onToggleAll}
+            aria-label="Select all visible employees"
+          />
+          Select visible
+        </label>
+        <div style={complianceSortActionsStyle}>
+          <button
+            type="button"
+            onClick={() => onSort("employeeName")}
+            style={sortState.column === "employeeName" ? compactSortActiveStyle : compactSortStyle}
+          >
+            Employee
+          </button>
+          <button
+            type="button"
+            onClick={() => onSort("reviewCount")}
+            style={sortState.column === "reviewCount" ? compactSortActiveStyle : compactSortStyle}
+          >
+            Needs attention
+          </button>
+        </div>
+      </div>
 
-              <th
-                rowSpan={2}
-                style={stickyEmployeeHeaderStyle}
-              >
-                <SortableHeaderButton
-                  label="Employee"
-                  column="employeeName"
-                  sortState={sortState}
-                  onSort={onSort}
-                />
-              </th>
+      <div style={complianceCardListStyle}>
+        {rows.map((row) => {
+          const cells = [
+            row.rightToWork,
+            row.visa,
+            row.dbs,
+            row.updateService,
+            row.safeguarding,
+            row.drivingLicence,
+            row.dvla,
+            row.businessInsurance,
+            row.mot,
+            row.probation,
+          ];
+          const needsAttention = cells.filter((cell) =>
+            ["Expired", "Due within 30 days", "Awaiting evidence", "Review required"].includes(cell.status)
+          );
+          const settledCount = cells.length - needsAttention.length;
 
-              <th
-                rowSpan={2}
-                style={narrowHeaderStyle}
-              >
-                <SortableHeaderButton
-                  label="Site"
-                  column="siteName"
-                  sortState={sortState}
-                  onSort={onSort}
-                />
-              </th>
-
-              <th
-                rowSpan={2}
-                style={narrowHeaderStyle}
-              >
-                <SortableHeaderButton
-                  label="Department"
-                  column="department"
-                  sortState={sortState}
-                  onSort={onSort}
-                />
-              </th>
-
-              <th
-                rowSpan={2}
-                style={narrowHeaderStyle}
-              >
-                <SortableHeaderButton
-                  label="Manager"
-                  column="manager"
-                  sortState={sortState}
-                  onSort={onSort}
-                />
-              </th>
-
-              <th
-                rowSpan={2}
-                style={roleHeaderStyle}
-              >
-                <SortableHeaderButton
-                  label="Role"
-                  column="role"
-                  sortState={sortState}
-                  onSort={onSort}
-                />
-              </th>
-
-              <th
-                colSpan={2}
-                style={groupHeaderStyle}
-              >
-                Identity & Eligibility
-              </th>
-
-              <th
-                colSpan={3}
-                style={groupHeaderStyle}
-              >
-                DBS & Safeguarding
-              </th>
-
-              <th
-                colSpan={4}
-                style={groupHeaderStyle}
-              >
-                Driving Compliance
-              </th>
-
-              <th
-                colSpan={1}
-                style={groupHeaderStyle}
-              >
-                Employment
-              </th>
-
-              <th
-                rowSpan={2}
-                style={reviewHeaderStyle}
-              >
-                <SortableHeaderButton
-                  label="Items to Review"
-                  column="reviewCount"
-                  sortState={sortState}
-                  onSort={onSort}
-                />
-              </th>
-            </tr>
-
-            <tr>
-              <ComplianceColumnHeader
-                label="Right to Work"
-                column="rightToWork"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="Visa / Permit"
-                column="visa"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="DBS"
-                column="dbs"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="Update Service"
-                column="updateService"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="Safeguarding"
-                column="safeguarding"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="Driving Licence"
-                column="drivingLicence"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="DVLA Check"
-                column="dvla"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="Business Insurance"
-                column="businessInsurance"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="MOT Expiry"
-                column="mot"
-                sortState={sortState}
-                onSort={onSort}
-              />
-
-              <ComplianceColumnHeader
-                label="Probation"
-                column="probation"
-                sortState={sortState}
-                onSort={onSort}
-              />
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.employeeId}>
-                <td style={stickyCheckboxCellStyle}>
+          return (
+            <article key={row.employeeId} style={complianceEmployeeCardStyle}>
+              <div style={complianceEmployeeHeaderStyle}>
+                <div style={complianceEmployeeIdentityStyle}>
                   <input
                     type="checkbox"
-                    checked={selectedEmployeeIds.includes(
-                      row.employeeId
-                    )}
-                    onChange={() =>
-                      onToggleEmployee(row.employeeId)
-                    }
+                    checked={selectedEmployeeIds.includes(row.employeeId)}
+                    onChange={() => onToggleEmployee(row.employeeId)}
                     aria-label={`Select ${row.employeeName}`}
                   />
-                </td>
-
-                <td style={stickyEmployeeCellStyle}>
                   <button
                     type="button"
-                    onClick={() =>
-                      onOpenCell(
-                        row.employeeId,
-                        "overview"
-                      )
-                    }
-                    style={employeeLinkButtonStyle}
+                    onClick={() => onOpenCell(row.employeeId, "overview")}
+                    style={complianceEmployeeNameButtonStyle}
                   >
-                    <span style={employeeNameCellStyle}>
-                      {row.employeeName}
-                    </span>
-
-                    <span
-                      style={employeeReferenceCellStyle}
-                    >
-                      REF {row.employeeId} ·{" "}
-                      {row.employeeStatus}
+                    <span style={complianceEmployeeNameStyle}>{row.employeeName}</span>
+                    <span style={complianceEmployeeMetaStyle}>
+                      {row.role} · {row.department} · {row.manager}
                     </span>
                   </button>
-                </td>
+                </div>
+                <span style={needsAttention.length > 0 ? attentionCountStyle : clearCountStyle}>
+                  {needsAttention.length > 0
+                    ? `${needsAttention.length} to review`
+                    : "No action needed"}
+                </span>
+              </div>
 
-                <PlainRegisterCell
-                  value={row.siteName}
-                  narrow
-                />
+              {needsAttention.length > 0 ? (
+                <div style={complianceAttentionGridStyle}>
+                  {needsAttention.map((cell) => (
+                    <button
+                      key={cell.label}
+                      type="button"
+                      onClick={() => onOpenCell(row.employeeId, cell.destination)}
+                      style={complianceAttentionItemStyle}
+                      title={cell.detail}
+                    >
+                      <span style={complianceAttentionTopStyle}>
+                        <span style={complianceAttentionLabelStyle}>{cell.label}</span>
+                        <ComplianceStatusBadge status={cell.status} />
+                      </span>
+                      <span style={complianceAttentionDetailStyle}>
+                        {cell.date ? `${formatDate(cell.date)} · ${formatDaysRemaining(cell.daysRemaining)}` : cell.detail}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={complianceClearStyle}>
+                  All recorded checks are current or not required.
+                </div>
+              )}
 
-                <PlainRegisterCell
-                  value={row.department}
-                  narrow
-                />
-
-                <PlainRegisterCell
-                  value={row.manager}
-                  narrow
-                />
-
-                <PlainRegisterCell
-                  value={row.role}
-                  role
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.rightToWork}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.visa}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.dbs}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.updateService}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.safeguarding}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.drivingLicence}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.dvla}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.businessInsurance}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.mot}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <ComplianceRegisterCell
-                  cell={row.probation}
-                  employeeId={row.employeeId}
-                  onOpen={onOpenCell}
-                />
-
-                <td style={reviewCountCellStyle}>
-                  <span
-                    style={
-                      row.reviewCount > 0
-                        ? reviewCountActionStyle
-                        : reviewCountCurrentStyle
-                    }
-                  >
-                    {row.reviewCount}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              {settledCount > 0 && needsAttention.length > 0 ? (
+                <div style={complianceSettledStyle}>
+                  {settledCount} other check{settledCount === 1 ? "" : "s"} current or not required.
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -4411,6 +4173,178 @@ const bulkActionButtonsStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "8px",
+};
+
+const complianceToolbarStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "10px",
+  padding: "12px 18px",
+  borderBottom: "1px solid #EEE8F0",
+  background: "#FCFBFD",
+};
+
+const selectAllStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  color: "#675B6D",
+  fontSize: "12px",
+  fontWeight: 700,
+};
+
+const complianceSortActionsStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "7px",
+};
+
+const compactSortStyle: CSSProperties = {
+  border: "1px solid #DED5E3",
+  background: "#FFFFFF",
+  color: "#675B6D",
+  borderRadius: "999px",
+  padding: "7px 10px",
+  fontSize: "11px",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const compactSortActiveStyle: CSSProperties = {
+  ...compactSortStyle,
+  background: "#F7F1FC",
+  borderColor: "#DCCBE7",
+  color: "#6E5084",
+};
+
+const complianceCardListStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  padding: "14px",
+};
+
+const complianceEmployeeCardStyle: CSSProperties = {
+  border: "1px solid #E9E3EB",
+  borderRadius: "14px",
+  background: "#FFFFFF",
+  padding: "14px",
+};
+
+const complianceEmployeeHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const complianceEmployeeIdentityStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "10px",
+  minWidth: 0,
+  flex: "1 1 360px",
+};
+
+const complianceEmployeeNameButtonStyle: CSSProperties = {
+  display: "grid",
+  gap: "4px",
+  minWidth: 0,
+  border: "none",
+  background: "transparent",
+  padding: 0,
+  textAlign: "left",
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+
+const complianceEmployeeNameStyle: CSSProperties = {
+  color: "#5E456C",
+  fontSize: "14px",
+  fontWeight: 900,
+};
+
+const complianceEmployeeMetaStyle: CSSProperties = {
+  color: "#7C7480",
+  fontSize: "11px",
+  lineHeight: 1.4,
+  overflowWrap: "anywhere",
+};
+
+const attentionCountStyle: CSSProperties = {
+  color: "#8A4E5B",
+  background: "#FBF2F4",
+  border: "1px solid #E7CBD1",
+  borderRadius: "999px",
+  padding: "6px 9px",
+  fontSize: "10px",
+  fontWeight: 900,
+};
+
+const clearCountStyle: CSSProperties = {
+  color: "#356653",
+  background: "#F5FFF9",
+  border: "1px solid #CDE7DA",
+  borderRadius: "999px",
+  padding: "6px 9px",
+  fontSize: "10px",
+  fontWeight: 900,
+};
+
+const complianceAttentionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: "8px",
+  marginTop: "12px",
+};
+
+const complianceAttentionItemStyle: CSSProperties = {
+  display: "grid",
+  gap: "7px",
+  border: "1px solid #EEE7F0",
+  borderRadius: "11px",
+  background: "#FBF9FC",
+  padding: "11px",
+  textAlign: "left",
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+
+const complianceAttentionTopStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const complianceAttentionLabelStyle: CSSProperties = {
+  color: "#403545",
+  fontSize: "12px",
+  fontWeight: 900,
+};
+
+const complianceAttentionDetailStyle: CSSProperties = {
+  color: "#746C78",
+  fontSize: "11px",
+  lineHeight: 1.45,
+};
+
+const complianceClearStyle: CSSProperties = {
+  marginTop: "12px",
+  padding: "10px 12px",
+  borderRadius: "10px",
+  background: "#F5FFF9",
+  color: "#356653",
+  fontSize: "12px",
+};
+
+const complianceSettledStyle: CSSProperties = {
+  marginTop: "9px",
+  color: "#918895",
+  fontSize: "10px",
 };
 
 const registerPanelStyle: CSSProperties = {

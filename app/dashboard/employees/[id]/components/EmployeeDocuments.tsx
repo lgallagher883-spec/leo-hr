@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 import Field from "./Field";
 import ProfileSection from "./ProfileSection";
 import SaveButton from "./SaveButton";
@@ -229,15 +228,9 @@ export default function EmployeeDocuments({
 
   return (
     <ProfileSection title="Documents">
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="documents"
-        defaultPrompt="Draft a professional request that lists missing employee documents and asks for submission by a clear date."
-      />
-
-      <p
+<p
         style={{
-          color: "#6B7280",
+          color: "#5E456C",
           fontSize: "14px",
           marginTop: 0,
         }}
@@ -273,7 +266,7 @@ export default function EmployeeDocuments({
           style={{
             display: "block",
             fontSize: "13px",
-            color: "#6B7280",
+            color: "#5E456C",
             marginBottom: "5px",
           }}
         >
@@ -297,7 +290,7 @@ export default function EmployeeDocuments({
         <div
           style={{
             marginTop: "10px",
-            color: "#6B7280",
+            color: "#5E456C",
             fontSize: "14px",
           }}
         >
@@ -311,11 +304,11 @@ export default function EmployeeDocuments({
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             Loading documents...
           </div>
         ) : documents.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>
+          <div style={{ color: "#5E456C" }}>
             No documents uploaded yet.
           </div>
         ) : (
@@ -336,7 +329,7 @@ export default function EmployeeDocuments({
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "13px",
                     marginTop: "4px",
                   }}
@@ -386,7 +379,7 @@ export default function EmployeeDocuments({
 
                 <div
                   style={{
-                    color: "#6B7280",
+                    color: "#5E456C",
                     fontSize: "12px",
                     marginTop: "10px",
                   }}

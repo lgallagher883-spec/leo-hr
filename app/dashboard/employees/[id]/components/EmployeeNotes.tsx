@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import ProfileSection from "./ProfileSection";
 import SaveButton from "./SaveButton";
-import EmployeeLifecycleIntelligence from "./EmployeeLifecycleIntelligence";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -122,13 +121,7 @@ export default function EmployeeNotes({ employeeId }: EmployeeNotesProps) {
 
   return (
     <ProfileSection title="Notes">
-      <EmployeeLifecycleIntelligence
-        employeeId={employeeId}
-        lifecycleContext="employee_relations"
-        defaultPrompt="Draft a balanced employee-relations case note summary from recent factual notes, including proportional next actions."
-      />
-
-      <p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+<p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
         Add internal HR notes for this employee. Notes are saved as a history
         and can be opened and edited.
       </p>
@@ -145,7 +138,7 @@ export default function EmployeeNotes({ employeeId }: EmployeeNotesProps) {
       </SaveButton>
 
       {message && (
-        <div style={{ marginTop: "10px", color: "#6B7280", fontSize: "14px" }}>
+        <div style={{ marginTop: "10px", color: "#5E456C", fontSize: "14px" }}>
           {message}
         </div>
       )}
@@ -156,9 +149,9 @@ export default function EmployeeNotes({ employeeId }: EmployeeNotesProps) {
         </div>
 
         {loading ? (
-          <div style={{ color: "#6B7280" }}>Loading notes...</div>
+          <div style={{ color: "#5E456C" }}>Loading notes...</div>
         ) : notes.length === 0 ? (
-          <div style={{ color: "#6B7280" }}>No notes yet.</div>
+          <div style={{ color: "#5E456C" }}>No notes yet.</div>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {notes.map((note) => (
@@ -195,13 +188,13 @@ export default function EmployeeNotes({ employeeId }: EmployeeNotesProps) {
                       style={{
                         whiteSpace: "pre-wrap",
                         marginBottom: "8px",
-                        color: "#111827",
+                        color: "#5E456C",
                       }}
                     >
                       {note.note}
                     </div>
 
-                    <div style={{ color: "#6B7280", fontSize: "12px" }}>
+                    <div style={{ color: "#5E456C", fontSize: "12px" }}>
                       {new Date(note.created_at).toLocaleString("en-GB")}
                     </div>
 
@@ -254,7 +247,7 @@ const smallDarkButtonStyle: React.CSSProperties = {
 const smallLightButtonStyle: React.CSSProperties = {
   marginTop: "10px",
   background: "#fff",
-  color: "#374151",
+  color: "#5E456C",
   border: "1px solid #e5e7eb",
   padding: "7px 10px",
   borderRadius: "8px",

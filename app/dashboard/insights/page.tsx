@@ -460,80 +460,65 @@ export default function InsightsPage() {
     );
 
   const executiveBrief = useMemo<ExecutiveBrief>(
-    () => ({
-      title: `Executive Insight Brief · ${periodLabel}`,
-      headlineSummary:
-        insightPayload?.summary ||
-        `${periodLabel} summary: ${periodMatters.length} ${periodMatters.length === 1 ? "matter" : "matters"} were opened, ${openMatters.length} remain open, and ${activeSars.length} active ${activeSars.length === 1 ? "SAR is" : "SARs are"} currently recorded.`,
-      supportingCounts: [
-        {
-          label: "Active employees",
-          value: String(activeEmployees.length),
-        },
-        {
-          label: `Joiners · ${periodLabel}`,
-          value: String(periodJoiners.length),
-        },
-        {
-          label: `New Matters · ${periodLabel}`,
-          value: String(periodMatters.length),
-        },
-        {
-          label: "Open Matters",
-          value: String(openMatters.length),
-        },
-        {
-          label: "Active SARs",
-          value: String(activeSars.length),
-        },
-        {
-          label: "SARs due soon",
-          value: String(sarsDueSoon.length),
-        },
-        {
-          label: "SARs past planned date",
-          value: String(sarsPastDeadline.length),
-        },
-        {
-          label: "HR Resources",
-          value: String(resources.length),
-        },
-        {
-          label: "Knowledge available",
-          value: String(knowledgeSectionCount),
-        },
-      ],
-      risks: (insightPayload?.risks || []).map((risk) => ({
-        title: risk.title,
-        detail: risk.detail,
-      })),
-      trends: (insightPayload?.trends || []).map((trend) => ({
-        title: trend.title,
-        detail: trend.detail,
-      })),
-      recommendations: (insightPayload?.recommendations || []).map((recommendation) => ({
-        title: recommendation.title,
-        detail: recommendation.detail,
-      })),
-      earlyInterventions: (insightPayload?.earlyInterventions || []).map((intervention) => ({
-        title: intervention.title,
-        detail: intervention.detail,
-      })),
-    }),
+    () => {
+      const matterPhrase =
+        periodMatters.length === 0
+          ? `No new workplace Matters were opened during ${periodLabel.toLowerCase()}.`
+          : `${periodMatters.length} new workplace ${periodMatters.length === 1 ? "Matter was" : "Matters were"} opened during ${periodLabel.toLowerCase()}.`;
+      const openPhrase =
+        openMatters.length === 0
+          ? "There are currently no open Matters."
+          : `${openMatters.length} ${openMatters.length === 1 ? "Matter remains" : "Matters remain"} open across the organisation.`;
+      const sarPhrase =
+        activeSars.length === 0
+          ? "There are no active Subject Access Requests recorded."
+          : `${activeSars.length} active Subject Access ${activeSars.length === 1 ? "Request is" : "Requests are"} recorded.`;
+
+      return {
+        title: `Executive Insight Brief · ${periodLabel}`,
+        headlineSummary: `${matterPhrase} ${openPhrase} ${sarPhrase} ${periodJoiners.length > 0 ? `${periodJoiners.length} new ${periodJoiners.length === 1 ? "starter was" : "starters were"} also recorded during the period.` : "No new starters were recorded during the period."}`,
+        supportingCounts: [
+          { label: "Active employees", value: String(activeEmployees.length) },
+          { label: `Joiners · ${periodLabel}`, value: String(periodJoiners.length) },
+          { label: `New Matters · ${periodLabel}`, value: String(periodMatters.length) },
+          { label: "Open Matters", value: String(openMatters.length) },
+          { label: "Active SARs", value: String(activeSars.length) },
+          { label: "SARs due soon", value: String(sarsDueSoon.length) },
+          { label: "SARs past planned date", value: String(sarsPastDeadline.length) },
+        ],
+        risks: (insightPayload?.risks || []).map((risk) => ({
+          title: risk.title,
+          detail: risk.detail,
+        })),
+        trends: (insightPayload?.trends || []).map((trend) => ({
+          title: trend.title,
+          detail: trend.detail,
+        })),
+        recommendations: (insightPayload?.recommendations || []).map(
+          (recommendation) => ({
+            title: recommendation.title,
+            detail: recommendation.detail,
+          })
+        ),
+        earlyInterventions: (insightPayload?.earlyInterventions || []).map(
+          (intervention) => ({
+            title: intervention.title,
+            detail: intervention.detail,
+          })
+        ),
+      };
+    },
     [
       activeEmployees.length,
       activeSars.length,
       insightPayload?.earlyInterventions,
       insightPayload?.recommendations,
       insightPayload?.risks,
-      insightPayload?.summary,
       insightPayload?.trends,
-      knowledgeSectionCount,
       openMatters.length,
       periodJoiners.length,
       periodLabel,
       periodMatters.length,
-      resources.length,
       sarsDueSoon.length,
       sarsPastDeadline.length,
     ]
@@ -908,8 +893,75 @@ export default function InsightsPage() {
       ...formatBriefItems(executiveBrief.earlyInterventions),
     ];
 
-    const blob = new Blob([lines.join("\r\n")], {
-      type: "text/plain;charset=utf-8",
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const sections = [
+      ["Executive summary", [executiveBrief.headlineSummary]],
+      [
+        "At a glance",
+        executiveBrief.supportingCounts.map(
+          (item) => `${item.label}: ${item.value}`
+        ),
+      ],
+      ["Areas to review", formatBriefItems(executiveBrief.risks)],
+      ["What changed", formatBriefItems(executiveBrief.trends)],
+      [
+        "Recommended priorities",
+        formatBriefItems(executiveBrief.recommendations),
+      ],
+      [
+        "Suggested early action",
+        formatBriefItems(executiveBrief.earlyInterventions),
+      ],
+    ].filter(([, items]) => (items as string[]).length > 0);
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(executiveBrief.title)}</title>
+<style>
+body{font-family:Arial,sans-serif;color:#403545;margin:40px;line-height:1.5}
+h1{color:#6E5084;font-size:24px;margin:0 0 8px}
+.meta{color:#746C78;font-size:12px;margin-bottom:28px}
+h2{color:#5E456C;font-size:16px;margin:24px 0 8px}
+p{margin:0 0 8px}.summary{font-size:14px;line-height:1.65;max-width:760px}
+ul{margin:0;padding-left:22px}
+li{margin:0 0 6px}
+</style>
+</head>
+<body>
+<h1>${escapeHtml(executiveBrief.title)}</h1>
+<div class="meta">Generated: ${escapeHtml(
+      briefGeneratedAt.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    )}<br>Reporting period: ${escapeHtml(periodLabel)}</div>
+${sections
+  .map(([heading, items], sectionIndex) => {
+    const cleanItems = (items as string[]).filter(Boolean);
+    if (sectionIndex === 0) {
+      return `<section><h2>${escapeHtml(String(heading))}</h2><p class="summary">${escapeHtml(cleanItems[0] || "")}</p></section>`;
+    }
+
+    return `<section><h2>${escapeHtml(String(heading))}</h2><ul>${cleanItems
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("")}</ul></section>`;
+  })
+  .join("")}
+</body>
+</html>`;
+
+    const blob = new Blob([html], {
+      type: "application/msword",
     });
 
     const url = URL.createObjectURL(blob);
@@ -917,7 +969,7 @@ export default function InsightsPage() {
     anchor.href = url;
     anchor.download = `leo-executive-insight-brief-${period}-${toDateStamp(
       briefGeneratedAt
-    )}.txt`;
+    )}.doc`;
     anchor.click();
     URL.revokeObjectURL(url);
 
@@ -928,7 +980,7 @@ export default function InsightsPage() {
         period,
         period_label: periodLabel,
         generated_at: briefGeneratedAt.toISOString(),
-        export_format: "txt",
+        export_format: "doc",
       },
     });
 
@@ -2475,14 +2527,24 @@ function formatBriefItems(
     detail: string;
   }>
 ) {
-  if (items.length === 0) {
-    return ["- No items recorded."];
-  }
+  return items.map((item) => {
+    const title = item.title.trim().replace(/^[-•]\\s*/, "");
+    const detail = item.detail.trim().replace(/^[-•]\\s*/, "");
 
-  return items.flatMap((item) => [
-    `- ${item.title}`,
-    `  ${item.detail}`,
-  ]);
+    if (!detail) {
+      return title;
+    }
+
+    if (!title) {
+      return detail;
+    }
+
+    const normalisedTitle = title.replace(/[.:;]+$/, "");
+    const normalisedDetail =
+      detail.charAt(0).toLowerCase() + detail.slice(1);
+
+    return `${normalisedTitle}: ${normalisedDetail}`;
+  });
 }
 
 function toDateStamp(date: Date) {
@@ -2555,13 +2617,13 @@ const aiOperationsTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
   fontSize: "18px",
   fontWeight: 700,
-  color: "#3F3148",
+  color: "#5E456C",
 };
 
 const aiOperationsTextStyle: React.CSSProperties = {
   margin: 0,
   maxWidth: "760px",
-  color: "#6F6574",
+  color: "#5E456C",
   lineHeight: 1.6,
 };
 
@@ -2588,14 +2650,14 @@ const titleStyle: React.CSSProperties = {
 const subtitleStyle: React.CSSProperties = {
   margin: "7px 0 0",
   maxWidth: "760px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "14px",
   lineHeight: 1.6,
 };
 
 const updatedStyle: React.CSSProperties = {
   marginTop: "9px",
-  color: "#9CA3AF",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
@@ -2631,7 +2693,7 @@ const secondaryActionButtonStyle: React.CSSProperties = {
 const periodLabelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
   fontWeight: 700,
 };
@@ -2642,7 +2704,7 @@ const periodSelectStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
   borderRadius: "10px",
   background: "#FFFFFF",
-  color: "#374151",
+  color: "#5E456C",
   fontSize: "13px",
 };
 
@@ -2651,7 +2713,7 @@ const loadingStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
   borderRadius: "14px",
   background: "#FFFFFF",
-  color: "#6B7280",
+  color: "#5E456C",
   textAlign: "center",
 };
 
@@ -2674,14 +2736,14 @@ const sectionHeaderStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "17px",
   fontWeight: 700,
 };
 
 const sectionSubtitleStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.55,
 };
@@ -2701,14 +2763,14 @@ const briefHeaderStyle: React.CSSProperties = {
 
 const briefTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "18px",
   fontWeight: 700,
 };
 
 const briefHeadlineStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  color: "#4B5563",
+  color: "#5E456C",
   fontSize: "13px",
   lineHeight: 1.65,
   maxWidth: "78ch",
@@ -2739,14 +2801,14 @@ const briefCountCardStyle: React.CSSProperties = {
 
 const briefCountLabelStyle: React.CSSProperties = {
   display: "block",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
 const briefCountValueStyle: React.CSSProperties = {
   display: "block",
   marginTop: "8px",
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "18px",
 };
 
@@ -2766,7 +2828,7 @@ const briefListSectionStyle: React.CSSProperties = {
 
 const briefListTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
 };
@@ -2783,20 +2845,20 @@ const briefListItemStyle: React.CSSProperties = {
 };
 
 const briefItemTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "12px",
 };
 
 const briefItemTextStyle: React.CSSProperties = {
   margin: 0,
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.6,
 };
 
 const briefEmptyStyle: React.CSSProperties = {
   margin: "12px 0 0",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.55,
 };
@@ -2824,19 +2886,19 @@ const metricCardStyle: React.CSSProperties = {
 
 const metricLabelStyle: React.CSSProperties = {
   marginBottom: "8px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
 const metricValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "18px",
   fontWeight: 700,
 };
 
 const metricDetailStyle: React.CSSProperties = {
   marginTop: "7px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "10px",
   lineHeight: 1.45,
 };
@@ -2855,12 +2917,12 @@ const mutedMetricStyle: React.CSSProperties = {
 
 const smallMetricLabelStyle: React.CSSProperties = {
   marginBottom: "8px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
 const smallMetricValueStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "14px",
   fontWeight: 700,
   lineHeight: 1.4,
@@ -2883,14 +2945,14 @@ const insightContentStyle: React.CSSProperties = {
 };
 
 const insightTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
 };
 
 const insightDetailStyle: React.CSSProperties = {
   marginTop: "5px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
   lineHeight: 1.55,
 };
@@ -2917,14 +2979,14 @@ const observationCardStyle: React.CSSProperties = {
 };
 
 const observationTitleStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#5E456C",
   fontSize: "13px",
   fontWeight: 700,
 };
 
 const observationDetailStyle: React.CSSProperties = {
   marginTop: "6px",
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "11px",
   lineHeight: 1.55,
 };
@@ -2939,7 +3001,7 @@ const breakdownStyle: React.CSSProperties = {
 
 const breakdownTitleStyle: React.CSSProperties = {
   marginBottom: "12px",
-  color: "#374151",
+  color: "#5E456C",
   fontSize: "12px",
   fontWeight: 700,
 };
@@ -2958,7 +3020,7 @@ const breakdownHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: "10px",
-  color: "#4B5563",
+  color: "#5E456C",
   fontSize: "11px",
 };
 
@@ -2976,7 +3038,7 @@ const barFillStyle: React.CSSProperties = {
 };
 
 const emptyMessageStyle: React.CSSProperties = {
-  color: "#6B7280",
+  color: "#5E456C",
   fontSize: "12px",
 };
 
@@ -2991,7 +3053,7 @@ const secondaryButtonStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
   borderRadius: "9px",
   background: "#FFFFFF",
-  color: "#4B5563",
+  color: "#5E456C",
   padding: "8px 11px",
   fontSize: "11px",
   fontWeight: 600,

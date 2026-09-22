@@ -156,7 +156,7 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   return (
     <ProfileSection title="Right to Work">
       {loading ? (
-        <div style={{ color: "#6B7280" }}>Loading Right to Work record...</div>
+        <div style={{ color: "#5E456C" }}>Loading Right to Work record...</div>
       ) : (
         <div style={{ display: "grid", gap: "14px" }}>
           <div style={summaryStyle}>
@@ -227,7 +227,7 @@ const eyebrowStyle: React.CSSProperties = {
   color: "#6E5084",
   fontSize: "11px",
   fontWeight: 800,
-  textTransform: "uppercase",
+  
   letterSpacing: "0.05em",
 };
 
@@ -267,6 +267,6 @@ const emptyStyle: React.CSSProperties = {
   border: "1px solid #E7E1EA",
   borderRadius: "12px",
   padding: "14px",
-  color: "#746D78",
+  color: "#5E456C",
   background: "#FFFFFF",
 };

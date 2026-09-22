@@ -71,8 +71,7 @@ export async function GET(_request: Request, context: RouteContext) {
     matter.description,
     ...(timeline ?? []).flatMap((row: any) => [row.event_type, row.title, row.description]),
     ...(messages ?? []).map((row: any) => row.content),
-  ].filter(Boolean).join("
-").toLowerCase();
+  ].filter(Boolean).join("\\n").toLowerCase();
 
   const matterType = lower(matter.matter_type);
   const actions: ActionRecord[] = [];

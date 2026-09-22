@@ -78,7 +78,9 @@ export async function GET() {
     const { admin, organisationId, user, roleKey } = access;
     const matters = await scopedMatters(admin, organisationId);
 
-    const [auditResult, notificationResult] = await Promise.all([
+    const matterIds = matters.map((matter: any) => matter.id);
+
+    const [auditResult, notificationResult, completedMatterResult] = await Promise.all([
       (admin as any)
         .from("audit_logs")
         .select("action,action_category,created_at,metadata")
@@ -91,13 +93,25 @@ export async function GET() {
         .eq("organisation_id", organisationId)
         .order("created_at", { ascending: false })
         .limit(500),
+      matterIds.length > 0
+        ? (admin as any)
+            .from("matter_timeline")
+            .select("id,matter_id,event_type,event_date")
+            .in("matter_id", matterIds)
+            .eq("event_type", "workflow_task_completed")
+        : Promise.resolve({ data: [] }),
     ]);
 
     const logs = auditResult.data ?? [];
     const notifications = notificationResult.data ?? [];
 
     const proactiveCreated = logs.filter((row: any) => row.action === "reminder_milestone_emitted").length;
-    const matterAgentActions = logs.filter((row: any) => row.action === "matter_agent_action_completed").length;
+    // Matter workflow completion is authoritative in the Matter chronology. Audit-log
+    // insertion is permission-restricted for many management users, so do not lose
+    // genuine completed actions from usage reporting when that secondary write is blocked.
+    const auditedMatterAgentActions = logs.filter((row: any) => row.action === "matter_agent_action_completed").length;
+    const chronologyMatterAgentActions = (completedMatterResult.data ?? []).length;
+    const matterAgentActions = Math.max(auditedMatterAgentActions, chronologyMatterAgentActions);
     const proactiveAcknowledged = logs.filter((row: any) => row.action === "reminder_acknowledged").length;
     const escalationsRaised = logs.filter((row: any) => row.action === "matter_escalated_to_management").length;
 

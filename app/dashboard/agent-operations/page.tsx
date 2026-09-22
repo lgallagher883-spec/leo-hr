@@ -212,7 +212,6 @@ export default function AgentOperationsPage() {
                         {index < matter.workflowStage ? "✓" : index + 1}
                       </div>
                       <span style={index <= matter.workflowStage ? activeStepLabelStyle : stepLabelStyle}>{stage}</span>
-                      {index < workflowStages.length - 1 ? <div style={connectorStyle} /> : null}
                     </div>
                   ))}
                 </div>

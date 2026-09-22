@@ -662,14 +662,13 @@ export default function EmployeeProfilePage() {
                       ? "The employee record is preserved for history."
                       : isNewStarter
                       ? "Pre-employment or onboarding activity is still underway."
-                      : "Current employee record."
+                      : undefined
                   }
                 />
 
                 <SummaryCard
                   label="Current role"
                   value={employee.role || "Not set"}
-                  supportingText="Managed from Employment."
                 />
 
                 <SummaryCard
@@ -685,7 +684,6 @@ export default function EmployeeProfilePage() {
                 <SummaryCard
                   label="Linked Matters"
                   value="View record"
-                  supportingText="Open the Matters tab for connected workplace activity."
                   onClick={
                     hasPermission("Manager")
                       ? () => openSection("Matters")
@@ -2062,7 +2060,11 @@ const quickActionGridStyle: CSSProperties = {
 };
 
 const quickActionButtonStyle: CSSProperties = {
-  display: "block",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "flex-start",
+  minHeight: "110px",
+  boxSizing: "border-box",
   width: "100%",
   textAlign: "left",
   background: "#FBF9FC",

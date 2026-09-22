@@ -51,12 +51,12 @@ export default function EmployeeMatters({ employeeId }: EmployeeMattersProps) {
 
   return (
     <ProfileSection title="Matters">
-<p style={{ color: "#6B7280", fontSize: "14px", marginTop: 0 }}>
+<p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
         HR matters linked to this employee will appear here.
       </p>
 
       {loading ? (
-        <div style={{ color: "#6B7280" }}>Loading linked matters...</div>
+        <div style={{ color: "#5E456C" }}>Loading linked matters...</div>
       ) : matters.length === 0 ? (
         <div style={emptyStyle}>No matters linked to this employee yet.</div>
       ) : (
@@ -69,12 +69,12 @@ export default function EmployeeMatters({ employeeId }: EmployeeMattersProps) {
             >
               <div style={{ fontWeight: 800 }}>{matter.title}</div>
 
-              <div style={{ color: "#6B7280", fontSize: "13px", marginTop: "4px" }}>
+              <div style={{ color: "#5E456C", fontSize: "13px", marginTop: "4px" }}>
                 {matter.status || "Open"}
               </div>
 
               {matter.description && (
-                <div style={{ marginTop: "8px", color: "#374151" }}>
+                <div style={{ marginTop: "8px", color: "#5E456C" }}>
                   {matter.description}
                 </div>
               )}
@@ -99,5 +99,5 @@ const emptyStyle: React.CSSProperties = {
   borderRadius: "10px",
   padding: "12px",
   background: "#F9FAFB",
-  color: "#6B7280",
+  color: "#5E456C",
 };

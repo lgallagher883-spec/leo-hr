@@ -144,7 +144,7 @@ function MatterDetailPageContent() {
     if (!matter) return;
 
     if (!secondary && action.primaryHref) {
-      router.push(action.primaryHref);
+      router.push(`${action.primaryHref}?returnUrl=${encodeURIComponent(`/dashboard/matters/${matter.id}`)}`);
       return;
     }
 
@@ -184,6 +184,7 @@ function MatterDetailPageContent() {
         });
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.success) throw new Error(result?.error || "The task could not be recorded.");
+        setNextActionMessage("Recorded in the Matter chronology.");
         await Promise.all([loadTimeline(), loadNextActions()]);
       } catch (error) {
         setConversationError(error instanceof Error ? error.message : "The task could not be recorded.");

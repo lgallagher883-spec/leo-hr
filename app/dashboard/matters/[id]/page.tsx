@@ -76,7 +76,7 @@ function MatterDetailPageContent() {
   const [generatingBundle, setGeneratingBundle] = useState(false);
   const [bundleMessage, setBundleMessage] = useState("");
   const [nextActions, setNextActions] = useState<MatterNextAction[]>([]);
-  const [nextActionBusy, setNextActionBusy] = useState<string | null>(null);
+  const [nextActionBusy, setNextActionBusy] = useState<string | null>(null);\n  const [nextActionMessage, setNextActionMessage] = useState("");
   const [openWorkspace, setOpenWorkspace] = useState<
     "documents" | "chronology" | "bundle" | "status" | "details" | null
   >(null);
@@ -147,7 +147,7 @@ function MatterDetailPageContent() {
       return;
     }
 
-    if (action.secondaryAction === "escalate") {
+    if (secondary && action.secondaryAction === "escalate") {
       setNextActionBusy(action.id);
       try {
         const response = await fetch("/api/agent-operations", {
@@ -162,8 +162,8 @@ function MatterDetailPageContent() {
         });
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.success) throw new Error(result?.error || "Escalation failed.");
-        setBundleMessage("Matter escalated for authorised management review.");
-        await Promise.all([loadTimeline(), loadNextActions()]);
+        setNextActionMessage("Matter routed for authorised management review.");
+        setNextActionMessage("Recorded in the Matter chronology.");\n        await Promise.all([loadTimeline(), loadNextActions()]);
       } catch (error) {
         setConversationError(error instanceof Error ? error.message : "The Matter could not be escalated.");
       } finally {
@@ -172,7 +172,7 @@ function MatterDetailPageContent() {
       return;
     }
 
-    if (action.secondaryAction === "confirm_sent") {
+    if (secondary && action.secondaryAction === "confirm_sent") {
       setNextActionBusy(action.id);
       try {
         const response = await fetch(`/api/matters/${matter.id}/next-actions`, {
@@ -537,21 +537,23 @@ function MatterDetailPageContent() {
             <div style={agentBadgeStyle}>AI HR workflow</div>
           </div>
 
-          <div style={agentActionGridStyle}>
+          {nextActionMessage ? <div style={bundleMessageStyle}>{nextActionMessage}</div> : null}\n\n          <div style={agentActionGridStyle}>
             {nextActions.map((action) => (
               <div key={action.id} style={agentActionCardStyle}>
                 <div style={agentCategoryStyle}>{action.category}</div>
                 <div style={agentPromptStyle}>{action.prompt}</div>
                 <div style={agentDetailStyle}>{action.detail}</div>
                 <div style={agentButtonRowStyle}>
-                  <button
-                    type="button"
-                    style={purpleButtonStyle}
-                    onClick={() => void handleNextAction(action)}
-                    disabled={nextActionBusy === action.id}
-                  >
-                    {action.primaryLabel}
-                  </button>
+{action.primaryHref ? (
+                    <button
+                      type="button"
+                      style={purpleButtonStyle}
+                      onClick={() => void handleNextAction(action)}
+                      disabled={nextActionBusy === action.id}
+                    >
+                      {action.primaryLabel}
+                    </button>
+                  ) : null}
                   {action.secondaryLabel && action.secondaryAction ? (
                     <button
                       type="button"

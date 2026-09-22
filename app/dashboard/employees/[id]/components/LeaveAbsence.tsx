@@ -53,6 +53,9 @@ type LeaveMetadata = {
   manuallyAdjusted: boolean;
   source: "Employee" | "Manager" | "Senior" | "Owner" | "Legacy";
   futureCalendarSync: boolean;
+  returnToWorkCompletedAt: string | null;
+  returnToWorkCompletedBy: string | null;
+  returnToWorkNotes: string;
 };
 
 type LeaveRecord = {
@@ -613,6 +616,49 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
     upcomingLeave,
     leaveHistory,
   ]);
+
+  async function recordReturnToWork(record: ParsedLeaveRecord, notes: string) {
+    if (actionInProgress === record.id) return false;
+
+    const metadata: LeaveMetadata = {
+      ...record.metadata,
+      returnToWorkCompletedAt: new Date().toISOString(),
+      returnToWorkCompletedBy: currentUserId,
+      returnToWorkNotes: notes.trim(),
+    };
+
+    setActionInProgress(record.id);
+
+    const response = await fetch(
+      `/api/employees/${employeeId}/leave`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: "update",
+          recordId: record.id,
+          notes: serialiseLeaveMetadata(metadata),
+        }),
+      }
+    );
+
+    const result = (await response.json().catch(() => null)) as LeaveApiResponse | null;
+
+    if (!response.ok || !result?.success) {
+      showMessage(result?.error || "The return-to-work record could not be saved.", "error");
+      setActionInProgress(null);
+      return false;
+    }
+
+    showMessage("Return-to-work follow-up recorded. Leo has closed this absence action.", "success");
+    setActionInProgress(null);
+    await loadRecords();
+    return true;
+  }
 
   function showMessage(text: string, tone: MessageTone) {
     setMessage(text);
@@ -1259,7 +1305,7 @@ export default function LeaveAbsence({ employeeId }: LeaveAbsenceProps) {
       />
 
       {!isEmployeeView ? (
-        <AbsenceNextAction records={records} employeeId={employeeId} />
+        <AbsenceNextAction records={records} employeeId={employeeId} actionInProgress={actionInProgress} onRecordReturnToWork={recordReturnToWork} />
       ) : null}
 
       <div style={headerRowStyle}>
@@ -2184,10 +2230,17 @@ function Panel({
 function AbsenceNextAction({
   records,
   employeeId,
+  actionInProgress,
+  onRecordReturnToWork,
 }: {
   records: ParsedLeaveRecord[];
   employeeId: number;
+  actionInProgress: number | null;
+  onRecordReturnToWork: (record: ParsedLeaveRecord, notes: string) => Promise<boolean>;
 }) {
+  const [showRecordForm, setShowRecordForm] = useState(false);
+  const [returnToWorkNotes, setReturnToWorkNotes] = useState("");
+
   const sickness = records
     .filter((record) => record.leave_type === "Sickness Absence")
     .filter((record) => record.normalisedStatus !== "Cancelled" && record.normalisedStatus !== "Declined")
@@ -2198,7 +2251,7 @@ function AbsenceNextAction({
   if (!latest) return null;
 
   const endDate = latest.end_date || latest.start_date;
-  if (!endDate || !isPastDate(endDate)) return null;
+  if (!endDate || !isPastDate(endDate) || latest.metadata.returnToWorkCompletedAt) return null;
 
   const latestEnd = parseDateOnly(endDate);
   const twelveMonthsAgo = latestEnd
@@ -2207,7 +2260,7 @@ function AbsenceNextAction({
 
   const recentSickness = sickness.filter((record) => {
     const recordEnd = parseDateOnly(record.end_date || record.start_date || "");
-    return Boolean(recordEnd && twelveMonthsAgo && recordEnd >= twelveMonthsAgo && recordEnd <= latestEnd!);
+    return Boolean(recordEnd && twelveMonthsAgo && latestEnd && recordEnd >= twelveMonthsAgo && recordEnd <= latestEnd);
   });
 
   const recentDays = recentSickness.reduce(
@@ -2236,13 +2289,13 @@ function AbsenceNextAction({
       </p>
       <p style={absenceAgentTextStyle}>
         {repeatedAbsence
-          ? "The record shows a repeated-absence pattern, so Leo has included that context in the return-to-work preparation. No medical conclusion or formal outcome has been assumed."
+          ? "The record shows a repeated-absence pattern, so Leo has included that context in the preparation. No medical conclusion or formal outcome has been assumed."
           : "Nothing in the recorded frequency alone currently needs escalating. The return-to-work discussion is the next useful step."}
       </p>
       <div style={absenceAgentActionsStyle}>
-        <a href="/dashboard/policies/forms/return-to-work-form" style={absenceAgentPrimaryLinkStyle}>
-          Record return-to-work
-        </a>
+        <button type="button" onClick={() => setShowRecordForm((current) => !current)} style={absenceAgentPrimaryLinkStyle}>
+          {showRecordForm ? "Close record" : "Record return-to-work"}
+        </button>
         <a
           href={`/dashboard/ask-leo?prompt=${encodeURIComponent(askLeoPrompt)}&resourceTitle=${encodeURIComponent("Return-to-work follow-up")}&resourceType=${encodeURIComponent("Absence")}&returnUrl=${encodeURIComponent(`/dashboard/employees/${employeeId}`)}`}
           style={absenceAgentSecondaryLinkStyle}
@@ -2250,6 +2303,36 @@ function AbsenceNextAction({
           Review Leo&apos;s preparation
         </a>
       </div>
+      {showRecordForm ? (
+        <div style={{ marginTop: 14 }}>
+          <textarea
+            rows={3}
+            value={returnToWorkNotes}
+            onChange={(event) => setReturnToWorkNotes(event.target.value)}
+            placeholder="Briefly record the discussion, fitness to return, support agreed or follow-up needed. Avoid unnecessary medical detail."
+            style={textareaStyle}
+          />
+          <div style={{ ...absenceAgentActionsStyle, marginTop: 10 }}>
+            <button
+              type="button"
+              disabled={actionInProgress === latest.id}
+              onClick={async () => {
+                const saved = await onRecordReturnToWork(latest, returnToWorkNotes);
+                if (saved) {
+                  setReturnToWorkNotes("");
+                  setShowRecordForm(false);
+                }
+              }}
+              style={absenceAgentPrimaryLinkStyle}
+            >
+              {actionInProgress === latest.id ? "Saving..." : "Save and close follow-up"}
+            </button>
+            <a href="/dashboard/policies/forms/return-to-work-form" style={absenceAgentSecondaryLinkStyle}>
+              Open full form
+            </a>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2474,6 +2557,9 @@ function createDefaultMetadata(
     manuallyAdjusted: false,
     source: "Legacy",
     futureCalendarSync: false,
+    returnToWorkCompletedAt: null,
+    returnToWorkCompletedBy: null,
+    returnToWorkNotes: "",
   };
 }
 
@@ -2584,6 +2670,18 @@ function parseLeaveMetadata(
         typeof parsed.futureCalendarSync === "boolean"
           ? parsed.futureCalendarSync
           : false,
+      returnToWorkCompletedAt:
+        typeof parsed.returnToWorkCompletedAt === "string"
+          ? parsed.returnToWorkCompletedAt
+          : null,
+      returnToWorkCompletedBy:
+        typeof parsed.returnToWorkCompletedBy === "string"
+          ? parsed.returnToWorkCompletedBy
+          : null,
+      returnToWorkNotes:
+        typeof parsed.returnToWorkNotes === "string"
+          ? parsed.returnToWorkNotes
+          : "",
     };
   } catch (error) {
     console.warn(

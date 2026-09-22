@@ -14,6 +14,7 @@ import {
 } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { readAskLeoStream } from "@/lib/ask-leo/streamClient";
+import shellStyles from "../DashboardShell.module.css";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -838,7 +839,7 @@ export default function AskLeoPage() {
     }, [sarContext]);
 
   return (
-    <div style={pageStyle}>
+    <div style={pageStyle} className={shellStyles.managementAskLeoPage}>
       <style jsx global>{`
         @keyframes leoThinkingPulse {
           0%, 100% { transform: scale(1); opacity: 0.82; }
@@ -879,7 +880,7 @@ export default function AskLeoPage() {
           }
         }
       `}</style>
-      <div style={headerStyle}>
+      <div style={headerStyle} className={shellStyles.managementAskLeoHeader}>
         <div>
           <h1 style={titleStyle}>
             Ask Leo
@@ -1083,12 +1084,13 @@ export default function AskLeoPage() {
           </div>
         )}
 
-      <div style={chatShellStyle}>
-        <div style={chatBoxStyle}>
+      <div style={chatShellStyle} className={shellStyles.managementAskLeoChatShell}>
+        <div style={chatBoxStyle} className={shellStyles.managementAskLeoChatBox}>
           {messages.map((message, index) =>
             message.role === "user" ? (
               <div
                 key={`${message.role}-${index}`}
+                className={shellStyles.managementAskLeoUserMessage}
                 style={{
                   ...messageStyle,
                   ...userMessageStyle,
@@ -1102,6 +1104,7 @@ export default function AskLeoPage() {
               <div
                 key={`${message.role}-${index}`}
                 style={leoMessageRowStyle}
+                className={shellStyles.managementAskLeoLeoRow}
               >
                 <LeoMark />
 
@@ -1183,7 +1186,7 @@ export default function AskLeoPage() {
           </div>
         )}
 
-        <div className="ask-leo-composer" style={composerStyle}>
+        <div className={`ask-leo-composer ${shellStyles.managementAskLeoComposer}`} style={composerStyle}>
           <textarea
             ref={composerRef}
             value={input}
@@ -1194,6 +1197,7 @@ export default function AskLeoPage() {
                 : "Ask Leo something..."
             }
             style={inputStyle}
+            className={shellStyles.managementAskLeoComposerInput}
             onKeyDown={
               handleInputKeyDown
             }

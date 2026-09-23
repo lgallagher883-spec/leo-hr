@@ -6,9 +6,10 @@ import { useEffect } from "react";
 export default function HelpScoutBeacon() {
   useEffect(() => {
     const syncMobileBeacon = () => {
-      if (typeof window.Beacon !== "function") return;
+      const beacon = (window as Window & { Beacon?: (method: string, options?: unknown) => void }).Beacon;
+      if (typeof beacon !== "function") return;
       if (window.matchMedia("(max-width: 767px)").matches) {
-        window.Beacon("config", { display: { style: "manual" } });
+        beacon("config", { display: { style: "manual" } });
       }
     };
     const timer = window.setTimeout(syncMobileBeacon, 1200);

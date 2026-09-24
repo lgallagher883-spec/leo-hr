@@ -1,6 +1,7 @@
 "use client";
 import {ChangeEvent,useState} from "react";
 import styles from "../../employer-support-portal.module.css";
+import MatterCorrespondence from "./MatterCorrespondence";
 
 export default function MatterTools({matterId}:{matterId:number}){
  const [uploading,setUploading]=useState(false);const [message,setMessage]=useState("");
@@ -10,6 +11,7 @@ export default function MatterTools({matterId}:{matterId:number}){
  }
  return <div className={styles.matterTools}>
   <label className={styles.toolButton}><span>＋</span><div><strong>{uploading?"Adding document...":"Add document or evidence"}</strong><small>PDF, Word, Excel, text, CSV or image</small></div><input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" onChange={upload} disabled={uploading}/></label>
+  <MatterCorrespondence matterId={matterId}/>
   <button type="button" className={styles.toolButton} onClick={()=>{const box=document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="Ask Leo"]');box?.scrollIntoView({behavior:"smooth",block:"center"});box?.focus();}}><span>✦</span><div><strong>Ask Leo what to do next</strong><small>Continue with this matter</small></div></button>
   {message?<p className={styles.toolMessage}>{message}</p>:null}
  </div>

@@ -7,7 +7,7 @@ type Ctx={params:Promise<{id:string}>};
 const date=(v?:string|null)=>v?new Date(v).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Not recorded";
 const clean=(v?:string|null)=>v?.trim()||"Not recorded";
 export async function GET(_r:Request,{params}:Ctx){
- const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId))return NextResponse.json({error:"Invalid matter."},{status:400});
+ const {id}=await params;const matterId=Number(id);if(!Number.isSafeInteger(matterId)||matterId<=0)return NextResponse.json({error:"Invalid matter."},{status:400});
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok)return NextResponse.json({error:"Matter unavailable."},{status:gate.status});
  const db=createAdminClient();
  const [{data:matter,error:matterError},{data:timeline,error:timelineError},{data:documents,error:documentsError},{data:actions,error:actionsError},{data:org,error:orgError},{data:profile,error:profileError}]=await Promise.all([
@@ -18,8 +18,10 @@ export async function GET(_r:Request,{params}:Ctx){
   (db as any).from("organisations").select("name").eq("id",gate.access.organisationId).maybeSingle(),
   (db as any).from("organisation_public_profiles").select("display_name,primary_colour,secondary_colour").eq("organisation_id",gate.access.organisationId).maybeSingle()
  ]);
- if(matterError||!matter)return NextResponse.json({error:"Matter unavailable."},{status:404});
- if(timelineError||documentsError||actionsError||orgError||profileError)return NextResponse.json({error:"The matter bundle could not be prepared completely."},{status:500});
+ if(matterError){console.error("Employer Support bundle Matter lookup failed:",matterError);return NextResponse.json({error:"The matter could not be checked before preparing the bundle."},{status:500});}
+ if(!matter)return NextResponse.json({error:"Matter unavailable."},{status:404});
+ if(timelineError||documentsError||actionsError||orgError||profileError){console.error("Employer Support bundle data lookup failed:",{timelineError,documentsError,actionsError,orgError,profileError});return NextResponse.json({error:"The matter bundle could not be prepared completely."},{status:500});}
+ if(String(matter.status).toLowerCase()!=="completed")return NextResponse.json({error:"The Matter Bundle is available once this matter has been completed."},{status:409});
  const organisationName=profile?.display_name||org?.name||"Employer";
  const primary=(profile?.primary_colour||"#6E5084").replace("#","").toUpperCase();
  const colour=/^[0-9A-F]{6}$/.test(primary)?primary:"6E5084";

@@ -57,9 +57,9 @@ export async function POST(request: Request, context: RouteContext) {
   if(String(matter.status).toLowerCase()==="completed") return NextResponse.json({success:false,error:"This matter is closed and its conversation is read-only."},{status:409});
 
   const body=await request.json().catch(()=>null) as {role?:unknown;content?:unknown}|null;
-  const role=body?.role==="leo"?"leo":body?.role==="user"?"user":null;
+  const role=body?.role==="user"?"user":null;
   const rawContent=typeof body?.content==="string"?body.content.trim():"";
-  if(!role||!rawContent) return NextResponse.json({success:false,error:"Role and content are required."},{status:400});
+  if(!role||!rawContent) return NextResponse.json({success:false,error:"A user message and content are required."},{status:400});
   if(rawContent.length>12000) return NextResponse.json({success:false,error:"This message is too long to save. Please shorten it and try again."},{status:400});
   const content=rawContent;
 

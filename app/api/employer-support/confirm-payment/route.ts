@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
 
     if (purchase.status === "pending") {
-      const { error: paidError } = await (admin as any)
+      const { data: paidPurchase, error: paidError } = await (admin as any)
         .from("leo_employer_support_purchases")
         .update({
           status: "paid",
@@ -102,9 +102,27 @@ export async function POST(request: Request) {
         .eq("id", purchaseId)
         .eq("organisation_id", access.organisationId)
         .eq("account_id", access.accountId)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
 
       if (paidError) throw paidError;
+      if (!paidPurchase) {
+        const { data: refreshed, error: refreshError } = await (admin as any)
+          .from("leo_employer_support_purchases")
+          .select("status,matter_id")
+          .eq("id", purchaseId)
+          .eq("organisation_id", access.organisationId)
+          .eq("account_id", access.accountId)
+          .maybeSingle();
+        if (refreshError) throw refreshError;
+        if (refreshed?.status === "provisioned" && refreshed.matter_id) {
+          return NextResponse.json({ matterId: refreshed.matter_id, alreadyProvisioned: true });
+        }
+        if (refreshed?.status !== "paid") {
+          return NextResponse.json({ error: "This purchase could not be confirmed safely. Please refresh shortly." }, { status: 409 });
+        }
+      }
     }
 
     const matterId = await provisionEmployerSupportMatterFromPurchase(String(purchaseId));

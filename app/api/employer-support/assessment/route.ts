@@ -1,10 +1,7 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 import { EmployerSupportAccessLookupError, getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
 import { buildEmployerSupportPrePurchasePrompt } from "@/lib/employer-support/prePurchasePrompt";
-
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: Request) {
   let access;
@@ -24,6 +21,10 @@ export async function POST(request: Request) {
   if(issue.length>6000) return NextResponse.json({success:false,error:"Please keep the initial description under 6,000 characters. You can add the full detail once your Matter begins."},{status:400});
 
   try {
+    const apiKey=process.env.OPENAI_API_KEY?.trim()??"";
+    if(!apiKey) return NextResponse.json({success:false,error:"Leo's assessment service is not configured just now."},{status:503});
+    const OpenAI=(await import("openai")).default;
+    const client=new OpenAI({apiKey});
     const completion=await client.chat.completions.create({
       model:"gpt-4o",
       temperature:0.35,

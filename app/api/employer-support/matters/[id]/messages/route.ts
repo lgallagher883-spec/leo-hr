@@ -30,8 +30,13 @@ export async function GET(_request: Request, context: RouteContext) {
   if (error) return NextResponse.json({ success:false, error:"The Matter conversation could not be loaded." }, { status:500 });
 
   const messages=data??[];
-  if(messages.length===0 && matter.description?.trim()){
-    return NextResponse.json({success:true,messages:[{role:"user",content:matter.description.trim(),created_at:null,seededFromMatter:true}]});
+  const initialIssue=matter.description?.trim();
+  if(initialIssue){
+    const first=messages[0];
+    const initialAlreadyPersisted=first?.role==="user" && typeof first?.content==="string" && first.content.trim()===initialIssue;
+    if(!initialAlreadyPersisted){
+      return NextResponse.json({success:true,messages:[{role:"user",content:initialIssue,created_at:null,seededFromMatter:true},...messages]});
+    }
   }
   return NextResponse.json({success:true,messages});
 }

@@ -17,10 +17,10 @@ const ALLOWED_FILE_TYPES:Record<string,Set<string>>={
 function safe(n:string){return n.normalize("NFKD").replace(/[^\w.\-() ]+/g,"").replace(/\s+/g,"-").slice(0,180)||"document"}
 type Ctx={params:Promise<{id:string}>};
 export async function POST(request:Request,{params}:Ctx){
- const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId)||matterId<=0)return NextResponse.json({error:"Invalid Matter."},{status:400});
+ const {id}=await params;const matterId=Number(id);if(!Number.isSafeInteger(matterId)||matterId<=0)return NextResponse.json({error:"Invalid Matter."},{status:400});
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok)return NextResponse.json({error:"Matter unavailable."},{status:gate.status});
  const guard=createAdminClient();const {data:matter,error:matterError}=await (guard as any).from("matters").select("status").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle();if(matterError)return NextResponse.json({error:"The matter could not be checked before uploading. Please try again."},{status:500});if(!matter)return NextResponse.json({error:"Matter unavailable."},{status:404});if(String(matter.status).toLowerCase()==="completed")return NextResponse.json({error:"This matter is closed and documents can no longer be added."},{status:409});
- const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Please sign in again."},{status:401});
+ const supabase=await createClient();const {data:{user},error:userError}=await supabase.auth.getUser();if(userError||!user)return NextResponse.json({error:"Please sign in again."},{status:401});
  let path:string|null=null;
  try{const form=await request.formData();const file=form.get("file");if(!(file instanceof File)||file.size<=0)return NextResponse.json({error:"Choose a file to upload."},{status:400});if(file.size>MAX)return NextResponse.json({error:"The file is larger than the 25 MB limit."},{status:400});
   const extension=file.name.includes(".")?file.name.split(".").pop()?.toLowerCase()??"":"";

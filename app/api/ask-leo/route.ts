@@ -769,6 +769,22 @@ export async function POST(req: Request) {
             });
           }
 
+          if (isEmployerSupportMatterRequest && activeMatterId) {
+            const supportAdmin = createAdminClient();
+            const { data: savedSupportReply, error: supportReplyError } = await (supportAdmin as any)
+              .from("matter_messages")
+              .insert({ matter_id: activeMatterId, role: "leo", content: fullResponse.trim() })
+              .select("id,created_at")
+              .single();
+
+            if (supportReplyError || !savedSupportReply) {
+              console.error("Employer Support Leo reply could not be persisted:", supportReplyError);
+              sendEvent({ type: "persist_error", error: "Leo's response could not be added to the Matter record." });
+            } else {
+              sendEvent({ type: "persisted", messageId: savedSupportReply.id, createdAt: savedSupportReply.created_at });
+            }
+          }
+
           if (
             shouldPersistConversation &&
             persistedConversationId

@@ -6,12 +6,14 @@ type Ctx={params:Promise<{id:string}>};
 export async function POST(request:Request,{params}:Ctx){
  const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId))return NextResponse.json({error:"Invalid Matter."},{status:400});
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok)return NextResponse.json({error:"Matter unavailable."},{status:gate.status});
- const body=await request.json().catch(()=>null) as {outcome?:unknown}|null;const outcome=typeof body?.outcome==="string"?body.outcome.trim().slice(0,2000):"";
+ const body=await request.json().catch(()=>null) as {outcome?:unknown}|null;const outcome=typeof body?.outcome==="string"?body.outcome.trim():"";
  if(!outcome)return NextResponse.json({error:"Add a short outcome before completing the Matter."},{status:400});
+ if(outcome.length>2000)return NextResponse.json({error:"The outcome is too long. Please keep it under 2,000 characters."},{status:400});
  const auth=await createClient();const {data:{user},error:userError}=await auth.auth.getUser();if(userError||!user)return NextResponse.json({error:"Please sign in again."},{status:401});
  const supabase=createAdminClient();const now=new Date().toISOString();
  const {data:current,error:currentError}=await (supabase as any).from("matters").select("status,workflow_stage").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle();
- if(currentError||!current)return NextResponse.json({error:"Matter unavailable."},{status:404});
+ if(currentError){console.error("Employer Support completion Matter lookup failed:",currentError);return NextResponse.json({error:"The matter could not be checked before closing. Please try again."},{status:500});}
+ if(!current)return NextResponse.json({error:"Matter unavailable."},{status:404});
  if(String(current.status).toLowerCase()==="completed")return NextResponse.json({success:true,alreadyCompleted:true});
  const {count:openActionCount,error:actionError}=await (supabase as any).from("leo_employer_support_actions").select("id",{count:"exact",head:true}).eq("matter_id",matterId).eq("organisation_id",gate.access.organisationId).eq("status","open");
  if(actionError)return NextResponse.json({error:"The matter could not be checked before closing."},{status:500});

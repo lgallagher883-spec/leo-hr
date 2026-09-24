@@ -11,7 +11,7 @@ import MatterDocuments from "./MatterDocuments";
 import MatterCompletion from "./MatterCompletion";
 
 export default async function EmployerSupportMatterPage({params}:{params:Promise<{id:string}>}){
- const {id}=await params;const matterId=Number(id);if(!Number.isInteger(matterId)||matterId<=0)notFound();
+ const {id}=await params;const matterId=Number(id);if(!Number.isSafeInteger(matterId)||matterId<=0)notFound();
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok){if(gate.status===401)redirect("/employer-support/sign-in");notFound();}
  const supabase=createAdminClient();
  const [matterResult,actionsResult,documentsResult,timelineResult]=await Promise.all([
@@ -30,7 +30,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
   <div className={styles.matterPulse}><div><span>Next step</span><strong>{openActions[0]?.title||"Continue with Leo"}</strong><small>{openActions[0]?.detail||"Tell Leo what has changed, or ask what you should do next."}</small></div><div><span>Actions</span><strong>{openActions.length}</strong><small>{openActions.length===1?"open action":"open actions"}</small></div><div><span>Documents</span><strong>{documents?.length??0}</strong><small>in this matter</small></div></div>
   {String(matter.status).toLowerCase()!=="completed"?<MatterTools matterId={matter.id}/>:null}<section className={styles.matterLayout}><div className={styles.matterMain}>
    <MatterActions matterId={matter.id} initialActions={actions??[]} closed={String(matter.status).toLowerCase()==="completed"}/>
-   <MatterDocuments matterId={matter.id} documents={(documents??[]).map((document:any)=>({...document,hasFile:Boolean(document.storage_path),storage_path:undefined}))}/>
+   <MatterDocuments matterId={matter.id} documents={(documents??[]).map((document:any)=>({id:document.id,title:document.title,document_type:document.document_type,status:document.status,file_name:document.file_name,created_at:document.created_at,hasFile:Boolean(document.storage_path)}))}/>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
    <MatterCompletion matterId={matter.id} status={matter.status||"Open"} openActionCount={openActions.length}/>
   </div><aside className={styles.matterAside}>

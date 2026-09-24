@@ -98,7 +98,7 @@ export async function requireEmployerSupportMatter(
   matterId: number,
 ): Promise<
   | { ok: true; access: EmployerSupportAccess }
-  | { ok: false; status: 401 | 403 | 404 }
+  | { ok: false; status: 401 | 403 | 404 | 503 }
 > {
   const supabase = await createClient();
   const {
@@ -107,7 +107,16 @@ export async function requireEmployerSupportMatter(
 
   if (!user) return { ok: false, status: 401 };
 
-  const access = await getEmployerSupportAccess();
+  let access: EmployerSupportAccess | null;
+  try {
+    access = await getEmployerSupportAccess();
+  } catch (error) {
+    if (error instanceof EmployerSupportAccessLookupError) {
+      console.error("Employer Support Matter access lookup failed:", error);
+      return { ok: false, status: 503 };
+    }
+    throw error;
+  }
   if (!access) return { ok: false, status: 403 };
 
   // Authentication and Employer Support account access have already been
@@ -123,7 +132,11 @@ export async function requireEmployerSupportMatter(
     .eq("status", "provisioned")
     .maybeSingle();
 
-  if (error || !purchase) return { ok: false, status: 404 };
+  if (error) {
+    console.error("Employer Support Matter purchase lookup failed:", error);
+    return { ok: false, status: 503 };
+  }
+  if (!purchase) return { ok: false, status: 404 };
 
   return { ok: true, access };
 }

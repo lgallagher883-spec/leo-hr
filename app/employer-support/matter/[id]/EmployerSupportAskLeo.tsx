@@ -17,7 +17,7 @@ export default function EmployerSupportAskLeo({matterId,matter}:{matterId:number
   if(appendUser)setMessages(current=>[...current,userMessage]);
   let streamedLeo=false;let leoPersisted=false;let persistedMessageId:number|undefined;let persistedCreatedAt:string|undefined;
   try{
-   if(appendUser){const save=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(userMessage)});if(!save.ok){const p=await save.json().catch(()=>({}));throw new Error(p.error||"The message could not be saved.");}}
+   if(appendUser){const save=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(userMessage)});const savedUser=await save.json().catch(()=>({}));if(!save.ok)throw new Error(savedUser.error||"The message could not be saved.");if(savedUser.message?.id)setMessages(current=>{const copy=[...current];for(let i=copy.length-1;i>=0;i--){if(copy[i].role==="user"&&!copy[i].id&&copy[i].content===text){copy[i]={...copy[i],id:savedUser.message.id,created_at:savedUser.message.created_at};break;}}return copy});}
    const response=await fetch("/api/ask-leo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({latestMessage:text,contextType:"matter",activeMatterId:matterId,matter,conversation:conversationMessages.map(m=>({role:m.role,content:m.content})),previousMatters:[]})});
    if(!response.ok||!response.body)throw new Error("Leo unavailable");
    const reader=response.body.getReader();const decoder=new TextDecoder();let leoText="";let buffer="";

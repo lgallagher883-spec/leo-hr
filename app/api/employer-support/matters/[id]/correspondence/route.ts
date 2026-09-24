@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { requireEmployerSupportMatter } from "@/lib/auth/employerSupportAccess";
 import { createAdminClient } from "@/lib/supabase/admin";

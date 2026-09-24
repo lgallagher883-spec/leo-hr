@@ -12,7 +12,7 @@ export async function GET(_r:Request,{params}:Ctx){
  const db=createAdminClient();
  const [{data:matter,error:matterError},{data:timeline,error:timelineError},{data:documents,error:documentsError},{data:actions,error:actionsError},{data:org,error:orgError},{data:profile,error:profileError}]=await Promise.all([
   (db as any).from("matters").select("id,title,subject,description,status,matter_type,workflow_stage,created_at,completed_at").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").single(),
-  (db as any).from("matter_timeline").select("title,description,event_date,created_at").eq("matter_id",matterId).order("event_date",{ascending:true}),
+  (db as any).from("matter_timeline").select("event_type,title,description,event_date,created_at").eq("matter_id",matterId).order("event_date",{ascending:true}),
   (db as any).from("matter_documents").select("title,document_type,description,status,file_name,content,include_in_bundle,created_at").eq("matter_id",matterId).eq("include_in_bundle",true).order("created_at",{ascending:true}),
   (db as any).from("leo_employer_support_actions").select("title,detail,status,completed_at,created_at").eq("matter_id",matterId).eq("organisation_id",gate.access.organisationId).order("created_at",{ascending:true}),
   (db as any).from("organisations").select("name").eq("id",gate.access.organisationId).maybeSingle(),
@@ -43,7 +43,7 @@ export async function GET(_r:Request,{params}:Ctx){
  ];
  if(!(actions??[]).length)children.push(line("No separate actions were recorded."));
  for(const a of actions??[])children.push(line(`${a.status==="done"?"Completed":"Open"} — ${clean(a.title)}${a.detail?`: ${a.detail}`:""}${a.completed_at?` (${date(a.completed_at)})`:""}`));
- const completionEntry=(timeline??[]).find((e:any)=>e.title==="Matter completed");
+ const completionEntry=(timeline??[]).find((e:any)=>e.event_type==="matter_completed");
  children.push(heading("Recorded outcome"),line(completionEntry?.description?.trim()||"No completion outcome was recorded."));
  children.push(heading("Chronology"));
  if(!(timeline??[]).length)children.push(line("No chronology entries were recorded."));

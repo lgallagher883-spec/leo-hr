@@ -43,6 +43,8 @@ export async function GET(_r:Request,{params}:Ctx){
  ];
  if(!(actions??[]).length)children.push(line("No separate actions were recorded."));
  for(const a of actions??[])children.push(line(`${a.status==="done"?"Completed":"Open"} — ${clean(a.title)}${a.detail?`: ${a.detail}`:""}${a.completed_at?` (${date(a.completed_at)})`:""}`));
+ const completionEntry=(timeline??[]).find((e:any)=>e.title==="Matter completed");
+ children.push(heading("Recorded outcome"),line(completionEntry?.description?.trim()||"No completion outcome was recorded."));
  children.push(heading("Chronology"));
  if(!(timeline??[]).length)children.push(line("No chronology entries were recorded."));
  for(const e of timeline??[])children.push(line(`${date(e.event_date||e.created_at)} — ${clean(e.title)}${e.description?`: ${e.description}`:""}`));

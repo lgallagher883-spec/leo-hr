@@ -435,8 +435,11 @@ async function processEmployerSupportCheckout(
   }
 
   if (existing.status === "provisioned" && existing.matter_id) return;
+  if (existing.status !== "pending" && existing.status !== "paid") {
+    throw new Error(`Employer Support purchase in status ${existing.status} cannot be provisioned from Stripe.`);
+  }
 
-  const { error: paidError } = await (admin as any)
+  const { data: paidPurchase, error: paidError } = await (admin as any)
     .from("leo_employer_support_purchases")
     .update({
       status: "paid",
@@ -448,9 +451,23 @@ async function processEmployerSupportCheckout(
       updated_at: new Date().toISOString(),
     })
     .eq("id", purchaseId)
-    .in("status", ["pending", "paid"]);
+    .in("status", ["pending", "paid"])
+    .select("id,status")
+    .maybeSingle();
 
   if (paidError) throw paidError;
+  if (!paidPurchase) {
+    const { data: refreshed, error: refreshError } = await (admin as any)
+      .from("leo_employer_support_purchases")
+      .select("status,matter_id")
+      .eq("id", purchaseId)
+      .maybeSingle();
+    if (refreshError) throw refreshError;
+    if (refreshed?.status === "provisioned" && refreshed.matter_id) return;
+    if (refreshed?.status !== "paid") {
+      throw new Error("Employer Support purchase changed state before Stripe provisioning could complete.");
+    }
+  }
 
   await provisionEmployerSupportMatterFromPurchase(purchaseId);
 }

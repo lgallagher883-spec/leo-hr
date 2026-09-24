@@ -30,10 +30,25 @@ export async function ensureEmployerSupportAccount(
     .select("id, organisation_id, status")
     .single();
 
-  if (error || !data) {
+  if (error) {
+    // The organisation is unique. A simultaneous sign-in/confirmation request
+    // may have created the account after our initial lookup, so re-read before
+    // treating the insert as a real provisioning failure.
+    const { data: concurrent, error: concurrentError } = await (admin as any)
+      .from("leo_employer_support_accounts")
+      .select("id, organisation_id, status")
+      .eq("organisation_id", organisationId)
+      .maybeSingle();
+
+    if (!concurrentError && concurrent) return concurrent;
+
     throw new Error(
-      `Employer Support account could not be provisioned: ${error?.message ?? "unknown error"}`,
+      `Employer Support account could not be provisioned: ${error.message}`,
     );
+  }
+
+  if (!data) {
+    throw new Error("Employer Support account could not be provisioned: no account was returned.");
   }
 
   return data;

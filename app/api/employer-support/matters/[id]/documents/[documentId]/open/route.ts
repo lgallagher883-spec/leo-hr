@@ -8,7 +8,7 @@ type Ctx={params:Promise<{id:string;documentId:string}>};
 
 export async function GET(_request:Request,{params}:Ctx){
  const {id,documentId}=await params;const matterId=Number(id);const docId=Number(documentId);
- if(!Number.isInteger(matterId)||matterId<=0||!Number.isInteger(docId)||docId<=0)return NextResponse.json({error:"The document reference is invalid."},{status:400});
+ if(!Number.isSafeInteger(matterId)||matterId<=0||!Number.isSafeInteger(docId)||docId<=0)return NextResponse.json({error:"The document reference is invalid."},{status:400});
  const gate=await requireEmployerSupportMatter(matterId);if(!gate.ok)return NextResponse.json({error:"Matter unavailable."},{status:gate.status});
  const admin=createAdminClient();
  const {data:document,error}=await (admin as any).from("matter_documents").select("id,matter_id,storage_path,file_name,source").eq("id",docId).eq("matter_id",matterId).maybeSingle();

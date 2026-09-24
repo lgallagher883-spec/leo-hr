@@ -2,12 +2,13 @@
 import {useState} from "react";
 import styles from "../../employer-support-portal.module.css";
 type Doc={id:number;title:string;document_type:string;status:string;file_name?:string|null;hasFile?:boolean;created_at:string};
-export default function MatterDocuments({matterId,documents}:{matterId:number;documents:Doc[]}){
+export default function MatterDocuments({matterId,documents,closed=false}:{matterId:number;documents:Doc[];closed?:boolean}){
  const [open,setOpen]=useState(false);const [openingId,setOpeningId]=useState<number|null>(null);const [error,setError]=useState("");const drafts=documents.filter(d=>d.status==="Draft");
  async function openDocument(documentId:number){setOpeningId(documentId);setError("");try{const r=await fetch(`/api/employer-support/matters/${matterId}/documents/${documentId}/open`);const p=await r.json().catch(()=>({}));if(!r.ok||!p.url)throw new Error(p.error||"The document could not be opened.");const opened=window.open(p.url,"_blank","noopener,noreferrer");if(!opened)window.location.assign(p.url);}catch(e){setError(e instanceof Error?e.message:"The document could not be opened.");}finally{setOpeningId(null)}}
  return <section className={styles.documentPanel}><div className={styles.panelHeading}><div><p className={styles.eyebrow}>Documents</p><h2>Documents and evidence</h2></div>{documents.length>3?<button type="button" className={styles.textButton} onClick={()=>setOpen(v=>!v)}>{open?"Show less":"View all"}</button>:null}</div>
+ {closed&&documents.some(d=>d.status==="Draft")?<p className={styles.draftReminder}>This matter is closed. Draft documents remain part of the record and cannot be changed here.</p>:null}
  {documents.length?<div className={styles.documentList}>{documents.slice(0,open?documents.length:3).map(d=><div key={d.id} className={styles.documentRow}><span className={d.status==="Draft"?styles.draftIcon:styles.fileIcon}>{d.status==="Draft"?"✎":"↥"}</span><div><strong>{d.title}</strong><small>{d.document_type} · {d.status} · {new Date(d.created_at).toLocaleDateString("en-GB")}</small></div><div className={styles.documentActions}>{d.hasFile?<button type="button" onClick={()=>openDocument(d.id)} disabled={openingId===d.id}>{openingId===d.id?"Opening…":"Open"}</button>:null}<em>{d.status==="Draft"?"Review before use":d.hasFile?"Evidence":"Record"}</em></div></div>)}</div>:<div className={styles.softEmpty}><span>↥</span><div><strong>No documents yet</strong><small>Upload relevant evidence or documents for this matter.</small></div></div>}
  {error?<p className={styles.chatError}>{error}</p>:null}
- {drafts.length>0?<p className={styles.draftReminder}>Documents prepared by Leo remain drafts until you review and use them.</p>:null}
+ {drafts.length>0&&!closed?<p className={styles.draftReminder}>Documents prepared by Leo remain drafts until you review and use them.</p>:null}
  </section>
 }

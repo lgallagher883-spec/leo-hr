@@ -62,7 +62,9 @@ export async function POST(request: Request) {
     const appUrl = isPreviewDeployment
       ? new URL(request.url).origin
       : getAppUrl(request.url);
-    const session = await stripe.checkout.sessions.create({
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
       mode: "payment",
       client_reference_id: String(purchase.id),
       line_items: [{
@@ -86,7 +88,20 @@ export async function POST(request: Request) {
           employer_support_purchase_id: String(purchase.id),
         },
       },
-    });
+      });
+    } catch (stripeError) {
+      const admin = (await import("@/lib/supabase/admin")).createAdminClient();
+      const { error: cancelError } = await (admin as any)
+        .from("leo_employer_support_purchases")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", purchase.id)
+        .eq("organisation_id", access.organisationId)
+        .eq("account_id", access.accountId)
+        .eq("status", "pending")
+        .is("stripe_checkout_session_id", null);
+      if (cancelError) console.error("Employer Support failed checkout cleanup could not cancel pending purchase:", cancelError);
+      throw stripeError;
+    }
 
     const admin = (await import("@/lib/supabase/admin")).createAdminClient();
     const { error } = await (admin as any)
@@ -99,9 +114,31 @@ export async function POST(request: Request) {
       })
       .eq("id", purchase.id)
       .eq("status", "pending");
-    if (error) throw error;
+    if (error) {
+      try {
+        await stripe.checkout.sessions.expire(session.id);
+      } catch (expireError) {
+        console.error("Employer Support orphan Stripe session could not be expired:", expireError);
+      }
+      throw error;
+    }
 
-    if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+    if (!session.url) {
+      try {
+        await stripe.checkout.sessions.expire(session.id);
+      } catch (expireError) {
+        console.error("Employer Support checkout without URL could not be expired:", expireError);
+      }
+      const { error: cancelError } = await (admin as any)
+        .from("leo_employer_support_purchases")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", purchase.id)
+        .eq("organisation_id", access.organisationId)
+        .eq("account_id", access.accountId)
+        .eq("status", "pending");
+      if (cancelError) console.error("Employer Support checkout without URL could not cancel pending purchase:", cancelError);
+      throw new Error("Stripe did not return a checkout URL.");
+    }
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Employer Support checkout failed:", error);

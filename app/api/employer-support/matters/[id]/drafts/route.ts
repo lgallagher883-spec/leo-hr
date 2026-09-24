@@ -11,8 +11,12 @@ export async function POST(request:Request,{params}:Ctx){
  if(!matter)return NextResponse.json({error:"Matter unavailable."},{status:404});
  if(String(matter.status).toLowerCase()==="completed")return NextResponse.json({error:"This matter is closed and drafts can no longer be added."},{status:409});
  const body=await request.json().catch(()=>null) as {title?:unknown;content?:unknown;documentType?:unknown}|null;
- const title=typeof body?.title==="string"?body.title.trim().slice(0,180):"";const content=typeof body?.content==="string"?body.content.trim():"";const documentType=typeof body?.documentType==="string"?body.documentType.trim().slice(0,80):"Leo draft";
- if(!title||!content)return NextResponse.json({error:"A title and draft are required."},{status:400});
+ const rawTitle=typeof body?.title==="string"?body.title.trim():"";const content=typeof body?.content==="string"?body.content.trim():"";const rawDocumentType=typeof body?.documentType==="string"?body.documentType.trim():"";
+ if(!rawTitle||!content)return NextResponse.json({error:"A title and draft are required."},{status:400});
+ if(rawTitle.length>180)return NextResponse.json({error:"The draft title is too long."},{status:400});
+ if(content.length>50000)return NextResponse.json({error:"This draft is too long to save as one document."},{status:400});
+ if(rawDocumentType.length>80)return NextResponse.json({error:"The document type is too long."},{status:400});
+ const title=rawTitle;const documentType=rawDocumentType||"Leo draft";
  const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return NextResponse.json({error:"Please sign in again."},{status:401});
  const {data,error}=await (supabase as any).from("matter_documents").insert({matter_id:matterId,title,document_type:documentType||"Leo draft",description:"Draft prepared with Ask Leo for employer review.",source:"leo_generated",status:"Draft",content,include_in_bundle:true,created_by:user.id,version_number:1}).select("id,title,status,document_type,created_at").single();
  if(error||!data)return NextResponse.json({error:"The draft could not be saved."},{status:500});

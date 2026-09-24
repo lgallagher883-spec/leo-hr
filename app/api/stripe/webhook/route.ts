@@ -399,6 +399,16 @@ async function processEmployerSupportCheckout(
 ) {
   if (session.metadata?.leo_product !== "employer_support") return;
 
+  const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
+  const isProductionDeployment = process.env.VERCEL_ENV === "production";
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (isPreviewDeployment && (!stripeSecretKey.startsWith("sk_test_") || session.livemode)) {
+    throw new Error("Employer Support preview webhook received a live-mode checkout.");
+  }
+  if (isProductionDeployment && (!stripeSecretKey.startsWith("sk_live_") || !session.livemode)) {
+    throw new Error("Employer Support production webhook received a test-mode checkout.");
+  }
+
   const purchaseId = session.metadata.employer_support_purchase_id;
   if (!purchaseId) throw new Error("Employer Support checkout is missing its purchase reference.");
   if (session.mode !== "payment") throw new Error("Employer Support checkout was not a one-off payment.");

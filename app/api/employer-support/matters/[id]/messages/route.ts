@@ -7,7 +7,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 function matterIdFrom(value: string) {
   const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -33,8 +33,11 @@ export async function GET(_request: Request, context: RouteContext) {
   if(messages.length===0 && matter.description?.trim()){
     const seeded=await (supabase as any).from("matter_messages").insert({matter_id:matterId,role:"user",content:matter.description.trim()})
       .select("id,matter_id,role,content,created_at").single();
-    if(seeded.error) return NextResponse.json({success:false,error:"The Matter conversation could not be prepared."},{status:500});
-    if(seeded.data) messages=[seeded.data];
+    if(seeded.error){
+      const concurrent=await (supabase as any).from("matter_messages").select("id,matter_id,role,content,created_at").eq("matter_id",matterId).order("created_at",{ascending:true}).order("id",{ascending:true});
+      if(concurrent.error||!(concurrent.data??[]).length) return NextResponse.json({success:false,error:"The Matter conversation could not be prepared."},{status:500});
+      messages=concurrent.data;
+    } else if(seeded.data) messages=[seeded.data];
   }
   return NextResponse.json({success:true,messages});
 }

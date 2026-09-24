@@ -12,6 +12,7 @@ export default function MatterCompletion({matterId,status,openActionCount=0}:{ma
  async function finish(){
   const value=outcome.trim();
   if(!value)return;
+  if(value.length>2000){setError("Keep the outcome to 2,000 characters or fewer.");return;}
   setBusy(true);setError("");
   try{
    const r=await fetch("/api/employer-support/matters/"+matterId+"/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({outcome:value})});
@@ -29,7 +30,7 @@ export default function MatterCompletion({matterId,status,openActionCount=0}:{ma
    <p>{complete?"This matter is closed. Download the matter bundle when you need a copy of the record. Your private Ask Leo conversation is not included.":"When the issue is resolved, record the outcome and close the matter. The chronology, actions and selected documents will remain in the matter record."}</p>
    {!complete&&showForm?<div className={styles.completionForm}>
     <label htmlFor={"matter-outcome-"+matterId}>Outcome</label>
-    <textarea id={"matter-outcome-"+matterId} value={outcome} onChange={e=>setOutcome(e.target.value)} rows={5} placeholder="Briefly record how the matter was resolved." autoFocus />
+    <textarea id={"matter-outcome-"+matterId} value={outcome} onChange={e=>setOutcome(e.target.value)} rows={5} placeholder="Briefly record how the matter was resolved." maxLength={2000} autoFocus />
     <div className={styles.completionFormActions}>
      <button type="button" onClick={finish} disabled={busy||!outcome.trim()}>{busy?"Closing…":"Confirm and close"}</button>
      <button type="button" className={styles.secondaryButton} onClick={()=>{setShowForm(false);setError("");}} disabled={busy}>Cancel</button>

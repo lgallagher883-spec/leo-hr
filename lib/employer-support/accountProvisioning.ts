@@ -21,6 +21,10 @@ export async function ensureEmployerSupportOrganisation(input: EmployerSupportId
     .limit(1)
     .maybeSingle();
 
+  if (existingMembership.error) {
+    throw new Error(`Employer Support membership could not be checked: ${existingMembership.error.message}`);
+  }
+
   let organisationId = existingMembership.data?.organisation_id ?? null;
 
   if (!organisationId) {
@@ -29,6 +33,9 @@ export async function ensureEmployerSupportOrganisation(input: EmployerSupportId
       .select("organisation_id")
       .eq("user_id", input.userId)
       .maybeSingle();
+    if (existingProfile.error) {
+      throw new Error(`Employer Support profile could not be checked: ${existingProfile.error.message}`);
+    }
     organisationId = existingProfile.data?.organisation_id ?? null;
   }
 

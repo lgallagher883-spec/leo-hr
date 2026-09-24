@@ -29,15 +29,9 @@ export async function GET(_request: Request, context: RouteContext) {
     .order("created_at",{ascending:true}).order("id",{ascending:true});
   if (error) return NextResponse.json({ success:false, error:"The Matter conversation could not be loaded." }, { status:500 });
 
-  let messages=data??[];
+  const messages=data??[];
   if(messages.length===0 && matter.description?.trim()){
-    const seeded=await (supabase as any).from("matter_messages").insert({matter_id:matterId,role:"user",content:matter.description.trim()})
-      .select("id,matter_id,role,content,created_at").single();
-    if(seeded.error){
-      const concurrent=await (supabase as any).from("matter_messages").select("id,matter_id,role,content,created_at").eq("matter_id",matterId).order("created_at",{ascending:true}).order("id",{ascending:true});
-      if(concurrent.error||!(concurrent.data??[]).length) return NextResponse.json({success:false,error:"The Matter conversation could not be prepared."},{status:500});
-      messages=concurrent.data;
-    } else if(seeded.data) messages=[seeded.data];
+    return NextResponse.json({success:true,messages:[{role:"user",content:matter.description.trim(),created_at:null,seededFromMatter:true}]});
   }
   return NextResponse.json({success:true,messages});
 }

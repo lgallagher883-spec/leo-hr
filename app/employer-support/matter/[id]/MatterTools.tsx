@@ -9,8 +9,8 @@ export default function MatterTools({matterId}:{matterId:number}){
   try{const r=await fetch(`/api/employer-support/matters/${matterId}/documents`,{method:"POST",body:form});const p=await r.json();if(!r.ok)throw new Error(p.error);setMessage("Added to this matter.");window.location.reload();}catch(err){setMessage(err instanceof Error?err.message:"The file could not be uploaded.");}finally{setUploading(false);e.target.value="";}
  }
  return <div className={styles.matterTools}>
-  <label className={styles.toolButton}><span>＋</span><div><strong>{uploading?"Adding document...":"Add document or evidence"}</strong><small>PDF, Word, image or other supporting file</small></div><input type="file" onChange={upload} disabled={uploading}/></label>
-  <button type="button" className={styles.toolButton} onClick={()=>document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="Tell Leo"]')?.focus()}><span>✦</span><div><strong>Ask Leo what to do next</strong><small>Continue with this matter</small></div></button>
+  <label className={styles.toolButton}><span>＋</span><div><strong>{uploading?"Adding document...":"Add document or evidence"}</strong><small>PDF, Word, Excel, text, CSV or image</small></div><input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" onChange={upload} disabled={uploading}/></label>
+  <button type="button" className={styles.toolButton} onClick={()=>{const box=document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="Ask Leo"]');box?.scrollIntoView({behavior:"smooth",block:"center"});box?.focus();}}><span>✦</span><div><strong>Ask Leo what to do next</strong><small>Continue with this matter</small></div></button>
   {message?<p className={styles.toolMessage}>{message}</p>:null}
  </div>
 }

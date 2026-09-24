@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     }
 
     const admin = (await import("@/lib/supabase/admin")).createAdminClient();
-    const { error } = await (admin as any)
+    const { data: attachedPurchase, error } = await (admin as any)
       .from("leo_employer_support_purchases")
       .update({
         stripe_checkout_session_id: session.id,
@@ -113,14 +113,26 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", purchase.id)
-      .eq("status", "pending");
-    if (error) {
+      .eq("organisation_id", access.organisationId)
+      .eq("account_id", access.accountId)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (error || !attachedPurchase) {
       try {
         await stripe.checkout.sessions.expire(session.id);
       } catch (expireError) {
         console.error("Employer Support orphan Stripe session could not be expired:", expireError);
       }
-      throw error;
+      const { error: cancelError } = await (admin as any)
+        .from("leo_employer_support_purchases")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", purchase.id)
+        .eq("organisation_id", access.organisationId)
+        .eq("account_id", access.accountId)
+        .eq("status", "pending");
+      if (cancelError) console.error("Employer Support failed session attachment cleanup could not cancel pending purchase:", cancelError);
+      throw error ?? new Error("Employer Support purchase was not available to attach to checkout.");
     }
 
     if (!session.url) {

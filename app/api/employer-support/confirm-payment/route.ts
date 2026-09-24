@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
+import { EmployerSupportAccessLookupError, getEmployerSupportAccess } from "@/lib/auth/employerSupportAccess";
 import { provisionEmployerSupportMatterFromPurchase } from "@/lib/employer-support/purchases";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
@@ -11,7 +11,16 @@ export const dynamic = "force-dynamic";
 const PRICE_PENCE = 9900;
 
 export async function POST(request: Request) {
-  const access = await getEmployerSupportAccess();
+  let access;
+  try {
+    access = await getEmployerSupportAccess();
+  } catch (error) {
+    if (error instanceof EmployerSupportAccessLookupError) {
+      console.error("Employer Support payment access lookup failed:", error);
+      return NextResponse.json({ error: "Your Employer Support access could not be checked just now. Please try again." }, { status: 503 });
+    }
+    throw error;
+  }
   if (!access) {
     return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   }
@@ -28,8 +37,15 @@ export async function POST(request: Request) {
     const purchaseId = Number(session.metadata?.employer_support_purchase_id ?? session.client_reference_id);
 
     const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
+    const isProductionDeployment = process.env.VERCEL_ENV === "production";
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
-    const expectedLiveMode = !isPreviewDeployment && stripeSecretKey.startsWith("sk_live_");
+    if (isPreviewDeployment && !stripeSecretKey.startsWith("sk_test_")) {
+      return NextResponse.json({ error: "Employer Support test payments are not configured safely." }, { status: 503 });
+    }
+    if (isProductionDeployment && !stripeSecretKey.startsWith("sk_live_")) {
+      return NextResponse.json({ error: "Employer Support live payments are not configured yet." }, { status: 503 });
+    }
+    const expectedLiveMode = isProductionDeployment;
 
     if (
       session.livemode !== expectedLiveMode ||
@@ -53,7 +69,11 @@ export async function POST(request: Request) {
       .eq("account_id", access.accountId)
       .maybeSingle();
 
-    if (purchaseError || !purchase || purchase.stripe_checkout_session_id !== session.id) {
+    if (purchaseError) {
+      console.error("Employer Support payment purchase lookup failed:", purchaseError);
+      return NextResponse.json({ error: "Your payment record could not be checked just now. Please try again." }, { status: 503 });
+    }
+    if (!purchase || purchase.stripe_checkout_session_id !== session.id) {
       return NextResponse.json({ error: "This payment does not belong to this Employer Support account." }, { status: 403 });
     }
 

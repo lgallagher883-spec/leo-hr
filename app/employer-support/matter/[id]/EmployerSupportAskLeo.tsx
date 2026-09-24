@@ -16,15 +16,16 @@ export default function EmployerSupportAskLeo({matterId,matter}:{matterId:number
   const userMessage:Message={role:"user",content:text};
   if(appendUser)setMessages(current=>[...current,userMessage]);
   try{
-   if(appendUser){const save=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(userMessage)});if(!save.ok)throw new Error("save failed");}
+   if(appendUser){const save=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(userMessage)});if(!save.ok){const p=await save.json().catch(()=>({}));throw new Error(p.error||"The message could not be saved.");}}
    const response=await fetch("/api/ask-leo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({latestMessage:text,contextType:"matter",activeMatterId:matterId,matter,conversation:conversationMessages.map(m=>({role:m.role,content:m.content})),previousMatters:[]})});
    if(!response.ok||!response.body)throw new Error("Leo unavailable");
    const reader=response.body.getReader();const decoder=new TextDecoder();let leoText="";let buffer="";
    setMessages(current=>[...current,{role:"leo",content:""}]);
    while(true){const {done,value}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const lines=buffer.split("\n");buffer=done?"":lines.pop()||"";for(const line of lines){if(!line.trim())continue;try{const event=JSON.parse(line);if(event.type==="delta"&&typeof event.delta==="string")leoText+=event.delta;if(event.type==="error")throw new Error(event.error||"Leo unavailable");}catch(parseError){if(parseError instanceof SyntaxError)continue;throw parseError;}}setMessages(current=>{const copy=[...current];copy[copy.length-1]={role:"leo",content:leoText};return copy});if(done)break;}
    if(buffer.trim()){try{const event=JSON.parse(buffer);if(event.type==="delta"&&typeof event.delta==="string")leoText+=event.delta;}catch{}}
-   if(leoText.trim()){const leoSave=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"leo",content:leoText.trim()})});if(!leoSave.ok)throw new Error("Leo response could not be saved");}
-  }catch{setError("Leo could not complete that message. No changes have been made to the matter outside this conversation.");}
+   if(!leoText.trim())throw new Error("Leo returned an empty response.");
+   const leoSave=await fetch("/api/employer-support/matters/"+matterId+"/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"leo",content:leoText.trim()})});if(!leoSave.ok){const p=await leoSave.json().catch(()=>({}));throw new Error(p.error||"Leo response could not be saved.");}
+  }catch(e){setMessages(current=>current.filter(m=>m.content.trim()!==""));setError(e instanceof Error?e.message:"Leo could not complete that message. No changes have been made to the matter outside this conversation.");}
   finally{setSending(false)}
  }
 

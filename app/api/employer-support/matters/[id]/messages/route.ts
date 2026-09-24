@@ -56,8 +56,10 @@ export async function POST(request: Request, context: RouteContext) {
 
   const body=await request.json().catch(()=>null) as {role?:unknown;content?:unknown}|null;
   const role=body?.role==="leo"?"leo":body?.role==="user"?"user":null;
-  const content=typeof body?.content==="string"?body.content.trim().slice(0,12000):"";
-  if(!role||!content) return NextResponse.json({success:false,error:"Role and content are required."},{status:400});
+  const rawContent=typeof body?.content==="string"?body.content.trim():"";
+  if(!role||!rawContent) return NextResponse.json({success:false,error:"Role and content are required."},{status:400});
+  if(rawContent.length>12000) return NextResponse.json({success:false,error:"This message is too long to save. Please shorten it and try again."},{status:400});
+  const content=rawContent;
 
   const {data,error}=await (supabase as any).from("matter_messages").insert({matter_id:matterId,role,content})
     .select("id,matter_id,role,content,created_at").single();

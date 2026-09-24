@@ -3,13 +3,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import styles from "../../employer-support-portal.module.css";
 
-type Message={id?:number;role:"user"|"leo";content:string;created_at?:string};
+type Message={id?:number;role:"user"|"leo";content:string;created_at?:string|null;seededFromMatter?:boolean};
 
 export default function EmployerSupportAskLeo({matterId,matter}:{matterId:number;matter:{title:string;description:string;status:string;matterType:string;subject:string}}){
  const [messages,setMessages]=useState<Message[]>([]);const [message,setMessage]=useState("");const [loading,setLoading]=useState(true);const [sending,setSending]=useState(false);const initialReplyStarted=useRef(false);const [error,setError]=useState("");const end=useRef<HTMLDivElement|null>(null); const closed=matter.status.toLowerCase()==="completed";
  useEffect(()=>{let live=true;fetch("/api/employer-support/matters/"+matterId+"/messages",{cache:"no-store"}).then(async r=>{const p=await r.json();if(!r.ok)throw new Error(p.error);if(live)setMessages(p.messages||[])}).catch(()=>live&&setError("The matter conversation could not be loaded.")).finally(()=>live&&setLoading(false));return()=>{live=false}},[matterId]);
  useEffect(()=>{end.current?.scrollIntoView({behavior:"smooth"})},[messages]);
- useEffect(()=>{if(closed||loading||sending||initialReplyStarted.current||messages.length!==1||messages[0]?.role!=="user")return;initialReplyStarted.current=true;void generateLeoReply(messages[0].content,messages,false)},[closed,loading,messages,sending]);
+ useEffect(()=>{if(closed||loading||sending||initialReplyStarted.current||messages.length!==1||messages[0]?.role!=="user"||!messages[0]?.seededFromMatter)return;initialReplyStarted.current=true;void generateLeoReply(messages[0].content,messages,false)},[closed,loading,messages,sending]);
 
  async function generateLeoReply(text:string,conversationMessages:Message[],appendUser:boolean){
   setError("");setSending(true);

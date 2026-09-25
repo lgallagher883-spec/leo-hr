@@ -1256,3 +1256,85 @@
     touch-action: pan-y pinch-zoom;
   }
 }
+
+
+/* Management mobile review: prioritise Leo, use natural page scrolling, and simplify Employees. */
+@media (max-width: 767px) {
+  .managementDashboardHeader {
+    order: -4;
+  }
+
+  .managementAskLeoCard {
+    order: -3;
+  }
+
+  .managementAttentionSection {
+    order: -2;
+  }
+
+  .managementSummaryGrid {
+    order: -1;
+  }
+
+  .managementAskLeoPage {
+    display: block;
+    min-height: 0 !important;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    overflow: visible !important;
+  }
+
+  .managementAskLeoChatShell {
+    display: block !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .managementAskLeoChatBox {
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .managementAskLeoComposer {
+    position: sticky;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .managementEmployeesHeader,
+  .managementEmployeesSummary,
+  .managementEmployeesResultsHeader {
+    display: none !important;
+  }
+
+  .managementEmployeesSearch {
+    margin-top: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .managementEmployeesSearchRow {
+    display: block !important;
+  }
+
+  .managementEmployeesSearchRow > label > span {
+    display: none !important;
+  }
+
+  .managementEmployeesSearchRow > button {
+    display: none !important;
+  }
+
+  .managementEmployeesSearchInput {
+    width: 100% !important;
+    min-height: 48px !important;
+    padding: 11px 13px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box;
+  }
+
+  .managementEmployeesGrid {
+    margin-top: 12px;
+  }
+}

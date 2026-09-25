@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useState,
@@ -23,6 +23,7 @@ import {
   FileCheck2,
   FileSearch,
   FileText,
+  Upload,
   GraduationCap,
   HeartPulse,
   LayoutDashboard,
@@ -248,6 +249,14 @@ const employeeMobilePrimaryLinks: NavigationLink[] = [
   { label: "Docs", href: "/dashboard/my-employment/documents", icon: FileText },
 ];
 
+const managementMobilePrimaryLinks: NavigationLink[] = [
+  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Ask Leo", href: "/dashboard/ask-leo", icon: MessageCircle },
+  { label: "Matters", href: "/dashboard/matters", icon: BriefcaseBusiness },
+  { label: "Employees", href: "/dashboard/employees", icon: Users },
+  { label: "Upload", href: "/dashboard/employees?mobileAction=upload", icon: Upload },
+];
+
 const employeeAllowedRoutes = [
   "/dashboard/employee",
   "/dashboard/my-employment",
@@ -282,6 +291,7 @@ export default function DashboardShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -289,6 +299,7 @@ export default function DashboardShell({
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
 
   const isEmployee = accessRole === "employee";
+  const hasManagementMobileNavigation = accessRole === "owner" || accessRole === "senior";
   const mainLinks = isEmployee ? employeeMainLinks : managementMainLinks;
   const accountLinks = isEmployee
     ? employeeAccountLinks
@@ -468,6 +479,46 @@ export default function DashboardShell({
                 </section>
               </div>
             ) : null}
+          </>
+        ) : null}
+
+        {hasManagementMobileNavigation ? (
+          <>
+            <header className={styles.mobileTopBar}>
+              <Image src="/logo.png" alt="Leo HR" width={84} height={48} priority className={styles.mobileLogo} />
+              <p className={styles.mobileOrganisationName} title={organisationName ?? undefined}>
+                {organisationName ?? "Leo HR"}
+              </p>
+              <Link
+                href="/dashboard/my-account"
+                className={styles.mobileAccountButton}
+                aria-label="Open my account"
+              >
+                <CircleUserRound size={23} strokeWidth={1.8} aria-hidden />
+              </Link>
+            </header>
+
+            <nav className={styles.mobileBottomNavigation} aria-label="Management primary navigation">
+              {managementMobilePrimaryLinks.map(({ label, href, icon: Icon }) => {
+                const active =
+                  label === "Upload"
+                    ? pathname === "/dashboard/employees" && searchParams.get("mobileAction") === "upload"
+                    : label === "Employees"
+                      ? pathname === "/dashboard/employees" && searchParams.get("mobileAction") !== "upload"
+                      : isActive(href);
+                return (
+                  <Link
+                    key={label}
+                    href={href}
+                    className={`${styles.mobileNavigationLink} ${active ? styles.mobileNavigationLinkActive : ""}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon size={21} strokeWidth={active ? 2.1 : 1.8} aria-hidden />
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
           </>
         ) : null}
 

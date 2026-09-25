@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   type ChangeEvent,
   type CSSProperties,
@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import * as XLSX from "xlsx";
+import shellStyles from "../DashboardShell.module.css";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -317,6 +318,7 @@ const sampleRows = [
 
 export default function EmployeesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [employees, setEmployees] = useState<EmployeeWithDetails[]>([]);
@@ -352,6 +354,14 @@ export default function EmployeesPage() {
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] =
     useState<ImportResult | null>(null);
+
+  const [mobileUploadEmployeeId, setMobileUploadEmployeeId] = useState("");
+  const [mobileUploadTitle, setMobileUploadTitle] = useState("");
+  const [mobileUploadType, setMobileUploadType] = useState("Other");
+  const [mobileUploadFile, setMobileUploadFile] = useState<File | null>(null);
+  const [mobileUploading, setMobileUploading] = useState(false);
+  const mobileUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const mobileUploadMode = searchParams.get("mobileAction") === "upload";
 
   const [pageMessage, setPageMessage] = useState("");
   const [pageMessageTone, setPageMessageTone] =
@@ -432,6 +442,35 @@ export default function EmployeesPage() {
   useEffect(() => {
     void loadImportHistory();
   }, [loadImportHistory]);
+
+  async function uploadMobileEmployeeDocument() {
+    if (!mobileUploadEmployeeId || !mobileUploadFile || mobileUploading) return;
+    setMobileUploading(true);
+    setPageMessage("");
+    try {
+      const formData = new FormData();
+      formData.append("file", mobileUploadFile);
+      formData.append("title", mobileUploadTitle.trim() || mobileUploadFile.name);
+      formData.append("documentType", mobileUploadType);
+      const response = await fetch(`/api/employees/${mobileUploadEmployeeId}/documents`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const result = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !result.success) throw new Error(result.error || "The document could not be uploaded.");
+      setPageMessage("Document uploaded to the employee record.");
+      setPageMessageTone("success");
+      setMobileUploadTitle("");
+      setMobileUploadFile(null);
+      if (mobileUploadInputRef.current) mobileUploadInputRef.current.value = "";
+    } catch (error) {
+      setPageMessage(error instanceof Error ? error.message : "The document could not be uploaded.");
+      setPageMessageTone("error");
+    } finally {
+      setMobileUploading(false);
+    }
+  }
 
   const activeCount = useMemo(
     () =>
@@ -1022,8 +1061,45 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div style={pageStyle}>
-      <header style={headerStyle}>
+    <div style={pageStyle} className={shellStyles.managementEmployeesPage}>
+      {mobileUploadMode && (
+        <section className={shellStyles.managementMobileUpload}>
+          <div>
+            <h1>Upload to employee record</h1>
+            <p>Take a photo or choose a document, then file it directly against the correct employee.</p>
+          </div>
+          <label>
+            <span>Employee</span>
+            <select value={mobileUploadEmployeeId} onChange={(event) => setMobileUploadEmployeeId(event.target.value)}>
+              <option value="">Choose employee</option>
+              {employees.filter((employee) => normaliseEmployeeStatus(employee.status) !== "Archived").map((employee) => (
+                <option key={employee.id} value={employee.id}>{employee.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Document type</span>
+            <select value={mobileUploadType} onChange={(event) => setMobileUploadType(event.target.value)}>
+              <option>Other</option><option>Contract</option><option>Right to Work</option><option>DBS / Safeguarding</option><option>Driving</option><option>Medical</option><option>Learning</option><option>Performance / Development</option>
+            </select>
+          </label>
+          <label>
+            <span>Title</span>
+            <input value={mobileUploadTitle} onChange={(event) => setMobileUploadTitle(event.target.value)} placeholder="Optional — file name used if blank" />
+          </label>
+          <label className={shellStyles.managementMobileUploadFile}>
+            <span>Photo or document</span>
+            <input ref={mobileUploadInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv" onChange={(event) => setMobileUploadFile(event.target.files?.[0] || null)} />
+            <small>{mobileUploadFile ? mobileUploadFile.name : "Camera/photo library and files are supported where your phone provides them. Maximum 25 MB."}</small>
+          </label>
+          {pageMessage && <MessageBox tone={pageMessageTone}>{pageMessage}</MessageBox>}
+          <button type="button" className={shellStyles.managementMobileUploadButton} disabled={!mobileUploadEmployeeId || !mobileUploadFile || mobileUploading} onClick={() => void uploadMobileEmployeeDocument()}>
+            {mobileUploading ? "Uploading…" : "Upload to employee"}
+          </button>
+        </section>
+      )}
+      <div className={mobileUploadMode ? shellStyles.managementEmployeesStandardView : undefined}>
+      <header style={headerStyle} className={shellStyles.managementEmployeesHeader}>
         <div>
 <h1 style={titleStyle}>Employees</h1>
           <p style={subtitleStyle}>
@@ -1032,7 +1108,7 @@ export default function EmployeesPage() {
           </p>
         </div>
 
-        <div style={headerActionsStyle}>
+        <div style={headerActionsStyle} className={shellStyles.managementEmployeesDesktopActions}>
           {canExport && (
             <button
               type="button"
@@ -1065,7 +1141,7 @@ export default function EmployeesPage() {
         </div>
       </header>
 
-      <div style={summaryGridStyle}>
+      <div style={summaryGridStyle} className={shellStyles.managementEmployeesSummary}>
         <SummaryCard
           label="New starters"
           value={newStarterCount}
@@ -1111,8 +1187,8 @@ export default function EmployeesPage() {
         <MessageBox tone={pageMessageTone}>{pageMessage}</MessageBox>
       )}
 
-      <section style={searchPanelStyle}>
-        <div style={searchRowStyle}>
+      <section style={searchPanelStyle} className={shellStyles.managementEmployeesSearch}>
+        <div style={searchRowStyle} className={shellStyles.managementEmployeesSearchRow}>
           <label style={searchContainerStyle}>
             <span style={fieldLabelStyle}>Search employees</span>
 
@@ -1121,6 +1197,7 @@ export default function EmployeesPage() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search name, role, email, manager, status or reference..."
               style={searchInputStyle}
+              className={shellStyles.managementEmployeesSearchInput}
             />
           </label>
 
@@ -1225,7 +1302,7 @@ export default function EmployeesPage() {
         )}
       </section>
 
-      <div style={resultsHeaderStyle}>
+      <div style={resultsHeaderStyle} className={shellStyles.managementEmployeesResultsHeader}>
         <div>
           <div style={resultsTitleStyle}>
             {viewModeLabel(viewMode)}
@@ -1270,7 +1347,7 @@ export default function EmployeesPage() {
           }
         />
       ) : (
-        <div style={employeeGridStyle}>
+        <div style={employeeGridStyle} className={shellStyles.managementEmployeesGrid}>
           {visibleEmployees.map((employee) => {
             const status = normaliseEmployeeStatus(employee.status);
 
@@ -1282,6 +1359,7 @@ export default function EmployeesPage() {
                   router.push(`/dashboard/employees/${employee.id}`)
                 }
                 style={employeeCardStyle}
+                className={shellStyles.managementEmployeeCard}
               >
                 <div style={employeeCardHeaderStyle}>
                   <div style={employeeInitialStyle}>
@@ -1298,7 +1376,7 @@ export default function EmployeesPage() {
                     {employee.role || "Role not set"}
                   </div>
 
-                  <div style={employeeInformationGridStyle}>
+                  <div style={employeeInformationGridStyle} className={shellStyles.managementEmployeeInfoGrid}>
                     <EmployeeInformation
                       label="Employee reference"
                       value={String(employee.id)}
@@ -1385,6 +1463,8 @@ export default function EmployeesPage() {
           </div>
         </section>
       )}
+
+      </div>
 
       {showImportWorkspace && (
         <div

@@ -17,7 +17,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
  const [matterResult,actionsResult,documentsResult,timelineResult]=await Promise.all([
   (supabase as any).from("matters").select("id,title,status,matter_type,subject,description,workflow_stage,created_at").eq("id",matterId).eq("organisation_id",gate.access.organisationId).eq("product_source","employer_support").maybeSingle(),
   (supabase as any).from("leo_employer_support_actions").select("id,title,detail,status,due_at").eq("matter_id",matterId).eq("organisation_id",gate.access.organisationId).order("created_at",{ascending:true}),
-  (supabase as any).from("matter_documents").select("id,title,document_type,status,file_name,storage_path,created_at").eq("matter_id",matterId).order("created_at",{ascending:false}),
+  (supabase as any).from("matter_documents").select("id,title,document_type,status,source,file_name,storage_path,created_at").eq("matter_id",matterId).order("created_at",{ascending:false}),
   (supabase as any).from("matter_timeline").select("id,title,description,event_date,created_at").eq("matter_id",matterId).order("event_date",{ascending:false}).limit(6)
  ]);
  const {data:matter,error:matterError}=matterResult;const {data:actions,error:actionsError}=actionsResult;const {data:documents,error:documentsError}=documentsResult;const {data:timeline,error:timelineError}=timelineResult;
@@ -31,7 +31,7 @@ export default async function EmployerSupportMatterPage({params}:{params:Promise
   <div className={styles.matterPulse}><div><span>{completed?"Matter status":"Next step"}</span><strong>{completed?"Matter concluded":openActions[0]?.title||"Continue with Leo"}</strong><small>{completed?"This matter is closed and its record is read-only.":openActions[0]?.detail||"Tell Leo what has changed, or ask what you should do next."}</small></div><div><span>Actions</span><strong>{openActions.length}</strong><small>{openActions.length===1?"open action":"open actions"}</small></div><div><span>Documents</span><strong>{documents?.length??0}</strong><small>in this matter</small></div></div>
   {!completed?<MatterTools matterId={matter.id}/>:null}<section className={styles.matterLayout}><div className={styles.matterMain}>
    <MatterActions matterId={matter.id} initialActions={actions??[]} closed={completed}/>
-   <MatterDocuments matterId={matter.id} closed={completed} documents={(documents??[]).map((document:any)=>({id:document.id,title:document.title,document_type:document.document_type,status:document.status,file_name:document.file_name,created_at:document.created_at,hasFile:Boolean(document.storage_path)}))}/>
+   <MatterDocuments matterId={matter.id} closed={completed} documents={(documents??[]).map((document:any)=>({id:document.id,title:document.title,document_type:document.document_type,status:document.status,source:document.source,file_name:document.file_name,created_at:document.created_at,hasFile:Boolean(document.storage_path)}))}/>
    <EmployerSupportAskLeo matterId={matter.id} matter={{title:matter.title||"",description:matter.description||"",status:matter.status||"",matterType:matter.matter_type||"",subject:matter.subject||""}}/>
    <MatterCompletion matterId={matter.id} status={matter.status||"Open"} openActionCount={openActions.length}/>
   </div><aside className={styles.matterAside}>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { recordResearchEventBestEffort } from "@/lib/research/writer";
 import { convertAppointmentToEmployee } from "@/lib/talent/conversion";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -563,6 +564,25 @@ export async function PATCH(request: Request, context: RouteContext) {
         completed_by: complete ? access.user.id : null,
       }).eq("id", itemId).eq("appointment_id", id).eq("organisation_id", access.organisationId).select("*").single();
       if (result.error) throw new Error(result.error.message);
+
+      if (complete) {
+        const remaining = await (supabase as any)
+          .from("leo_talent_onboarding_items")
+          .select("id", { count: "exact", head: true })
+          .eq("appointment_id", id)
+          .eq("organisation_id", access.organisationId)
+          .not("status", "in", "(complete,not_required)");
+
+        if (remaining.error) {
+          console.warn("Onboarding completion could not be checked for research:", remaining.error);
+        } else if ((remaining.count ?? 0) === 0) {
+          await recordResearchEventBestEffort(
+            { eventType: "onboarding_completed" },
+            { organisationId: access.organisationId },
+          );
+        }
+      }
+
       return NextResponse.json({ success: true, item: result.data });
     }
 

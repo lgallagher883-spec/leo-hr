@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { recordResearchEventBestEffort } from "@/lib/research/writer";
 
 type RouteContext = {
   params: Promise<{
@@ -94,7 +95,7 @@ async function requirePermission(permissionKey: string) {
     };
   }
 
-  return { supabase };
+  return { supabase, organisationId };
 }
 
 export async function PATCH(
@@ -150,7 +151,7 @@ export async function PATCH(
     return access.response;
   }
 
-  const { supabase } = access;
+  const { supabase, organisationId } = access;
 
   const {
     data: existingMatter,

@@ -62,3 +62,22 @@ test("initial workflow instrumentation contains no HR record identifiers in rese
     }
   }
 });
+
+test("research dimensions reuse existing organisation data and stay broad", () => {
+  const dimensions = fs.readFileSync(new URL("../lib/research/dimensions.ts", import.meta.url), "utf8");
+  assert.match(dimensions, /employee_count_band/);
+  assert.match(dimensions, /"Sector \/ industry"/);
+  assert.match(dimensions, /"Number of employees"/);
+  assert.match(dimensions, /\.from\("employees"\)/);
+  assert.match(dimensions, /"early_years"/);
+  assert.match(dimensions, /"care"/);
+  assert.match(dimensions, /"professional_services"/);
+  assert.doesNotMatch(dimensions, /name,email|protected.?characteristic|medical/i);
+});
+
+test("research writer derives dimensions without requiring new employer input", () => {
+  const writer = fs.readFileSync(new URL("../lib/research/writer.ts", import.meta.url), "utf8");
+  assert.match(writer, /deriveResearchDimensions\(context\.organisationId\)/);
+  assert.match(writer, /derived\.organisationSizeBand/);
+  assert.match(writer, /derived\.industryGroup/);
+});

@@ -277,7 +277,12 @@ export async function POST(request: Request) {
     );
   }
 
-  await recordResearchEventBestEffort(\n    { eventType: "matter_opened" },\n    { organisationId },\n  );\n\n  // Route B: no Ask Leo conversation will be linked, so the employer's own
+  await recordResearchEventBestEffort(
+    { eventType: "matter_opened" },
+    { organisationId },
+  );
+
+  // Route B: no Ask Leo conversation will be linked, so the employer's own
   // description becomes the Matter's first real conversation turn.
   if (!body.hasSourceConversation && description) {
     const { error: seedError } = await supabase.from("matter_messages").insert({

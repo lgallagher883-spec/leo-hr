@@ -6,6 +6,7 @@ import {
   validateResearchEvent,
 } from "@/lib/research/events";
 import { pseudonymiseOrganisationId } from "@/lib/research/pseudonym";
+import { deriveResearchDimensions } from "@/lib/research/dimensions";
 
 function researchAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,14 +27,15 @@ export async function recordResearchEvent(
 ): Promise<void> {
   const safe = validateResearchEvent(input);
   const organisationKey = pseudonymiseOrganisationId(context.organisationId);
+  const derived = await deriveResearchDimensions(context.organisationId);
 
   const supabase = researchAdminClient();
   const { error } = await supabase.from("research_events").insert({
     event_type: safe.eventType,
     event_category: safe.eventCategory ?? null,
     organisation_key: organisationKey,
-    organisation_size_band: safe.organisationSizeBand,
-    industry_group: safe.industryGroup,
+    organisation_size_band: safe.organisationSizeBand === "unknown" ? derived.organisationSizeBand : safe.organisationSizeBand,
+    industry_group: safe.industryGroup === "unknown" ? derived.industryGroup : safe.industryGroup,
     properties: safe.properties ?? {},
     schema_version: 1,
     occurred_at: safe.occurredAt ?? new Date().toISOString(),

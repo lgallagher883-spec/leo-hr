@@ -24,7 +24,7 @@ function normaliseStoredBand(value: unknown): OrganisationSizeBand | null {
   return null;
 }
 
-function mapIndustry(value: unknown): ResearchIndustryGroup {
+export function mapIndustry(value: unknown): ResearchIndustryGroup {
   if (typeof value !== "string") return "unknown";
   const v = value.trim().toLowerCase();
   if (!v) return "unknown";
@@ -36,7 +36,7 @@ function mapIndustry(value: unknown): ResearchIndustryGroup {
   return "other";
 }
 
-function parseFoundationEmployeeCount(value: unknown): number | null {
+export function parseFoundationEmployeeCount(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return null;
   const match = value.replace(/,/g, "").match(/\b(\d{1,6})\b/);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { recordResearchEventBestEffort } from "@/lib/research/writer";
 
 const matterSelect =
   "id, title, status, description, employee_id, matter_type, subject, matter_lead, created_at";
@@ -276,7 +277,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Route B: no Ask Leo conversation will be linked, so the employer's own
+  await recordResearchEventBestEffort(\n    { eventType: "matter_opened" },\n    { organisationId },\n  );\n\n  // Route B: no Ask Leo conversation will be linked, so the employer's own
   // description becomes the Matter's first real conversation turn.
   if (!body.hasSourceConversation && description) {
     const { error: seedError } = await supabase.from("matter_messages").insert({

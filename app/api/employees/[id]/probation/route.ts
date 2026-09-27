@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { recordResearchEventBestEffort } from "@/lib/research/writer";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -905,6 +906,11 @@ export async function PATCH(
         },
       });
 
+      await recordResearchEventBestEffort(
+        { eventType: "probation_review_completed" },
+        { organisationId: accessResult.access.organisationId },
+      );
+
       return NextResponse.json({
         success: true,
         review: reviewResult.data,
@@ -1193,6 +1199,18 @@ export async function PATCH(
           review_id: reviewId,
         },
       });
+
+      await recordResearchEventBestEffort(
+        { eventType: "probation_review_completed" },
+        { organisationId: accessResult.access.organisationId },
+      );
+
+      if (finalOutcome === "Extend Probation") {
+        await recordResearchEventBestEffort(
+          { eventType: "probation_extended" },
+          { organisationId: accessResult.access.organisationId },
+        );
+      }
 
       return NextResponse.json({
         success: true,

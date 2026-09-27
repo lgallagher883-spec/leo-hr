@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 
 import { resolveRoleForMembership } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { recordResearchEventBestEffort } from "@/lib/research/writer";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

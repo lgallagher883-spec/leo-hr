@@ -5,6 +5,7 @@ import {
   type ResearchEventInput,
   validateResearchEvent,
 } from "@/lib/research/events";
+import { pseudonymiseOrganisationId } from "@/lib/research/pseudonym";
 
 function researchAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -16,20 +17,15 @@ function researchAdminClient() {
 }
 
 export type ResearchWriteContext = {
-  // Must already be pseudonymous. Never pass a raw organisation UUID.
-  organisationKey?: string | null;
+  organisationId: string;
 };
 
 export async function recordResearchEvent(
   input: ResearchEventInput,
-  context: ResearchWriteContext = {},
+  context: ResearchWriteContext,
 ): Promise<void> {
   const safe = validateResearchEvent(input);
-  const organisationKey = context.organisationKey?.trim() || null;
-
-  if (organisationKey && organisationKey.length > 128) {
-    throw new Error("Research organisation key is invalid.");
-  }
+  const organisationKey = pseudonymiseOrganisationId(context.organisationId);
 
   const supabase = researchAdminClient();
   const { error } = await supabase.from("research_events").insert({
@@ -44,4 +40,19 @@ export async function recordResearchEvent(
   });
 
   if (error) throw new Error(`Research event could not be recorded: ${error.message}`);
+}
+
+/**
+ * Research must never break the employer's HR action.
+ * Use this only after the underlying application state change has succeeded.
+ */
+export async function recordResearchEventBestEffort(
+  input: ResearchEventInput,
+  context: ResearchWriteContext,
+): Promise<void> {
+  try {
+    await recordResearchEvent(input, context);
+  } catch (error) {
+    console.warn("Research event was not recorded:", error);
+  }
 }

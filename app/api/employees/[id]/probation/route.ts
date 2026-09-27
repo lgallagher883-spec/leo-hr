@@ -906,6 +906,11 @@ export async function PATCH(
         },
       });
 
+      await recordResearchEventBestEffort(
+        { eventType: "probation_review_completed" },
+        { organisationId: accessResult.access.organisationId },
+      );
+
       return NextResponse.json({
         success: true,
         review: reviewResult.data,
@@ -1194,6 +1199,18 @@ export async function PATCH(
           review_id: reviewId,
         },
       });
+
+      await recordResearchEventBestEffort(
+        { eventType: "probation_review_completed" },
+        { organisationId: accessResult.access.organisationId },
+      );
+
+      if (finalOutcome === "Extend Probation") {
+        await recordResearchEventBestEffort(
+          { eventType: "probation_extended" },
+          { organisationId: accessResult.access.organisationId },
+        );
+      }
 
       return NextResponse.json({
         success: true,

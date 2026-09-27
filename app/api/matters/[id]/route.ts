@@ -232,6 +232,13 @@ export async function PATCH(
     }
   }
 
+  if (existingMatter.status !== "Closed" && body.status === "Closed") {
+    await recordResearchEventBestEffort(
+      { eventType: "matter_completed" },
+      { organisationId },
+    );
+  }
+
   return NextResponse.json({
     success: true,
     matter: data,

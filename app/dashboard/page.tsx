@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter } from "next/navigation";
+import shellStyles from "./DashboardShell.module.css";
 
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -649,8 +650,8 @@ function DashboardPageContent() {
   const completedSetupSteps = setupSteps.filter((step) => step.complete).length;
 
   return (
-    <main style={pageStyle}>
-      <header style={headerStyle}>
+    <main style={pageStyle} className={shellStyles.managementDashboard}>
+      <header style={headerStyle} className={shellStyles.managementDashboardHeader}>
         <div>
           <h1 style={titleStyle}>
             Welcome back{firstName ? `, ${firstName}` : ""}
@@ -665,13 +666,14 @@ function DashboardPageContent() {
           type="button"
           onClick={() => router.push("/dashboard/matters/new")}
           style={primaryButtonStyle}
+          className={shellStyles.managementNewMatterButton}
         >
           + New Matter
         </button>
       </header>
 
       {setupDataLoaded && !setupComplete ? (
-        <section style={setupCardStyle} aria-labelledby="getting-started-heading">
+        <section style={setupCardStyle} className={shellStyles.managementSetupCard} aria-labelledby="getting-started-heading">
           <div style={setupHeaderStyle}>
             <div>
               <div style={setupEyebrowStyle}>Getting started</div>
@@ -712,8 +714,8 @@ function DashboardPageContent() {
         </section>
       ) : null}
 
-      <section style={askLeoCardStyle} aria-labelledby="ask-leo-heading">
-        <div style={sparkleCircleStyle} aria-hidden="true">
+      <section style={askLeoCardStyle} className={shellStyles.managementAskLeoCard} aria-labelledby="ask-leo-heading">
+        <div style={sparkleCircleStyle} className={shellStyles.managementAskLeoSparkle} aria-hidden="true">
           <span style={mainSparkleStyle}>✦</span>
           <span style={smallSparkleStyle}>✦</span>
         </div>
@@ -728,7 +730,7 @@ function DashboardPageContent() {
             can guide and assist you through it.
           </p>
 
-          <div style={promptRowStyle}>
+          <div style={promptRowStyle} className={shellStyles.managementPromptRow}>
             <input
               value={leoPrompt}
               onChange={(event) => setLeoPrompt(event.target.value)}
@@ -737,6 +739,7 @@ function DashboardPageContent() {
               }}
               placeholder="Ask Leo anything..."
               style={promptInputStyle}
+              className={shellStyles.managementPromptInput}
               aria-label="Ask Leo a question"
             />
 
@@ -744,6 +747,7 @@ function DashboardPageContent() {
               type="button"
               onClick={askLeo}
               style={askLeoButtonStyle}
+              className={shellStyles.managementAskLeoButton}
             >
               Ask Leo
             </button>
@@ -751,7 +755,7 @@ function DashboardPageContent() {
         </div>
       </section>
 
-      <section style={summaryGridStyle} aria-label="Dashboard shortcuts">
+      <section style={summaryGridStyle} className={shellStyles.managementSummaryGrid} aria-label="Dashboard shortcuts">
         {shortcuts.map((shortcut) => (
           <DashboardCard
             key={shortcut.id}
@@ -763,8 +767,8 @@ function DashboardPageContent() {
         ))}
       </section>
 
-      <section style={remindersSectionStyle} aria-label="Proactive HR tasks">
-        <div style={remindersHeaderStyle}>
+      <section style={remindersSectionStyle} className={shellStyles.managementAttentionSection} aria-label="Proactive HR tasks">
+        <div style={remindersHeaderStyle} className={shellStyles.managementAttentionHeader}>
           <div><h2 style={remindersTitleStyle}>Leo Needs Your Attention</h2><p style={reminderIntroStyle}>Leo quietly monitors live HR records and surfaces only the most relevant next questions here. Routine actions stay in their own workspace so the dashboard does not become a task list.</p></div>
           <span style={remindersCountStyle}>{reminders.length}</span>
         </div>
@@ -776,7 +780,7 @@ function DashboardPageContent() {
         ) : (
           <div style={reminderListStyle}>
             {reminders.map((reminder) => (
-              <article key={reminder.id} style={reminderCardStyle}>
+              <article key={reminder.id} style={reminderCardStyle} className={shellStyles.managementReminderCard}>
                 <div style={reminderMetaStyle}>
                   <span style={reminderBadgeStyle}>
                     {String(reminder.metadata?.status_band || "").toLowerCase() === "expired"
@@ -795,7 +799,7 @@ function DashboardPageContent() {
                     : "Leo detected this from your live HR records."}
                 </p>
 
-                <div style={reminderActionsStyle}>
+                <div style={reminderActionsStyle} className={shellStyles.managementReminderActions}>
                   {reminder.actionUrl ? (
                     <button
                       type="button"
@@ -873,6 +877,7 @@ function DashboardCard({
         ...(hovered ? summaryCardHoverStyle : {}),
       }}
       aria-label={actionLabel}
+      className={shellStyles.managementSummaryCard}
     >
       <span style={summaryLabelStyle}>{label}</span>
 

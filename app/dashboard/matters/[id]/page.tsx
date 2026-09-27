@@ -11,6 +11,7 @@ import {
   requestMatterLeoReply,
   saveMatterMessage,
 } from "@/lib/ask-leo/matterReply";
+import shellStyles from "../../DashboardShell.module.css";
 
 import MatterHeader from "./components/MatterHeader";
 import LeoConversation, {
@@ -497,18 +498,18 @@ function MatterDetailPageContent() {
       "Continue the conversation with Leo to progress this Matter.";
 
   return (
-    <div style={pageStyle}>
-      <section style={matterHeroStyle}>
+    <div style={pageStyle} className={shellStyles.managementMatterDetail}>
+      <section style={matterHeroStyle} className={shellStyles.managementMatterHero}>
         <MatterHeader
           title={matter.title}
           status={status}
           onBack={() => router.push("/dashboard/matters")}
         />
 
-        <div style={assessmentCardStyle}>
+        <div style={assessmentCardStyle} className={shellStyles.managementMatterAssessment}>
           <div style={assessmentEyebrowStyle}>LEO Assessment</div>
 
-          <div style={assessmentGridStyle}>
+          <div style={assessmentGridStyle} className={shellStyles.managementMatterAssessmentGrid}>
             <div style={assessmentColumnStyle}>
               <div style={assessmentLabelStyle}>Current understanding</div>
               <div style={assessmentTextStyle}>
@@ -527,7 +528,7 @@ function MatterDetailPageContent() {
       </section>
 
       {nextActions.length > 0 && (
-        <section style={agentActionPanelStyle}>
+        <section style={agentActionPanelStyle} className={shellStyles.managementMatterNextActions}>
           <div style={agentActionHeaderStyle}>
             <div>
               <div style={assessmentEyebrowStyle}>Leo · Matter next step</div>
@@ -541,7 +542,7 @@ function MatterDetailPageContent() {
 
           {nextActionMessage ? <div style={bundleMessageStyle}>{nextActionMessage}</div> : null}
 
-          <div style={agentActionGridStyle}>
+          <div style={agentActionGridStyle} className={shellStyles.managementMatterNextActionGrid}>
             {nextActions.map((action) => (
               <div key={action.id} style={agentActionCardStyle}>
                 <div style={agentCategoryStyle}>{action.category}</div>
@@ -575,7 +576,7 @@ function MatterDetailPageContent() {
         </section>
       )}
 
-      <section style={conversationPanelStyle}>
+      <section style={conversationPanelStyle} className={shellStyles.managementMatterConversation}>
         <div style={sectionHeaderStyle}>
           <div style={sectionTitleStyle}>Conversation</div>
           <div style={sectionSubtitleStyle}>
@@ -591,7 +592,7 @@ function MatterDetailPageContent() {
           </button>
         </div>
 
-        <div style={conversationBodyStyle}>
+        <div style={conversationBodyStyle} className={shellStyles.managementMatterConversationBody}>
           {loadingConversation ? (
             <MutedText>Loading conversation...</MutedText>
           ) : (
@@ -606,12 +607,13 @@ function MatterDetailPageContent() {
           <div style={conversationErrorStyle}>{conversationError}</div>
         )}
 
-        <div style={composerStyle}>
+        <div style={composerStyle} className={shellStyles.managementMatterComposer}>
           <textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="Update Leo or ask what to do next..."
             style={conversationTextareaStyle}
+            className={shellStyles.managementMatterTextarea}
           />
 
           <button
@@ -627,7 +629,7 @@ function MatterDetailPageContent() {
         </div>
       </section>
 
-      <section style={workspacePanelStyle}>
+      <section style={workspacePanelStyle} className={shellStyles.managementMatterWorkspace}>
         <div style={sectionHeaderStyle}>
           <div style={sectionTitleStyle}>Matter Workspace</div>
           <div style={sectionSubtitleStyle}>
@@ -635,7 +637,7 @@ function MatterDetailPageContent() {
           </div>
         </div>
 
-        <div style={workspaceGridStyle}>
+        <div style={workspaceGridStyle} className={shellStyles.managementMatterWorkspaceGrid}>
           <WorkspaceCard
             title="Documents"
             summary="Evidence, uploaded files and LEO-generated documents."
@@ -677,9 +679,10 @@ function MatterDetailPageContent() {
         <div style={overlayStyle} onClick={() => setOpenWorkspace(null)}>
           <aside
             style={drawerStyle}
+            className={shellStyles.managementMatterDrawer}
             onClick={(event) => event.stopPropagation()}
           >
-            <div style={drawerHeaderStyle}>
+            <div style={drawerHeaderStyle} className={shellStyles.managementMatterDrawerHeader}>
               <div>
                 <div style={drawerTitleStyle}>
                   {workspaceTitle(openWorkspace)}
@@ -699,7 +702,7 @@ function MatterDetailPageContent() {
               </button>
             </div>
 
-            <div style={drawerContentStyle}>
+            <div style={drawerContentStyle} className={shellStyles.managementMatterDrawerContent}>
               {openWorkspace === "documents" && (
                 <MatterDocuments matterId={matter.id} />
               )}

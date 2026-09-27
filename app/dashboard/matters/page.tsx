@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import shellStyles from "../DashboardShell.module.css";
 
 type Matter = {
   id: number;
@@ -182,8 +183,8 @@ export default function MattersPage() {
   });
 
   return (
-    <div>
-      <div style={headerStyle}>
+    <div className={shellStyles.managementMattersPage}>
+      <div style={headerStyle} className={shellStyles.managementMattersHeader}>
         <div>
           <h1 style={titleStyle}>Matters</h1>
           <p style={subtitleStyle}>Manage all HR matters in the system.</p>
@@ -193,22 +194,24 @@ export default function MattersPage() {
           type="button"
           onClick={() => router.push("/dashboard/matters/new")}
           style={newButtonStyle}
+          className={shellStyles.managementMattersNewButton}
         >
           + New Matter
         </button>
       </div>
 
-      <div style={searchContainerStyle}>
+      <div style={searchContainerStyle} className={shellStyles.managementMattersSearch}>
         <input
           type="search"
           placeholder="Search employee or subject..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           style={searchInputStyle}
+          className={shellStyles.managementMattersSearchInput}
         />
       </div>
 
-      <div style={tableCardStyle}>
+      <div style={tableCardStyle} className={shellStyles.managementMattersTableCard}>
         {loading ? (
           <div style={emptyStyle}>Loading matters...</div>
         ) : loadError ? (
@@ -226,7 +229,7 @@ export default function MattersPage() {
         ) : matters.length === 0 ? (
           <div style={emptyStyle}>No matters yet. Create your first one.</div>
         ) : (
-          <table style={tableStyle}>
+          <table style={tableStyle} className={shellStyles.managementMattersTable}>
             <thead>
               <tr>
                 <Th>Employee</Th>
@@ -312,6 +315,37 @@ export default function MattersPage() {
           </table>
         )}
       </div>
+
+      {!loading && !loadError && matters.length > 0 ? (
+        <div className={shellStyles.managementMatterCards}>
+          {filteredMatters.map((matter) => {
+            const statusStyle = getStatusStyle(matter.status || "Open");
+            return (
+              <button
+                key={matter.id}
+                type="button"
+                className={shellStyles.managementMatterCard}
+                onClick={() => router.push(`/dashboard/matters/${matter.id}`)}
+              >
+                <div className={shellStyles.managementMatterCardTop}>
+                  <strong>{getEmployeeName(matter.employee_id)}</strong>
+                  <span style={{ ...badgeStyle, ...statusStyle }}>
+                    {matter.status || "Open"}
+                  </span>
+                </div>
+                <span className={shellStyles.managementMatterSubject}>
+                  {matter.subject || matter.title}
+                </span>
+                <div className={shellStyles.managementMatterMeta}>
+                  <span>{matter.matter_type || "General"}</span>
+                  <span>Opened {formatDate(matter.created_at)}</span>
+                </div>
+                <span className={shellStyles.managementMatterOpen}>Open matter →</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }

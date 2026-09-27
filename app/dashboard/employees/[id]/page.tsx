@@ -24,6 +24,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import shellStyles from "../../DashboardShell.module.css";
 
 type PlatformRole = "Owner" | "Senior" | "Manager" | "Employee";
 
@@ -540,17 +541,18 @@ export default function EmployeeProfilePage() {
   const startDateLabel = formatDate(employee.start_date);
 
   return (
-    <div className="employee-profile-page">
+    <div className={`employee-profile-page ${shellStyles.managementEmployeeProfile}`}>
       <button
         type="button"
         onClick={() => router.push("/dashboard/employees")}
         style={backButtonStyle}
+        className={shellStyles.managementEmployeeBack}
       >
         <span aria-hidden="true">←</span>
         <span>All employees</span>
       </button>
 
-      <header style={headerStyle}>
+      <header style={headerStyle} className={shellStyles.managementEmployeeProfileHeader}>
         <div style={headerIdentityStyle}>
           <div style={headerTitleRowStyle}>
             <div>
@@ -560,7 +562,7 @@ export default function EmployeeProfilePage() {
             <StatusBadge status={employeeStatus} />
           </div>
 
-          <div style={headerMetaGridStyle}>
+          <div style={headerMetaGridStyle} className={shellStyles.managementEmployeeMetaGrid}>
             <HeaderMeta
               label="Role"
               value={employee.role || "Not set"}
@@ -574,7 +576,7 @@ export default function EmployeeProfilePage() {
           </div>
         </div>
 
-        <div style={headerActionsStyle}>
+        <div style={headerActionsStyle} className={shellStyles.managementEmployeeHeaderActions}>
           <button
             type="button"
             onClick={() => openSection("Employment")}
@@ -613,16 +615,16 @@ export default function EmployeeProfilePage() {
         />
       )}
 
-      <div className="employee-profile-layout">
-        <aside style={navigationStyle} aria-label="Employee profile sections">
-          <div style={navigationHeadingStyle}>
+      <div className={`employee-profile-layout ${shellStyles.managementEmployeeProfileLayout}`}>
+        <aside style={navigationStyle} className={shellStyles.managementEmployeeSectionNav} aria-label="Employee profile sections">
+          <div style={navigationHeadingStyle} className={shellStyles.managementEmployeeNavHeading}>
             <div style={navigationTitleStyle}>Employee record</div>
             <div style={navigationSubtitleStyle}>
               Select an area to view or update.
             </div>
           </div>
 
-          <nav style={navigationListStyle}>
+          <nav style={navigationListStyle} className={shellStyles.managementEmployeeNavList}>
             {visibleNavigationItems.map((item) => {
               const isActive = activeSection === item.section;
 
@@ -650,7 +652,7 @@ export default function EmployeeProfilePage() {
           </nav>
         </aside>
 
-        <main style={mainContentStyle}>
+        <main style={mainContentStyle} className={shellStyles.managementEmployeeProfileMain}>
           {activeSection === "Overview" && (
             <div style={sectionStackStyle}>
               <div style={summaryGridStyle}>

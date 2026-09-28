@@ -4,7 +4,22 @@
 
 Leo has a working CareCheck development integration for candidate DBS checks and a development Right to Work flow built on the same Candidate Invite and Status Pull services.
 
-Production provider actions remain disabled until CareCheck issues Leo's production username, password and organisation reference.
+Production provider actions remain disabled while the per-organisation connection flow is completed and verified.
+
+## Confirmed customer account model
+
+CareCheck confirmed on 28 September 2026 that Leo HR customers may register for their own CareCheck accounts and connect those independent accounts through Leo HR.
+
+The production model is therefore:
+
+- Each employer registers directly with CareCheck.
+- Each employer remains the CareCheck customer for its own applications and billing.
+- Leo HR acts as the software integration/interface.
+- CareCheck credentials and organisation references are resolved per Leo organisation.
+- Leo's own CareCheck account must never be used as a fallback for customer production checks.
+- Existing candidate/application data remains scoped by Leo `organisation_id`.
+
+The current global `CARECHECK_*` environment variables are retained only for Leo's development sandbox while the organisation connection layer is completed.
 
 ## Confirmed endpoints
 
@@ -93,14 +108,15 @@ The Status Pull WSDL supports up to 200 application status requests in one reque
 
 Before production actions are enabled:
 
-1. CareCheck creates Leo's production account.
-2. CareCheck supplies the production username/password.
-3. CareCheck supplies Leo's production organisation reference.
-4. Production secrets are added to the approved environment only.
-5. A controlled production test is agreed and completed.
+1. Each employer that wants the integration registers directly with CareCheck.
+2. Leo's organisation-specific connection flow stores/resolves that employer's CareCheck connection without exposing credentials to normal organisation records or client-side code.
+3. DBS and Right to Work routes resolve the authenticated Leo organisation before any provider request.
+4. Global Leo sandbox credentials are not permitted as a production customer fallback.
+5. A controlled production test is agreed and completed with an independently registered CareCheck customer account.
 6. Automated polling is configured to respect the twice-daily recommendation.
 7. Development-only controls/test routes are reviewed and removed or locked down.
 8. No raw SOAP envelope, credential material or candidate personal data is written to application logs.
+9. Owner/Senior-only connection management and tenant-isolation tests are completed before production activation.
 
 ## Scope
 

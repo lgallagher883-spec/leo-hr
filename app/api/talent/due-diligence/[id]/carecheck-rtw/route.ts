@@ -504,15 +504,13 @@ export async function POST(request: Request, routeContext: RouteContext) {
       { success: false, error: "The requested CareCheck Right to Work action is invalid." },
       { status: 400 },
     );
-  } catch (error) {
-    console.error("CareCheck Right to Work action failed:", error);
+  } catch {
+    console.error("CareCheck Right to Work action failed.");
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "The CareCheck Right to Work action could not be completed.",
+        error: "The CareCheck Right to Work action could not be completed.",
+        code: "CARECHECK_RTW_ACTION_FAILED",
       },
       { status: 500 },
     );

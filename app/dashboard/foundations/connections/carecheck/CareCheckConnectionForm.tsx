@@ -123,10 +123,10 @@ export default function CareCheckConnectionForm({
         {credentialsConfigured ? "Update CareCheck" : "Connect CareCheck"}
       </h1>
       <p style={{ color: "#7D7D7D", lineHeight: 1.6 }}>
-        Connect this organisation’s own CareCheck account. DBS and Right to Work checks will be processed under that employer’s CareCheck account, not Leo HR’s account.
+        Connect your organisation’s CareCheck account to manage DBS and Right to Work checks through Leo HR. Checks and billing remain with your organisation’s CareCheck account.
       </p>
       <div style={{ background: "#F7F1FC", borderRadius: 12, padding: 16, margin: "20px 0" }}>
-        The CareCheck username and password are encrypted server-side. After saving, the password is not returned to this page or displayed again.
+        Your CareCheck account details are stored securely by Leo. Your password will never be displayed after you connect your account.
       </div>
       {error && <div style={{ padding: 12, marginBottom: 16, border: "1px solid #b42318", borderRadius: 8 }}>{error}</div>}
       {message && <div style={{ padding: 12, marginBottom: 16, border: "1px solid #6E5084", borderRadius: 8 }}>{message}</div>}
@@ -148,7 +148,7 @@ export default function CareCheckConnectionForm({
         <div style={{ color: "#7D7D7D", marginBottom: 16 }}>Loading CareCheck settings…</div>
       ) : null}
       <form onSubmit={submit} aria-busy={loading}>
-        <label style={labelStyle}>Environment</label>
+        <label style={labelStyle}>CareCheck environment</label>
         <select value={environment} onChange={(event) => setEnvironment(event.target.value)} style={inputStyle}>
           <option value="production">Production</option>
           <option value="sandbox">Sandbox</option>

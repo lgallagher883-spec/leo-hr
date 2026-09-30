@@ -19,9 +19,12 @@ export default function CareCheckConnectionForm({
   const [connected, setConnected] = useState(false);
   const [credentialsConfigured, setCredentialsConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     if (!Number.isInteger(connectionId) || connectionId < 1) {
+      setError("Open CareCheck from Foundations → Connections before configuring the account.");
+      setLoadFailed(true);
       setLoading(false);
       return;
     }
@@ -43,10 +46,22 @@ export default function CareCheckConnectionForm({
           };
         };
 
-        if (!cancelled && response.ok && result.success && result.connection) {
+        if (!response.ok || !result.success || !result.connection) {
+          throw new Error("CareCheck settings could not be loaded.");
+        }
+
+        if (!cancelled) {
           setEnvironment(result.connection.environment || "production");
           setOrganisationReference(result.connection.organisationReference || "");
           setCredentialsConfigured(result.connection.credentialsConfigured === true);
+          setLoadFailed(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadFailed(true);
+          setError(
+            "CareCheck settings could not be loaded. Return to Connections and try again.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -132,7 +147,7 @@ export default function CareCheckConnectionForm({
       {loading ? (
         <div style={{ color: "#7D7D7D", marginBottom: 16 }}>Loading CareCheck settings…</div>
       ) : null}
-      <form onSubmit={submit}>
+      <form onSubmit={submit} aria-busy={loading}>
         <label style={labelStyle}>Environment</label>
         <select value={environment} onChange={(event) => setEnvironment(event.target.value)} style={inputStyle}>
           <option value="production">Production</option>
@@ -148,7 +163,7 @@ export default function CareCheckConnectionForm({
         <label style={labelStyle}>CareCheck password</label>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required style={inputStyle} />
 
-        <button type="submit" disabled={saving || connected || loading} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected ? "default" : "pointer", opacity: connected ? 0.55 : 1 }}>
+        <button type="submit" disabled={saving || connected || loading || loadFailed} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected || loading || loadFailed ? "default" : "pointer", opacity: connected || loading || loadFailed ? 0.55 : 1 }}>
           {saving
             ? "Saving…"
             : connected

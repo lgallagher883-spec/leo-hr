@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 
 export async function POST() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "CareCheck test invite route is disabled in production.",
+      },
+      { status: 404 },
+    );
+  }
+
   try {
     const testId = Date.now().toString();
 

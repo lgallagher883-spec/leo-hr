@@ -14,6 +14,7 @@ export default function CareCheckConnectionPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [connected, setConnected] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +44,11 @@ export default function CareCheckConnectionPage() {
         throw new Error(result.error || "CareCheck could not be connected.");
       }
       setPassword("");
-      setMessage(result.message || "CareCheck account connected.");
+      setConnected(true);
+      setMessage(
+        result.message ||
+          "CareCheck account saved securely. Return to Connections to run the connection test.",
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "CareCheck could not be connected.");
     } finally {
@@ -65,6 +70,20 @@ export default function CareCheckConnectionPage() {
       </div>
       {error && <div style={{ padding: 12, marginBottom: 16, border: "1px solid #b42318", borderRadius: 8 }}>{error}</div>}
       {message && <div style={{ padding: 12, marginBottom: 16, border: "1px solid #6E5084", borderRadius: 8 }}>{message}</div>}
+      {connected ? (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/foundations/connections")}
+            style={{ padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: "pointer" }}
+          >
+            Return to Connections
+          </button>
+          <div style={{ alignSelf: "center", color: "#7D7D7D", fontSize: 13 }}>
+            Use Test Connection there to check the saved CareCheck configuration.
+          </div>
+        </div>
+      ) : null}
       <form onSubmit={submit}>
         <label style={labelStyle}>Environment</label>
         <select value={environment} onChange={(event) => setEnvironment(event.target.value)} style={inputStyle}>
@@ -81,8 +100,8 @@ export default function CareCheckConnectionPage() {
         <label style={labelStyle}>CareCheck password</label>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required style={inputStyle} />
 
-        <button type="submit" disabled={saving} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving ? "default" : "pointer" }}>
-          {saving ? "Connecting…" : "Connect CareCheck"}
+        <button type="submit" disabled={saving || connected} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected ? "default" : "pointer", opacity: connected ? 0.55 : 1 }}>
+          {saving ? "Connecting…" : connected ? "CareCheck connected" : "Connect CareCheck"}
         </button>
       </form>
     </div>

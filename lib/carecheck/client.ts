@@ -121,3 +121,24 @@ export function getCareCheckConfig(): CareCheckConfig {
 
   return config;
 }
+
+
+/**
+ * Shared production-action gate for every CareCheck SOAP caller.
+ *
+ * Route-level checks remain in place for clear user-facing errors, but the
+ * provider client must also refuse production traffic unless it has been
+ * explicitly enabled after the production workflow is verified.
+ */
+export function assertCareCheckProviderActionAllowed(
+  config: CareCheckConfig,
+): void {
+  if (
+    config.environment === "production" &&
+    process.env.CARECHECK_PRODUCTION_ACTIONS_ENABLED !== "true"
+  ) {
+    throw new Error(
+      "CareCheck production actions are not enabled.",
+    );
+  }
+}

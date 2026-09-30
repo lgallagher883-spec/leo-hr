@@ -52,17 +52,10 @@ export async function POST(request: NextRequest) {
         result.workingWithVulnerableAdults,
       workingWithChildren: result.workingWithChildren,
     });
-  } catch (error) {
-    console.error("CareCheck test status pull failed:", error);
-
+  } catch {
+    console.error("CareCheck test status pull failed.");
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown CareCheck status error",
-      },
+      { success: false, error: "CareCheck test status pull failed." },
       { status: 500 },
     );
   }

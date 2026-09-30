@@ -265,10 +265,23 @@ export async function POST(request: Request, routeContext: RouteContext) {
     const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const careCheckConfig = await getOrganisationCareCheckConfig(
-      admin,
-      access.organisationId,
-    );
+    let careCheckConfig;
+    try {
+      careCheckConfig = await getOrganisationCareCheckConfig(
+        admin,
+        access.organisationId,
+      );
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "CareCheck is not connected for this organisation. Ask an Owner or Senior user to connect the employer's own CareCheck account in Foundations → Connections.",
+          code: "CARECHECK_NOT_CONNECTED",
+        },
+        { status: 409 },
+      );
+    }
 
     const context = await loadContext(
       supabase,
@@ -287,6 +300,21 @@ export async function POST(request: Request, routeContext: RouteContext) {
       | { action?: unknown }
       | null;
     const action = text(body?.action);
+
+    if (
+      careCheckConfig.environment === "production" &&
+      process.env.CARECHECK_PRODUCTION_ACTIONS_ENABLED !== "true"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "CareCheck production actions are not enabled yet. The employer account can be connected and tested, but DBS and Right to Work provider actions remain locked until the production workflow has been verified.",
+          code: "CARECHECK_PRODUCTION_NOT_VERIFIED",
+        },
+        { status: 409 },
+      );
+    }
 
     const existingPayload =
       context.shared?.payload && typeof context.shared.payload === "object"

@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
       workingWithVulnerableAdults:
         result.workingWithVulnerableAdults,
       workingWithChildren: result.workingWithChildren,
-      rawResponse: result.rawResponse,
     });
   } catch (error) {
     console.error("CareCheck test status pull failed:", error);

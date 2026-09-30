@@ -666,16 +666,14 @@ export async function POST(request: Request, routeContext: RouteContext) {
       { success: false, error: "The requested CareCheck action is invalid." },
       { status: 400 },
     );
-  } catch (error) {
-    console.error("CareCheck due-diligence action failed:", error);
+  } catch {
+    console.error("CareCheck due-diligence action failed.");
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "The CareCheck action could not be completed.",
+        error: "The CareCheck action could not be completed.",
+        code: "CARECHECK_ACTION_FAILED",
       },
       { status: 500 },
     );

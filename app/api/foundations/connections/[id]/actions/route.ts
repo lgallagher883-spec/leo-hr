@@ -376,7 +376,6 @@ export async function POST(
       if (isCareCheck) {
         return NextResponse.json({
           success: true,
-          connection,
           redirectUrl:
             `/dashboard/foundations/connections/carecheck?connectionId=${connectionId}`,
           message:
@@ -624,7 +623,7 @@ export async function POST(
           careCheckResult.error ||
           "CareCheck connection test completed.";
 
-        await (admin as any)
+        const healthCheckWrite = await (admin as any)
           .from("connection_health_checks")
           .insert({
             connection_id: connectionId,
@@ -639,7 +638,7 @@ export async function POST(
             },
           });
 
-        await (admin as any)
+        const connectionWrite = await (admin as any)
           .from("organisation_connections")
           .update({
             health_status: healthStatus,
@@ -650,7 +649,7 @@ export async function POST(
           .eq("id", connectionId)
           .eq("organisation_id", access.organisationId);
 
-        await (admin as any)
+        const jobWrite = await (admin as any)
           .from("connection_jobs")
           .update({
             status: careCheckResult.success
@@ -668,6 +667,23 @@ export async function POST(
           })
           .eq("id", jobResult.data.id)
           .eq("connection_id", connectionId);
+
+        if (
+          healthCheckWrite.error ||
+          connectionWrite.error ||
+          jobWrite.error
+        ) {
+          console.error("CareCheck connection test state could not be recorded.");
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "CareCheck was checked, but Leo could not save the connection test result. Please try again.",
+              code: "CARECHECK_TEST_STATE_SAVE_FAILED",
+            },
+            { status: 500 },
+          );
+        }
 
         await recordActivity(admin, {
           organisationId: access.organisationId,

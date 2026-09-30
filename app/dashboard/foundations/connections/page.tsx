@@ -1479,9 +1479,8 @@ if (result.redirectUrl) {
                       >
                         <strong style={{ color: "#6E5084" }}>CareCheck account status</strong>
                         <div style={{ marginTop: 6 }}>
-                          Connected means this employer&apos;s CareCheck account details are stored securely in Leo.
-                          Test Connection checks the saved configuration and CareCheck endpoint. It does not yet mean
-                          authenticated production SOAP has been verified.
+                          Your organisation&apos;s CareCheck account is managed securely through Leo. Use Test Connection
+                          to check the saved account configuration before using CareCheck for DBS or Right to Work checks.
                         </div>
                       </div>
                     )}

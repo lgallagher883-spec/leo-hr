@@ -215,6 +215,7 @@ export async function POST(request: Request) {
         },
         status: "Connected",
         health_status: "Not Checked",
+        last_health_check_at: null,
         connected_by_user_id: user.id,
         connected_at: now,
         disconnected_at: null,

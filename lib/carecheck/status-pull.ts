@@ -1,4 +1,4 @@
-import { getCareCheckConfig } from "./client";
+import { getCareCheckConfig, type CareCheckConfig } from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT =
@@ -68,7 +68,7 @@ function readBoolean(value: string | null): boolean | null {
 
 function buildStatusPullEnvelope(
   applicationReference: string,
-  config: ReturnType<typeof getCareCheckConfig>,
+  config: CareCheckConfig,
 ): string {
   const securityHeader = createCareCheckWsSecurityHeader({
     username: config.username,
@@ -92,8 +92,9 @@ function buildStatusPullEnvelope(
 
 export async function pullCareCheckApplicationStatus(
   applicationReference: string,
+  config?: CareCheckConfig,
 ): Promise<CareCheckStatusResult> {
-  const careCheckConfig = getCareCheckConfig();
+  const careCheckConfig = config ?? getCareCheckConfig();
 
   const reference = applicationReference.trim();
 

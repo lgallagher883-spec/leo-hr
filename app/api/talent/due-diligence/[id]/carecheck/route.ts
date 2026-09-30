@@ -334,22 +334,23 @@ async function saveCareCheckState({
   if (result.error) throw new Error(result.error.message);
 
   const auditResult = await (supabase as any)
-    .from("talent_analytics_events")
+    .from("leo_talent_audit_log")
     .insert({
       organisation_id: organisationId,
-      event_type: "carecheck_dbs_connected",
-      entity_type: "application",
-      entity_id: context.profile.application_id,
+      table_name: "leo_talent_candidate_shared_records",
+      record_id: String(context.profile.id),
+      action: "carecheck_dbs_tracking_connected",
       actor_user_id: userId,
-      description: "CareCheck DBS tracking was connected to the candidate due-diligence record.",
-      metadata: {
-        profile_id: context.profile.id,
-        candidate_id: context.profile.candidate_id,
+      new_values: {
+        application_id: String(context.profile.application_id),
+        provider: "CareCheck",
       },
+      changed_fields: ["carecheck"],
+      source: "carecheck",
     });
 
   if (auditResult.error) {
-    console.warn("CareCheck audit event could not be recorded:", auditResult.error);
+    console.warn("CareCheck tracking audit could not be recorded.");
   }
 
   return result.data;

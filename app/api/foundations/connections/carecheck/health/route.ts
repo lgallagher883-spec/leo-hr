@@ -159,7 +159,7 @@ export async function GET(request: Request) {
 
     const connectionResult = await (admin as any)
       .from("organisation_connections")
-      .select("*")
+      .select("id,provider_id,status,health_status")
       .eq("id", connectionId)
       .eq("organisation_id", access.organisationId)
       .eq("is_archived", false)
@@ -224,14 +224,13 @@ export async function GET(request: Request) {
         admin,
         access.organisationId,
       );
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         {
           success: false,
           error:
-            error instanceof Error
-              ? error.message
-              : "CareCheck credentials are not configured for this organisation.",
+            "CareCheck credentials are not configured or could not be read for this organisation.",
+          code: "CARECHECK_CONFIGURATION_UNAVAILABLE",
         },
         { status: 409 },
       );
@@ -258,14 +257,12 @@ export async function GET(request: Request) {
         },
         cache: "no-store",
       });
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "CareCheck could not be reached.",
+          error: "CareCheck could not be reached.",
+          code: "CARECHECK_ENDPOINT_UNREACHABLE",
         },
         { status: 502 },
       );
@@ -306,16 +303,13 @@ export async function GET(request: Request) {
       latencyMs,
       authenticatedSoapVerified: false,
     });
-  } catch (error) {
-    console.error("CareCheck health check failed:", error);
+  } catch {
+    console.error("CareCheck health check failed.");
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "The CareCheck connection health check failed.",
+        error: "The CareCheck connection health check failed.",
       },
       { status: 500 },
     );

@@ -117,6 +117,7 @@ Before production actions are enabled:
 7. Development-only controls/test routes are reviewed and removed or locked down. Implemented for the current test routes.
 8. No raw SOAP envelope, credential material or candidate personal data is written to application logs. Implemented in the CareCheck SOAP layer.
 9. Owner/Senior-only connection management and tenant-isolation tests are completed before production activation.
+10. Production UI actions are deliberately still hidden in the DBS/RTW panels. After the controlled production workflow is verified, align the server-controlled UI availability with `CARECHECK_PRODUCTION_ACTIONS_ENABLED`; do not expose provider credentials or a sensitive server flag through a public environment variable.
 
 ## Scope
 

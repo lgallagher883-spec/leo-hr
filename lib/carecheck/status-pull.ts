@@ -32,7 +32,6 @@ export type CareCheckStatusResult = {
   digitalIdCheckDate: string | null;
   rtwCheckStatus: string | null;
   rtwCheckDate: string | null;
-  rawResponse: string;
 };
 
 function escapeXml(value: string): string {
@@ -130,12 +129,14 @@ export async function pullCareCheckApplicationStatus(
   const faultString = getTagValue(rawResponse, "faultstring");
 
   if (faultString) {
-    throw new Error(`CareCheck SOAP fault: ${faultString}`);
+    throw new Error(
+      "CareCheck returned a SOAP fault while retrieving the application status.",
+    );
   }
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
-      `CareCheck returned HTTP ${response.status}: ${rawResponse}`,
+      `CareCheck status request failed with HTTP ${response.status}.`,
     );
   }
 
@@ -205,6 +206,5 @@ export async function pullCareCheckApplicationStatus(
     digitalIdCheckDate,
     rtwCheckStatus,
     rtwCheckDate,
-    rawResponse,
   };
 }

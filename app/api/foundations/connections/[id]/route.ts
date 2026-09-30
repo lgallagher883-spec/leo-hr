@@ -659,6 +659,7 @@ export async function PATCH(
               connected_at: null,
               connected_by_user_id: null,
               reconnect_required_at: null,
+              last_health_check_at: null,
               last_error_code: null,
               last_error_message: null,
               last_error_at: null,

@@ -229,13 +229,18 @@ export async function POST(request: Request) {
       .single();
 
     if (update.error || !update.data) {
+      console.error("CareCheck connection could not be saved.");
       return NextResponse.json(
-        { success: false, error: update.error?.message || "The CareCheck connection could not be saved." },
+        {
+          success: false,
+          error: "The CareCheck connection could not be saved.",
+          code: "CARECHECK_CONNECTION_SAVE_FAILED",
+        },
         { status: 500 },
       );
     }
 
-    await admin.from("connection_activity_history").insert({
+    const activity = await admin.from("connection_activity_history").insert({
       organisation_id: organisationId,
       performed_by_user_id: user.id,
       provider_id: lookup.data.provider_id,
@@ -249,6 +254,19 @@ export async function POST(request: Request) {
         credentials_stored: true,
       },
     });
+
+    if (activity.error) {
+      console.error("CareCheck credential-change audit could not be recorded.");
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "CareCheck was saved securely, but Leo could not record the connection audit. Return to Connections and try again before using the integration.",
+          code: "CARECHECK_CONNECTION_AUDIT_FAILED",
+        },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       success: true,

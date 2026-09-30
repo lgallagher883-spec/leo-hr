@@ -365,9 +365,9 @@ export default function CareCheckDBSPanel({
                 lineHeight: 1.5,
               }}
             >
-              Provider actions are currently restricted to development
-              while CareCheck production credentials and DBS-level codes
-              are being confirmed.
+              CareCheck provider actions remain gated until this employer has
+              connected its own CareCheck account and the production workflow,
+              including the required DBS-level codes, has been verified.
             </div>
           ) : null}
 

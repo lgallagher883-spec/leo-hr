@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 import { pullCareCheckApplicationStatus } from "@/lib/carecheck/status-pull";
+import { getOrganisationCareCheckConfig } from "@/lib/carecheck/connection";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -354,23 +356,27 @@ async function saveCareCheckState({
 }
 
 export async function POST(request: Request, routeContext: RouteContext) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "CareCheck candidate actions are currently limited to development while production provider codes and credentials are being confirmed.",
-      },
-      { status: 409 },
-    );
-  }
-
   try {
     const { id } = await routeContext.params;
     const supabase = await createClient();
     const access = await getAuthorisedContext(supabase as any);
 
     if ("error" in access) return access.error;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Supabase administrator credentials are not configured.");
+    }
+
+    const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const careCheckConfig = await getOrganisationCareCheckConfig(
+      admin,
+      access.organisationId,
+    );
 
     const context = await loadContext(
       supabase,
@@ -446,7 +452,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
         candidateSurname: context.candidate.last_name,
         checkType: careCheckDbsCheckType(context.vacancy?.dbs_level),
         type: "DI",
-      });
+      }, careCheckConfig);
 
       if (!invite.success || !invite.applicationReference) {
         return NextResponse.json(
@@ -462,12 +468,13 @@ export async function POST(request: Request, routeContext: RouteContext) {
 
       const status = await pullCareCheckApplicationStatus(
         invite.applicationReference,
+        careCheckConfig,
       );
       const now = new Date().toISOString();
 
       const careCheck = {
         provider: "CareCheck",
-        environment: "sandbox",
+        environment: careCheckConfig.environment,
         applicationReference:
           status.applicationReference || invite.applicationReference,
         invitedAt: now,
@@ -526,6 +533,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
 
       const status = await pullCareCheckApplicationStatus(
         applicationReference,
+        careCheckConfig,
       );
       const now = new Date().toISOString();
 

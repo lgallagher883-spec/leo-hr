@@ -256,12 +256,13 @@ export async function POST(request: Request) {
       credentialsConfigured: true,
       message: "CareCheck account connected. The password is stored encrypted and will not be displayed again.",
     });
-  } catch (error) {
-    console.error("CareCheck configuration failed:", error);
+  } catch {
+    console.error("CareCheck configuration failed.");
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "The CareCheck connection could not be configured.",
+        error: "The CareCheck connection could not be configured.",
+        code: "CARECHECK_CONFIGURATION_FAILED",
       },
       { status: 500 },
     );

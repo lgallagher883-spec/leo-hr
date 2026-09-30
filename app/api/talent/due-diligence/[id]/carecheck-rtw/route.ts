@@ -248,6 +248,47 @@ async function saveState({
   return result.data;
 }
 
+async function recordCareCheckRtwAction({
+  supabase,
+  organisationId,
+  userId,
+  applicationId,
+  profileId,
+  action,
+}: {
+  supabase: any;
+  organisationId: string;
+  userId: string;
+  applicationId: string | number;
+  profileId: string | number;
+  action: "invite" | "refresh_status";
+}) {
+  const result = await (supabase as any)
+    .from("talent_analytics_events")
+    .insert({
+      organisation_id: organisationId,
+      event_type:
+        action === "invite"
+          ? "carecheck_rtw_invite_sent"
+          : "carecheck_rtw_status_refreshed",
+      entity_type: "application",
+      entity_id: applicationId,
+      actor_user_id: userId,
+      description:
+        action === "invite"
+          ? "CareCheck Right to Work invite sent."
+          : "CareCheck Right to Work status refreshed.",
+      metadata: {
+        profile_id: profileId,
+        provider: "CareCheck",
+      },
+    });
+
+  if (result.error) {
+    console.warn("CareCheck Right to Work action audit could not be recorded.");
+  }
+}
+
 export async function POST(request: Request, routeContext: RouteContext) {
   try {
     const { id } = await routeContext.params;
@@ -404,6 +445,15 @@ export async function POST(request: Request, routeContext: RouteContext) {
         careCheck,
       });
 
+      await recordCareCheckRtwAction({
+        supabase,
+        organisationId: access.organisationId,
+        userId: access.user.id,
+        applicationId: context.profile.application_id,
+        profileId: context.profile.id,
+        action: "invite",
+      });
+
       return NextResponse.json({ success: true, careCheck });
     }
 
@@ -438,6 +488,15 @@ export async function POST(request: Request, routeContext: RouteContext) {
         organisationId: access.organisationId,
         context,
         careCheck,
+      });
+
+      await recordCareCheckRtwAction({
+        supabase,
+        organisationId: access.organisationId,
+        userId: access.user.id,
+        applicationId: context.profile.application_id,
+        profileId: context.profile.id,
+        action: "refresh_status",
       });
 
       return NextResponse.json({ success: true, careCheck });

@@ -31,17 +31,10 @@ export async function POST() {
       resultCode: result.resultCode,
       resultMessage: result.resultMessage,
     });
-  } catch (error) {
-    console.error("CareCheck test invite failed:", error);
-
+  } catch {
+    console.error("CareCheck test invite failed.");
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown CareCheck error",
-      },
+      { success: false, error: "CareCheck test invite failed." },
       { status: 500 },
     );
   }

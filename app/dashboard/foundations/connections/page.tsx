@@ -703,6 +703,13 @@ export default function ConnectionsPage() {
   async function beginSecureConnection() {
     if (!selectedProvider || !selectedConnection) return;
 
+    if (selectedProvider.provider_key.trim().toLowerCase() === "carecheck") {
+      router.push(
+        `/dashboard/foundations/connections/carecheck?connectionId=${selectedConnection.id}`
+      );
+      return;
+    }
+
     if (!providerHasLiveAuthorisationRoute(selectedProvider)) {
       setMessage(
         `${selectedProvider.name} is prepared in the Connections framework, but its secure provider authorisation route has not been activated yet.`

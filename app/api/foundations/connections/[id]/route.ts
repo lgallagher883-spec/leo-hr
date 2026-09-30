@@ -625,6 +625,9 @@ export async function PATCH(
         );
       }
 
+      const providerKey = text(provider.provider_key).toLowerCase();
+      const isCareCheck = providerKey === "carecheck";
+
       updateValues = {
         status: "Disconnected",
         health_status: "Unavailable",
@@ -632,7 +635,23 @@ export async function PATCH(
         sync_enabled: false,
         token_expires_at: null,
         authorised_scopes: [],
+        ...(isCareCheck
+          ? {
+              secret_reference: null,
+              connection_settings: {},
+              connected_at: null,
+              connected_by_user_id: null,
+              reconnect_required_at: null,
+              last_error_code: null,
+              last_error_message: null,
+              last_error_at: null,
+            }
+          : {}),
       };
+
+      activityDetails = isCareCheck
+        ? { credentials_removed: true }
+        : {};
 
       activityType = "Disconnected";
       activitySummary = `${provider.name} disconnected.`;

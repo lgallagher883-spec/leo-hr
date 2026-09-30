@@ -371,24 +371,22 @@ async function recordCareCheckAction({
   action: "invite" | "refresh_status";
 }) {
   const result = await (supabase as any)
-    .from("talent_analytics_events")
+    .from("leo_talent_audit_log")
     .insert({
       organisation_id: organisationId,
-      event_type:
+      table_name: "leo_talent_candidate_shared_records",
+      record_id: String(profileId),
+      action:
         action === "invite"
           ? "carecheck_dbs_invite_sent"
           : "carecheck_dbs_status_refreshed",
-      entity_type: "application",
-      entity_id: applicationId,
       actor_user_id: userId,
-      description:
-        action === "invite"
-          ? "CareCheck DBS invite sent."
-          : "CareCheck DBS status refreshed.",
-      metadata: {
-        profile_id: profileId,
+      new_values: {
+        application_id: String(applicationId),
         provider: "CareCheck",
       },
+      changed_fields: ["carecheck"],
+      source: "carecheck",
     });
 
   if (result.error) {

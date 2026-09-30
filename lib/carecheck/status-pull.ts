@@ -1,4 +1,8 @@
-import { getCareCheckConfig, type CareCheckConfig } from "./client";
+import {
+  assertCareCheckProviderActionAllowed,
+  getCareCheckConfig,
+  type CareCheckConfig,
+} from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_STATUS_PULL_ENDPOINT =
@@ -94,6 +98,7 @@ export async function pullCareCheckApplicationStatus(
   config?: CareCheckConfig,
 ): Promise<CareCheckStatusResult> {
   const careCheckConfig = config ?? getCareCheckConfig();
+  assertCareCheckProviderActionAllowed(careCheckConfig);
 
   const reference = applicationReference.trim();
 

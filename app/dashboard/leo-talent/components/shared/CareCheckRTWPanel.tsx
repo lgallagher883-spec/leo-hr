@@ -263,8 +263,8 @@ export default function CareCheckRTWPanel({
             lineHeight: 1.5,
           }}
         >
-          Provider actions remain disabled in production until CareCheck issues
-          Leo&apos;s production credentials and organisation reference.
+          CareCheck provider actions remain gated until this employer has connected
+          its own CareCheck account and the production workflow has been verified.
         </div>
       ) : null}
 

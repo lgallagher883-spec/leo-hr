@@ -21,7 +21,6 @@ export type CareCheckCandidateInviteResult = {
   applicationReference: string | null;
   resultCode: string | null;
   resultMessage: string | null;
-  rawResponse: string;
 };
 
 function escapeXml(value: string): string {
@@ -139,14 +138,14 @@ export async function sendCareCheckCandidateInvite(
   if (faultString) {
     throw new Error(
       validationError
-        ? `CareCheck SOAP fault: ${faultString} — ${validationError}`
-        : `CareCheck SOAP fault: ${faultString}`,
+        ? "CareCheck rejected the candidate invite. Check the connection and application details."
+        : "CareCheck returned a SOAP fault while sending the candidate invite.",
     );
   }
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
-      `CareCheck returned HTTP ${response.status}: ${rawResponse}`,
+      `CareCheck candidate invite request failed with HTTP ${response.status}.`,
     );
   }
 
@@ -155,6 +154,5 @@ export async function sendCareCheckCandidateInvite(
     applicationReference,
     resultCode,
     resultMessage,
-    rawResponse,
   };
 }

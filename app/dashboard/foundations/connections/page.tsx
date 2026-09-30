@@ -1496,99 +1496,104 @@ if (result.redirectUrl) {
                       />
                     </div>
 
-                    <div style={formGridStyle}>
-                      <FormField label="Connection name">
+                    {selectedProvider.provider_key.trim().toLowerCase() !== "carecheck" && (
+                      <>
+                      <div style={formGridStyle}>
+                        <FormField label="Connection name">
+                          <input
+                            value={connectionName}
+                            onChange={(event) =>
+                              setConnectionName(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+  
+                        <FormField label="Account display name">
+                          <input
+                            value={accountDisplayName}
+                            onChange={(event) =>
+                              setAccountDisplayName(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+                      </div>
+  
+                      <div style={formGridStyle}>
+                        <FormField label="External account ID">
+                          <input
+                            value={externalAccountId}
+                            onChange={(event) =>
+                              setExternalAccountId(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+  
+                        <FormField label="External tenant ID">
+                          <input
+                            value={externalTenantId}
+                            onChange={(event) =>
+                              setExternalTenantId(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+                      </div>
+  
+                      <FormField label="External workspace ID">
                         <input
-                          value={connectionName}
+                          value={externalWorkspaceId}
                           onChange={(event) =>
-                            setConnectionName(
+                            setExternalWorkspaceId(
                               event.target.value
                             )
                           }
                           style={inputStyle}
                         />
                       </FormField>
-
-                      <FormField label="Account display name">
-                        <input
-                          value={accountDisplayName}
-                          onChange={(event) =>
-                            setAccountDisplayName(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
+  
+                      <div style={optionGridStyle}>
+                        <ToggleCard
+                          label="Enable synchronisation"
+                          description="Allow this provider to run approved synchronisation jobs."
+                          checked={syncEnabled}
+                          onChange={setSyncEnabled}
                         />
-                      </FormField>
-                    </div>
-
-                    <div style={formGridStyle}>
-                      <FormField label="External account ID">
-                        <input
-                          value={externalAccountId}
-                          onChange={(event) =>
-                            setExternalAccountId(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
-                        />
-                      </FormField>
-
-                      <FormField label="External tenant ID">
-                        <input
-                          value={externalTenantId}
-                          onChange={(event) =>
-                            setExternalTenantId(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
-                        />
-                      </FormField>
-                    </div>
-
-                    <FormField label="External workspace ID">
-                      <input
-                        value={externalWorkspaceId}
-                        onChange={(event) =>
-                          setExternalWorkspaceId(
-                            event.target.value
-                          )
-                        }
-                        style={inputStyle}
-                      />
-                    </FormField>
-
-                    <div style={optionGridStyle}>
-                      <ToggleCard
-                        label="Enable synchronisation"
-                        description="Allow this provider to run approved synchronisation jobs."
-                        checked={syncEnabled}
-                        onChange={setSyncEnabled}
-                      />
-                    </div>
-
-                    {syncEnabled && (
-                      <FormField label="Synchronisation frequency">
-                        <select
-                          value={syncFrequency}
-                          onChange={(event) =>
-                            setSyncFrequency(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
-                        >
-                          {syncFrequencies.map(
-                            (frequency) => (
-                              <option key={frequency}>
-                                {frequency}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      </FormField>
+                      </div>
+  
+                      {syncEnabled && (
+                        <FormField label="Synchronisation frequency">
+                          <select
+                            value={syncFrequency}
+                            onChange={(event) =>
+                              setSyncFrequency(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          >
+                            {syncFrequencies.map(
+                              (frequency) => (
+                                <option key={frequency}>
+                                  {frequency}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </FormField>
+                      )}
+  
+                        </>
                     )}
 
                     <div style={providerActionPanelStyle}>

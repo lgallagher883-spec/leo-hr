@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function CareCheckConnectionPage() {
@@ -15,6 +15,47 @@ export default function CareCheckConnectionPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [connected, setConnected] = useState(false);
+  const [credentialsConfigured, setCredentialsConfigured] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!Number.isInteger(connectionId) || connectionId < 1) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadConnection() {
+      try {
+        const response = await fetch(
+          `/api/foundations/connections/carecheck/configure?connectionId=${connectionId}`,
+          { cache: "no-store" },
+        );
+        const result = (await response.json()) as {
+          success?: boolean;
+          connection?: {
+            environment?: string;
+            organisationReference?: string;
+            credentialsConfigured?: boolean;
+          };
+        };
+
+        if (!cancelled && response.ok && result.success && result.connection) {
+          setEnvironment(result.connection.environment || "production");
+          setOrganisationReference(result.connection.organisationReference || "");
+          setCredentialsConfigured(result.connection.credentialsConfigured === true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadConnection();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,7 +102,9 @@ export default function CareCheckConnectionPage() {
       <button type="button" onClick={() => router.push("/dashboard/foundations/connections")} style={{ border: 0, background: "transparent", cursor: "pointer", marginBottom: 20 }}>
         ← Back to Connections
       </button>
-      <h1 style={{ color: "#6E5084", marginBottom: 8 }}>Connect CareCheck</h1>
+      <h1 style={{ color: "#6E5084", marginBottom: 8 }}>
+        {credentialsConfigured ? "Update CareCheck" : "Connect CareCheck"}
+      </h1>
       <p style={{ color: "#7D7D7D", lineHeight: 1.6 }}>
         Connect this organisation’s own CareCheck account. DBS and Right to Work checks will be processed under that employer’s CareCheck account, not Leo HR’s account.
       </p>
@@ -84,6 +127,9 @@ export default function CareCheckConnectionPage() {
           </div>
         </div>
       ) : null}
+      {loading ? (
+        <div style={{ color: "#7D7D7D", marginBottom: 16 }}>Loading CareCheck settings…</div>
+      ) : null}
       <form onSubmit={submit}>
         <label style={labelStyle}>Environment</label>
         <select value={environment} onChange={(event) => setEnvironment(event.target.value)} style={inputStyle}>
@@ -100,8 +146,14 @@ export default function CareCheckConnectionPage() {
         <label style={labelStyle}>CareCheck password</label>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required style={inputStyle} />
 
-        <button type="submit" disabled={saving || connected} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected ? "default" : "pointer", opacity: connected ? 0.55 : 1 }}>
-          {saving ? "Connecting…" : connected ? "CareCheck connected" : "Connect CareCheck"}
+        <button type="submit" disabled={saving || connected || loading} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected ? "default" : "pointer", opacity: connected ? 0.55 : 1 }}>
+          {saving
+            ? "Saving…"
+            : connected
+              ? "CareCheck saved"
+              : credentialsConfigured
+                ? "Update CareCheck"
+                : "Connect CareCheck"}
         </button>
       </form>
     </div>

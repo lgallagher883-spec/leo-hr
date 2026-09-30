@@ -1441,6 +1441,25 @@ if (result.redirectUrl) {
                   </div>
                 ) : (
                   <div>
+                    {selectedProvider.provider_key.trim().toLowerCase() === "carecheck" && (
+                      <div
+                        style={{
+                          background: "#F7F1FC",
+                          borderRadius: 12,
+                          padding: 16,
+                          marginBottom: 20,
+                          color: "#7D7D7D",
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        <strong style={{ color: "#6E5084" }}>CareCheck account status</strong>
+                        <div style={{ marginTop: 6 }}>
+                          Connected means this employer&apos;s CareCheck account details are stored securely in Leo.
+                          Test Connection checks the saved configuration and CareCheck endpoint. It does not yet mean
+                          authenticated production SOAP has been verified.
+                        </div>
+                      </div>
+                    )}
                     <div style={detailGridStyle}>
                       <DetailCard
                         label="Status"
@@ -1631,10 +1650,13 @@ if (result.redirectUrl) {
                           }
                           style={primaryButtonStyle}
                         >
-                          {selectedConnection.status ===
-                            "Connected"
-                            ? "Reconnect"
-                            : "Connect Securely"}
+                          {selectedProvider.provider_key.trim().toLowerCase() === "carecheck"
+                            ? selectedConnection.status === "Connected"
+                              ? "Update CareCheck"
+                              : "Connect CareCheck"
+                            : selectedConnection.status === "Connected"
+                              ? "Reconnect"
+                              : "Connect Securely"}
                         </button>
 
                         {selectedProvider.supports_disconnect && (

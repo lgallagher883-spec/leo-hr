@@ -4,7 +4,7 @@
 
 Leo has a working CareCheck development integration for candidate DBS checks and a development Right to Work flow built on the same Candidate Invite and Status Pull services.
 
-Production provider actions remain disabled while the per-organisation connection flow is completed and verified.
+The per-organisation connection flow is implemented. Production provider actions remain explicitly disabled until authenticated production SOAP and the controlled production workflow are verified.
 
 ## Confirmed customer account model
 
@@ -19,7 +19,7 @@ The production model is therefore:
 - Leo's own CareCheck account must never be used as a fallback for customer production checks.
 - Existing candidate/application data remains scoped by Leo `organisation_id`.
 
-The current global `CARECHECK_*` environment variables are retained only for Leo's development sandbox while the organisation connection layer is completed.
+Global `CARECHECK_*` environment variables are retained only for Leo's development sandbox. Customer production checks resolve the authenticated employer's encrypted CareCheck connection and never fall back to Leo's credentials.
 
 ## Confirmed endpoints
 
@@ -30,7 +30,7 @@ Production endpoints confirmed by CareCheck:
 - Candidate Invite: `https://www.matrixscreening.com/care/ws/candidateInviteService`
 - Status Pull: `https://www.matrixscreening.com/care/ws/statusPullService`
 
-Authentication is WS-Security UsernameToken using the Leo CareCheck environment variables.
+Authentication is WS-Security UsernameToken. Development may use Leo sandbox environment variables; customer production actions use the authenticated employer's encrypted CareCheck credentials resolved from its Leo organisation connection.
 
 ## Candidate Invite codes
 
@@ -109,13 +109,13 @@ The Status Pull WSDL supports up to 200 application status requests in one reque
 Before production actions are enabled:
 
 1. Each employer that wants the integration registers directly with CareCheck.
-2. Leo's organisation-specific connection flow stores/resolves that employer's CareCheck connection without exposing credentials to normal organisation records or client-side code.
-3. DBS and Right to Work routes resolve the authenticated Leo organisation before any provider request.
-4. Global Leo sandbox credentials are not permitted as a production customer fallback.
+2. Leo's organisation-specific connection flow stores/resolves that employer's CareCheck connection without exposing credentials to normal organisation records or client-side code. Implemented.
+3. DBS and Right to Work routes resolve the authenticated Leo organisation before any provider request. Implemented.
+4. Global Leo sandbox credentials are not permitted as a production customer fallback. Implemented.
 5. A controlled production test is agreed and completed with an independently registered CareCheck customer account.
 6. Automated polling is configured to respect the twice-daily recommendation.
-7. Development-only controls/test routes are reviewed and removed or locked down.
-8. No raw SOAP envelope, credential material or candidate personal data is written to application logs.
+7. Development-only controls/test routes are reviewed and removed or locked down. Implemented for the current test routes.
+8. No raw SOAP envelope, credential material or candidate personal data is written to application logs. Implemented in the CareCheck SOAP layer.
 9. Owner/Senior-only connection management and tenant-isolation tests are completed before production activation.
 
 ## Scope

@@ -121,8 +121,7 @@ export default function CareCheckRTWPanel({
               color: "#6E5084",
               fontSize: "11px",
               fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              letterSpacing: "0.02em",
             }}
           >
             CareCheck
@@ -313,8 +312,7 @@ function Info({ label, value }: { label: string; value: string }) {
           color: "#817586",
           fontSize: "9px",
           fontWeight: 800,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.02em",
         }}
       >
         {label}

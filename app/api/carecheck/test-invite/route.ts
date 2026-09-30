@@ -30,7 +30,6 @@ export async function POST() {
       applicationReference: result.applicationReference,
       resultCode: result.resultCode,
       resultMessage: result.resultMessage,
-      rawResponse: result.rawResponse,
     });
   } catch (error) {
     console.error("CareCheck test invite failed:", error);

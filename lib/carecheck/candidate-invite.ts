@@ -1,4 +1,8 @@
-import { getCareCheckConfig, type CareCheckConfig } from "./client";
+import {
+  assertCareCheckProviderActionAllowed,
+  getCareCheckConfig,
+  type CareCheckConfig,
+} from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT =
@@ -79,6 +83,7 @@ export async function sendCareCheckCandidateInvite(
   config?: CareCheckConfig,
 ): Promise<CareCheckCandidateInviteResult> {
   const careCheckConfig = config ?? getCareCheckConfig();
+  assertCareCheckProviderActionAllowed(careCheckConfig);
 
   if (!input.externalReference.trim()) {
     throw new Error("CareCheck externalReference is required.");

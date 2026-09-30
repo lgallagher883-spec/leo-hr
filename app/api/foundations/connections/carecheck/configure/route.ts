@@ -32,6 +32,95 @@ function getAdminClient() {
   });
 }
 
+export async function GET(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Your session is unavailable. Please sign in again." },
+        { status: 401 },
+      );
+    }
+
+    const resolved = await resolveAuthoritativeUserRole(supabase as any, {
+      userId: user.id,
+      allowedStatuses: ["active", "accepted"],
+    });
+    const role = text(resolved?.roleKey).toLowerCase();
+    const organisationId = resolved?.membership.organisation_id ?? null;
+
+    if (!organisationId || !["owner", "senior", "hr"].includes(role)) {
+      return NextResponse.json(
+        { success: false, error: "Senior or Owner access is required." },
+        { status: 403 },
+      );
+    }
+
+    const connectionId = Number(new URL(request.url).searchParams.get("connectionId"));
+    if (!Number.isInteger(connectionId) || connectionId < 1) {
+      return NextResponse.json(
+        { success: false, error: "The CareCheck connection reference is invalid." },
+        { status: 400 },
+      );
+    }
+
+    const admin = getAdminClient();
+    const connection = await admin
+      .from("organisation_connections")
+      .select("id,provider_id,status,health_status,secret_reference,connection_settings")
+      .eq("id", connectionId)
+      .eq("organisation_id", organisationId)
+      .eq("is_archived", false)
+      .maybeSingle();
+
+    if (connection.error || !connection.data) {
+      return NextResponse.json(
+        { success: false, error: "The CareCheck connection could not be found." },
+        { status: 404 },
+      );
+    }
+
+    const provider = await admin
+      .from("connection_providers")
+      .select("provider_key")
+      .eq("id", connection.data.provider_id)
+      .eq("provider_key", "carecheck")
+      .maybeSingle();
+
+    if (provider.error || !provider.data) {
+      return NextResponse.json(
+        { success: false, error: "This connection is not configured for CareCheck." },
+        { status: 400 },
+      );
+    }
+
+    const settings =
+      connection.data.connection_settings &&
+      typeof connection.data.connection_settings === "object"
+        ? connection.data.connection_settings as Record<string, unknown>
+        : {};
+
+    return NextResponse.json({
+      success: true,
+      connection: {
+        id: connection.data.id,
+        status: connection.data.status,
+        healthStatus: connection.data.health_status,
+        environment: text(settings.environment) || "production",
+        organisationReference: text(settings.organisation_reference),
+        credentialsConfigured: Boolean(connection.data.secret_reference),
+      },
+    });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "The CareCheck connection could not be loaded." },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();

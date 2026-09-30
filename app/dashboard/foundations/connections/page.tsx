@@ -189,8 +189,7 @@ type WorkspaceTab =
   | "Jobs & Resources"
   | "Activity";
 
-const categories = [
-  "All",
+const preferredCategoryOrder = [
   "Artificial Intelligence",
   "Design",
   "Voice",
@@ -206,6 +205,7 @@ const categories = [
   "Productivity",
   "Automation",
   "Identity",
+  "Compliance",
   "Learning",
   "Forms",
   "Electronic Signature",
@@ -1123,6 +1123,31 @@ if (result.redirectUrl) {
       ),
     [connections]
   );
+
+  const categories = useMemo(() => {
+    const providerCategories = Array.from(
+      new Set(
+        providers
+          .map((provider) => provider.category?.trim())
+          .filter((category): category is string => Boolean(category))
+      )
+    );
+
+    providerCategories.sort((left, right) => {
+      const leftIndex = preferredCategoryOrder.indexOf(left);
+      const rightIndex = preferredCategoryOrder.indexOf(right);
+      const leftRank =
+        leftIndex === -1 ? preferredCategoryOrder.length : leftIndex;
+      const rightRank =
+        rightIndex === -1 ? preferredCategoryOrder.length : rightIndex;
+
+      return leftRank === rightRank
+        ? left.localeCompare(right)
+        : leftRank - rightRank;
+    });
+
+    return ["All", ...providerCategories];
+  }, [providers]);
 
   const filteredProviders = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();

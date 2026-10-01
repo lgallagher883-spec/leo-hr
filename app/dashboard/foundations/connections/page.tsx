@@ -1221,6 +1221,9 @@ if (result.redirectUrl) {
     if (selectedProvider) {
     const connectionStatus =
       selectedConnection?.status || "Not Connected";
+    const isCareCheck =
+      selectedProvider.provider_key === "carecheck" ||
+      selectedProvider.name.toLowerCase().includes("carecheck");
 
     const capabilityGroups = Array.from(
       new Set(

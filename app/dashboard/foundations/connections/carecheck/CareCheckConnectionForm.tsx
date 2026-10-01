@@ -126,7 +126,7 @@ export default function CareCheckConnectionForm({
         Connect your organisation’s CareCheck account to manage DBS and Right to Work checks through Leo HR. Checks and billing remain with your organisation’s CareCheck account.
       </p>
       <div style={{ background: "#F7F1FC", borderRadius: 12, padding: 16, margin: "20px 0" }}>
-        Your CareCheck account details are stored securely by Leo. Your password will never be displayed after you connect your account.
+        Use the CareCheck integration/API credentials supplied for your organisation. These may be different from the details you use to sign in to the CareCheck website. Leo stores the API password securely and never displays it after connection.
       </div>
       {error && <div style={{ padding: 12, marginBottom: 16, border: "1px solid #b42318", borderRadius: 8 }}>{error}</div>}
       {message && <div style={{ padding: 12, marginBottom: 16, border: "1px solid #6E5084", borderRadius: 8 }}>{message}</div>}
@@ -157,16 +157,14 @@ export default function CareCheckConnectionForm({
         <label style={labelStyle}>CareCheck organisation reference</label>
         <input value={organisationReference} onChange={(event) => setOrganisationReference(event.target.value)} autoComplete="off" required style={inputStyle} />
 
-        <label style={labelStyle}>CareCheck username</label>
+        <label style={labelStyle}>CareCheck API username</label>
         <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required style={inputStyle} />
 
-        <label style={labelStyle}>CareCheck password</label>
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required={environment === "production"} style={inputStyle} />
-        {environment === "sandbox" && (
-          <div style={{ color: "#7D7D7D", fontSize: 13, marginTop: 6 }}>
-            Password is optional temporarily for CareCheck sandbox testing.
-          </div>
-        )}
+        <label style={labelStyle}>CareCheck API password</label>
+        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required style={inputStyle} />
+        <div style={{ color: "#7D7D7D", fontSize: 13, marginTop: 6 }}>
+          Enter the API password supplied for this organisation&apos;s CareCheck integration. It is required for both sandbox and production connections.
+        </div>
 
         <button type="submit" disabled={saving || connected || loading || loadFailed} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected || loading || loadFailed ? "default" : "pointer", opacity: connected || loading || loadFailed ? 0.55 : 1 }}>
           {saving

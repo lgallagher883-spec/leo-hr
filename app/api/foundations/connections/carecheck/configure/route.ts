@@ -250,7 +250,7 @@ export async function POST(request: Request) {
       provider_id: lookup.data.provider_id,
       connection_id: connectionId,
       module_key: "Foundations",
-      activity_type: "Credentials Configured",
+      activity_type: "Settings Updated",
       activity_summary: "CareCheck account connected for this organisation.",
       activity_details: {
         environment,

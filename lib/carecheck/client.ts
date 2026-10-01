@@ -38,7 +38,7 @@ function validateCareCheckConfig(
     throw new Error(`${source} CareCheck username is not configured`);
   }
 
-  if (!password && environment === "production") {
+  if (!password) {
     throw new Error(`${source} CareCheck password is not configured`);
   }
 

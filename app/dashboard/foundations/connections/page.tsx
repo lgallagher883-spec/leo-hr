@@ -1282,8 +1282,10 @@ if (result.redirectUrl) {
             </div>
 
             <div style={providerHealthValueStyle}>
-              {selectedConnection?.health_status ||
-                "Not Checked"}
+              {isCareCheck &&
+              selectedConnection?.health_status === "Healthy"
+                ? "Endpoint Reachable"
+                : selectedConnection?.health_status || "Not Checked"}
             </div>
           </div>
         </div>

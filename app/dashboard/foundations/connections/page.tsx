@@ -1495,7 +1495,10 @@ if (result.redirectUrl) {
                       <DetailCard
                         label="Health"
                         value={
-                          selectedConnection.health_status
+                          isCareCheck &&
+                          selectedConnection.health_status === "Healthy"
+                            ? "Endpoint Reachable"
+                            : selectedConnection.health_status
                         }
                       />
 

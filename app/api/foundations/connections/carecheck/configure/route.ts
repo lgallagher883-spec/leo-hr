@@ -166,9 +166,9 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (!organisationReference || !username || (environment === "production" && !password)) {
+    if (!organisationReference || !username || !password) {
       return NextResponse.json(
-        { success: false, error: "CareCheck organisation reference and username are required. A password is also required for production." },
+        { success: false, error: "CareCheck organisation reference, API username and API password are required." },
         { status: 400 },
       );
     }
@@ -204,10 +204,7 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const secretReference = encryptCareCheckCredentials(
-      { username, password },
-      { allowEmptyPassword: environment === "sandbox" },
-    );
+    const secretReference = encryptCareCheckCredentials({ username, password });
     const update = await admin
       .from("organisation_connections")
       .update({

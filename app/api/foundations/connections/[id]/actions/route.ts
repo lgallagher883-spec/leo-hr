@@ -615,7 +615,7 @@ export async function POST(
         };
 
         const healthStatus = careCheckResult.success
-          ? careCheckResult.healthStatus || "Configuration Valid"
+          ? "Healthy"
           : "Configuration Required";
 
         const summary =

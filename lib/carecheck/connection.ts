@@ -42,13 +42,16 @@ function encryptionKey(): Buffer {
   return createHash("sha256").update(secret).digest();
 }
 
-export function encryptCareCheckCredentials(input: {
-  username: string;
-  password: string;
-}): string {
+export function encryptCareCheckCredentials(
+  input: {
+    username: string;
+    password: string;
+  },
+  options: { allowEmptyPassword?: boolean } = {},
+): string {
   const username = input.username.trim();
 
-  if (!username || !input.password) {
+  if (!username || (!input.password && !options.allowEmptyPassword)) {
     throw new Error("CareCheck username and password are required.");
   }
 
@@ -76,6 +79,7 @@ export function encryptCareCheckCredentials(input: {
 
 export function decryptCareCheckCredentials(
   secretReference: string,
+  options: { allowEmptyPassword?: boolean } = {},
 ): CareCheckSecretPayload {
   const parts = secretReference.split(".");
 
@@ -106,7 +110,7 @@ export function decryptCareCheckCredentials(
       typeof payload.username !== "string" ||
       !payload.username.trim() ||
       typeof payload.password !== "string" ||
-      !payload.password
+      (!payload.password && !options.allowEmptyPassword)
     ) {
       throw new Error("The stored CareCheck credential is incomplete.");
     }
@@ -168,14 +172,15 @@ export async function getOrganisationCareCheckConfig(
         return null;
       }
 
-      const credentials = decryptCareCheckCredentials(
-        connection.secret_reference,
-      );
       const settings =
         connection.connection_settings &&
         typeof connection.connection_settings === "object"
           ? connection.connection_settings
           : {};
+      const credentials = decryptCareCheckCredentials(
+        connection.secret_reference,
+        { allowEmptyPassword: settings.environment === "sandbox" },
+      );
 
       return {
         environment: settings.environment,

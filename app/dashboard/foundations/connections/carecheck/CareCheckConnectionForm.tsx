@@ -161,7 +161,12 @@ export default function CareCheckConnectionForm({
         <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required style={inputStyle} />
 
         <label style={labelStyle}>CareCheck password</label>
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required style={inputStyle} />
+        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required={environment === "production"} style={inputStyle} />
+        {environment === "sandbox" && (
+          <div style={{ color: "#7D7D7D", fontSize: 13, marginTop: 6 }}>
+            Password is optional temporarily for CareCheck sandbox testing.
+          </div>
+        )}
 
         <button type="submit" disabled={saving || connected || loading || loadFailed} style={{ marginTop: 20, padding: "11px 18px", border: 0, borderRadius: 8, background: "#6E5084", color: "white", cursor: saving || connected || loading || loadFailed ? "default" : "pointer", opacity: connected || loading || loadFailed ? 0.55 : 1 }}>
           {saving

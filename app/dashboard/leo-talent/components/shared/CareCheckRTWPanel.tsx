@@ -52,7 +52,6 @@ export default function CareCheckRTWPanel({
 
   const applicationReference = careCheck?.applicationReference?.trim() || "";
   const hasApplication = Boolean(applicationReference);
-  const developmentActionsAvailable = process.env.NODE_ENV !== "production";
 
   async function run(action: "invite" | "refresh_status") {
     setBusy(action === "invite" ? "invite" : "refresh");
@@ -218,7 +217,7 @@ export default function CareCheckRTWPanel({
         </div>
       ) : null}
 
-      {canManage && developmentActionsAvailable ? (
+      {canManage ? (
         <div
           style={{
             display: "flex",
@@ -253,7 +252,7 @@ export default function CareCheckRTWPanel({
         </div>
       ) : null}
 
-      {!developmentActionsAvailable ? (
+      {false ? (
         <div
           style={{
             marginTop: "12px",

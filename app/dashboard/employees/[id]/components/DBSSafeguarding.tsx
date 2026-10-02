@@ -23,6 +23,7 @@ type DBSRecord = {
   safeguarding_training_expiry: string | null;
   notes: string | null;
   created_at: string;
+  carecheck?: Record<string, any> | null;
 };
 
 const dbsRequiredOptions = ["Yes", "No"];
@@ -66,6 +67,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [careCheckBusy, setCareCheckBusy] = useState(false);
 
   async function loadRecords() {
     setLoading(true);
@@ -179,6 +181,25 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
     loadRecords();
   }
 
+  const latestCareCheck = records[0]?.carecheck && typeof records[0].carecheck === "object" ? records[0].carecheck : null;
+
+  async function runCareCheck(action: "invite" | "refresh_status") {
+    setCareCheckBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/carecheck`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "dbs", action, dbsLevel }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "CareCheck could not complete the DBS action.");
+      setMessage(action === "invite" ? "CareCheck DBS invite sent and tracking connected." : "CareCheck DBS status refreshed.");
+      await loadRecords();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "CareCheck could not complete the DBS action.");
+    } finally { setCareCheckBusy(false); }
+  }
+
   return (
     <ProfileSection title="DBS / Safeguarding">
       <p style={{ color: "#5E456C", fontSize: "14px", marginTop: 0 }}>
@@ -186,6 +207,20 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         certificate issue date is entered, the next check due date is
         automatically set to 11 months later.
       </p>
+
+      <div style={{ border: "1px solid #DDCDEB", borderRadius: "12px", background: "#FBF8FD", padding: "14px", marginBottom: "16px" }}>
+        <div style={{ color: "#6E5084", fontSize: "11px", fontWeight: 800 }}>CareCheck</div>
+        <div style={{ marginTop: "5px", fontWeight: 800 }}>DBS provider check</div>
+        <div style={{ marginTop: "6px", color: "#756A79", fontSize: "12px" }}>
+          {latestCareCheck?.statusDescription || latestCareCheck?.statusCode || "No CareCheck DBS application linked to this employee."}
+        </div>
+        {latestCareCheck?.applicationReference ? <div style={{ marginTop: "4px", color: "#756A79", fontSize: "11px" }}>Reference: {latestCareCheck.applicationReference}</div> : null}
+        <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+          <button type="button" disabled={careCheckBusy} onClick={() => void runCareCheck(latestCareCheck?.applicationReference ? "refresh_status" : "invite")} style={{ border: "1px solid #6E5084", borderRadius: "9px", background: "#6E5084", color: "#fff", padding: "9px 12px", fontWeight: 800, cursor: careCheckBusy ? "not-allowed" : "pointer" }}>
+            {careCheckBusy ? "Working..." : latestCareCheck?.applicationReference ? "Refresh CareCheck status" : "Send CareCheck DBS invite"}
+          </button>
+        </div>
+      </div>
 
       <SelectField
         label="DBS Required"

@@ -181,19 +181,25 @@ export async function POST(request: Request, context: RouteContext) {
       providerInviteType: kind === "dbs" ? "DI" : "RTW",
     };
 
-    if (latest?.id) {
-      const patch: Record<string, unknown> = { carecheck, updated_at: now };
-      if (kind === "dbs" && !latest.dbs_level) patch.dbs_level = level;
-      const { error } = await admin.from(table).update(patch).eq("id", latest.id);
-      if (error) throw new Error(error.message);
-    } else if (kind === "dbs") {
+    // A new provider application is a new compliance event. Never attach it
+    // to (or rewrite) an older employer-recorded DBS/RTW history row.
+    if (kind === "dbs") {
       const { error } = await admin.from("employee_dbs_checks").insert({
-        employee_id: employeeId, dbs_required: "Yes", dbs_level: level, carecheck, updated_at: now,
+        employee_id: employeeId,
+        dbs_required: "Yes",
+        dbs_level: level,
+        carecheck,
+        notes: "DBS application initiated through CareCheck.",
+        updated_at: now,
       });
       if (error) throw new Error(error.message);
     } else {
       const { error } = await admin.from("employee_right_to_work").insert({
-        employee_id: employeeId, nationality: "Not recorded", carecheck, updated_at: now,
+        employee_id: employeeId,
+        nationality: clean(latest?.nationality) || "Not recorded",
+        carecheck,
+        notes: "Right to Work check initiated through CareCheck.",
+        updated_at: now,
       });
       if (error) throw new Error(error.message);
     }

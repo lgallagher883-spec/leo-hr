@@ -113,7 +113,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const result = await resolved.admin
       .from("employee_dbs_checks")
-      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,safeguarding_training_completed,safeguarding_training_expiry,notes,created_at")
+      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,safeguarding_training_completed,safeguarding_training_expiry,notes,carecheck,created_at")
       .eq("employee_id", resolved.employeeId)
       .order("created_at", { ascending: false });
 

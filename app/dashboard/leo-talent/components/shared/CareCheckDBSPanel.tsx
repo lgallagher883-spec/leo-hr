@@ -60,7 +60,6 @@ export default function CareCheckDBSPanel({
 
   const applicationReference = careCheck?.applicationReference?.trim() || "";
   const hasApplication = Boolean(applicationReference);
-  const developmentActionsAvailable = process.env.NODE_ENV !== "production";
 
   const workforceLabel =
     workforce === "child"
@@ -296,7 +295,7 @@ export default function CareCheckDBSPanel({
             </div>
           ) : null}
 
-          {canManage && developmentActionsAvailable ? (
+          {canManage ? (
             <div
               style={{
                 display: "flex",
@@ -355,7 +354,7 @@ export default function CareCheckDBSPanel({
             </div>
           ) : null}
 
-          {!developmentActionsAvailable ? (
+          {false ? (
             <div
               style={{
                 marginTop: "12px",

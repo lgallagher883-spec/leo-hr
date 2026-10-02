@@ -348,7 +348,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
               >
                 <div style={{ fontWeight: 800 }}>
                   DBS required: {record.dbs_required}
-                  {record.dbs_level ? ` · ${record.dbs_level}` : ""}
+                  {record.dbs_required === "Yes" && record.dbs_level ? ` · ${record.dbs_level}` : ""}
                 </div>
 
                 <div

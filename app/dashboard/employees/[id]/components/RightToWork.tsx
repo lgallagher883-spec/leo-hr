@@ -47,6 +47,7 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [careCheckBusy, setCareCheckBusy] = useState(false);
 
   const isOtherNationality = nationality === "Other";
 
@@ -143,15 +144,31 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
     talentRecord?.payload && typeof talentRecord.payload === "object"
       ? talentRecord.payload
       : null;
-  const careCheck =
-    talentPayload?.careCheck && typeof talentPayload.careCheck === "object"
-      ? talentPayload.careCheck
-      : null;
   const latest = records[0] || null;
+  const employeeCareCheck = latest?.carecheck && typeof latest.carecheck === "object" ? latest.carecheck : null;
+  const talentCareCheck = talentPayload?.careCheck && typeof talentPayload.careCheck === "object" ? talentPayload.careCheck : null;
+  const careCheck = employeeCareCheck || talentCareCheck;
   const status = talentPayload?.status || latest?.immigration_status || "not_recorded";
   const statusLabel = String(status)
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  async function runCareCheck(action: "invite" | "refresh_status") {
+    setCareCheckBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/carecheck`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "rtw", action }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "CareCheck could not complete the Right to Work action.");
+      setMessage(action === "invite" ? "CareCheck Right to Work invite sent and tracking connected." : "CareCheck Right to Work status refreshed.");
+      await loadRecords();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "CareCheck could not complete the Right to Work action.");
+    } finally { setCareCheckBusy(false); }
+  }
 
   return (
     <ProfileSection title="Right to Work">
@@ -172,6 +189,15 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
               <Summary label="Next review" value={talentPayload?.followUpDate || latest?.next_review_date || "Not recorded"} />
               <Summary label="Provider" value={careCheck ? "CareCheck" : "Employer recorded"} />
             </div>
+          </div>
+
+          <div style={providerStyle}>
+            <div style={eyebrowStyle}>CareCheck</div>
+            <strong>{careCheck?.statusDescription || careCheck?.statusCode || "No CareCheck Right to Work application linked to this employee."}</strong>
+            {careCheck?.applicationReference ? <span>Reference: {careCheck.applicationReference}</span> : null}
+            <button type="button" disabled={careCheckBusy} onClick={() => void runCareCheck(careCheck?.applicationReference ? "refresh_status" : "invite")} style={{ width: "fit-content", border: "1px solid #6E5084", borderRadius: "9px", background: "#6E5084", color: "#fff", padding: "9px 12px", fontWeight: 800, cursor: careCheckBusy ? "not-allowed" : "pointer", marginTop: "6px" }}>
+              {careCheckBusy ? "Working..." : careCheck?.applicationReference ? "Refresh CareCheck RTW status" : "Send CareCheck RTW invite"}
+            </button>
           </div>
 
           {careCheck ? (

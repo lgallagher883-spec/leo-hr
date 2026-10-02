@@ -19,6 +19,8 @@ type DBSRecord = {
   next_check_due: string | null;
   update_service: string | null;
   update_service_id: string | null;
+  update_service_last_check_date: string | null;
+  update_service_next_check_due: string | null;
   safeguarding_training_completed: string | null;
   safeguarding_training_expiry: string | null;
   notes: string | null;
@@ -58,6 +60,8 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   const [nextCheckDue, setNextCheckDue] = useState("");
   const [updateService, setUpdateService] = useState("No");
   const [updateServiceId, setUpdateServiceId] = useState("");
+  const [updateServiceLastCheckDate, setUpdateServiceLastCheckDate] = useState("");
+  const [updateServiceNextCheckDue, setUpdateServiceNextCheckDue] = useState("");
   const [safeguardingTrainingCompleted, setSafeguardingTrainingCompleted] =
     useState("");
   const [safeguardingTrainingExpiry, setSafeguardingTrainingExpiry] =
@@ -145,6 +149,8 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
           nextCheckDue: nextCheckDue || null,
           updateService: updateService || null,
           updateServiceId: updateServiceId || null,
+          updateServiceLastCheckDate: updateServiceLastCheckDate || null,
+          updateServiceNextCheckDue: updateServiceNextCheckDue || null,
           safeguardingTrainingCompleted: safeguardingTrainingCompleted || null,
           safeguardingTrainingExpiry: safeguardingTrainingExpiry || null,
           notes: notes || null,
@@ -173,6 +179,8 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
     setNextCheckDue("");
     setUpdateService("No");
     setUpdateServiceId("");
+    setUpdateServiceLastCheckDate("");
+    setUpdateServiceNextCheckDue("");
     setSafeguardingTrainingCompleted("");
     setSafeguardingTrainingExpiry("");
     setNotes("");
@@ -271,12 +279,11 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
           />
 
           {updateService === "Yes" && (
-            <Field
-              label="Update Service ID"
-              value={updateServiceId}
-              onChange={setUpdateServiceId}
-              placeholder="Optional"
-            />
+            <>
+              <Field label="Update Service ID" value={updateServiceId} onChange={setUpdateServiceId} placeholder="Optional" />
+              <Field label="Last Update Service Check" value={updateServiceLastCheckDate} onChange={(value) => { setUpdateServiceLastCheckDate(value); setUpdateServiceNextCheckDue(value ? addMonths(value, 12) : ""); }} type="date" small />
+              <Field label="Next Update Service Check Due" value={updateServiceNextCheckDue} onChange={setUpdateServiceNextCheckDue} type="date" small />
+            </>
           )}
         </>
       )}
@@ -365,9 +372,9 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
                 {record.update_service && (
                   <div style={{ marginTop: "8px" }}>
                     <strong>Update service:</strong> {record.update_service}
-                    {record.update_service_id
-                      ? ` · ${record.update_service_id}`
-                      : ""}
+                    {record.update_service_id ? ` · ${record.update_service_id}` : ""}
+                    {record.update_service_last_check_date ? ` · last checked ${record.update_service_last_check_date}` : ""}
+                    {record.update_service_next_check_due ? ` · next due ${record.update_service_next_check_due}` : ""}
                   </div>
                 )}
 

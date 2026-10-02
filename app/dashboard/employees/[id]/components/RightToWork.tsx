@@ -19,6 +19,7 @@ type RightToWorkRecord = {
   next_review_date: string | null;
   notes: string | null;
   created_at: string;
+  carecheck?: Record<string, any> | null;
 };
 
 const nationalityOptions = [

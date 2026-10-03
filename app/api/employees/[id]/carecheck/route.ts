@@ -146,6 +146,16 @@ export async function POST(request: Request, context: RouteContext) {
 
     const person = names(employee.name || "Employee");
     const level = clean(body.dbsLevel) || clean(latest?.dbs_level) || "Basic";
+    if (kind === "dbs" && level.toLowerCase().includes("barred")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "This DBS selection includes a Barred List requirement. Leo has not yet verified the CareCheck API fields needed to submit that requirement safely. Record the requirement in Leo and initiate this check directly in CareCheck for now.",
+        },
+        { status: 409 },
+      );
+    }
     const stamp = Date.now().toString(36);
     const prefix = kind === "dbs" ? "EDBS" : "ERTW";
     const invite = await sendCareCheckCandidateInvite({

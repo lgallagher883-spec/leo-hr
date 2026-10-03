@@ -145,6 +145,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       update_service_consent_confirmed: body.updateServiceConsentConfirmed === true,
       update_service_certificate_seen: body.updateServiceCertificateSeen === true,
       update_service_identity_confirmed: body.updateServiceIdentityConfirmed === true,
+      update_service_eligibility_confirmed: body.updateServiceEligibilityConfirmed === true,
       update_service_result: body.updateServiceResult || null,
       safeguarding_training_completed: body.safeguardingTrainingCompleted || null,
       safeguarding_training_expiry: body.safeguardingTrainingExpiry || null,
@@ -156,14 +157,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // duplicate history rows when the latest DBS decision is identical.
     const latest = await resolved.admin
       .from("employee_dbs_checks")
-      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,update_service_last_check_date,update_service_next_check_due,update_service_consent_confirmed,update_service_certificate_seen,update_service_identity_confirmed,update_service_result,safeguarding_training_completed,safeguarding_training_expiry,notes")
+      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,update_service_last_check_date,update_service_next_check_due,update_service_consent_confirmed,update_service_certificate_seen,update_service_identity_confirmed,update_service_eligibility_confirmed,update_service_result,safeguarding_training_completed,safeguarding_training_expiry,notes")
       .eq("employee_id", resolved.employeeId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (latest.error) throw new Error(latest.error.message);
 
-    const fields = ["dbs_required","dbs_level","certificate_number","certificate_issue_date","next_check_due","update_service","update_service_id","update_service_last_check_date","update_service_next_check_due","update_service_consent_confirmed","update_service_certificate_seen","update_service_identity_confirmed","update_service_result","safeguarding_training_completed","safeguarding_training_expiry","notes"] as const;
+    const fields = ["dbs_required","dbs_level","certificate_number","certificate_issue_date","next_check_due","update_service","update_service_id","update_service_last_check_date","update_service_next_check_due","update_service_consent_confirmed","update_service_certificate_seen","update_service_identity_confirmed","update_service_eligibility_confirmed","update_service_result","safeguarding_training_completed","safeguarding_training_expiry","notes"] as const;
     const sameAsLatest = latest.data && fields.every((field) => (latest.data as any)[field] === (record as any)[field]);
     if (sameAsLatest) {
       return NextResponse.json({ success: true, duplicateSuppressed: true });

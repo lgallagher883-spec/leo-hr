@@ -113,7 +113,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const result = await resolved.admin
       .from("employee_dbs_checks")
-      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,safeguarding_training_completed,safeguarding_training_expiry,notes,created_at")
+      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,safeguarding_training_completed,safeguarding_training_expiry,update_service_last_check_date,update_service_next_check_due,update_service_consent_confirmed,update_service_certificate_seen,update_service_identity_confirmed,update_service_eligibility_confirmed,update_service_result,notes,carecheck,created_at")
       .eq("employee_id", resolved.employeeId)
       .order("created_at", { ascending: false });
 
@@ -131,15 +131,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if ("response" in resolved) return resolved.response;
 
     const body = await request.json();
+    const dbsRequired = body.dbsRequired === "No" ? "No" : "Yes";
+    const dbsLevel = dbsRequired === "No" ? null : body.dbsLevel || "Basic";
+    const updateService = body.updateService === "Yes" ? "Yes" : "No";
+    const usingUpdateService = dbsRequired === "Yes" && updateService === "Yes";
+
+    if (usingUpdateService) {
+      if (dbsLevel === "Basic") {
+        return NextResponse.json({ success: false, error: "The DBS Update Service is not available for Basic DBS certificates." }, { status: 400 });
+      }
+      if (!body.certificateNumber || !body.updateServiceLastCheckDate || !body.updateServiceResult) {
+        return NextResponse.json({ success: false, error: "Record the certificate number, Update Service check date and result." }, { status: 400 });
+      }
+      if (body.updateServiceConsentConfirmed !== true || body.updateServiceCertificateSeen !== true || body.updateServiceIdentityConfirmed !== true || body.updateServiceEligibilityConfirmed !== true) {
+        return NextResponse.json({ success: false, error: "Consent, original certificate viewing, identity and eligibility confirmations are required." }, { status: 400 });
+      }
+    }
+
     const record = {
       employee_id: resolved.employeeId,
-      dbs_required: body.dbsRequired === "No" ? "No" : "Yes",
-      dbs_level: body.dbsRequired === "No" ? null : body.dbsLevel || "Basic",
+      dbs_required: dbsRequired,
+      dbs_level: dbsLevel,
       certificate_number: body.certificateNumber || null,
       certificate_issue_date: body.certificateIssueDate || null,
       next_check_due: body.nextCheckDue || null,
-      update_service: body.updateService || null,
+      update_service: dbsRequired === "Yes" ? updateService : "No",
       update_service_id: body.updateServiceId || null,
+      update_service_last_check_date: usingUpdateService ? body.updateServiceLastCheckDate || null : null,
+      update_service_next_check_due: usingUpdateService ? body.updateServiceNextCheckDue || null : null,
+      update_service_consent_confirmed: usingUpdateService ? body.updateServiceConsentConfirmed === true : false,
+      update_service_certificate_seen: usingUpdateService ? body.updateServiceCertificateSeen === true : false,
+      update_service_identity_confirmed: usingUpdateService ? body.updateServiceIdentityConfirmed === true : false,
+      update_service_eligibility_confirmed: usingUpdateService ? body.updateServiceEligibilityConfirmed === true : false,
+      update_service_result: usingUpdateService ? body.updateServiceResult || null : null,
       safeguarding_training_completed: body.safeguardingTrainingCompleted || null,
       safeguarding_training_expiry: body.safeguardingTrainingExpiry || null,
       notes: body.notes || null,
@@ -150,14 +174,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // duplicate history rows when the latest DBS decision is identical.
     const latest = await resolved.admin
       .from("employee_dbs_checks")
-      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,safeguarding_training_completed,safeguarding_training_expiry,notes")
+      .select("id,dbs_required,dbs_level,certificate_number,certificate_issue_date,next_check_due,update_service,update_service_id,update_service_last_check_date,update_service_next_check_due,update_service_consent_confirmed,update_service_certificate_seen,update_service_identity_confirmed,update_service_eligibility_confirmed,update_service_result,safeguarding_training_completed,safeguarding_training_expiry,notes")
       .eq("employee_id", resolved.employeeId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (latest.error) throw new Error(latest.error.message);
 
-    const fields = ["dbs_required","dbs_level","certificate_number","certificate_issue_date","next_check_due","update_service","update_service_id","safeguarding_training_completed","safeguarding_training_expiry","notes"] as const;
+    const fields = ["dbs_required","dbs_level","certificate_number","certificate_issue_date","next_check_due","update_service","update_service_id","update_service_last_check_date","update_service_next_check_due","update_service_consent_confirmed","update_service_certificate_seen","update_service_identity_confirmed","update_service_eligibility_confirmed","update_service_result","safeguarding_training_completed","safeguarding_training_expiry","notes"] as const;
     const sameAsLatest = latest.data && fields.every((field) => (latest.data as any)[field] === (record as any)[field]);
     if (sameAsLatest) {
       return NextResponse.json({ success: true, duplicateSuppressed: true });

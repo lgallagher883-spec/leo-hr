@@ -17,9 +17,12 @@ test("research contract contains an explicit event allow-list", () => {
 
 test("research properties prohibit identifiers and sensitive/free-text fields", () => {
   for (const token of ["employee.?id", "user.?id", "matter.?id", "prompt", "response", "evidence", "medical", "allegation"]) {
-    assert.match(source, new RegExp(token, "i"));
+    assert.ok(
+      source.toLowerCase().includes(token.toLowerCase()),
+      `Expected prohibited research-property token: ${token}`,
+    );
   }
-  assert.match(source, /typeof value === "string"/);
+  assert.match(source, /typeof\s+value\s*===\s*"string"/);
   assert.match(source, /Free-text research properties are prohibited/);
 });
 

@@ -1,4 +1,8 @@
-import { getCareCheckConfig } from "./client";
+import {
+  assertCareCheckProviderActionAllowed,
+  getCareCheckConfig,
+  type CareCheckConfig,
+} from "./client";
 import { createCareCheckWsSecurityHeader } from "./ws-security";
 
 const CARECHECK_SANDBOX_CANDIDATE_INVITE_ENDPOINT =
@@ -21,7 +25,6 @@ export type CareCheckCandidateInviteResult = {
   applicationReference: string | null;
   resultCode: string | null;
   resultMessage: string | null;
-  rawResponse: string;
 };
 
 function escapeXml(value: string): string {
@@ -46,7 +49,7 @@ function getTagValue(xml: string, tagName: string): string | null {
 
 function buildCandidateInviteEnvelope(
   input: CareCheckCandidateInviteInput,
-  config: ReturnType<typeof getCareCheckConfig>,
+  config: CareCheckConfig,
 ): string {
   const securityHeader = createCareCheckWsSecurityHeader({
     username: config.username,
@@ -77,8 +80,10 @@ function buildCandidateInviteEnvelope(
 
 export async function sendCareCheckCandidateInvite(
   input: CareCheckCandidateInviteInput,
+  config?: CareCheckConfig,
 ): Promise<CareCheckCandidateInviteResult> {
-  const careCheckConfig = getCareCheckConfig();
+  const careCheckConfig = config ?? getCareCheckConfig();
+  assertCareCheckProviderActionAllowed(careCheckConfig);
 
   if (!input.externalReference.trim()) {
     throw new Error("CareCheck externalReference is required.");
@@ -138,14 +143,14 @@ export async function sendCareCheckCandidateInvite(
   if (faultString) {
     throw new Error(
       validationError
-        ? `CareCheck SOAP fault: ${faultString} — ${validationError}`
-        : `CareCheck SOAP fault: ${faultString}`,
+        ? "CareCheck rejected the candidate invite. Check the connection and application details."
+        : "CareCheck returned a SOAP fault while sending the candidate invite.",
     );
   }
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
-      `CareCheck returned HTTP ${response.status}: ${rawResponse}`,
+      `CareCheck candidate invite request failed with HTTP ${response.status}.`,
     );
   }
 
@@ -154,6 +159,5 @@ export async function sendCareCheckCandidateInvite(
     applicationReference,
     resultCode,
     resultMessage,
-    rawResponse,
   };
 }

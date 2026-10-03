@@ -19,10 +19,18 @@ type DBSRecord = {
   next_check_due: string | null;
   update_service: string | null;
   update_service_id: string | null;
+  update_service_last_check_date: string | null;
+  update_service_next_check_due: string | null;
+  update_service_consent_confirmed: boolean | null;
+  update_service_certificate_seen: boolean | null;
+  update_service_identity_confirmed: boolean | null;
+  update_service_eligibility_confirmed: boolean | null;
+  update_service_result: string | null;
   safeguarding_training_completed: string | null;
   safeguarding_training_expiry: string | null;
   notes: string | null;
   created_at: string;
+  carecheck?: Record<string, any> | null;
 };
 
 const dbsRequiredOptions = ["Yes", "No"];
@@ -57,6 +65,13 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   const [nextCheckDue, setNextCheckDue] = useState("");
   const [updateService, setUpdateService] = useState("No");
   const [updateServiceId, setUpdateServiceId] = useState("");
+  const [updateServiceLastCheckDate, setUpdateServiceLastCheckDate] = useState("");
+  const [updateServiceNextCheckDue, setUpdateServiceNextCheckDue] = useState("");
+  const [updateServiceConsentConfirmed, setUpdateServiceConsentConfirmed] = useState(false);
+  const [updateServiceCertificateSeen, setUpdateServiceCertificateSeen] = useState(false);
+  const [updateServiceIdentityConfirmed, setUpdateServiceIdentityConfirmed] = useState(false);
+  const [updateServiceEligibilityConfirmed, setUpdateServiceEligibilityConfirmed] = useState(false);
+  const [updateServiceResult, setUpdateServiceResult] = useState("");
   const [safeguardingTrainingCompleted, setSafeguardingTrainingCompleted] =
     useState("");
   const [safeguardingTrainingExpiry, setSafeguardingTrainingExpiry] =
@@ -66,6 +81,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [careCheckBusy, setCareCheckBusy] = useState(false);
 
   async function loadRecords() {
     setLoading(true);
@@ -87,7 +103,10 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         const key = JSON.stringify([
           record.dbs_required, record.dbs_level, record.certificate_number,
           record.certificate_issue_date, record.next_check_due, record.update_service,
-          record.update_service_id, record.safeguarding_training_completed,
+          record.update_service_id, record.update_service_last_check_date,
+          record.update_service_next_check_due, record.update_service_consent_confirmed,
+          record.update_service_certificate_seen, record.update_service_identity_confirmed,
+          record.update_service_eligibility_confirmed, record.update_service_result, record.safeguarding_training_completed,
           record.safeguarding_training_expiry, record.notes,
         ]);
         if (seen.has(key)) return false;
@@ -122,9 +141,23 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   }
 
   async function saveRecord() {
-    if (dbsRequired === "Yes" && !certificateIssueDate) {
+    if (dbsRequired === "Yes" && updateService === "No" && !certificateIssueDate) {
       setMessage("Please enter the DBS certificate issue date.");
       return;
+    }
+    if (updateService === "Yes") {
+      if (dbsLevel === "Basic") {
+        setMessage("The DBS Update Service is only available for Standard and Enhanced certificates.");
+        return;
+      }
+      if (!certificateNumber || !updateServiceLastCheckDate || !updateServiceResult) {
+        setMessage("For an Update Service check, record the certificate number, check date and result.");
+        return;
+      }
+      if (!updateServiceConsentConfirmed || !updateServiceCertificateSeen || !updateServiceIdentityConfirmed || !updateServiceEligibilityConfirmed) {
+        setMessage("Confirm consent, original certificate viewing, identity checking and legal eligibility before recording an Update Service status check.");
+        return;
+      }
     }
 
     setSaving(true);
@@ -143,6 +176,13 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
           nextCheckDue: nextCheckDue || null,
           updateService: updateService || null,
           updateServiceId: updateServiceId || null,
+          updateServiceLastCheckDate: updateServiceLastCheckDate || null,
+          updateServiceNextCheckDue: updateServiceNextCheckDue || null,
+          updateServiceConsentConfirmed,
+          updateServiceCertificateSeen,
+          updateServiceIdentityConfirmed,
+          updateServiceEligibilityConfirmed,
+          updateServiceResult: updateServiceResult || null,
           safeguardingTrainingCompleted: safeguardingTrainingCompleted || null,
           safeguardingTrainingExpiry: safeguardingTrainingExpiry || null,
           notes: notes || null,
@@ -171,12 +211,39 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
     setNextCheckDue("");
     setUpdateService("No");
     setUpdateServiceId("");
+    setUpdateServiceLastCheckDate("");
+    setUpdateServiceNextCheckDue("");
+    setUpdateServiceConsentConfirmed(false);
+    setUpdateServiceCertificateSeen(false);
+    setUpdateServiceIdentityConfirmed(false);
+    setUpdateServiceEligibilityConfirmed(false);
+    setUpdateServiceResult("");
     setSafeguardingTrainingCompleted("");
     setSafeguardingTrainingExpiry("");
     setNotes("");
     setMessage("DBS / safeguarding record saved.");
     setSaving(false);
     loadRecords();
+  }
+
+  const careCheckRecord = records.find((record) => record.carecheck && typeof record.carecheck === "object");
+  const latestCareCheck = careCheckRecord?.carecheck && typeof careCheckRecord.carecheck === "object" ? careCheckRecord.carecheck : null;
+
+  async function runCareCheck(action: "invite" | "refresh_status") {
+    setCareCheckBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/carecheck`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "dbs", action, dbsLevel }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "CareCheck could not complete the DBS action.");
+      setMessage(action === "invite" ? "CareCheck DBS invite sent and tracking connected." : "CareCheck DBS status refreshed.");
+      await loadRecords();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "CareCheck could not complete the DBS action.");
+    } finally { setCareCheckBusy(false); }
   }
 
   return (
@@ -186,6 +253,25 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         certificate issue date is entered, the next check due date is
         automatically set to 11 months later.
       </p>
+
+      <div style={{ color: "#5E456C", fontSize: "12px", marginBottom: "10px" }}>
+        CareCheck provider status is evidence for the employer to review. Leo does not make an employment or suitability decision from a provider result.
+      </div>
+
+      <div style={{ border: "1px solid #DDCDEB", borderRadius: "12px", background: "#FBF8FD", padding: "14px", marginBottom: "16px" }}>
+        <div style={{ color: "#6E5084", fontSize: "11px", fontWeight: 800 }}>CareCheck</div>
+        <div style={{ marginTop: "5px", fontWeight: 800 }}>DBS provider check</div>
+        <div style={{ marginTop: "6px", color: "#756A79", fontSize: "12px" }}>
+          {latestCareCheck?.statusDescription || latestCareCheck?.statusCode || "No CareCheck DBS application linked to this employee."}
+        </div>
+        {latestCareCheck?.applicationReference ? <div style={{ marginTop: "4px", color: "#756A79", fontSize: "11px" }}>Reference: {latestCareCheck.applicationReference}</div> : null}
+        {latestCareCheck?.resultType != null ? <div style={{ marginTop: "4px", color: "#756A79", fontSize: "11px" }}>Provider result received — employer review required.</div> : null}
+        <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+          <button type="button" disabled={careCheckBusy} onClick={() => void runCareCheck(latestCareCheck?.applicationReference ? "refresh_status" : "invite")} style={{ border: "1px solid #6E5084", borderRadius: "9px", background: "#6E5084", color: "#fff", padding: "9px 12px", fontWeight: 800, cursor: careCheckBusy ? "not-allowed" : "pointer" }}>
+            {careCheckBusy ? "Working..." : latestCareCheck?.applicationReference ? "Refresh CareCheck status" : "Send CareCheck DBS invite"}
+          </button>
+        </div>
+      </div>
 
       <SelectField
         label="DBS Required"
@@ -227,21 +313,31 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
             small
           />
 
-          <SelectField
-            label="DBS Update Service"
-            value={updateService}
-            onChange={setUpdateService}
-            options={yesNoOptions}
-            small
-          />
-
-          {updateService === "Yes" && (
-            <Field
-              label="Update Service ID"
-              value={updateServiceId}
-              onChange={setUpdateServiceId}
-              placeholder="Optional"
-            />
+          {dbsLevel === "Basic" ? (
+            <div style={{ color: "#5E456C", fontSize: "12px", marginBottom: "14px" }}>
+              DBS Update Service status checks are not available for Basic DBS certificates.
+            </div>
+          ) : (
+            <>
+              <SelectField label="DBS Update Service" value={updateService} onChange={setUpdateService} options={yesNoOptions} small />
+              {updateService === "Yes" ? (
+                <div style={{ border: "1px solid #DDCDEB", borderRadius: "12px", background: "#FBF8FD", padding: "14px", marginBottom: "16px" }}>
+                  <div style={{ fontWeight: 800, marginBottom: "6px" }}>Record Update Service status check</div>
+                  <div style={{ color: "#5E456C", fontSize: "12px", marginBottom: "12px" }}>
+                    Leo records the employer's check; it does not control the employee's personal DBS Update Service subscription. Choose the next check date using your organisation's risk-based policy.
+                  </div>
+                  <Field label="Last Update Service Check" value={updateServiceLastCheckDate} onChange={setUpdateServiceLastCheckDate} type="date" small />
+                  <Field label="Next Update Service Check Due" value={updateServiceNextCheckDue} onChange={setUpdateServiceNextCheckDue} type="date" small />
+                  <SelectField label="Update Service Result" value={updateServiceResult} onChange={setUpdateServiceResult} options={["Certificate remains current", "Status changed — new DBS check required"]} />
+                  <div style={{ fontWeight: 700, marginTop: "12px", marginBottom: "8px" }}>Before recording this check, confirm:</div>\n                  <label style={{ display: "grid", gap: "8px", color: "#5E456C", fontSize: "12px" }}>
+                    <span><input type="checkbox" checked={updateServiceConsentConfirmed} onChange={(e) => setUpdateServiceConsentConfirmed(e.target.checked)} /> The individual has given consent for this Update Service status check</span>
+                    <span><input type="checkbox" checked={updateServiceCertificateSeen} onChange={(e) => setUpdateServiceCertificateSeen(e.target.checked)} /> The original DBS certificate has been viewed in person</span>
+                    <span><input type="checkbox" checked={updateServiceIdentityConfirmed} onChange={(e) => setUpdateServiceIdentityConfirmed(e.target.checked)} /> The individual's identity has been checked</span>
+                    <span><input type="checkbox" checked={updateServiceEligibilityConfirmed} onChange={(e) => setUpdateServiceEligibilityConfirmed(e.target.checked)} /> We are legally entitled to carry out this status check for the same DBS level/type and workforce</span>
+                  </label>
+                </div>
+              ) : null}
+            </>
           )}
         </>
       )}
@@ -306,7 +402,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
               >
                 <div style={{ fontWeight: 800 }}>
                   DBS required: {record.dbs_required}
-                  {record.dbs_level ? ` · ${record.dbs_level}` : ""}
+                  {record.dbs_required === "Yes" && record.dbs_level ? ` · ${record.dbs_level}` : ""}
                 </div>
 
                 <div
@@ -330,9 +426,11 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
                 {record.update_service && (
                   <div style={{ marginTop: "8px" }}>
                     <strong>Update service:</strong> {record.update_service}
-                    {record.update_service_id
-                      ? ` · ${record.update_service_id}`
-                      : ""}
+                    {record.update_service_id ? ` · ${record.update_service_id}` : ""}
+                    {record.update_service_last_check_date ? ` · last checked ${record.update_service_last_check_date}` : ""}
+                    {record.update_service_next_check_due ? ` · next due ${record.update_service_next_check_due}` : ""}
+                    {record.update_service_result ? <div><strong>Result:</strong> {record.update_service_result}</div> : null}
+                    {record.update_service === "Yes" ? <div style={{ fontSize: "12px", color: "#5E456C" }}>Consent {record.update_service_consent_confirmed ? "confirmed" : "not recorded"} · original certificate {record.update_service_certificate_seen ? "viewed" : "not recorded"} · identity {record.update_service_identity_confirmed ? "checked" : "not recorded"} · eligibility {record.update_service_eligibility_confirmed ? "confirmed" : "not recorded"}</div> : null}
                   </div>
                 )}
 

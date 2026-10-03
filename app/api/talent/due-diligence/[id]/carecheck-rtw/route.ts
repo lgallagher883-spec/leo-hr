@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 import { pullCareCheckApplicationStatus } from "@/lib/carecheck/status-pull";
+import { getOrganisationCareCheckConfig } from "@/lib/carecheck/connection";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -39,14 +41,13 @@ function leoRtwStatus(
   const result = text(rtwCheckStatus).toUpperCase();
   const hasCheckDate = Boolean(text(rtwCheckDate));
 
-  // CareCheck can report the application lifecycle as complete separately
-  // from the RTW result fields. Treat an explicit successful provider result
-  // as verified; never infer a pass merely from APP_COMPLETE.
+  // CareCheck is evidence for employer review. A provider result must never
+  // automatically become Leo's employer verification decision.
   if (
     ["PASS", "PASSED", "CLEAR", "CLEARED", "VERIFIED", "SUCCESS", "COMPLETE", "COMPLETED"].includes(result) &&
     (hasCheckDate || status === "APP_COMPLETE")
   ) {
-    return "verified";
+    return "awaiting_verification";
   }
 
   switch (status) {
@@ -203,8 +204,8 @@ async function saveState({
       (providerCheckDate ? "digital_identity_service" : ""),
     dateOfCheck:
       text(existingPayload.dateOfCheck) || providerCheckDate,
-    verificationOutcome:
-      providerOutcome || text(existingPayload.verificationOutcome),
+    verificationOutcome: text(existingPayload.verificationOutcome),
+    providerVerificationOutcome: providerOutcome,
     careCheck,
   };
 
@@ -246,23 +247,79 @@ async function saveState({
   return result.data;
 }
 
-export async function POST(request: Request, routeContext: RouteContext) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "CareCheck Right to Work actions are currently limited to development until Leo's production CareCheck account is activated.",
+async function recordCareCheckRtwAction({
+  supabase,
+  organisationId,
+  userId,
+  applicationId,
+  profileId,
+  action,
+}: {
+  supabase: any;
+  organisationId: string;
+  userId: string;
+  applicationId: string | number;
+  profileId: string | number;
+  action: "invite" | "refresh_status";
+}) {
+  const result = await (supabase as any)
+    .from("leo_talent_audit_log")
+    .insert({
+      organisation_id: organisationId,
+      table_name: "leo_talent_candidate_shared_records",
+      record_id: String(profileId),
+      action:
+        action === "invite"
+          ? "carecheck_rtw_invite_sent"
+          : "carecheck_rtw_status_refreshed",
+      actor_user_id: userId,
+      new_values: {
+        application_id: String(applicationId),
+        provider: "CareCheck",
       },
-      { status: 409 },
-    );
-  }
+      changed_fields: ["carecheck"],
+      source: "carecheck",
+    });
 
+  if (result.error) {
+    console.warn("CareCheck Right to Work action audit could not be recorded.");
+  }
+}
+
+export async function POST(request: Request, routeContext: RouteContext) {
   try {
     const { id } = await routeContext.params;
     const supabase = await createClient();
     const access = await getAuthorisedContext(supabase as any);
     if ("error" in access) return access.error;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Supabase administrator credentials are not configured.");
+    }
+
+    const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    let careCheckConfig;
+    try {
+      careCheckConfig = await getOrganisationCareCheckConfig(
+        admin,
+        access.organisationId,
+      );
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "CareCheck is not connected for this organisation. Ask an Owner or Senior user to connect the employer's own CareCheck account in Foundations → Connections.",
+          code: "CARECHECK_NOT_CONNECTED",
+        },
+        { status: 409 },
+      );
+    }
 
     const context = await loadContext(
       supabase,
@@ -281,6 +338,21 @@ export async function POST(request: Request, routeContext: RouteContext) {
       | { action?: unknown }
       | null;
     const action = text(body?.action);
+
+    if (
+      careCheckConfig.environment === "production" &&
+      process.env.CARECHECK_PRODUCTION_ACTIONS_ENABLED !== "true"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "CareCheck production actions are not enabled yet. The employer account can be connected and tested, but DBS and Right to Work provider actions remain locked until the production workflow has been verified.",
+          code: "CARECHECK_PRODUCTION_NOT_VERIFIED",
+        },
+        { status: 409 },
+      );
+    }
 
     const existingPayload =
       context.shared?.payload && typeof context.shared.payload === "object"
@@ -324,7 +396,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
         candidateSurname: context.candidate.last_name,
         checkType: "D",
         type: "RTW",
-      });
+      }, careCheckConfig);
 
       if (!invite.success || !invite.applicationReference) {
         return NextResponse.json(
@@ -340,12 +412,13 @@ export async function POST(request: Request, routeContext: RouteContext) {
 
       const provider = await pullCareCheckApplicationStatus(
         invite.applicationReference,
+        careCheckConfig,
       );
       const now = new Date().toISOString();
 
       const careCheck = {
         provider: "CareCheck",
-        environment: "sandbox",
+        environment: careCheckConfig.environment,
         applicationReference:
           provider.applicationReference || invite.applicationReference,
         invitedAt: now,
@@ -369,6 +442,15 @@ export async function POST(request: Request, routeContext: RouteContext) {
         careCheck,
       });
 
+      await recordCareCheckRtwAction({
+        supabase,
+        organisationId: access.organisationId,
+        userId: access.user.id,
+        applicationId: context.profile.application_id,
+        profileId: context.profile.id,
+        action: "invite",
+      });
+
       return NextResponse.json({ success: true, careCheck });
     }
 
@@ -382,7 +464,7 @@ export async function POST(request: Request, routeContext: RouteContext) {
         );
       }
 
-      const provider = await pullCareCheckApplicationStatus(applicationReference);
+      const provider = await pullCareCheckApplicationStatus(applicationReference, careCheckConfig);
       const careCheck = {
         ...existingCareCheck,
         applicationReference:
@@ -405,6 +487,15 @@ export async function POST(request: Request, routeContext: RouteContext) {
         careCheck,
       });
 
+      await recordCareCheckRtwAction({
+        supabase,
+        organisationId: access.organisationId,
+        userId: access.user.id,
+        applicationId: context.profile.application_id,
+        profileId: context.profile.id,
+        action: "refresh_status",
+      });
+
       return NextResponse.json({ success: true, careCheck });
     }
 
@@ -412,15 +503,13 @@ export async function POST(request: Request, routeContext: RouteContext) {
       { success: false, error: "The requested CareCheck Right to Work action is invalid." },
       { status: 400 },
     );
-  } catch (error) {
-    console.error("CareCheck Right to Work action failed:", error);
+  } catch {
+    console.error("CareCheck Right to Work action failed.");
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "The CareCheck Right to Work action could not be completed.",
+        error: "The CareCheck Right to Work action could not be completed.",
+        code: "CARECHECK_RTW_ACTION_FAILED",
       },
       { status: 500 },
     );

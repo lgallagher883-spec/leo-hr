@@ -80,7 +80,17 @@ export default function ComplianceSummary({
         if (rt?.next_review_date) newItems.push(buildDateMessage("Right to Work Review", rt.next_review_date));
         const dbs = result.dbs;
         if (dbs && String(dbs.dbs_required || "").toLowerCase() !== "no") {
-          newItems.push(buildDateMessage("DBS Next Check", dbs.next_check_due));
+          const careCheck = dbs.carecheck && typeof dbs.carecheck === "object" ? dbs.carecheck : null;
+          const providerStatus = String(careCheck?.statusDescription || careCheck?.statusCode || "").trim();
+          if (careCheck?.applicationReference && providerStatus) {
+            newItems.push({
+              title: "DBS application",
+              detail: `CareCheck: ${providerStatus}. Complete the provider/employer review before recording a future DBS review date.`,
+              level: "review",
+            });
+          } else if (dbs.next_check_due) {
+            newItems.push(buildDateMessage("DBS Next Check", dbs.next_check_due));
+          }
           if (dbs.safeguarding_training_expiry) newItems.push(buildDateMessage("Safeguarding Training", dbs.safeguarding_training_expiry));
         }
         const d = result.driving;

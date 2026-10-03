@@ -60,7 +60,6 @@ export default function CareCheckDBSPanel({
 
   const applicationReference = careCheck?.applicationReference?.trim() || "";
   const hasApplication = Boolean(applicationReference);
-  const developmentActionsAvailable = process.env.NODE_ENV !== "production";
 
   const workforceLabel =
     workforce === "child"
@@ -156,8 +155,7 @@ export default function CareCheckDBSPanel({
               color: "#6E5084",
               fontSize: "11px",
               fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              letterSpacing: "0.02em",
             }}
           >
             CareCheck
@@ -297,7 +295,7 @@ export default function CareCheckDBSPanel({
             </div>
           ) : null}
 
-          {canManage && developmentActionsAvailable ? (
+          {canManage ? (
             <div
               style={{
                 display: "flex",
@@ -356,21 +354,6 @@ export default function CareCheckDBSPanel({
             </div>
           ) : null}
 
-          {!developmentActionsAvailable ? (
-            <div
-              style={{
-                marginTop: "12px",
-                color: "#7B707F",
-                fontSize: "11px",
-                lineHeight: 1.5,
-              }}
-            >
-              Provider actions are currently restricted to development
-              while CareCheck production credentials and DBS-level codes
-              are being confirmed.
-            </div>
-          ) : null}
-
           {!candidateEmail && !hasApplication ? (
             <div
               style={{
@@ -410,8 +393,7 @@ function Info({
           color: "#817586",
           fontSize: "9px",
           fontWeight: 800,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.02em",
         }}
       >
         {label}

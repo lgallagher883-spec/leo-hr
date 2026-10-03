@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { resolveAuthoritativeUserRole } from "@/lib/auth/authoritativeRoleResolver";
 import { createClient } from "@/lib/supabase/server";
+import { getOrganisationCareCheckConfig } from "@/lib/carecheck/connection";
 
 export const dynamic = "force-dynamic";
 
@@ -158,7 +159,7 @@ export async function GET(request: Request) {
 
     const connectionResult = await (admin as any)
       .from("organisation_connections")
-      .select("*")
+      .select("id,provider_id,status,health_status")
       .eq("id", connectionId)
       .eq("organisation_id", access.organisationId)
       .eq("is_archived", false)
@@ -217,49 +218,32 @@ export async function GET(request: Request) {
       );
     }
 
-    const connectionSettings =
-      connection.connection_settings &&
-      typeof connection.connection_settings === "object"
-        ? connection.connection_settings
-        : {};
+    let careCheckConfig;
+    try {
+      careCheckConfig = await getOrganisationCareCheckConfig(
+        admin,
+        access.organisationId,
+      );
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "CareCheck credentials are not configured or could not be read for this organisation.",
+          code: "CARECHECK_CONFIGURATION_UNAVAILABLE",
+        },
+        { status: 409 },
+      );
+    }
 
-    const environment =
-      text(connectionSettings.environment) ||
-      text(process.env.CARECHECK_ENVIRONMENT) ||
-      "sandbox";
-
-    const organisationReference =
-      text(connectionSettings.organisation_reference) ||
-      text(process.env.CARECHECK_ORGANISATION_REFERENCE);
-
-    const username = text(process.env.CARECHECK_USERNAME);
-    const password = text(process.env.CARECHECK_PASSWORD);
+    const environment = careCheckConfig.environment;
+    const organisationReference = careCheckConfig.organisationReference;
+    const credentialsConfigured = true;
 
     const wsdlUrl =
       text(process.env.CARECHECK_WSDL_URL) ||
       "https://www.matrixscreening.com/cheqsdemo41/ws/candidateInviteService/candidateInvite.wsdl";
 
-    if (!organisationReference) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The CareCheck organisation reference is not configured.",
-        },
-        { status: 500 },
-      );
-    }
-
-    if (!username || !password) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The CareCheck server credentials are not configured.",
-        },
-        { status: 500 },
-      );
-    }
 
     const healthStartedAt = Date.now();
 
@@ -273,14 +257,12 @@ export async function GET(request: Request) {
         },
         cache: "no-store",
       });
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "CareCheck could not be reached.",
+          error: "CareCheck could not be reached.",
+          code: "CARECHECK_ENDPOINT_UNREACHABLE",
         },
         { status: 502 },
       );
@@ -309,28 +291,25 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       message:
-        "CareCheck sandbox is reachable and the LEO connection configuration is available.",
+        "CareCheck endpoint is reachable and this organisation's connection configuration is available.",
       healthStatus: "Configuration Valid",
       connectionId,
       provider: "CareCheck",
       environment,
       organisationReference,
       endpointReachable: true,
-      credentialsConfigured: true,
+      credentialsConfigured,
       wsdlReachable: true,
       latencyMs,
       authenticatedSoapVerified: false,
     });
-  } catch (error) {
-    console.error("CareCheck health check failed:", error);
+  } catch {
+    console.error("CareCheck health check failed.");
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "The CareCheck connection health check failed.",
+        error: "The CareCheck connection health check failed.",
       },
       { status: 500 },
     );

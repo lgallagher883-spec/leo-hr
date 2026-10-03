@@ -106,6 +106,9 @@ function getProviderIdentity(provider: any) {
     isZoom:
       providerName.includes("zoom") ||
       providerKey.includes("zoom"),
+    isCareCheck:
+      providerName.includes("carecheck") ||
+      providerKey === "carecheck",
   };
 }
 
@@ -367,7 +370,18 @@ export async function POST(
         isDocuSign,
         isCanva,
         isZoom,
+        isCareCheck,
       } = getProviderIdentity(provider);
+
+      if (isCareCheck) {
+        return NextResponse.json({
+          success: true,
+          redirectUrl:
+            `/dashboard/foundations/connections/carecheck?connectionId=${connectionId}`,
+          message:
+            "Opening the secure CareCheck account configuration.",
+        });
+      }
 
       if (
         !isMicrosoft365 &&
@@ -571,7 +585,134 @@ export async function POST(
         isDocuSign,
         isCanva,
         isZoom,
+        isCareCheck,
       } = getProviderIdentity(provider);
+
+      if (isCareCheck) {
+        const healthUrl = new URL(
+          "/api/foundations/connections/carecheck/health",
+          request.url,
+        );
+        healthUrl.searchParams.set(
+          "connectionId",
+          String(connectionId),
+        );
+
+        const careCheckResponse = await fetch(healthUrl, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            cookie: request.headers.get("cookie") || "",
+          },
+        });
+
+        const careCheckResult = (await careCheckResponse.json()) as {
+          success?: boolean;
+          error?: string;
+          message?: string;
+          healthStatus?: string;
+          authenticatedSoapVerified?: boolean;
+        };
+
+        const healthStatus = careCheckResult.success
+          ? "Healthy"
+          : "Configuration Required";
+
+        const summary =
+          careCheckResult.message ||
+          careCheckResult.error ||
+          "CareCheck connection test completed.";
+
+        const healthCheckWrite = await (admin as any)
+          .from("connection_health_checks")
+          .insert({
+            connection_id: connectionId,
+            check_type: "Connection",
+            status: healthStatus,
+            summary,
+            diagnostic_details: {
+              provider_setup_status: provider.setup_status,
+              connection_status: connection.status,
+              authenticated_soap_verified:
+                careCheckResult.authenticatedSoapVerified === true,
+            },
+          });
+
+        const connectionWrite = await (admin as any)
+          .from("organisation_connections")
+          .update({
+            health_status: healthStatus,
+            last_health_check_at: now,
+            last_error_message: careCheckResult.success ? null : summary,
+            last_error_at: careCheckResult.success ? null : now,
+          })
+          .eq("id", connectionId)
+          .eq("organisation_id", access.organisationId);
+
+        const jobWrite = await (admin as any)
+          .from("connection_jobs")
+          .update({
+            status: careCheckResult.success
+              ? "Completed"
+              : "Partially Completed",
+            progress_percent: 100,
+            completed_at: now,
+            error_message: careCheckResult.success ? null : summary,
+            response_payload: {
+              health_status: healthStatus,
+              summary,
+              authenticated_soap_verified:
+                careCheckResult.authenticatedSoapVerified === true,
+            },
+          })
+          .eq("id", jobResult.data.id)
+          .eq("connection_id", connectionId);
+
+        if (
+          healthCheckWrite.error ||
+          connectionWrite.error ||
+          jobWrite.error
+        ) {
+          console.error("CareCheck connection test state could not be recorded.");
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "CareCheck was checked, but Leo could not save the connection test result. Please try again.",
+              code: "CARECHECK_TEST_STATE_SAVE_FAILED",
+            },
+            { status: 500 },
+          );
+        }
+
+        await recordActivity(admin, {
+          organisationId: access.organisationId,
+          userId: access.user.id,
+          providerId: provider.id,
+          connectionId,
+          jobId: jobResult.data.id,
+          activityType: "Connection Tested",
+          summary,
+          details: {
+            health_status: healthStatus,
+            authenticated_soap_verified:
+              careCheckResult.authenticatedSoapVerified === true,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: careCheckResult.success === true,
+            healthStatus,
+            message: summary,
+            authenticatedSoapVerified:
+              careCheckResult.authenticatedSoapVerified === true,
+          },
+          {
+            status: careCheckResult.success ? 200 : careCheckResponse.status,
+          },
+        );
+      }
 
       if (liveConnection && isDocuSign) {
         const healthUrl = new URL(

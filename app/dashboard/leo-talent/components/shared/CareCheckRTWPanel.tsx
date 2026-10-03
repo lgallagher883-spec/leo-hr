@@ -52,7 +52,6 @@ export default function CareCheckRTWPanel({
 
   const applicationReference = careCheck?.applicationReference?.trim() || "";
   const hasApplication = Boolean(applicationReference);
-  const developmentActionsAvailable = process.env.NODE_ENV !== "production";
 
   async function run(action: "invite" | "refresh_status") {
     setBusy(action === "invite" ? "invite" : "refresh");
@@ -121,8 +120,7 @@ export default function CareCheckRTWPanel({
               color: "#6E5084",
               fontSize: "11px",
               fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              letterSpacing: "0.02em",
             }}
           >
             CareCheck
@@ -219,7 +217,7 @@ export default function CareCheckRTWPanel({
         </div>
       ) : null}
 
-      {canManage && developmentActionsAvailable ? (
+      {canManage ? (
         <div
           style={{
             display: "flex",
@@ -251,20 +249,6 @@ export default function CareCheckRTWPanel({
                 : "Refresh CareCheck RTW status"}
             </button>
           )}
-        </div>
-      ) : null}
-
-      {!developmentActionsAvailable ? (
-        <div
-          style={{
-            marginTop: "12px",
-            color: "#7B707F",
-            fontSize: "11px",
-            lineHeight: 1.5,
-          }}
-        >
-          Provider actions remain disabled in production until CareCheck issues
-          Leo&apos;s production credentials and organisation reference.
         </div>
       ) : null}
 
@@ -313,8 +297,7 @@ function Info({ label, value }: { label: string; value: string }) {
           color: "#817586",
           fontSize: "9px",
           fontWeight: 800,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.02em",
         }}
       >
         {label}

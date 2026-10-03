@@ -189,8 +189,7 @@ type WorkspaceTab =
   | "Jobs & Resources"
   | "Activity";
 
-const categories = [
-  "All",
+const preferredCategoryOrder = [
   "Artificial Intelligence",
   "Design",
   "Voice",
@@ -206,6 +205,7 @@ const categories = [
   "Productivity",
   "Automation",
   "Identity",
+  "Compliance",
   "Learning",
   "Forms",
   "Electronic Signature",
@@ -703,6 +703,13 @@ export default function ConnectionsPage() {
   async function beginSecureConnection() {
     if (!selectedProvider || !selectedConnection) return;
 
+    if (selectedProvider.provider_key.trim().toLowerCase() === "carecheck") {
+      router.push(
+        `/dashboard/foundations/connections/carecheck?connectionId=${selectedConnection.id}`
+      );
+      return;
+    }
+
     if (!providerHasLiveAuthorisationRoute(selectedProvider)) {
       setMessage(
         `${selectedProvider.name} is prepared in the Connections framework, but its secure provider authorisation route has not been activated yet.`
@@ -1117,6 +1124,31 @@ if (result.redirectUrl) {
     [connections]
   );
 
+  const categories = useMemo(() => {
+    const providerCategories = Array.from(
+      new Set(
+        providers
+          .map((provider) => provider.category?.trim())
+          .filter((category): category is string => Boolean(category))
+      )
+    );
+
+    providerCategories.sort((left, right) => {
+      const leftIndex = preferredCategoryOrder.indexOf(left);
+      const rightIndex = preferredCategoryOrder.indexOf(right);
+      const leftRank =
+        leftIndex === -1 ? preferredCategoryOrder.length : leftIndex;
+      const rightRank =
+        rightIndex === -1 ? preferredCategoryOrder.length : rightIndex;
+
+      return leftRank === rightRank
+        ? left.localeCompare(right)
+        : leftRank - rightRank;
+    });
+
+    return ["All", ...providerCategories];
+  }, [providers]);
+
   const filteredProviders = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
 
@@ -1189,6 +1221,9 @@ if (result.redirectUrl) {
     if (selectedProvider) {
     const connectionStatus =
       selectedConnection?.status || "Not Connected";
+    const isCareCheck =
+      selectedProvider.provider_key === "carecheck" ||
+      selectedProvider.name.toLowerCase().includes("carecheck");
 
     const capabilityGroups = Array.from(
       new Set(
@@ -1250,8 +1285,10 @@ if (result.redirectUrl) {
             </div>
 
             <div style={providerHealthValueStyle}>
-              {selectedConnection?.health_status ||
-                "Not Checked"}
+              {isCareCheck &&
+              selectedConnection?.health_status === "Healthy"
+                ? "Endpoint Reachable"
+                : selectedConnection?.health_status || "Not Checked"}
             </div>
           </div>
         </div>
@@ -1434,6 +1471,24 @@ if (result.redirectUrl) {
                   </div>
                 ) : (
                   <div>
+                    {selectedProvider.provider_key.trim().toLowerCase() === "carecheck" && (
+                      <div
+                        style={{
+                          background: "#F7F1FC",
+                          borderRadius: 12,
+                          padding: 16,
+                          marginBottom: 20,
+                          color: "#7D7D7D",
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        <strong style={{ color: "#6E5084" }}>CareCheck account status</strong>
+                        <div style={{ marginTop: 6 }}>
+                          Your organisation&apos;s CareCheck account is managed securely through Leo. Use Test Connection
+                          to check the saved account configuration before using CareCheck for DBS or Right to Work checks.
+                        </div>
+                      </div>
+                    )}
                     <div style={detailGridStyle}>
                       <DetailCard
                         label="Status"
@@ -1443,7 +1498,10 @@ if (result.redirectUrl) {
                       <DetailCard
                         label="Health"
                         value={
-                          selectedConnection.health_status
+                          isCareCheck &&
+                          selectedConnection.health_status === "Healthy"
+                            ? "Endpoint Reachable"
+                            : selectedConnection.health_status
                         }
                       />
 
@@ -1470,99 +1528,104 @@ if (result.redirectUrl) {
                       />
                     </div>
 
-                    <div style={formGridStyle}>
-                      <FormField label="Connection name">
+                    {selectedProvider.provider_key.trim().toLowerCase() !== "carecheck" && (
+                      <>
+                      <div style={formGridStyle}>
+                        <FormField label="Connection name">
+                          <input
+                            value={connectionName}
+                            onChange={(event) =>
+                              setConnectionName(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+  
+                        <FormField label="Account display name">
+                          <input
+                            value={accountDisplayName}
+                            onChange={(event) =>
+                              setAccountDisplayName(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+                      </div>
+  
+                      <div style={formGridStyle}>
+                        <FormField label="External account ID">
+                          <input
+                            value={externalAccountId}
+                            onChange={(event) =>
+                              setExternalAccountId(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+  
+                        <FormField label="External tenant ID">
+                          <input
+                            value={externalTenantId}
+                            onChange={(event) =>
+                              setExternalTenantId(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          />
+                        </FormField>
+                      </div>
+  
+                      <FormField label="External workspace ID">
                         <input
-                          value={connectionName}
+                          value={externalWorkspaceId}
                           onChange={(event) =>
-                            setConnectionName(
+                            setExternalWorkspaceId(
                               event.target.value
                             )
                           }
                           style={inputStyle}
                         />
                       </FormField>
-
-                      <FormField label="Account display name">
-                        <input
-                          value={accountDisplayName}
-                          onChange={(event) =>
-                            setAccountDisplayName(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
+  
+                      <div style={optionGridStyle}>
+                        <ToggleCard
+                          label="Enable synchronisation"
+                          description="Allow this provider to run approved synchronisation jobs."
+                          checked={syncEnabled}
+                          onChange={setSyncEnabled}
                         />
-                      </FormField>
-                    </div>
-
-                    <div style={formGridStyle}>
-                      <FormField label="External account ID">
-                        <input
-                          value={externalAccountId}
-                          onChange={(event) =>
-                            setExternalAccountId(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
-                        />
-                      </FormField>
-
-                      <FormField label="External tenant ID">
-                        <input
-                          value={externalTenantId}
-                          onChange={(event) =>
-                            setExternalTenantId(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
-                        />
-                      </FormField>
-                    </div>
-
-                    <FormField label="External workspace ID">
-                      <input
-                        value={externalWorkspaceId}
-                        onChange={(event) =>
-                          setExternalWorkspaceId(
-                            event.target.value
-                          )
-                        }
-                        style={inputStyle}
-                      />
-                    </FormField>
-
-                    <div style={optionGridStyle}>
-                      <ToggleCard
-                        label="Enable synchronisation"
-                        description="Allow this provider to run approved synchronisation jobs."
-                        checked={syncEnabled}
-                        onChange={setSyncEnabled}
-                      />
-                    </div>
-
-                    {syncEnabled && (
-                      <FormField label="Synchronisation frequency">
-                        <select
-                          value={syncFrequency}
-                          onChange={(event) =>
-                            setSyncFrequency(
-                              event.target.value
-                            )
-                          }
-                          style={inputStyle}
-                        >
-                          {syncFrequencies.map(
-                            (frequency) => (
-                              <option key={frequency}>
-                                {frequency}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      </FormField>
+                      </div>
+  
+                      {syncEnabled && (
+                        <FormField label="Synchronisation frequency">
+                          <select
+                            value={syncFrequency}
+                            onChange={(event) =>
+                              setSyncFrequency(
+                                event.target.value
+                              )
+                            }
+                            style={inputStyle}
+                          >
+                            {syncFrequencies.map(
+                              (frequency) => (
+                                <option key={frequency}>
+                                  {frequency}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </FormField>
+                      )}
+  
+                        </>
                     )}
 
                     <div style={providerActionPanelStyle}>
@@ -1624,10 +1687,13 @@ if (result.redirectUrl) {
                           }
                           style={primaryButtonStyle}
                         >
-                          {selectedConnection.status ===
-                            "Connected"
-                            ? "Reconnect"
-                            : "Connect Securely"}
+                          {selectedProvider.provider_key.trim().toLowerCase() === "carecheck"
+                            ? selectedConnection.status === "Connected"
+                              ? "Update CareCheck"
+                              : "Connect CareCheck"
+                            : selectedConnection.status === "Connected"
+                              ? "Reconnect"
+                              : "Connect Securely"}
                         </button>
 
                         {selectedProvider.supports_disconnect && (

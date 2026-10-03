@@ -80,6 +80,17 @@ function optionalText(value: unknown): string | null {
   return valueText || null;
 }
 
+function safeConnection(connection: any) {
+  if (!connection || typeof connection !== "object") return connection;
+
+  const {
+    secret_reference: _secretReference,
+    ...safe
+  } = connection;
+
+  return safe;
+}
+
 function normaliseRole(value: unknown): PlatformRole {
   const role = text(value).toLowerCase();
 
@@ -385,7 +396,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      connection,
+      connection: safeConnection(connection),
       provider: providerResult.data ?? null,
       providerCapabilities:
         providerCapabilitiesResult.data ?? [],
@@ -600,8 +611,14 @@ export async function PATCH(
       successMessage =
         `${provider.name} has been suspended.`;
     } else if (action === "restore") {
+      const providerKey = text(provider.provider_key).toLowerCase();
+      const isCareCheck = providerKey === "carecheck";
+      const canRestoreAsConnected = isCareCheck
+        ? Boolean(connection.connected_at && connection.secret_reference)
+        : Boolean(connection.connected_at);
+
       updateValues = {
-        status: connection.connected_at
+        status: canRestoreAsConnected
           ? "Connected"
           : "Connection Pending",
         health_status: "Not Checked",
@@ -625,6 +642,9 @@ export async function PATCH(
         );
       }
 
+      const providerKey = text(provider.provider_key).toLowerCase();
+      const isCareCheck = providerKey === "carecheck";
+
       updateValues = {
         status: "Disconnected",
         health_status: "Unavailable",
@@ -632,7 +652,24 @@ export async function PATCH(
         sync_enabled: false,
         token_expires_at: null,
         authorised_scopes: [],
+        ...(isCareCheck
+          ? {
+              secret_reference: null,
+              connection_settings: {},
+              connected_at: null,
+              connected_by_user_id: null,
+              reconnect_required_at: null,
+              last_health_check_at: null,
+              last_error_code: null,
+              last_error_message: null,
+              last_error_at: null,
+            }
+          : {}),
       };
+
+      activityDetails = isCareCheck
+        ? { credentials_removed: true }
+        : {};
 
       activityType = "Disconnected";
       activitySummary = `${provider.name} disconnected.`;
@@ -672,7 +709,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      connection: updateResult.data,
+      connection: safeConnection(updateResult.data),
       message: successMessage,
     });
   } catch (error) {

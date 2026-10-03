@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { sendCareCheckCandidateInvite } from "@/lib/carecheck/candidate-invite";
 
 export async function POST() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "CareCheck test invite route is disabled in production.",
+      },
+      { status: 404 },
+    );
+  }
+
   try {
     const testId = Date.now().toString();
 
@@ -20,19 +30,11 @@ export async function POST() {
       applicationReference: result.applicationReference,
       resultCode: result.resultCode,
       resultMessage: result.resultMessage,
-      rawResponse: result.rawResponse,
     });
-  } catch (error) {
-    console.error("CareCheck test invite failed:", error);
-
+  } catch {
+    console.error("CareCheck test invite failed.");
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown CareCheck error",
-      },
+      { success: false, error: "CareCheck test invite failed." },
       { status: 500 },
     );
   }

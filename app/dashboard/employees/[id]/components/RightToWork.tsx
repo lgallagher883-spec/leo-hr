@@ -179,13 +179,13 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
         <div style={{ display: "grid", gap: "14px" }}>
           <div style={summaryStyle}>
             <div>
-              <div style={eyebrowStyle}>Current position</div>
+              <div style={eyebrowStyle}>Employer verification</div>
               <div style={statusStyle}>{statusLabel}</div>
             </div>
             <div style={summaryGridStyle}>
               <Summary label="Checking method" value={talentPayload?.method || "Not recorded"} />
               <Summary label="Check date" value={talentPayload?.dateOfCheck || latest?.check_completed_date || "Not recorded"} />
-              <Summary label="Outcome" value={talentPayload?.verificationOutcome || careCheck?.rtwCheckStatus || "Not recorded"} />
+              <Summary label="Employer outcome" value={talentPayload?.verificationOutcome || "Not recorded"} />
               <Summary label="Permission expiry" value={talentPayload?.expiryDate || latest?.right_to_work_expiry || "Not recorded"} />
               <Summary label="Next review" value={talentPayload?.followUpDate || latest?.next_review_date || "Not recorded"} />
               <Summary label="Provider" value={careCheck ? "CareCheck" : "Employer recorded"} />

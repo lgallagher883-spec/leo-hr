@@ -201,15 +201,6 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
             </button>
           </div>
 
-          {careCheck ? (
-            <div style={providerStyle}>
-              <div style={eyebrowStyle}>CareCheck</div>
-              <strong>{careCheck.statusDescription || careCheck.statusCode || "Provider status recorded"}</strong>
-              {careCheck.rtwCheckStatus ? <span>Result: {careCheck.rtwCheckStatus}</span> : null}
-              {careCheck.rtwCheckDate ? <span>Check date: {careCheck.rtwCheckDate}</span> : null}
-            </div>
-          ) : null}
-
           {records.length === 0 && !talentRecord ? (
             <div style={emptyStyle}>No Right to Work information has been recorded for this employee yet.</div>
           ) : null}

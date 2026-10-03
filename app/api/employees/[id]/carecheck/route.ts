@@ -91,10 +91,15 @@ export async function POST(request: Request, context: RouteContext) {
       .select("*")
       .eq("employee_id", employeeId)
       .order("created_at", { ascending: false })
-      .limit(1);
+      .limit(20);
     if (latestError) throw new Error(latestError.message);
-    const latest = Array.isArray(latestRows) ? latestRows[0] : null;
-    const existing = latest?.carecheck && typeof latest.carecheck === "object" ? latest.carecheck : {};
+    const rows = Array.isArray(latestRows) ? latestRows : [];
+    const latest = rows[0] ?? null;
+    // Employer updates create new history rows. Provider refreshes must target
+    // the most recent row that is actually linked to CareCheck, not simply
+    // the newest employer-entered compliance row.
+    const linked = rows.find((row) => row?.carecheck && typeof row.carecheck === "object" && clean(row.carecheck.applicationReference));
+    const existing = linked?.carecheck && typeof linked.carecheck === "object" ? linked.carecheck : {};
 
     if (action === "refresh_status") {
       const applicationReference = clean(existing.applicationReference);
@@ -124,7 +129,10 @@ export async function POST(request: Request, context: RouteContext) {
         rtwCheckStatus: provider.rtwCheckStatus,
         rtwCheckDate: provider.rtwCheckDate,
       };
-      const { error } = await admin.from(table).update({ carecheck, updated_at: new Date().toISOString() }).eq("id", latest.id);
+      if (!linked?.id) {
+        return NextResponse.json({ success: false, error: "The linked CareCheck application record could not be found." }, { status: 409 });
+      }
+      const { error } = await admin.from(table).update({ carecheck, updated_at: new Date().toISOString() }).eq("id", linked.id);
       if (error) throw new Error(error.message);
       return NextResponse.json({ success: true, carecheck });
     }

@@ -41,14 +41,13 @@ function leoRtwStatus(
   const result = text(rtwCheckStatus).toUpperCase();
   const hasCheckDate = Boolean(text(rtwCheckDate));
 
-  // CareCheck can report the application lifecycle as complete separately
-  // from the RTW result fields. Treat an explicit successful provider result
-  // as verified; never infer a pass merely from APP_COMPLETE.
+  // CareCheck is evidence for employer review. A provider result must never
+  // automatically become Leo's employer verification decision.
   if (
     ["PASS", "PASSED", "CLEAR", "CLEARED", "VERIFIED", "SUCCESS", "COMPLETE", "COMPLETED"].includes(result) &&
     (hasCheckDate || status === "APP_COMPLETE")
   ) {
-    return "verified";
+    return "awaiting_verification";
   }
 
   switch (status) {
@@ -205,8 +204,8 @@ async function saveState({
       (providerCheckDate ? "digital_identity_service" : ""),
     dateOfCheck:
       text(existingPayload.dateOfCheck) || providerCheckDate,
-    verificationOutcome:
-      providerOutcome || text(existingPayload.verificationOutcome),
+    verificationOutcome: text(existingPayload.verificationOutcome),
+    providerVerificationOutcome: providerOutcome,
     careCheck,
   };
 

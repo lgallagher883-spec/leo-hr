@@ -93,7 +93,8 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         const key = JSON.stringify([
           record.dbs_required, record.dbs_level, record.certificate_number,
           record.certificate_issue_date, record.next_check_due, record.update_service,
-          record.update_service_id, record.safeguarding_training_completed,
+          record.update_service_id, record.update_service_last_check_date,
+          record.update_service_next_check_due, record.safeguarding_training_completed,
           record.safeguarding_training_expiry, record.notes,
         ]);
         if (seen.has(key)) return false;
@@ -216,6 +217,10 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         automatically set to 11 months later.
       </p>
 
+      <div style={{ color: "#5E456C", fontSize: "12px", marginBottom: "10px" }}>
+        CareCheck provider status is evidence for the employer to review. Leo does not make an employment or suitability decision from a provider result.
+      </div>
+
       <div style={{ border: "1px solid #DDCDEB", borderRadius: "12px", background: "#FBF8FD", padding: "14px", marginBottom: "16px" }}>
         <div style={{ color: "#6E5084", fontSize: "11px", fontWeight: 800 }}>CareCheck</div>
         <div style={{ marginTop: "5px", fontWeight: 800 }}>DBS provider check</div>
@@ -223,6 +228,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
           {latestCareCheck?.statusDescription || latestCareCheck?.statusCode || "No CareCheck DBS application linked to this employee."}
         </div>
         {latestCareCheck?.applicationReference ? <div style={{ marginTop: "4px", color: "#756A79", fontSize: "11px" }}>Reference: {latestCareCheck.applicationReference}</div> : null}
+        {latestCareCheck?.resultType != null ? <div style={{ marginTop: "4px", color: "#756A79", fontSize: "11px" }}>Provider result received — employer review required.</div> : null}
         <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
           <button type="button" disabled={careCheckBusy} onClick={() => void runCareCheck(latestCareCheck?.applicationReference ? "refresh_status" : "invite")} style={{ border: "1px solid #6E5084", borderRadius: "9px", background: "#6E5084", color: "#fff", padding: "9px 12px", fontWeight: 800, cursor: careCheckBusy ? "not-allowed" : "pointer" }}>
             {careCheckBusy ? "Working..." : latestCareCheck?.applicationReference ? "Refresh CareCheck status" : "Send CareCheck DBS invite"}

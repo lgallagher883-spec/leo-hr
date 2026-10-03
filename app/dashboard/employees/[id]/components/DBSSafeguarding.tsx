@@ -24,6 +24,7 @@ type DBSRecord = {
   update_service_consent_confirmed: boolean | null;
   update_service_certificate_seen: boolean | null;
   update_service_identity_confirmed: boolean | null;
+  update_service_eligibility_confirmed: boolean | null;
   update_service_result: string | null;
   safeguarding_training_completed: string | null;
   safeguarding_training_expiry: string | null;
@@ -69,6 +70,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
   const [updateServiceConsentConfirmed, setUpdateServiceConsentConfirmed] = useState(false);
   const [updateServiceCertificateSeen, setUpdateServiceCertificateSeen] = useState(false);
   const [updateServiceIdentityConfirmed, setUpdateServiceIdentityConfirmed] = useState(false);
+  const [updateServiceEligibilityConfirmed, setUpdateServiceEligibilityConfirmed] = useState(false);
   const [updateServiceResult, setUpdateServiceResult] = useState("");
   const [safeguardingTrainingCompleted, setSafeguardingTrainingCompleted] =
     useState("");
@@ -104,7 +106,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
           record.update_service_id, record.update_service_last_check_date,
           record.update_service_next_check_due, record.update_service_consent_confirmed,
           record.update_service_certificate_seen, record.update_service_identity_confirmed,
-          record.update_service_result, record.safeguarding_training_completed,
+          record.update_service_eligibility_confirmed, record.update_service_result, record.safeguarding_training_completed,
           record.safeguarding_training_expiry, record.notes,
         ]);
         if (seen.has(key)) return false;
@@ -152,8 +154,8 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
         setMessage("For an Update Service check, record the certificate number, check date and result.");
         return;
       }
-      if (!updateServiceConsentConfirmed || !updateServiceCertificateSeen || !updateServiceIdentityConfirmed) {
-        setMessage("Confirm consent, original certificate viewing and identity checking before recording an Update Service status check.");
+      if (!updateServiceConsentConfirmed || !updateServiceCertificateSeen || !updateServiceIdentityConfirmed || !updateServiceEligibilityConfirmed) {
+        setMessage("Confirm consent, original certificate viewing, identity checking and legal eligibility before recording an Update Service status check.");
         return;
       }
     }
@@ -179,6 +181,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
           updateServiceConsentConfirmed,
           updateServiceCertificateSeen,
           updateServiceIdentityConfirmed,
+          updateServiceEligibilityConfirmed,
           updateServiceResult: updateServiceResult || null,
           safeguardingTrainingCompleted: safeguardingTrainingCompleted || null,
           safeguardingTrainingExpiry: safeguardingTrainingExpiry || null,
@@ -213,6 +216,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
     setUpdateServiceConsentConfirmed(false);
     setUpdateServiceCertificateSeen(false);
     setUpdateServiceIdentityConfirmed(false);
+    setUpdateServiceEligibilityConfirmed(false);
     setUpdateServiceResult("");
     setSafeguardingTrainingCompleted("");
     setSafeguardingTrainingExpiry("");
@@ -222,7 +226,8 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
     loadRecords();
   }
 
-  const latestCareCheck = records[0]?.carecheck && typeof records[0].carecheck === "object" ? records[0].carecheck : null;
+  const careCheckRecord = records.find((record) => record.carecheck && typeof record.carecheck === "object");
+  const latestCareCheck = careCheckRecord?.carecheck && typeof careCheckRecord.carecheck === "object" ? careCheckRecord.carecheck : null;
 
   async function runCareCheck(action: "invite" | "refresh_status") {
     setCareCheckBusy(true);
@@ -326,8 +331,9 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
                   <SelectField label="Update Service Result" value={updateServiceResult} onChange={setUpdateServiceResult} options={["Certificate remains current", "Status changed — new DBS check required"]} />
                   <label style={{ display: "grid", gap: "8px", marginTop: "12px", color: "#5E456C", fontSize: "12px" }}>
                     <span><input type="checkbox" checked={updateServiceConsentConfirmed} onChange={(e) => setUpdateServiceConsentConfirmed(e.target.checked)} /> Individual's consent confirmed</span>
-                    <span><input type="checkbox" checked={updateServiceCertificateSeen} onChange={(e) => setUpdateServiceCertificateSeen(e.target.checked)} /> Original DBS certificate viewed</span>
+                    <span><input type="checkbox" checked={updateServiceCertificateSeen} onChange={(e) => setUpdateServiceCertificateSeen(e.target.checked)} /> Original DBS certificate viewed in person</span>
                     <span><input type="checkbox" checked={updateServiceIdentityConfirmed} onChange={(e) => setUpdateServiceIdentityConfirmed(e.target.checked)} /> Identity checked</span>
+                    <span><input type="checkbox" checked={updateServiceEligibilityConfirmed} onChange={(e) => setUpdateServiceEligibilityConfirmed(e.target.checked)} /> Legal entitlement, same DBS level/type and relevant workforce confirmed</span>
                   </label>
                 </div>
               ) : null}
@@ -424,7 +430,7 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
                     {record.update_service_last_check_date ? ` · last checked ${record.update_service_last_check_date}` : ""}
                     {record.update_service_next_check_due ? ` · next due ${record.update_service_next_check_due}` : ""}
                     {record.update_service_result ? <div><strong>Result:</strong> {record.update_service_result}</div> : null}
-                    {record.update_service === "Yes" ? <div style={{ fontSize: "12px", color: "#5E456C" }}>Consent {record.update_service_consent_confirmed ? "confirmed" : "not recorded"} · original certificate {record.update_service_certificate_seen ? "viewed" : "not recorded"} · identity {record.update_service_identity_confirmed ? "checked" : "not recorded"}</div> : null}
+                    {record.update_service === "Yes" ? <div style={{ fontSize: "12px", color: "#5E456C" }}>Consent {record.update_service_consent_confirmed ? "confirmed" : "not recorded"} · original certificate {record.update_service_certificate_seen ? "viewed" : "not recorded"} · identity {record.update_service_identity_confirmed ? "checked" : "not recorded"} · eligibility {record.update_service_eligibility_confirmed ? "confirmed" : "not recorded"}</div> : null}
                   </div>
                 )}
 

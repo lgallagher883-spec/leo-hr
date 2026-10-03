@@ -354,21 +354,6 @@ export default function CareCheckDBSPanel({
             </div>
           ) : null}
 
-          {false ? (
-            <div
-              style={{
-                marginTop: "12px",
-                color: "#7B707F",
-                fontSize: "11px",
-                lineHeight: 1.5,
-              }}
-            >
-              CareCheck provider actions remain gated until this employer has
-              connected its own CareCheck account and the production workflow,
-              including the required DBS-level codes, has been verified.
-            </div>
-          ) : null}
-
           {!candidateEmail && !hasApplication ? (
             <div
               style={{

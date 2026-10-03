@@ -195,11 +195,28 @@ export default function RightToWork({ employeeId }: RightToWorkProps) {
           <div style={providerStyle}>
             <div style={eyebrowStyle}>CareCheck</div>
             <strong>{careCheck?.statusDescription || careCheck?.statusCode || "No CareCheck Right to Work application linked to this employee."}</strong>
+            <span>Provider status is evidence for employer review; completion does not automatically record a Right to Work decision.</span>
             {careCheck?.applicationReference ? <span>Reference: {careCheck.applicationReference}</span> : null}
             <button type="button" disabled={careCheckBusy} onClick={() => void runCareCheck(careCheck?.applicationReference ? "refresh_status" : "invite")} style={{ width: "fit-content", border: "1px solid #6E5084", borderRadius: "9px", background: "#6E5084", color: "#fff", padding: "9px 12px", fontWeight: 800, cursor: careCheckBusy ? "not-allowed" : "pointer", marginTop: "6px" }}>
               {careCheckBusy ? "Working..." : careCheck?.applicationReference ? "Refresh CareCheck RTW status" : "Send CareCheck RTW invite"}
             </button>
           </div>
+
+          {records.length > 0 ? (
+            <div style={{ display: "grid", gap: "10px" }}>
+              <div style={{ fontWeight: 800 }}>Right to Work history</div>
+              {records.map((record) => (
+                <div key={record.id} style={itemStyle}>
+                  <strong>{record.carecheck?.statusDescription || record.immigration_status || "Right to Work record"}</strong>
+                  {record.carecheck?.applicationReference ? <div>CareCheck reference: {record.carecheck.applicationReference}</div> : null}
+                  {record.check_completed_date ? <div>Check date: {record.check_completed_date}</div> : null}
+                  {record.right_to_work_expiry ? <div>Permission expiry: {record.right_to_work_expiry}</div> : null}
+                  {record.notes ? <div>Notes: {record.notes}</div> : null}
+                  <div style={{ color: "#817586", fontSize: "11px", marginTop: "5px" }}>Added {new Date(record.created_at).toLocaleString("en-GB")}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {records.length === 0 && !talentRecord ? (
             <div style={emptyStyle}>No Right to Work information has been recorded for this employee yet.</div>

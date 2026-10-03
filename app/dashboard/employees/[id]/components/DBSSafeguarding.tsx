@@ -329,11 +329,11 @@ export default function DBSSafeguarding({ employeeId }: DBSSafeguardingProps) {
                   <Field label="Last Update Service Check" value={updateServiceLastCheckDate} onChange={setUpdateServiceLastCheckDate} type="date" small />
                   <Field label="Next Update Service Check Due" value={updateServiceNextCheckDue} onChange={setUpdateServiceNextCheckDue} type="date" small />
                   <SelectField label="Update Service Result" value={updateServiceResult} onChange={setUpdateServiceResult} options={["Certificate remains current", "Status changed — new DBS check required"]} />
-                  <label style={{ display: "grid", gap: "8px", marginTop: "12px", color: "#5E456C", fontSize: "12px" }}>
-                    <span><input type="checkbox" checked={updateServiceConsentConfirmed} onChange={(e) => setUpdateServiceConsentConfirmed(e.target.checked)} /> Individual's consent confirmed</span>
-                    <span><input type="checkbox" checked={updateServiceCertificateSeen} onChange={(e) => setUpdateServiceCertificateSeen(e.target.checked)} /> Original DBS certificate viewed in person</span>
-                    <span><input type="checkbox" checked={updateServiceIdentityConfirmed} onChange={(e) => setUpdateServiceIdentityConfirmed(e.target.checked)} /> Identity checked</span>
-                    <span><input type="checkbox" checked={updateServiceEligibilityConfirmed} onChange={(e) => setUpdateServiceEligibilityConfirmed(e.target.checked)} /> Legal entitlement, same DBS level/type and relevant workforce confirmed</span>
+                  <div style={{ fontWeight: 700, marginTop: "12px", marginBottom: "8px" }}>Before recording this check, confirm:</div>\n                  <label style={{ display: "grid", gap: "8px", color: "#5E456C", fontSize: "12px" }}>
+                    <span><input type="checkbox" checked={updateServiceConsentConfirmed} onChange={(e) => setUpdateServiceConsentConfirmed(e.target.checked)} /> The individual has given consent for this Update Service status check</span>
+                    <span><input type="checkbox" checked={updateServiceCertificateSeen} onChange={(e) => setUpdateServiceCertificateSeen(e.target.checked)} /> The original DBS certificate has been viewed in person</span>
+                    <span><input type="checkbox" checked={updateServiceIdentityConfirmed} onChange={(e) => setUpdateServiceIdentityConfirmed(e.target.checked)} /> The individual's identity has been checked</span>
+                    <span><input type="checkbox" checked={updateServiceEligibilityConfirmed} onChange={(e) => setUpdateServiceEligibilityConfirmed(e.target.checked)} /> We are legally entitled to carry out this status check for the same DBS level/type and workforce</span>
                   </label>
                 </div>
               ) : null}
